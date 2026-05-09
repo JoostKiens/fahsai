@@ -127,9 +127,10 @@ keeps API keys server-side.
 - Source: OpenAQ v3 API `https://api.openaq.org/v3/`
 - Endpoints: `/locations` (station list) + `/measurements` (time series)
 - Parameters: `pm25` only (primary pollutant for this project)
-- Schedule: every 1 hour
+- Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK) — fetches daily averages, so
+  running more often than once per day adds no value
 - Storage: Supabase `stations` + `measurements` tables
-- Cache: Redis with 1h TTL, key `measurements:latest:{param}:{date|current}`
+- Cache: Redis with 24h TTL, key `measurements:latest:{param}:{date|current}`
 - License: CC BY 4.0 — attribution required in UI
 - Required: free API key from https://explore.openaq.org/register
 - Note: some underlying Thai monitoring station data may have its own attribution
@@ -274,7 +275,7 @@ OpenAQ v3 uses a hierarchy: **Location → Sensors → Measurements**. Each loca
 Station metadata and measurement ingestion are split across two separate jobs:
 
 - `stations-ingest` (weekly): upserts location metadata into `stations`.
-- `aqi-ingest` (hourly): derives the sensor list from `SELECT DISTINCT sensor_id FROM
+- `aqi-ingest` (daily, `0 4 * * *` UTC): derives the sensor list from `SELECT DISTINCT sensor_id FROM
   measurements` (no API call needed after bootstrap), then fetches daily averages.
   On first run (empty `measurements`), falls back to `fetchLocations()` to bootstrap.
 
@@ -443,7 +444,7 @@ Each job lives in `packages/backend/src/jobs/`. Define job and worker separately
 ```
 firms-ingest       — runs every 3h, fetches VIIRS data, upserts to Supabase, updates Redis
 stations-ingest    — runs weekly, fetches OpenAQ locations, upserts stations table only
-aqi-ingest         — runs every 1h, reads sensor IDs from measurements table, fetches
+aqi-ingest         — runs daily (0 4 * * * UTC), reads sensor IDs from measurements table, fetches
                      daily averages from OpenAQ, upserts to measurements, updates Redis
 wind-ingest        — runs every 6h, fetches Open-Meteo wind grid, writes to Redis (no DB)
 aq-ingest          — runs every 6h, fetches Open-Meteo CAMS PM2.5 grid, writes to Redis (no DB)

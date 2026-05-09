@@ -10,7 +10,7 @@ export interface CachedSensor {
 }
 
 // 8 days — longer than the weekly run cadence so there is always a cached list
-const SENSOR_CACHE_TTL = 8 * 24 * 60 * 60;
+export const SENSOR_CACHE_TTL = 8 * 24 * 60 * 60;
 export const SENSOR_CACHE_KEY = 'openaq:sensors';
 
 export async function runStationsIngest(): Promise<{
