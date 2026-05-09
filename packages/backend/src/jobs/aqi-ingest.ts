@@ -1,10 +1,14 @@
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchLocations, fetchSensorDailyAverage, PARAMETERS } from '../lib/openaq.js';
-import { type CachedSensor, SENSOR_CACHE_KEY } from './stations-ingest.js';
+import { type CachedSensor, SENSOR_CACHE_KEY, SENSOR_CACHE_TTL } from './stations-ingest.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
+// Abort the entire run if this many sensors are skipped due to 429s in a row.
+// Repeated 429s after waiting for reset means the hourly quota is exhausted.
+// Continuing would risk a temporary or permanent ban from OpenAQ.
+const CONSECUTIVE_429_ABORT = 5;
 // Countries whose stations fall within the viewport bbox [89,1,114,30]
 const TARGET_COUNTRIES = new Set(['TH', 'MM', 'LA', 'KH', 'VN', 'CN', 'BD', 'MY', 'IN']);
 
@@ -42,6 +46,21 @@ export async function runAqiIngest(date?: string): Promise<{
     // Cold start: Redis cache is empty — call the API directly to bootstrap
     console.log('[aqi-ingest] Redis sensor cache empty — falling back to fetchLocations()');
     const locations = await fetchLocations();
+
+    // Cache the full sensor list (all parameters) so subsequent runs skip this fetch
+    const allSensors: CachedSensor[] = locations.flatMap((loc) =>
+      loc.sensors
+        .filter((s) => (PARAMETERS as readonly string[]).includes(s.parameter.name))
+        .map((s) => ({
+          sensorId: s.id,
+          locationId: String(loc.id),
+          parameter: s.parameter.name,
+          unit: s.parameter.units,
+        })),
+    );
+    await redis.set(SENSOR_CACHE_KEY, allSensors, { ex: SENSOR_CACHE_TTL });
+    console.log(`[aqi-ingest] Cached ${allSensors.length} sensors in Redis (TTL 8 days)`);
+
     sensorsToFetch = locations
       .filter((loc) => loc.country !== null && TARGET_COUNTRIES.has(loc.country.code))
       .flatMap((loc) =>
@@ -72,9 +91,13 @@ export async function runAqiIngest(date?: string): Promise<{
   }[] = [];
 
   let nextDelayMs = DEFAULT_DELAY_MS;
+  let consecutive429s = 0;
 
   for (const s of sensorsToFetch) {
+    // Consume the computed delay, then immediately reset to the safe default.
+    // Header-based logic below will override it for the next iteration.
     await sleep(nextDelayMs);
+    nextDelayMs = DEFAULT_DELAY_MS;
 
     const { readings, rateLimitRemaining, rateLimitResetMs } = await fetchSensorDailyAverage(
       apiKey,
@@ -87,15 +110,29 @@ export async function runAqiIngest(date?: string): Promise<{
     if (rateLimitRemaining !== null && rateLimitResetMs !== null) {
       const timeUntilResetMs = Math.max(0, rateLimitResetMs - Date.now());
       if (rateLimitRemaining <= 2) {
-        // Window nearly exhausted — wait for reset before next request
+        // Window nearly exhausted — schedule a long pause before the next request
         nextDelayMs = timeUntilResetMs + 1_000;
         console.warn(
           `[aqi-ingest] rate limit nearly exhausted, pausing ${Math.round(nextDelayMs / 1000)}s until reset`,
         );
       } else {
-        // Spread remaining quota evenly over the remaining window
-        nextDelayMs = Math.max(200, Math.ceil(timeUntilResetMs / rateLimitRemaining));
+        // Spread remaining quota evenly over the remaining window,
+        // never faster than the safe default rate.
+        nextDelayMs = Math.max(DEFAULT_DELAY_MS, Math.ceil(timeUntilResetMs / rateLimitRemaining));
       }
+    }
+
+    if (readings.length === 0 && rateLimitRemaining === 0) {
+      // Sensor was skipped due to exhausted retries on 429
+      consecutive429s++;
+      if (consecutive429s >= CONSECUTIVE_429_ABORT) {
+        throw new Error(
+          `[aqi-ingest] Aborting: ${consecutive429s} consecutive sensors skipped due to 429. ` +
+            `Hourly quota likely exhausted. Stopping to avoid an OpenAQ ban.`,
+        );
+      }
+    } else {
+      consecutive429s = 0;
     }
 
     for (const r of readings) {
@@ -111,7 +148,7 @@ export async function runAqiIngest(date?: string): Promise<{
     }
   }
 
-  console.log(`[aqi-ingest] Collected ${measurementRows.length} measurements`);
+  console.log(`[aqi-ingest] Collected ${measurementRows.length} measurements for ${targetDate}`);
 
   // --- insert in batches ---
   for (let i = 0; i < measurementRows.length; i += BATCH_SIZE) {
