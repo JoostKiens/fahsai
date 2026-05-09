@@ -2,8 +2,6 @@
 -- Safe to re-run — uses IF NOT EXISTS guards.
 
 -- CAMS PM2.5 gridded model output from Open-Meteo (0.4° grid, one daily mean per cell).
--- Previously Redis-only; persisted here so historical dates remain browsable.
--- Pruned after 60 days by the nightly prune job.
 
 create table if not exists aq_grid (
   date  date    not null,
