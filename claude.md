@@ -29,12 +29,11 @@ simplicity and correctness over premature optimization.
 │   │       ├── wind.ts
 │   │       ├── power-plant.ts
 │   │       └── index.ts
-│   ├── backend/              # Node + Fastify API + BullMQ workers
+│   ├── backend/              # Node + Fastify API + Railway cron scripts
 │   │   └── src/
 │   │       ├── server.ts     # Fastify entry point
 │   │       ├── routes/       # API route handlers
-│   │       ├── jobs/         # BullMQ job definitions
-│   │       ├── workers/      # BullMQ worker processes
+│   │       ├── jobs/         # ingestion scripts (run via Railway cron)
 │   │       ├── db/           # Supabase client + query helpers
 │   │       ├── cache/        # Upstash Redis client + helpers
 │   │       └── lib/          # shared utilities (geo transforms, etc.)
@@ -82,8 +81,7 @@ simplicity and correctness over premature optimization.
 
 - Node.js 20+ with TypeScript
 - Fastify (HTTP framework)
-- BullMQ (job queue for scheduled data ingestion)
-- Upstash Redis (BullMQ backend + hot cache with TTL)
+- Upstash Redis (hot cache with TTL)
 - Supabase (Postgres + PostGIS for persistent storage)
 
 ### Shared
@@ -95,7 +93,7 @@ simplicity and correctness over premature optimization.
 ### Deployment
 
 - Frontend → Vercel (Hobby plan, non-commercial)
-- Backend + BullMQ workers → Railway (Hobby plan, ~$5/month)
+- Backend + cron jobs → Railway (Hobby plan, ~$5/month)
 - Database → Supabase (free tier)
 - Redis → Upstash (free tier)
 
@@ -332,7 +330,7 @@ GET /api/power-plants
   Populate via: pnpm --filter backend run ingest:power-plants
 
 GET /health
-  Returns { status: 'ok', queues: {...}, cache: 'connected', db: 'connected' }
+  Returns { status: 'ok', cache: 'connected', db: 'connected' }
 ```
 
 ---
@@ -437,21 +435,23 @@ interface TimeStore {
 
 ---
 
-## BullMQ jobs
+## Scheduled ingestion jobs (Railway cron)
 
-Each job lives in `packages/backend/src/jobs/`. Define job and worker separately.
+Each job is a standalone script in `packages/backend/src/jobs/`, invoked directly by
+Railway cron (no job queue). Schedules are configured in Railway's cron service UI.
 
 ```
-firms-ingest       — runs every 3h, fetches VIIRS data, upserts to Supabase, updates Redis
-stations-ingest    — runs weekly, fetches OpenAQ locations, upserts stations table only
-aqi-ingest         — runs daily (0 4 * * * UTC), reads sensor IDs from measurements table, fetches
-                     daily averages from OpenAQ, upserts to measurements, updates Redis
-wind-ingest        — runs every 6h, fetches Open-Meteo wind grid, writes to Redis (no DB)
-aq-ingest          — runs every 6h, fetches Open-Meteo CAMS PM2.5 grid, writes to Redis (no DB)
+firms-ingest       — every 3h  (0 */3 * * *)   fetches VIIRS data, upserts to Supabase, updates Redis
+stations-ingest    — weekly    (0 0 * * 0)      fetches OpenAQ locations, upserts stations table only
+aqi-ingest         — daily     (0 4 * * *)      reads sensor IDs from measurements, fetches daily averages,
+                                                upserts to measurements, updates Redis
+wind-ingest        — every 6h  (0 */6 * * *)    fetches Open-Meteo wind grid, writes to Redis (no DB)
+aq-ingest          — every 6h  (0 */6 * * *)    fetches Open-Meteo CAMS PM2.5 grid, writes to Redis (no DB)
+prune              — daily     (0 2 * * *)      deletes fire_points, measurements, aq_grid rows > 40 days
 ```
 
-Job retry policy: 3 attempts with exponential backoff. Log failures but do not crash
-the worker process. Use BullMQ's built-in job deduplication to prevent overlapping runs.
+Each script exits with code 0 on success and non-zero on failure. Retry logic is
+implemented within the script (3 attempts with exponential backoff where applicable).
 
 ---
 
@@ -576,8 +576,8 @@ pnpm lint
 
 ## Key constraints and gotchas
 
-- BullMQ workers must run as persistent Node processes — do not deploy them to
-  Vercel serverless functions. They run on Railway alongside the Fastify server.
+- Ingestion scripts run as Railway cron jobs — each invocation is a short-lived
+  Node process that exits when done. Do not deploy ingestion scripts to Vercel.
 
 - Supabase free tier pauses projects after 1 week of inactivity. During development,
   make sure the ingestion jobs keep the project active, or manually unpause via the
