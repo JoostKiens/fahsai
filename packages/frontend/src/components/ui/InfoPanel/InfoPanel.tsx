@@ -232,7 +232,7 @@ function SecondarySection({
   windVec,
 }: {
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
   if (!aqPoint && !windVec) return null;
 
@@ -250,7 +250,8 @@ function SecondarySection({
         <div className="flex justify-between items-center text-xs py-1">
           <span className="text-gray-500">Wind</span>
           <span className="text-gray-800 font-medium">
-            from {degToCompass(windVec.directionDeg)} · {windVec.speedKmh.toFixed(1)} km/h
+            from {degToCompass(windVec.wind_direction_deg)} · {windVec.wind_speed_kmh.toFixed(1)}{' '}
+            km/h
           </span>
         </div>
       )}
@@ -276,7 +277,7 @@ function StationPanel({
   };
   lngLat: [number, number];
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
   history: HistoryState;
 }) {
   const cat = pm25ToCategory(station.pm25);
@@ -335,7 +336,7 @@ function FirePanel({
 }: {
   fire: { frp: number | null; confidence: string | null; detectedAt: string };
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
@@ -390,7 +391,7 @@ function PowerPlantPanel({
     country: string;
   };
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
   return (
     <>

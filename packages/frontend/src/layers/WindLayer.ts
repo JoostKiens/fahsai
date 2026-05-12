@@ -1,24 +1,28 @@
 import { PathLayer } from 'deck.gl';
 import type { Layer } from 'deck.gl';
-import type { WindVector } from '@thailand-aq/types';
+import type { WeatherReading } from '@thailand-aq/types';
 
 const ARROW_COLOR: [number, number, number, number] = [180, 215, 255, 180];
 const ARROW_WIDTH = 1.5; // pixels
 const CALM_THRESHOLD = 0.5; // km/h — skip effectively-zero winds
 
-// directionDeg is meteorological FROM-direction; add 180° to get travel direction.
-function travelRad(d: WindVector): number {
-  return (((d.directionDeg + 180) % 360) * Math.PI) / 180;
+// wind_direction_deg is meteorological FROM-direction; add 180° to get travel direction.
+function travelRad(d: WeatherReading): number {
+  return (((d.wind_direction_deg + 180) % 360) * Math.PI) / 180;
 }
 
-function arrowTip(d: WindVector): [number, number] {
+function arrowTip(d: WeatherReading): [number, number] {
   const rad = travelRad(d);
-  const len = Math.min((d.speedKmh / 50) * 1.0, 1.2);
+  const len = Math.min((d.wind_speed_kmh / 50) * 1.0, 1.2);
   return [d.lng + Math.sin(rad) * len, d.lat + Math.cos(rad) * len];
 }
 
-export function createWindLayer(data: WindVector[], opacity: number, beforeId?: string): Layer[] {
-  const active = data.filter((d) => d.speedKmh >= CALM_THRESHOLD);
+export function createWindLayer(
+  data: WeatherReading[],
+  opacity: number,
+  beforeId?: string,
+): Layer[] {
+  const active = data.filter((d) => d.wind_speed_kmh >= CALM_THRESHOLD);
 
   const shared = {
     opacity,
@@ -30,20 +34,20 @@ export function createWindLayer(data: WindVector[], opacity: number, beforeId?: 
     ...({ beforeId } as object),
   };
 
-  const shafts = new PathLayer<WindVector>({
+  const shafts = new PathLayer<WeatherReading>({
     id: 'wind-shafts',
     data: active,
     getPath: (d) => [[d.lng, d.lat], arrowTip(d)],
     ...shared,
   });
 
-  const heads = new PathLayer<WindVector>({
+  const heads = new PathLayer<WeatherReading>({
     id: 'wind-heads',
     data: active,
     getPath: (d) => {
       const rad = travelRad(d);
       const tip = arrowTip(d);
-      const headLen = Math.min((d.speedKmh / 50) * 1.0, 1.2) * 0.35;
+      const headLen = Math.min((d.wind_speed_kmh / 50) * 1.0, 1.2) * 0.35;
       const leftAngle = rad + Math.PI - Math.PI / 6;
       const rightAngle = rad + Math.PI + Math.PI / 6;
       const left: [number, number] = [

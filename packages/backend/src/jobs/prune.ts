@@ -14,6 +14,7 @@ export async function runPrune(): Promise<{
   firePointsDeleted: number;
   measurementsDeleted: number;
   aqGridDeleted: number;
+  weatherReadingsDeleted: number;
 }> {
   console.log(`[prune] Deleting records older than ${RETENTION_DAYS} days...`);
 
@@ -49,12 +50,22 @@ export async function runPrune(): Promise<{
     throw new Error(`Failed to prune aq_grid: ${aqGridError.message}`);
   }
 
+  const { count: weatherReadingsDeleted, error: weatherError } = await supabase
+    .from('weather_readings')
+    .delete({ count: 'exact' })
+    .lt('date', cutoffDate);
+
+  if (weatherError) {
+    throw new Error(`Failed to prune weather_readings: ${weatherError.message}`);
+  }
+
   console.log(
-    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} measurements, ${aqGridDeleted ?? 0} aq_grid rows`,
+    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} measurements, ${aqGridDeleted ?? 0} aq_grid rows, ${weatherReadingsDeleted ?? 0} weather_readings rows`,
   );
   return {
     firePointsDeleted: firePointsDeleted ?? 0,
     measurementsDeleted: measurementsDeleted ?? 0,
     aqGridDeleted: aqGridDeleted ?? 0,
+    weatherReadingsDeleted: weatherReadingsDeleted ?? 0,
   };
 }

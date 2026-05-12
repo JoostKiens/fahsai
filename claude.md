@@ -134,16 +134,29 @@ keeps API keys server-side.
 - Note: some underlying Thai monitoring station data may have its own attribution
   requirements — check the `attribution` field in API responses and surface it in tooltips
 
-### Open-Meteo — wind vectors
+### Open-Meteo — weather grid
 
-- Source: `https://api.open-meteo.com/v1/forecast`
-- Parameters: `windspeed_10m`, `winddirection_10m` on a grid over the bounding box
+- Source: `https://api.open-meteo.com/v1/forecast` (today) / `https://archive-api.open-meteo.com/v1/archive` (past dates)
+- Parameters:
+  - Hourly (all 24h fetched): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
+  - Daily aggregates: `wind_speed_10m_max`, `precipitation_sum`
+  - `wind_direction_deg` stored as 07:00 UTC snapshot (peak BKK afternoon transport moment)
+  - `wind_speed_kmh` and `relative_humidity_2m` stored as daily means (computed from all 24 hourly values — `_mean` daily variables are not consistently available across forecast and archive endpoints)
+  - `wind_speed_max_kmh` stored from `wind_speed_10m_max` daily variable
 - No API key required
-- Schedule: every 6 hours
-- Storage: Redis only (no DB — fetched on demand per date)
-- Cache: Redis with 6h TTL for today, 30 days for historical dates
+- Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date;
+  matches the CAMS AQ grid resolution. Fetched in 5 batches of ≤1,000 with 5 s between
+  batches (~25 s total). Free tier counts HTTP requests (not locations): 5 calls/day is
+  well within the 10,000/day limit. 429 backoff: 65 s for minutely limit, 65 min for
+  hourly limit.
+- Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK)
+- Storage: Supabase `weather_readings` table (persistent, 40-day retention) + Redis
+  cache key `weather:{date}` TTL 25h. Route checks Redis first; on miss reads from
+  Supabase and repopulates Redis. Ingest writes to both.
 - License: CC BY 4.0 — attribution link required in UI footer
-- Render as: static arrow vectors (ScatterplotLayer or custom PathLayer in Deck.gl)
+- Note: only wind fields are currently consumed by the UI and "Explain This" feature.
+  Precipitation, humidity, and temperature are stored for future use.
+- Render as: wind particles (animated PathLayer) and static arrow vectors
 
 ### Open-Meteo Air Quality — PM2.5 gridded model (CAMS)
 
@@ -264,7 +277,27 @@ create table if not exists aq_grid (
 create index if not exists aq_grid_date_idx on aq_grid (date);
 ```
 
-Do not store wind data in Postgres — it is ephemeral and only needed for current display. AQ grid data **is** stored in Postgres (see above) because historical date browsing requires it.
+-- Weather grid (Open-Meteo forecast/archive, snapshot at 07:00 UTC = 14:00 BKK)
+-- Pruned after 40 days. Redis (weather:{date}, TTL 25h) is the hot cache; Supabase is
+-- the persistent store. Only wind fields are currently used by the UI and Explain feature;
+-- precipitation, humidity, and temperature are stored for future use.
+```sql
+create table if not exists weather_readings (
+  date                      date   not null,
+  lat                       float8 not null,
+  lng                       float8 not null,
+  wind_speed_kmh            float8 not null,  -- daily mean
+  wind_speed_max_kmh        float8,           -- daily maximum
+  wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
+  precipitation_sum         float8,          -- daily total mm
+  relative_humidity_2m      float8,          -- % at 07:00 UTC snapshot
+  temperature_2m_mean       float8,          -- daily mean °C
+  temperature_2m_min        float8,          -- daily min °C
+  temperature_2m_max        float8,          -- daily max °C
+  primary key (date, lat, lng)
+);
+create index if not exists weather_readings_date_idx on weather_readings (date);
+```
 
 ### OpenAQ v3 data model note
 
@@ -314,11 +347,12 @@ GET /api/measurements/history?station_id=...&parameter=pm25&hours=24
 GET /api/stations?bbox=...
   Returns all stations with their available parameters.
 
-GET /api/wind?date=YYYY-MM-DD&bbox=...
-  Returns wind vectors for the given date (defaults to today).
-  Redis cache key: wind:{date}. TTL: 6h for today, 30 days for historical.
-  On cache miss, fetches on demand from Open-Meteo (forecast API for today, archive API for past).
-  Today: current hour. Historical: 07:00 UTC (14:00 BKK — peak daytime convective transport).
+GET /api/weather?date=YYYY-MM-DD&bbox=...
+  Returns weather grid for the given date. date param is required (400 if absent/invalid).
+  Redis cache key: weather:{date}, TTL 25h. On miss, reads from Supabase weather_readings.
+  Does not fetch from Open-Meteo on demand — data must have been ingested by weather-ingest.
+  Returns 404 if no rows exist for the requested date.
+  Response includes all weather_readings fields; only wind fields are currently used by the UI.
 
 GET /api/aq/pm25?date=YYYY-MM-DD&bbox=...
   Returns Open-Meteo CAMS gridded PM2.5 for a specific date (up to 4,599 points at 0.4° grid, bbox [89,1,114,30]).
@@ -445,7 +479,9 @@ firms-ingest       — every 3h  (0 */3 * * *)   fetches VIIRS data, upserts to 
 stations-ingest    — weekly    (0 0 * * 0)      fetches OpenAQ locations, upserts stations table only
 aqi-ingest         — daily     (0 4 * * *)      reads sensor IDs from measurements, fetches daily averages,
                                                 upserts to measurements, updates Redis
-wind-ingest        — every 6h  (0 */6 * * *)    fetches Open-Meteo wind grid, writes to Redis (no DB)
+weather-ingest     — daily     (0 4 * * *)      fetches Open-Meteo weather grid (wind, precipitation,
+                                                humidity, temperature), upserts to Supabase
+                                                weather_readings, updates Redis (weather:{date}, TTL 25h)
 aq-ingest          — every 6h  (0 */6 * * *)    fetches Open-Meteo CAMS PM2.5 grid, writes to Redis (no DB)
 prune              — daily     (0 2 * * *)      deletes fire_points, measurements, aq_grid rows > 40 days
 ```
@@ -585,7 +621,7 @@ pnpm lint
 
 - Supabase free tier has 500MB storage. Monitor usage as historical fire data
   accumulates. A nightly prune job (`src/jobs/prune.ts`) deletes `fire_points`,
-  `measurements`, and `aq_grid` rows older than **40 days**. Derivation: 31 days
+  `measurements`, `aq_grid`, and `weather_readings` rows older than **40 days**. Derivation: 31 days
   (30 scrubber days T-1→T-30, plus today T which is ingested but not yet visible)
   + 7 days (Explain fetches a 7-day measurement history, so scrubber day 0 reaches
   back to T-37) + 2 days buffer (UTC+7 timezone boundary + prune timing) = 40.

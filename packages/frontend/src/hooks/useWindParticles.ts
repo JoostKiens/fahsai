@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { PathLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import type { WindVector } from '@thailand-aq/types';
+import type { WeatherReading } from '@thailand-aq/types';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -16,15 +16,15 @@ const MIN_AGE = 80;
 const MAX_AGE = 220;
 const COLOR: [number, number, number] = [255, 255, 255];
 
-// Grid bounds — extend one step beyond the viewport so interpolation has full
-// coverage at every corner. Must match LNG_POINTS/LAT_POINTS in openmeteo.ts.
-const GRID_LNG_MIN = 88;
-const GRID_LNG_MAX = 114;
-const GRID_LAT_MIN = 0;
+// Grid bounds — must match the weather grid constants in openmeteo.ts.
+// 0.25° step, lng 89→115 (105 pts), lat 1→30 (117 pts) = 12,285 points.
+const GRID_LNG_MIN = 89;
+const GRID_LNG_MAX = 115;
+const GRID_LAT_MIN = 1;
 const GRID_LAT_MAX = 30;
-const GRID_STEP = 2;
-const GRID_LNG_COUNT = (GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP + 1; // 14
-const GRID_LAT_COUNT = (GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP + 1; // 16
+const GRID_STEP = 0.25;
+const GRID_LNG_COUNT = Math.round((GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP) + 1; // 105
+const GRID_LAT_COUNT = Math.round((GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP) + 1; // 117
 
 // Hard limits — wind grid coverage. Particles are clamped to these.
 const SPAWN_LNG_MIN = 89;
@@ -53,16 +53,16 @@ type WindGrid = Float32Array; // [dx0, dy0, dx1, dy1, ...]
 
 // ─── grid helpers ─────────────────────────────────────────────────────────────
 
-function buildGrid(data: WindVector[]): WindGrid {
+function buildGrid(data: WeatherReading[]): WindGrid {
   const grid = new Float32Array(GRID_LNG_COUNT * GRID_LAT_COUNT * 2);
   for (const v of data) {
     const lngIdx = Math.round((v.lng - GRID_LNG_MIN) / GRID_STEP);
     const latIdx = Math.round((v.lat - GRID_LAT_MIN) / GRID_STEP);
     if (lngIdx < 0 || lngIdx >= GRID_LNG_COUNT || latIdx < 0 || latIdx >= GRID_LAT_COUNT) continue;
-    const travelRad = (((v.directionDeg + 180) % 360) * Math.PI) / 180;
+    const travelRad = (((v.wind_direction_deg + 180) % 360) * Math.PI) / 180;
     const base = (latIdx * GRID_LNG_COUNT + lngIdx) * 2;
-    grid[base] = Math.sin(travelRad) * v.speedKmh; // dx (east positive)
-    grid[base + 1] = Math.cos(travelRad) * v.speedKmh; // dy (north positive)
+    grid[base] = Math.sin(travelRad) * v.wind_speed_kmh; // dx (east positive)
+    grid[base + 1] = Math.cos(travelRad) * v.wind_speed_kmh; // dy (north positive)
   }
   return grid;
 }
@@ -169,7 +169,7 @@ function stepParticles(
 export function useWindParticles(
   overlay: MapboxOverlay | null,
   map: mapboxgl.Map | null,
-  wind: WindVector[] | undefined,
+  wind: WeatherReading[] | undefined,
   config: { visible: boolean; opacity: number },
 ): void {
   // Use a single mutable ref object to avoid stale closure issues in the rAF loop.

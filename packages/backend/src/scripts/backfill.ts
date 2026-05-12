@@ -10,7 +10,7 @@
 import { runFirmsIngest } from '../jobs/firms-ingest.js';
 import { runAqiIngest } from '../jobs/aqi-ingest.js';
 import { runAqIngest } from '../jobs/aq-ingest.js';
-import { runWindIngest } from '../jobs/wind-ingest.js';
+import { runWeatherIngest } from '../jobs/weather-ingest.js';
 
 const DAYS = parseDaysArg() ?? 10;
 const DAY_PAUSE_MS = 2_000; // between days — gives OpenAQ rate-limit window room to breathe
@@ -72,7 +72,7 @@ type DayResult = {
   firms: string;
   aq: string;
   aqi: string;
-  wind: string;
+  weather: string;
   ok: boolean;
 };
 
@@ -94,7 +94,7 @@ async function main() {
 
   for (const date of dates) {
     console.log(`\n── ${date} ──`);
-    const result: DayResult = { date, firms: '—', aq: '—', aqi: '—', wind: '—', ok: true };
+    const result: DayResult = { date, firms: '—', aq: '—', aqi: '—', weather: '—', ok: true };
 
     // 1. FIRMS fire detections
     try {
@@ -114,12 +114,12 @@ async function main() {
       result.ok = false;
     }
 
-    // 3. Wind grid (Open-Meteo archive API — fast, no rate limit concerns)
+    // 3. Weather grid (Open-Meteo archive API)
     try {
-      const { points } = await runWindIngest(date);
-      result.wind = `${points} vectors`;
+      const { stored } = await runWeatherIngest(date);
+      result.weather = `${stored} stored`;
     } catch (err) {
-      result.wind = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+      result.weather = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
       result.ok = false;
     }
 
@@ -143,12 +143,12 @@ async function main() {
 
   // Summary table
   console.log('\n──────────────────────────────────────────────────────────────────────────────');
-  console.log(' Date         FIRMS                  AQ grid     Wind          AQI');
+  console.log(' Date         FIRMS                  AQ grid     Weather       AQI');
   console.log('──────────────────────────────────────────────────────────────────────────────');
   for (const r of results) {
     const status = r.ok ? '✓' : '✗';
     console.log(
-      `${status} ${r.date}  firms: ${r.firms.padEnd(18)}  aq: ${r.aq.padEnd(10)}  wind: ${r.wind.padEnd(12)}  aqi: ${r.aqi}`,
+      `${status} ${r.date}  firms: ${r.firms.padEnd(18)}  aq: ${r.aq.padEnd(10)}  weather: ${r.weather.padEnd(12)}  aqi: ${r.aqi}`,
     );
   }
   const succeeded = results.filter((r) => r.ok).length;
