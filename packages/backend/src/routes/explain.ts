@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import type { WindVector } from '@thailand-aq/types';
+import { haversineKm, bearingDeg, compassFromDeg } from '../lib/geo.js';
+import { getRelevantUrbanSources } from '../lib/urbanSources.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DAILY_QUOTA_LIMIT = 1400;
@@ -11,54 +13,11 @@ const FIRE_RADIUS_KM = 300;
 
 // --- geo helpers ---
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLng = toRad(lng2 - lng1);
-  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
 function quadrant(deg: number): 'N' | 'E' | 'S' | 'W' {
   if (deg >= 315 || deg < 45) return 'N';
   if (deg < 135) return 'E';
   if (deg < 225) return 'S';
   return 'W';
-}
-
-function compassFromDeg(deg: number): string {
-  const dirs = [
-    'N',
-    'NNE',
-    'NE',
-    'ENE',
-    'E',
-    'ESE',
-    'SE',
-    'SSE',
-    'S',
-    'SSW',
-    'SW',
-    'WSW',
-    'W',
-    'WNW',
-    'NW',
-    'NNW',
-  ];
-  return dirs[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
 // Wind direction helpers — directionDeg is always the FROM direction (meteorological).
@@ -250,6 +209,9 @@ export function explainRoutes(app: FastifyInstance): void {
           : Math.min(Math.round(wind.speedKmh * 36), FIRE_RADIUS_KM)
         : FIRE_RADIUS_KM;
 
+      // --- urban emission sources ---
+      const urbanSources = getRelevantUrbanSources(lat, lng, wind?.directionDeg ?? null);
+
       // --- fires context ---
       req.log.info(
         {
@@ -353,6 +315,18 @@ export function explainRoutes(app: FastifyInstance): void {
                 .join('\n'),
             ].join('\n');
 
+      const urbanStr =
+        urbanSources.length === 0
+          ? 'No major urban sources within 300 km.'
+          : urbanSources
+              .map(
+                (s) =>
+                  `  ${s.name}, ${s.country} — ${s.distanceKm.toFixed(0)} km to the ${s.bearingCardinal}` +
+                  `, influence score ${s.influenceScore.toFixed(0)}` +
+                  (s.isUpwind ? ' ⬆ UPWIND' : ' (not currently upwind)'),
+              )
+              .join('\n');
+
       // Outlier note injected into the data section so the model sees it before reasoning.
       const outlierNote = isStrongOutlier
         ? `⚠ STRONG OUTLIER: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
@@ -383,6 +357,10 @@ ${upwindQuadrant && upwindFireCount > 0 ? `→ ${upwindFireCount} fires in the u
     : `FIRES: Omitted — reading is a strong outlier vs peer stations. Regional fire data is not relevant.`
 }
 
+URBAN EMISSION SOURCES (within 300 km)
+${urbanStr}
+${wind ? `Wind is FROM the ${windDir!.fromLabel} — upwind sources are marked above.` : 'Wind data unavailable — upwind status could not be determined.'}
+
 PEER STATIONS WITHIN 75 KM (last 3 h)
 ${peerStr}
 ${outlierNote ? `\n${outlierNote}` : ''}
@@ -396,7 +374,8 @@ The reader already sees the station name, PM2.5 value, and AQI category on scree
 - ${latestPm25 > 35 ? `Only mention fires if they are upwind and plausibly explain the reading. Never mention fires to dismiss them.` : 'Explain why conditions are currently good.'}
 - Do not describe the week trend — the user already sees the 7-day chart in the UI.
 ${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly (sensor issue, very local source, microclimate).' : ''}
-- Do not speculate beyond what the data shows. Be clear and accessible to a non-scientist.`;
+- Do not speculate beyond what the data shows. Be clear and accessible to a non-scientist.
+- If upwind urban sources are present, reason about whether vehicle traffic, industrial emissions, or general urban air pollution from those cities may be contributing to this reading — particularly outside peak burning season (November–April) when fire activity is lower. A large city upwind is especially relevant when fire counts are low but AQI is still elevated.`;
 
       // Start streaming — hijack Fastify response so we control the raw socket
       reply.hijack();
