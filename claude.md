@@ -640,6 +640,34 @@ pnpm lint
 - Use `geography(Point, 4326)` not `geometry` in PostGIS for distance calculations
   in meters without projection math.
 
+- Urban pollution source upwind detection uses the bearing FROM the station TO the source
+  compared against `windDirectionDeg` (wind coming FROM that direction). Consistent with the
+  wind direction convention. Implementation: `packages/backend/src/lib/urbanSources.ts`.
+
+---
+
+## Urban pollution sources
+
+A static list of major cities and industrial areas in mainland Southeast Asia is maintained in
+`packages/backend/src/data/urbanSources.ts`. It is used by the `/api/explain` endpoint to
+identify upwind urban emission sources when building the Gemini prompt context. No API calls
+— purely static data at runtime.
+
+**Influence score** = `population / distanceKm²`. Sources below a minimum threshold (default 50)
+are excluded from the prompt.
+
+**Upwind detection**: a source is upwind if the bearing FROM the station TO the source aligns
+within ±60° of `windDirectionDeg`. Follows the same meteorological convention as
+`WindVector.directionDeg` — see the wind direction convention section above.
+
+Files:
+- `packages/backend/src/data/urbanSources.ts` — static data array
+- `packages/backend/src/lib/geo.ts` — shared geo helpers (haversine, bearing, compass); used by both `explain.ts` and `urbanSources.ts`
+- `packages/backend/src/lib/urbanSources.ts` — `getRelevantUrbanSources()` helper
+
+The list is intentionally small and manually maintained. Do not fetch or sync city data from an
+external source.
+
 ---
 
 ## Future layers (not in initial scope)
