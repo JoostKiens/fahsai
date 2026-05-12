@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import type { WindVector } from '@thailand-aq/types';
+import type { WeatherReading } from '@thailand-aq/types';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DAILY_QUOTA_LIMIT = 1400;
@@ -80,7 +80,7 @@ function parseWindDir(directionDeg: number): WindDir {
   };
 }
 
-function nearestWind(vectors: WindVector[], lat: number, lng: number): WindVector | null {
+function nearestWind(vectors: WeatherReading[], lat: number, lng: number): WeatherReading | null {
   if (!vectors.length) return null;
   let best = vectors[0];
   let bestD = (best.lat - lat) ** 2 + (best.lng - lng) ** 2;
@@ -202,7 +202,7 @@ export function explainRoutes(app: FastifyInstance): void {
           .neq('station_id', stationId)
           .order('measured_at', { ascending: false }),
 
-        redis.get<WindVector[]>(`wind:${selectedDate}`),
+        redis.get<WeatherReading[]>(`weather:${selectedDate}`),
       ]);
 
       if (stationRows.error) throw new Error(stationRows.error.message);
@@ -305,10 +305,10 @@ export function explainRoutes(app: FastifyInstance): void {
         .map((d) => `  ${d.date}: ${d.avg.toFixed(1)} µg/m³ (${pm25Cat(d.avg)})`)
         .join('\n');
 
-      const windDir = wind ? parseWindDir(wind.directionDeg) : null;
+      const windDir = wind ? parseWindDir(wind.wind_direction_deg) : null;
       const windStr =
         windDir && wind
-          ? `From ${windDir.fromLabel} at ${wind.speedKmh.toFixed(1)} km/h (blowing toward ${windDir.toLabel})`
+          ? `From ${windDir.fromLabel} at ${wind.wind_speed_kmh.toFixed(1)} km/h (blowing toward ${windDir.toLabel})`
           : 'No wind data available';
 
       const fireStr =
