@@ -11,3 +11,4 @@ export const redis = new Redis({ url, token });
 
 // All data the frontend requests is historical (T-1 to T-30) and immutable after ingestion.
 export const HISTORICAL_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+export const CACHE_CONTROL_IMMUTABLE = `public, max-age=${HISTORICAL_TTL_SECONDS}`;

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { WindVector } from '@thailand-aq/types';
-import { redis } from '../cache/client.js';
+import { redis, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox } from '../lib/bbox.js';
 import { windCacheKey, runWindIngest } from '../jobs/wind-ingest.js';
 
@@ -30,6 +30,6 @@ export function windRoutes(app: FastifyInstance): void {
       (v) => v.lat >= bbox.south && v.lat <= bbox.north && v.lng >= bbox.west && v.lng <= bbox.east,
     );
 
-    return reply.send({ data: filtered });
+    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
   });
 }
