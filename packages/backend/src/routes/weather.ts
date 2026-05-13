@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { WeatherReading } from '@thailand-aq/types';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../lib/bbox.js';
 import { weatherCacheKey } from '../jobs/weather-ingest.js';
@@ -45,6 +45,6 @@ export function weatherRoutes(app: FastifyInstance): void {
       (r) => r.lat >= bbox.south && r.lat <= bbox.north && r.lng >= bbox.west && r.lng <= bbox.east,
     );
 
-    return reply.send({ data: filtered });
+    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
   });
 }
