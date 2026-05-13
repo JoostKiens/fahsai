@@ -13,6 +13,6 @@ export function useFires() {
       if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
       return ((await res.json()) as { data: FirePoint[] }).data;
     },
-    staleTime: 3 * 60 * 60 * 1000, // 3h — matches backend Redis TTL
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }

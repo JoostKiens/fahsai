@@ -11,6 +11,6 @@ export function usePowerPlants() {
       if (!res.ok) throw new Error(`power-plants fetch failed: ${res.status}`);
       return (await res.json()) as PowerPlantCollection;
     },
-    staleTime: 24 * 60 * 60 * 1000, // 24h — matches backend TTL
+    staleTime: Infinity, // static dataset, never changes
   });
 }

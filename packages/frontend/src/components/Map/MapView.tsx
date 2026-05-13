@@ -24,6 +24,7 @@ import {
 } from '../../layers/PM25Layer';
 import { usePowerPlants } from '../../hooks/usePowerPlants';
 import { createPowerPlantsLayer } from '../../layers/PowerPlantsLayer';
+import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
@@ -44,9 +45,11 @@ export function MapView() {
   // heatmapOverlay: interleaved — renders land-mask + pm25-bitmap inside Mapbox's
   // WebGL pipeline so beforeId can place them below admin boundary layers.
   const [heatmapOverlay, setHeatmapOverlay] = useState<OverlayInstance | null>(null);
-  // dataOverlay: non-interleaved — renders fires, power plants, and AQI stations on
-  // a separate canvas. Kept out of the interleaved pipeline so deck.gl never leaves
-  // dirty WebGL blend state that would corrupt Mapbox's MSAA resolve of admin borders.
+  // powerPlantsOverlay: static layer, isolated so zoom changes don't trigger its rebuild.
+  const [powerPlantsOverlay, setPowerPlantsOverlay] = useState<MapboxOverlay | null>(null);
+  // dataOverlay: non-interleaved — renders fires and AQI stations (both zoom-dependent).
+  // Kept out of the interleaved pipeline so deck.gl never leaves dirty WebGL blend state
+  // that would corrupt Mapbox's MSAA resolve of admin borders.
   const [dataOverlay, setDataOverlay] = useState<MapboxOverlay | null>(null);
   const [windOverlay, setWindOverlay] = useState<MapboxOverlay | null>(null);
 
@@ -71,6 +74,7 @@ export function MapView() {
   const setMapZoom = useUIStore((s) => s.setMapZoom);
 
   useWindParticles(windOverlay, map, wind, windConfig);
+  usePrefetchAdjacentDates();
 
   // Sync map padding with sidebar state
   useEffect(() => {
@@ -92,7 +96,43 @@ export function MapView() {
     heatmapOverlay.setProps({ layers });
   }, [heatmapOverlay, pm25Bitmap, aqGridConfig.visible]);
 
-  // Data layers — non-interleaved overlay; render on a separate canvas above Mapbox.
+  // Power plants — isolated overlay, not zoom-dependent, never rebuilt on zoom changes.
+  useEffect(() => {
+    if (!powerPlantsOverlay) return;
+
+    const onPowerPlantClick = (info: PickingInfo) => {
+      if (!info.object) return;
+      const feat = info.object as PowerPlantFeature;
+      const p = feat.properties;
+      deckPickedRef.current = true;
+      setSelectedPoint({
+        lngLat: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]],
+        powerPlant: {
+          name: p.name,
+          fuelType: p.fuel_type,
+          capacityMw: p.capacity_mw,
+          owner: p.owner,
+          commissionedYear: p.commissioned_year,
+          country: p.country,
+        },
+      });
+    };
+
+    const layers =
+      powerPlantsConfig.visible && powerPlants
+        ? [createPowerPlantsLayer(powerPlants, powerPlantsConfig.opacity, onPowerPlantClick)]
+        : [];
+
+    powerPlantsOverlay.setProps({ layers });
+  }, [
+    powerPlantsOverlay,
+    powerPlants,
+    powerPlantsConfig.visible,
+    powerPlantsConfig.opacity,
+    setSelectedPoint,
+  ]);
+
+  // Fires + stations — zoom-dependent, rebuilt when zoom crosses layer thresholds.
   useEffect(() => {
     if (!dataOverlay) return;
     const layers = [];
@@ -151,30 +191,6 @@ export function MapView() {
       }
     };
 
-    const onPowerPlantClick = (info: PickingInfo) => {
-      if (!info.object) return;
-      const feat = info.object as PowerPlantFeature;
-      const p = feat.properties;
-      deckPickedRef.current = true;
-      setSelectedPoint({
-        lngLat: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]],
-        powerPlant: {
-          name: p.name,
-          fuelType: p.fuel_type,
-          capacityMw: p.capacity_mw,
-          owner: p.owner,
-          commissionedYear: p.commissioned_year,
-          country: p.country,
-        },
-      });
-    };
-
-    if (powerPlantsConfig.visible && powerPlants) {
-      layers.push(
-        createPowerPlantsLayer(powerPlants, powerPlantsConfig.opacity, onPowerPlantClick),
-      );
-    }
-
     if (firesConfig.visible && fires) {
       layers.push(...createFiresLayer(fires, firesConfig.opacity, zoom, onFireClick));
     }
@@ -192,9 +208,6 @@ export function MapView() {
     aqi,
     aqStationsConfig.visible,
     zoom,
-    powerPlants,
-    powerPlantsConfig.visible,
-    powerPlantsConfig.opacity,
     setSelectedPoint,
   ]);
 
@@ -219,9 +232,11 @@ export function MapView() {
       beforeIdRef.current = detectBeforeId(mapInstance);
 
       // Non-interleaved canvases stack in addControl order (first = bottom).
-      // Wind goes below data layers; heatmap is interleaved so order doesn't matter for it.
+      // Wind → power plants → fires/stations; heatmap is interleaved so order doesn't matter.
       const windOv = new MapboxOverlay({ layers: [] });
       mapInstance.addControl(windOv);
+      const powerPlantsOv = new MapboxOverlay({ layers: [] });
+      mapInstance.addControl(powerPlantsOv);
       const dataOv = new MapboxOverlay({ layers: [] });
       mapInstance.addControl(dataOv);
       const heatmapOv = createOverlay({ layers: [] });
@@ -263,6 +278,7 @@ export function MapView() {
 
       setMapZoom(mapInstance.getZoom());
       setWindOverlay(windOv);
+      setPowerPlantsOverlay(powerPlantsOv);
       setDataOverlay(dataOv);
       setHeatmapOverlay(heatmapOv);
       setMap(mapInstance);
@@ -288,6 +304,7 @@ export function MapView() {
       document.head.querySelector('style[data-deck-cursor]')?.remove();
       setMap(null);
       setHeatmapOverlay(null);
+      setPowerPlantsOverlay(null);
       setDataOverlay(null);
       mapInstance.remove();
     };

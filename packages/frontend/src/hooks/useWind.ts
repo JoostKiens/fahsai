@@ -13,6 +13,6 @@ export function useWind() {
       if (!res.ok) throw new Error(`wind fetch failed: ${res.status}`);
       return ((await res.json()) as { data: WindVector[] }).data;
     },
-    staleTime: 6 * 60 * 60 * 1000, // 6h — matches today's backend TTL
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }
