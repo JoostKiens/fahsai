@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 
 const CACHE_KEY = 'power_plants:geojson';
@@ -19,7 +19,7 @@ interface PlantRow {
 export function powerPlantsRoutes(app: FastifyInstance): void {
   app.get('/api/power-plants', async (_req, reply) => {
     const cached = await redis.get<object>(CACHE_KEY);
-    if (cached !== null) return reply.send(cached);
+    if (cached !== null) return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
 
     const { data, error } = await supabase
       .from('power_plants')
@@ -34,7 +34,7 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
 
     const geojson = buildGeojson(data as PlantRow[]);
     await redis.set(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
-    return reply.send(geojson);
+    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(geojson);
   });
 }
 
