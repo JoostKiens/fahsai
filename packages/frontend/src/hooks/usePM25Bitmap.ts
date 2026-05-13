@@ -25,7 +25,14 @@ export function usePM25Bitmap(data: PM25GridPoint[] | undefined): ImageBitmap | 
   }, []);
 
   useEffect(() => {
-    if (!data || !workerRef.current) return;
+    if (!data) {
+      setBitmap((prev) => {
+        prev?.close();
+        return null;
+      });
+      return;
+    }
+    if (!workerRef.current) return;
     workerRef.current.postMessage({ data });
   }, [data]);
 
