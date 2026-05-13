@@ -23,7 +23,7 @@ export function weatherRoutes(app: FastifyInstance): void {
       const { data, error } = await supabase
         .from('weather_readings')
         .select(
-          'lat, lng, wind_speed_kmh, wind_speed_max_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          'lat, lng, wind_speed_kmh, wind_speed_max_kmh, wind_direction_deg, relative_humidity_2m, precipitation_sum',
         )
         .eq('date', date);
 

@@ -17,14 +17,14 @@ const MAX_AGE = 220;
 const COLOR: [number, number, number] = [255, 255, 255];
 
 // Grid bounds — must match the weather grid constants in openmeteo.ts.
-// 0.25° step, lng 89→115 (105 pts), lat 1→30 (117 pts) = 12,285 points.
+// 0.4° step, lng 89→114 (63 pts), lat 1→30 (73 pts) = 4,599 points.
 const GRID_LNG_MIN = 89;
-const GRID_LNG_MAX = 115;
+const GRID_LNG_MAX = 114;
 const GRID_LAT_MIN = 1;
 const GRID_LAT_MAX = 30;
-const GRID_STEP = 0.25;
-const GRID_LNG_COUNT = Math.round((GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP) + 1; // 105
-const GRID_LAT_COUNT = Math.round((GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP) + 1; // 117
+const GRID_STEP = 0.4;
+const GRID_LNG_COUNT = Math.floor((GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP) + 1; // 63
+const GRID_LAT_COUNT = Math.floor((GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP) + 1; // 73
 
 // Hard limits — wind grid coverage. Particles are clamped to these.
 const SPAWN_LNG_MIN = 89;

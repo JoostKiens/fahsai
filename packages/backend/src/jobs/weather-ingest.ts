@@ -69,8 +69,8 @@ export async function runWeatherIngest(
     wind_speed_kmh: r.wind_speed_kmh,
     wind_speed_max_kmh: r.wind_speed_max_kmh,
     wind_direction_deg: r.wind_direction_deg,
-    precipitation_sum: r.precipitation_sum,
     relative_humidity_2m: r.relative_humidity_2m,
+    precipitation_sum: r.precipitation_sum,
   }));
 
   for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
