@@ -1,0 +1,64 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { FirePoint, WeatherReading, PM25GridPoint } from '@thailand-aq/types';
+import { useTimeStore } from '../store/timeStore';
+import type { LatestMeasurement } from './useAQI';
+
+const API = import.meta.env.VITE_API_BASE_URL;
+
+function shiftDate(date: string, days: number): string {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function usePrefetchAdjacentDates() {
+  const queryClient = useQueryClient();
+  const selectedDate = useTimeStore((s) => s.selectedDate);
+
+  useEffect(() => {
+    for (const offset of [-1, 1]) {
+      const date = shiftDate(selectedDate, offset);
+
+      void queryClient.prefetchQuery({
+        queryKey: ['fires', date],
+        queryFn: async () => {
+          const res = await fetch(`${API}/api/fires?date=${date}`);
+          if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
+          return ((await res.json()) as { data: FirePoint[] }).data;
+        },
+        staleTime: Infinity,
+      });
+
+      void queryClient.prefetchQuery({
+        queryKey: ['aqi-latest', 'pm25', date],
+        queryFn: async () => {
+          const res = await fetch(`${API}/api/measurements/latest?parameter=pm25&date=${date}`);
+          if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
+          return ((await res.json()) as { data: LatestMeasurement[] }).data;
+        },
+        staleTime: Infinity,
+      });
+
+      void queryClient.prefetchQuery({
+        queryKey: ['aq-grid', date],
+        queryFn: async () => {
+          const res = await fetch(`${API}/api/aq/pm25?date=${date}`);
+          if (!res.ok) throw new Error(`aq grid fetch failed: ${res.status}`);
+          return ((await res.json()) as { data: PM25GridPoint[] }).data;
+        },
+        staleTime: Infinity,
+      });
+
+      void queryClient.prefetchQuery({
+        queryKey: ['weather', date],
+        queryFn: async () => {
+          const res = await fetch(`${API}/api/weather?date=${date}`);
+          if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`);
+          return ((await res.json()) as { data: WeatherReading[] }).data;
+        },
+        staleTime: Infinity,
+      });
+    }
+  }, [queryClient, selectedDate]);
+}

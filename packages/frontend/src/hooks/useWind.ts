@@ -13,6 +13,6 @@ export function useWind() {
       if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`);
       return ((await res.json()) as { data: WeatherReading[] }).data;
     },
-    staleTime: 24 * 60 * 60 * 1000, // 24h — matches daily cron cadence
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }
