@@ -23,6 +23,6 @@ export function useAQI() {
       if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
       return ((await res.json()) as { data: LatestMeasurement[] }).data;
     },
-    staleTime: 60 * 60 * 1000, // 1h — matches backend Redis TTL
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }

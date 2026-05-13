@@ -13,6 +13,6 @@ export function useAQGrid() {
       if (!res.ok) throw new Error(`aq grid fetch failed: ${res.status}`);
       return ((await res.json()) as { data: PM25GridPoint[] }).data;
     },
-    staleTime: 6 * 60 * 60 * 1000, // 6h — CAMS model data for past dates doesn't change
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }
