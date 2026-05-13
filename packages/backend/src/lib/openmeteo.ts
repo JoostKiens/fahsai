@@ -4,22 +4,24 @@ import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 //
 // 0.4° grid over bbox [89,1,114,30] — matches the CAMS AQ grid resolution.
 // 63 lng × 73 lat = 4,599 points per date.
+// Math.floor avoids the off-by-one from floating-point imprecision: 25/0.4 = 62.5
+// which Math.round would turn into 63, giving 64 points instead of 63.
 const WEATHER_STEP = 0.4;
 const WEATHER_LNG_MIN = 89;
 const WEATHER_LNG_MAX = 114;
 const WEATHER_LAT_MIN = 1;
 const WEATHER_LAT_MAX = 30;
-const WEATHER_LNG_COUNT = Math.round((WEATHER_LNG_MAX - WEATHER_LNG_MIN) / WEATHER_STEP) + 1; // 63
-const WEATHER_LAT_COUNT = Math.round((WEATHER_LAT_MAX - WEATHER_LAT_MIN) / WEATHER_STEP) + 1; // 73
+const WEATHER_LNG_COUNT = Math.floor((WEATHER_LNG_MAX - WEATHER_LNG_MIN) / WEATHER_STEP) + 1; // 63
+const WEATHER_LAT_COUNT = Math.floor((WEATHER_LAT_MAX - WEATHER_LAT_MIN) / WEATHER_STEP) + 1; // 73
 
-// Open-Meteo supports up to 1,000 locations per multi-location API call.
-// The free tier counts HTTP requests (not locations): each call costs 1 unit toward
-// the 10,000/day limit when it covers ≤1 day of data and ≤10 variables.
-// 4,599 points → 5 batches of ≤1,000 → 5 API calls per ingest run.
-const WEATHER_BATCH_SIZE = 1_000;
+// 500 locations per batch — 1,000 caused 413 Payload Too Large because the per-location
+// array fields (timezone, start_date, end_date) balloon the POST body to ~30 KB.
+// 4,599 points → 10 batches of ≤500 → 10 API calls per ingest run (still well within
+// the 10,000/day free tier limit).
+const WEATHER_BATCH_SIZE = 500;
 
-// 5 s between batches avoids the minutely burst limit while keeping total
-// run time under 30 s for 5 batches.
+// 5 s between batches avoids the minutely burst limit.
+// 10 batches × 5 s = ~50 s total run time.
 const WEATHER_BATCH_PAUSE_MS = 5_000;
 
 // 07:00 UTC = 14:00 BKK — peak daytime convective mixing, best for smoke transport
@@ -132,33 +134,17 @@ async function fetchWeatherBatch(
   const results = Array.isArray(raw) ? raw : [raw];
 
   return results.map((loc) => {
-    // Snapshot index used only for wind direction (07:00 UTC = peak BKK afternoon transport).
     const idx = isToday
       ? currentHourIndex(loc.hourly.time, nowUtc)
       : targetHourIndex(loc.hourly.time, date, HISTORICAL_HOUR_UTC);
-
-    // Daily means computed from all hourly values — more representative than a snapshot.
-    // wind_speed_10m_mean and relative_humidity_2m_mean are not reliably available as
-    // direct daily API variables across both forecast and archive endpoints.
-    const validSpeeds = loc.hourly.wind_speed_10m.filter((v): v is number => v != null);
-    const validHumidity = loc.hourly.relative_humidity_2m.filter((v): v is number => v != null);
-    const meanSpeed =
-      validSpeeds.length > 0
-        ? Math.round((validSpeeds.reduce((a, b) => a + b, 0) / validSpeeds.length) * 10) / 10
-        : 0;
-    const meanHumidity =
-      validHumidity.length > 0
-        ? Math.round(validHumidity.reduce((a, b) => a + b, 0) / validHumidity.length)
-        : null;
-
     return {
       lat: loc.latitude,
       lng: loc.longitude,
-      wind_speed_kmh: meanSpeed,
+      wind_speed_kmh: loc.hourly.wind_speed_10m[idx] ?? 0,
       wind_speed_max_kmh: loc.daily.wind_speed_10m_max[0] ?? null,
       wind_direction_deg: loc.hourly.wind_direction_10m[idx] ?? 0,
+      relative_humidity_2m: loc.hourly.relative_humidity_2m[idx] ?? null,
       precipitation_sum: loc.daily.precipitation_sum[0] ?? null,
-      relative_humidity_2m: meanHumidity,
     };
   });
 }

@@ -245,9 +245,9 @@ export function explainRoutes(app: FastifyInstance): void {
       // We use this to actually filter the fires shown to the model — not just as a hint —
       // so the model cannot reason about fires it shouldn't know about.
       const effectiveRadiusKm = wind
-        ? wind.speedKmh < 5
+        ? wind.wind_speed_kmh < 5
           ? 50
-          : Math.min(Math.round(wind.speedKmh * 36), FIRE_RADIUS_KM)
+          : Math.min(Math.round(wind.wind_speed_kmh * 36), FIRE_RADIUS_KM)
         : FIRE_RADIUS_KM;
 
       // --- fires context ---

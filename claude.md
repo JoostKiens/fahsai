@@ -139,17 +139,15 @@ keeps API keys server-side.
 
 - Source: `https://api.open-meteo.com/v1/forecast` (today) / `https://archive-api.open-meteo.com/v1/archive` (past dates)
 - Parameters:
-  - Hourly (all 24h fetched): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
+  - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
   - Daily aggregates: `wind_speed_10m_max`, `precipitation_sum`
-  - `wind_direction_deg` stored as 07:00 UTC snapshot (peak BKK afternoon transport moment)
-  - `wind_speed_kmh` and `relative_humidity_2m` stored as daily means (computed from all 24 hourly values — `_mean` daily variables are not consistently available across forecast and archive endpoints)
-  - `wind_speed_max_kmh` stored from `wind_speed_10m_max` daily variable
 - No API key required
 - Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date;
-  matches the CAMS AQ grid resolution. Fetched in 5 batches of ≤1,000 with 5 s between
-  batches (~25 s total). Free tier counts HTTP requests (not locations): 5 calls/day is
-  well within the 10,000/day limit. 429 backoff: 65 s for minutely limit, 65 min for
-  hourly limit.
+  matches the CAMS AQ grid resolution. Fetched in 10 batches of ≤500 with 5 s between
+  batches (~50 s total). Batch size capped at 500 — 1,000-location batches exceed the
+  POST body limit (413) because per-location array fields inflate the payload. Free tier
+  counts HTTP requests (not locations): 10 calls/day is well within the 10,000/day
+  limit. 429 backoff: 65 s for minutely, 65 min for hourly, abort for daily.
 - Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK)
 - Storage: Supabase `weather_readings` table (persistent, 40-day retention) + Redis
   cache key `weather:{date}` TTL 25h. Route checks Redis first; on miss reads from
