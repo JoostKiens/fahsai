@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Measurement } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../lib/bbox.js';
 
 const VALID_PARAMETERS = ['pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'] as const;
@@ -46,7 +46,8 @@ export function measurementsRoutes(app: FastifyInstance): void {
 
       if (isDefaultBbox) {
         const cached = await redis.get<LatestMeasurement[]>(cacheKey);
-        if (cached !== null) return reply.send({ data: cached });
+        if (cached !== null)
+          return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
       }
 
       // Date-specific window or rolling 24h
@@ -111,7 +112,7 @@ export function measurementsRoutes(app: FastifyInstance): void {
         await redis.set(cacheKey, latest, { ex: HISTORICAL_TTL_SECONDS });
       }
 
-      return reply.send({ data: latest });
+      return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: latest });
     },
   );
 
