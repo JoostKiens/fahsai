@@ -25,6 +25,7 @@ import {
 import { usePowerPlants } from '../../hooks/usePowerPlants';
 import { createPowerPlantsLayer } from '../../layers/PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
+import { useLatestDate } from '../../hooks/useLatestDate';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
@@ -77,7 +78,8 @@ export function MapView() {
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
 
   useWindParticles(windOverlay, map, wind, windConfig);
-  usePrefetchAdjacentDates();
+  const { data: latestDate } = useLatestDate();
+  usePrefetchAdjacentDates(latestDate);
 
   // Sync map padding with sidebar state
   useEffect(() => {
