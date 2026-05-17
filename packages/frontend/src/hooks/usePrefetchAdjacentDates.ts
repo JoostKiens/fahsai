@@ -17,9 +17,10 @@ export function usePrefetchAdjacentDates(latestDate?: string) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
   useEffect(() => {
+    if (latestDate === undefined) return;
     for (const offset of [-1, 1]) {
       const date = shiftDate(selectedDate, offset);
-      if (latestDate !== undefined && date > latestDate) continue;
+      if (date > latestDate) continue;
 
       void queryClient.prefetchQuery({
         queryKey: ['fires', date],
@@ -61,5 +62,5 @@ export function usePrefetchAdjacentDates(latestDate?: string) {
         staleTime: Infinity,
       });
     }
-  }, [queryClient, selectedDate]);
+  }, [queryClient, selectedDate, latestDate]);
 }
