@@ -199,7 +199,13 @@ function PowerPlantsGroup() {
 function DiamondSwatch({ color }: { color: string }) {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" className="shrink-0">
-      <polygon points="5,0 10,5 5,10 0,5" fill="none" stroke={color} strokeWidth="1.5" />
+      <polygon
+        points="5,0 10,5 5,10 0,5"
+        fill={color}
+        fillOpacity={0.4}
+        stroke={color}
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }

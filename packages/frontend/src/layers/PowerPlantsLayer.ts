@@ -26,6 +26,8 @@ function buildAtlas(): string {
     ctx.lineTo(cx, cy + r);
     ctx.lineTo(cx - r, cy);
     ctx.closePath();
+    ctx.fillStyle = FUEL_COLORS[fuel] + '66'; // 40% opacity (0x66 = 102 = 40% of 255)
+    ctx.fill();
     ctx.strokeStyle = FUEL_COLORS[fuel]!;
     ctx.lineWidth = 1.5;
     ctx.stroke();
@@ -54,11 +56,11 @@ export function createPowerPlantsLayer(
     iconMapping: ICON_MAPPING,
     getPosition: (d) => d.geometry.coordinates,
     getIcon: (d) => d.properties.fuel_type,
-    getSize: 24,
+    getSize: 28,
     opacity,
     pickable: true,
     // alphaCutoff: 0 makes the entire icon bounding box pickable, not just
-    // the opaque outline pixels — needed because the diamond icons are stroked only.
+    // the filled diamond area.
     alphaCutoff: 0,
     onClick,
     parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
