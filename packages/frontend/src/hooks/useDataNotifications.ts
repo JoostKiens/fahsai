@@ -19,7 +19,8 @@ export function useDataNotifications() {
 
   const firesId = useRef<ToastId | null>(null);
   const stationId = useRef<ToastId | null>(null);
-  const atmosphericId = useRef<ToastId | null>(null);
+  const windId = useRef<ToastId | null>(null);
+  const camsId = useRef<ToastId | null>(null);
 
   // True once the scrubber has settled: selectedDate is within the valid range anchored to latestDate.
   // While selectedDate > latestDate the 300ms debounce is still in-flight and queries are fetching
@@ -36,9 +37,13 @@ export function useDataNotifications() {
       toast.dismiss(stationId.current);
       stationId.current = null;
     }
-    if (atmosphericId.current !== null) {
-      toast.dismiss(atmosphericId.current);
-      atmosphericId.current = null;
+    if (windId.current !== null) {
+      toast.dismiss(windId.current);
+      windId.current = null;
+    }
+    if (camsId.current !== null) {
+      toast.dismiss(camsId.current);
+      camsId.current = null;
     }
   }, [selectedDate]);
 
@@ -63,12 +68,22 @@ export function useDataNotifications() {
   }, [isSettled, aqi.isSuccess, aqi.data]);
 
   useEffect(() => {
-    if (!isSettled || !wind.isSuccess || !cams.isSuccess || atmosphericId.current !== null) return;
-    if (wind.data.length === 0 && cams.data.length === 0) {
-      atmosphericId.current = toast('No atmospheric data for this date', {
-        description: 'Wind and air quality model data is not available for this date.',
+    if (!isSettled || !wind.isSuccess || windId.current !== null) return;
+    if (wind.data.length === 0) {
+      windId.current = toast('No wind data for this date', {
+        description: 'Wind measurements are not available for this date.',
         duration: Infinity,
       });
     }
-  }, [isSettled, wind.isSuccess, wind.data, cams.isSuccess, cams.data]);
+  }, [isSettled, wind.isSuccess, wind.data]);
+
+  useEffect(() => {
+    if (!isSettled || !cams.isSuccess || camsId.current !== null) return;
+    if (cams.data.length === 0) {
+      camsId.current = toast('No PM2.5 model data for this date', {
+        description: 'The air quality model data is not available for this date.',
+        duration: Infinity,
+      });
+    }
+  }, [isSettled, cams.isSuccess, cams.data]);
 }
