@@ -10,6 +10,7 @@ export function useWind() {
     queryKey: ['weather-wind', selectedDate],
     queryFn: async () => {
       const res = await fetch(`${API}/api/weather/wind?date=${selectedDate}`);
+      if (res.status === 404) return [];
       if (!res.ok) throw new Error(`wind fetch failed: ${res.status}`);
       return ((await res.json()) as { data: WindReading[] }).data;
     },
