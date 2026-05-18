@@ -6,7 +6,7 @@ import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
-const N_PARTICLES = 1500;
+const N_PARTICLES = 2400;
 const TRAIL_LENGTH = 20;
 // Degrees of movement per frame per km/h of wind speed (at 60 fps).
 // Tuned so a 15 km/h breeze visually crosses the region in ~15 s.
@@ -16,6 +16,9 @@ const ANIM_SCALE = 0.0015;
 // geographic trail length grows as √speed rather than linearly — preventing
 // fast-wind trails from dominating the visual at the expense of animation speed.
 const TRAIL_SPEED_REF = 13; // km/h
+// Maximum alpha for a fresh particle head (0–255). Trail fades linearly to 0.
+// 176 = 220 * 0.8 — reduced to 80% to soften visual intensity.
+const PARTICLE_START_ALPHA = 150;
 const BASE_ZOOM = 5.5;
 const MIN_AGE = 80;
 const MAX_AGE = 220;
@@ -323,14 +326,14 @@ export function useWindParticles(
           data: particles.filter((p) => p.trail.length >= 2),
           getPath: (p) => p.trail,
           getColor: (p) =>
-            [...p.color, Math.round(opacity * 220 * (1 - p.age / p.maxAge))] as [
+            [...p.color, Math.round(opacity * PARTICLE_START_ALPHA * (1 - p.age / p.maxAge))] as [
               number,
               number,
               number,
               number,
             ],
           widthUnits: 'pixels',
-          getWidth: 2,
+          getWidth: 1,
           parameters: { depthCompare: 'always' as const },
           pickable: false,
         });
