@@ -7,6 +7,7 @@ import { weatherCacheKey } from '../jobs/weather-ingest.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
+const MIN_COMPLETE_POINTS = 4000;
 
 async function fetchWeatherFromDb(date: string): Promise<WeatherReading[]> {
   const all: WeatherReading[] = [];
@@ -71,7 +72,9 @@ export function weatherRoutes(app: FastifyInstance): void {
             .send({ error: 'No wind data for this date. Run the ingest job.' });
         }
 
-        await redis.set(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
+        if (readings.length >= MIN_COMPLETE_POINTS) {
+          await redis.set(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
+        }
       }
 
       const bbox = parseBbox(rawBbox);
@@ -102,8 +105,9 @@ export function weatherRoutes(app: FastifyInstance): void {
           .send({ error: 'No weather data for this date. Run the ingest job.' });
       }
 
-      // Re-populate Redis so subsequent requests within the TTL window skip Supabase
-      await redis.set(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
+      if (readings.length >= MIN_COMPLETE_POINTS) {
+        await redis.set(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
+      }
     }
 
     const bbox = parseBbox(rawBbox);
