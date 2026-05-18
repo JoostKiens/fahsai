@@ -6,6 +6,9 @@ import { parseBbox } from '../lib/bbox.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
+// Full CAMS grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis
+// so a rate-limited partial ingest never poisons the hot cache.
+const MIN_COMPLETE_POINTS = 4000;
 
 async function fetchCamsGridFromDb(date: string): Promise<PM25GridPoint[]> {
   const all: PM25GridPoint[] = [];
@@ -37,7 +40,7 @@ export function camsRoutes(app: FastifyInstance): void {
 
     let points = await redis.get<PM25GridPoint[]>(`cams:pm25:${date}`);
 
-    if (!points?.length || points.length < 4000) {
+    if (!points?.length || points.length < MIN_COMPLETE_POINTS) {
       points = await fetchCamsGridFromDb(date);
 
       if (!points.length) {
@@ -46,8 +49,10 @@ export function camsRoutes(app: FastifyInstance): void {
           .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
       }
 
-      // Re-populate Redis so subsequent requests within the TTL window skip Supabase
-      await redis.set(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
+      // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
+      if (points.length >= MIN_COMPLETE_POINTS) {
+        await redis.set(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
+      }
     }
 
     const bbox = parseBbox(rawBbox);
