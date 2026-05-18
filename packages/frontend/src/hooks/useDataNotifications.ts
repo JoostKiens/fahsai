@@ -56,7 +56,7 @@ export function useDataNotifications() {
     if (!isSettled || !aqi.isSuccess || stationId.current !== null) return;
     if (aqi.data.length === 0) {
       stationId.current = toast('No station readings for this date', {
-        description: 'Monitoring stations may not have submitted data yet.',
+        description: 'Monitoring stations may not have reported data for this date.',
         duration: Infinity,
       });
     }
@@ -66,7 +66,7 @@ export function useDataNotifications() {
     if (!isSettled || !wind.isSuccess || !cams.isSuccess || atmosphericId.current !== null) return;
     if (wind.data.length === 0 && cams.data.length === 0) {
       atmosphericId.current = toast('No atmospheric data for this date', {
-        description: "Wind and PM2.5 model data hasn't been ingested for this date yet.",
+        description: 'Wind and air quality model data is not available for this date.',
         duration: Infinity,
       });
     }

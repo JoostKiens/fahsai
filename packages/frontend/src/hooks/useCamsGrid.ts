@@ -10,6 +10,7 @@ export function useCamsGrid() {
     queryKey: ['cams-grid', selectedDate],
     queryFn: async () => {
       const res = await fetch(`${API}/api/cams?date=${selectedDate}`);
+      if (res.status === 404) return [];
       if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
       return ((await res.json()) as { data: PM25GridPoint[] }).data;
     },
