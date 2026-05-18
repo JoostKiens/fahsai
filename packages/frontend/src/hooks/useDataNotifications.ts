@@ -50,40 +50,28 @@ export function useDataNotifications() {
   useEffect(() => {
     if (!isSettled || !fires.isSuccess || firesId.current !== null) return;
     if (fires.data.length === 0) {
-      firesId.current = toast('No fire detections for this date', {
-        description: 'Cloud cover likely blocked the satellite view.',
-        duration: Infinity,
-      });
+      firesId.current = toast('No fire detections for this date', { duration: Infinity });
     }
   }, [isSettled, fires.isSuccess, fires.data]);
 
   useEffect(() => {
     if (!isSettled || !aqi.isSuccess || stationId.current !== null) return;
     if (aqi.data.length === 0) {
-      stationId.current = toast('No station readings for this date', {
-        description: 'Monitoring stations may not have reported data for this date.',
-        duration: Infinity,
-      });
+      stationId.current = toast('No station readings for this date', { duration: Infinity });
     }
   }, [isSettled, aqi.isSuccess, aqi.data]);
 
   useEffect(() => {
     if (!isSettled || !wind.isSuccess || windId.current !== null) return;
     if (wind.data.length === 0) {
-      windId.current = toast('No wind data for this date', {
-        description: 'Wind measurements are not available for this date.',
-        duration: Infinity,
-      });
+      windId.current = toast('No wind data for this date', { duration: Infinity });
     }
   }, [isSettled, wind.isSuccess, wind.data]);
 
   useEffect(() => {
     if (!isSettled || !cams.isSuccess || camsId.current !== null) return;
     if (cams.data.length === 0) {
-      camsId.current = toast('No PM2.5 model data for this date', {
-        description: 'The air quality model data is not available for this date.',
-        duration: Infinity,
-      });
+      camsId.current = toast('No PM2.5 model data for this date', { duration: Infinity });
     }
   }, [isSettled, cams.isSuccess, cams.data]);
 }
