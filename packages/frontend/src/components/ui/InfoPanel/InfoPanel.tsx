@@ -307,12 +307,12 @@ function StationPanel({
   const setExplainQuotaExceeded = useUIStore((s) => s.setExplainQuotaExceeded);
   return (
     <>
-      <Row index={0}>
+      <Row>
         <span className="text-gray-500">PM2.5</span>
         <AqiBadge value={station.pm25} category={cat.label} />
       </Row>
       {station.measuredAt && (
-        <Row index={1}>
+        <Row>
           <span className="text-[11px] text-gray-400">
             {new Date(station.measuredAt).toLocaleString('en-GB', {
               day: 'numeric',
@@ -365,14 +365,14 @@ function FirePanel({
 
   return (
     <>
-      <Row index={0}>
+      <Row>
         <span className="text-gray-500">Intensity</span>
         <div className="text-right">
           <div className="text-gray-800 font-medium text-xs">{intensity.label}</div>
           {intensity.raw && <div className="text-[10px] text-gray-400">{intensity.raw}</div>}
         </div>
       </Row>
-      <Row index={1}>
+      <Row>
         <span className="text-gray-500">Confidence</span>
         <span className="flex items-center gap-1 text-gray-800 font-medium">
           <span
@@ -382,7 +382,7 @@ function FirePanel({
           {conf.label}
         </span>
       </Row>
-      <Row index={2}>
+      <Row>
         <span className="text-[11px] text-gray-400">
           {new Date(fire.detectedAt).toLocaleString('en-GB', {
             day: 'numeric',
@@ -417,12 +417,12 @@ function PowerPlantPanel({
 }) {
   return (
     <>
-      <Row index={0}>
+      <Row>
         <span className="text-gray-500">Fuel</span>
         <span className="text-gray-800 font-medium">{plant.fuelType}</span>
       </Row>
       {plant.capacityMw !== null && (
-        <Row index={1}>
+        <Row>
           <span className="text-gray-500">Capacity</span>
           <span className="text-gray-800 font-medium">
             {Math.round(plant.capacityMw).toLocaleString('en-US')} MW
@@ -430,18 +430,18 @@ function PowerPlantPanel({
         </Row>
       )}
       {plant.owner && (
-        <Row index={2}>
+        <Row>
           <span className="text-gray-500">Owner</span>
           <span className="text-gray-800 font-medium truncate max-w-[100px]">{plant.owner}</span>
         </Row>
       )}
       {plant.commissionedYear !== null && (
-        <Row index={3}>
+        <Row>
           <span className="text-gray-500">Built</span>
           <span className="text-gray-800 font-medium">{plant.commissionedYear}</span>
         </Row>
       )}
-      <Row index={4}>
+      <Row>
         <span className="text-gray-500">Country</span>
         <span className="text-gray-800 font-medium">{plant.country}</span>
       </Row>
@@ -569,17 +569,9 @@ function ClusterList({
 
 // --- Shared primitives ---
 
-function Row({ children, index }: { children: React.ReactNode; index: number }) {
+function Row({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -4 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03, duration: 0.15, ease: 'easeOut' }}
-      className="flex justify-between items-center text-xs py-1"
-    >
-      {children}
-    </motion.div>
+    <motion.div className="flex justify-between items-center text-xs py-1">{children}</motion.div>
   );
 }
 
