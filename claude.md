@@ -144,10 +144,11 @@ keeps API keys server-side.
 - No API key required
 - Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date;
   matches the CAMS AQ grid resolution. Fetched in 16 batches of ≤300 with 5 s between
-  batches (~80 s total). Batch size 300 with scalar start_date/end_date/timezone (same
-  value for all locations in a batch) keeps each POST body ~8 KB. Free tier counts HTTP
-  requests (not locations): 16 calls/day is well within the 10,000/day limit.
-  429 backoff: 65 s for minutely, 65 min for hourly, abort for daily.
+  batches (~80 s total). Batch size capped at 300 — the multi-location POST endpoint
+  requires per-location arrays for timezone/start_date/end_date so payload grows
+  linearly; 500 caused 413 (confirmed May 2026). Free tier counts HTTP requests (not
+  locations): 16 calls/day is well within the 10,000/day limit. 429 backoff: 65 s for
+  minutely, 65 min for hourly, abort for daily.
 - Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK)
 - Storage: Supabase `weather_readings` table (persistent, 40-day retention) + Redis
   cache key `weather:{date}` TTL 25h. Route checks Redis first; on miss reads from
