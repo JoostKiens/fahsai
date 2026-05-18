@@ -1,11 +1,5 @@
 import { create } from 'zustand';
 
-export interface ClusterStation {
-  stationId: string;
-  stationName: string;
-  pm25: number;
-}
-
 export interface SelectedPoint {
   lngLat: [number, number];
   fire?: { frp: number | null; confidence: string | null; countryId: string; detectedAt: string };
@@ -24,7 +18,6 @@ export interface SelectedPoint {
     commissionedYear: number | null;
     country: string;
   };
-  cluster?: { stations: ClusterStation[] };
 }
 
 interface UIStore {

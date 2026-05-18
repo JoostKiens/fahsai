@@ -84,7 +84,7 @@ export function createPM25BitmapLayer(bitmap: ImageBitmap, beforeId?: string) {
 // --- Station clustering ---
 
 const CLUSTER_RADIUS = 60;
-export const CLUSTER_MAX_ZOOM = 14;
+export const CLUSTER_MAX_ZOOM = 20;
 
 const SINGLE_RADIUS_PX = 15; // diameter 30px
 const CLUSTER_RADIUS_PX = 18; // diameter 36px
