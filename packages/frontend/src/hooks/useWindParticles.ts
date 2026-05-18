@@ -7,10 +7,10 @@ import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const N_PARTICLES = 1500;
-const TRAIL_LENGTH = 14;
+const TRAIL_LENGTH = 20;
 // Degrees of movement per frame per km/h of wind speed (at 60 fps).
 // Tuned so a 15 km/h breeze visually crosses the region in ~15 s.
-const ANIM_SCALE = 0.003;
+const ANIM_SCALE = 0.0015;
 // Below this speed the trail is always at full TRAIL_LENGTH.
 // Above it, trail point count shrinks as √(TRAIL_SPEED_REF / speed) so total
 // geographic trail length grows as √speed rather than linearly — preventing
