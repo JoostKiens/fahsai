@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUIStore } from '../../../store/uiStore';
-import type { ClusterStation } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
 import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
@@ -93,9 +92,7 @@ export function InfoPanel() {
       ? 'station'
       : selectedPoint?.powerPlant
         ? 'powerPlant'
-        : selectedPoint?.cluster
-          ? 'cluster'
-          : null;
+        : null;
 
   const aqPoint =
     selectedPoint && aqGrid
@@ -148,7 +145,7 @@ export function InfoPanel() {
               onClose={() => setSelectedPoint(null)}
             />
 
-            {panelType !== 'cluster' && <hr className="border-gray-100 my-2" />}
+            <hr className="border-gray-100 my-2" />
 
             {displayStation && (
               <StationPanel
@@ -167,12 +164,6 @@ export function InfoPanel() {
                 plant={selectedPoint.powerPlant}
                 aqPoint={aqPoint}
                 windVec={windVec}
-              />
-            )}
-            {selectedPoint.cluster && (
-              <ClusterList
-                stations={selectedPoint.cluster.stations}
-                lngLat={selectedPoint.lngLat}
               />
             )}
           </motion.div>
@@ -208,9 +199,7 @@ function PanelHeader({
         ? 'Fire Detection'
         : panelType === 'powerPlant'
           ? 'Power Plant'
-          : panelType === 'cluster'
-            ? 'Stations Nearby'
-            : '';
+          : '';
 
   return (
     <div className="flex items-start justify-between">
@@ -513,56 +502,6 @@ function ShimmerBars() {
           style={{ height: `${24 + (i % 3) * 12}px` }}
         />
       ))}
-    </div>
-  );
-}
-
-// --- Cluster list ---
-
-function ClusterList({
-  stations,
-  lngLat,
-}: {
-  stations: ClusterStation[];
-  lngLat: [number, number];
-}) {
-  const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
-  const sorted = [...stations].sort((a, b) => b.pm25 - a.pm25);
-  return (
-    <div className="space-y-1">
-      {sorted.map((s, i) => {
-        const [r, g, b] = pm25ToRgb(s.pm25);
-        return (
-          <motion.button
-            key={s.stationId}
-            initial={{ opacity: 0, x: -4 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03, duration: 0.15, ease: 'easeOut' }}
-            onClick={() =>
-              setSelectedPoint({
-                lngLat,
-                station: {
-                  stationId: s.stationId,
-                  stationName: s.stationName,
-                  pm25: s.pm25,
-                  unit: 'µg/m³',
-                  measuredAt: '',
-                },
-              })
-            }
-            className="w-full flex items-center gap-1.5 text-left hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
-          >
-            <span
-              className="shrink-0 w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: `rgb(${r},${g},${b})` }}
-            />
-            <span className="text-[11px] font-medium text-gray-700 w-8 shrink-0">
-              {Math.round(s.pm25)}
-            </span>
-            <span className="text-[11px] text-gray-500 truncate">{s.stationName}</span>
-          </motion.button>
-        );
-      })}
     </div>
   );
 }

@@ -20,7 +20,6 @@ import {
   createLandMaskLayer,
   createPM25BitmapLayer,
   createPM25StationsLayers,
-  CLUSTER_MAX_ZOOM,
 } from '../../layers/PM25Layer';
 import { usePowerPlants } from '../../hooks/usePowerPlants';
 import { createPowerPlantsLayer, iconSizeForZoom } from '../../layers/PowerPlantsLayer';
@@ -178,23 +177,9 @@ export function MapView() {
       _clusterId: number,
       lngLat: [number, number],
       expansionZoom: number,
-      leaves: LatestMeasurement[],
     ) => {
       deckPickedRef.current = true;
-      if (expansionZoom <= CLUSTER_MAX_ZOOM) {
-        mapRef.current?.flyTo({ center: lngLat, zoom: expansionZoom, duration: 500 });
-      } else {
-        setSelectedPoint({
-          lngLat,
-          cluster: {
-            stations: leaves.map((l) => ({
-              stationId: l.stationId,
-              stationName: l.stationName,
-              pm25: l.value,
-            })),
-          },
-        });
-      }
+      mapRef.current?.flyTo({ center: lngLat, zoom: expansionZoom, duration: 500 });
     };
 
     if (firesConfig.visible && fires) {
