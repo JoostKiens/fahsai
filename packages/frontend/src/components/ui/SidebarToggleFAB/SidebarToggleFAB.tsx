@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { LayerGroups } from '../Sidebar/LayerGroups';
 
 const DRAWER_SPRING = { type: 'spring' as const, stiffness: 400, damping: 40 };
 
 export function SidebarToggleFAB() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -48,10 +49,23 @@ export function SidebarToggleFAB() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={DRAWER_SPRING}
+              drag="y"
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0 }}
+              dragElastic={{ top: 0 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 400) {
+                  setDrawerOpen(false);
+                }
+              }}
               className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-white rounded-t-2xl z-50 overflow-y-auto pointer-events-auto md:hidden"
             >
-              {/* Drag handle */}
-              <div className="flex justify-center pt-3 pb-1">
+              {/* Drag handle — touch-none prevents scroll hijack; initiates drawer drag */}
+              <div
+                className="flex justify-center pt-3 pb-1 touch-none cursor-grab active:cursor-grabbing"
+                onPointerDown={(e) => dragControls.start(e)}
+              >
                 <div className="w-10 h-1 rounded-full bg-gray-300" />
               </div>
 
