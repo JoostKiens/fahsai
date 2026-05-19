@@ -76,6 +76,18 @@ export function HeaderMenu() {
         <button
           className={MENU_ITEM_CLS}
           onClick={() => {
+            setSettingsOpen(true);
+            setHeaderMenuOpen(false);
+          }}
+        >
+          <span className="text-gray-400">
+            <GearIcon />
+          </span>
+          Settings
+        </button>
+        <button
+          className={MENU_ITEM_CLS}
+          onClick={() => {
             setAboutOpen(true);
             setHeaderMenuOpen(false);
           }}
@@ -97,18 +109,6 @@ export function HeaderMenu() {
           </span>
           GitHub
         </a>
-        <button
-          className={MENU_ITEM_CLS}
-          onClick={() => {
-            setSettingsOpen(true);
-            setHeaderMenuOpen(false);
-          }}
-        >
-          <span className="text-gray-400">
-            <GearIcon />
-          </span>
-          Settings
-        </button>
       </div>
     </>
   );
