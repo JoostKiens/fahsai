@@ -1,3 +1,4 @@
+import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { fetchLocations, PARAMETERS, extractPm25SensorIds } from '../lib/openaq.js';
 
@@ -39,8 +40,21 @@ export async function runStationsIngest(): Promise<{
       updated_at: new Date().toISOString(),
     }));
 
-  const { error } = await supabase.from('stations').upsert(stationRows, { onConflict: 'id' });
-  if (error) throw new Error(`Stations upsert failed: ${error.message}`);
+  await pRetry(
+    async () => {
+      const { error } = await supabase.from('stations').upsert(stationRows, { onConflict: 'id' });
+      if (error) throw new AbortError(`Stations upsert failed: ${error.message}`);
+    },
+    {
+      retries: 3,
+      minTimeout: 1000,
+      factor: 2,
+      onFailedAttempt: (err) =>
+        console.warn(
+          `[stations-ingest] Supabase upsert attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+        ),
+    },
+  );
   console.log(`[stations-ingest] Upserted ${stationRows.length} stations`);
 
   return { stationsUpserted: stationRows.length };

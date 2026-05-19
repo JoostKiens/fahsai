@@ -1,6 +1,7 @@
+import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { fetchSensorDailyAverage, PARAMETERS } from '../lib/openaq.js';
+import { fetchSensorDailyAverage } from '../lib/openaq.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
@@ -127,24 +128,38 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   // --- insert in batches ---
   for (let i = 0; i < measurementRows.length; i += BATCH_SIZE) {
     const batch = measurementRows.slice(i, i + BATCH_SIZE);
-    const { error } = await supabase
-      .from('station_readings')
-      .upsert(batch, { onConflict: 'sensor_id,measured_at', ignoreDuplicates: false });
-
-    if (error) {
-      throw new Error(
-        `[station-readings-ingest] Measurements upsert failed (batch ${i / BATCH_SIZE + 1}): ${error.message}`,
-      );
-    }
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    await pRetry(
+      async () => {
+        const { error } = await supabase
+          .from('station_readings')
+          .upsert(batch, { onConflict: 'sensor_id,measured_at', ignoreDuplicates: false });
+        if (error)
+          throw new AbortError(
+            `[station-readings-ingest] Measurements upsert failed (batch ${batchNum}): ${error.message}`,
+          );
+      },
+      {
+        retries: 3,
+        minTimeout: 1000,
+        factor: 2,
+        onFailedAttempt: (err) =>
+          console.warn(
+            `[station-readings-ingest] Supabase batch ${batchNum} attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+          ),
+      },
+    );
   }
 
-  // Invalidate Redis cache
-  await Promise.all(
-    PARAMETERS.flatMap((p) => [
-      redis.del(`station-readings:latest:${p}:current`),
-      redis.del(`station-readings:latest:${p}:${targetDate}`),
-    ]),
-  );
+  // Invalidate rather than set: the cached value is a processed result (latest reading per
+  // station, deduplicated, joined with station metadata, bbox-filtered) that the ingest
+  // does not compute — it only has raw measurement rows. Deleting the keys lets the route
+  // repopulate with the correct shape on the next request.
+  // Only invalidate pm25 — that is the only parameter this job ingests.
+  await Promise.all([
+    redis.del(`station-readings:latest:pm25:current`),
+    redis.del(`station-readings:latest:pm25:${targetDate}`),
+  ]);
 
   console.log('[station-readings-ingest] Done');
   return { sensorsQueried, measurementsInserted: measurementRows.length };

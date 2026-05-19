@@ -1,9 +1,8 @@
 import pRetry, { AbortError } from 'p-retry';
-import { redis } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAirQualityGrid } from '../lib/openmeteo.js';
 
-const CACHE_TTL_SECONDS = 48 * 60 * 60; // 48h
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
@@ -52,31 +51,50 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     return { stored: 0 };
   }
 
-  // Only cache complete grids — partial data from a rate-limited run must not
-  // poison Redis. Supabase still receives partial rows via upsert below so that
-  // subsequent ingests accumulate toward the full 4,599 points.
+  // Persist to Supabase first — durable store must be written before the cache.
+  // If Redis write fails after this, the API route will read from Supabase on cache
+  // miss and repopulate Redis automatically.
+  const rows = points.map((p) => ({ date: targetDate, lat: p.lat, lng: p.lng, pm25: p.pm25 }));
+  for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
+    const batch = rows.slice(i, i + DB_BATCH_SIZE);
+    const batchNum = Math.floor(i / DB_BATCH_SIZE) + 1;
+    await pRetry(
+      async () => {
+        const { error } = await supabase
+          .from('cams_grid')
+          .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
+        if (error)
+          throw new AbortError(
+            `[cams-ingest] Supabase upsert failed (batch ${batchNum}): ${error.message}`,
+          );
+      },
+      {
+        retries: 3,
+        minTimeout: 1000,
+        factor: 2,
+        onFailedAttempt: (err) =>
+          console.warn(
+            `[cams-ingest] Supabase batch ${batchNum} attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+          ),
+      },
+    );
+  }
+  console.log(`[cams-ingest] Persisted ${points.length} rows to cams_grid`);
+
+  // Set Redis directly: the ingest produces the exact value the CAMS route serves
+  // verbatim (no join, deduplication, or projection needed), so we can warm the cache
+  // key here rather than waiting for the first API request to repopulate it.
+  // Only cache complete grids — partial data from a rate-limited run must not poison
+  // Redis. Supabase accumulates partial rows above so subsequent ingests can reach the
+  // full 4,599 points even when Redis is skipped.
   if (points.length >= MIN_COMPLETE_POINTS) {
-    await redis.set(`cams:pm25:${targetDate}`, points, { ex: CACHE_TTL_SECONDS });
-    console.log(`[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL 48h)`);
+    await redis.set(`cams:pm25:${targetDate}`, points, { ex: HISTORICAL_TTL_SECONDS });
+    console.log(`[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL 7d)`);
   } else {
     console.warn(
       `[cams-ingest] Only ${points.length} points — below threshold (${MIN_COMPLETE_POINTS}), skipping Redis write`,
     );
   }
-
-  // Persist to Supabase in batches so historical dates survive Redis TTL expiry
-  const rows = points.map((p) => ({ date: targetDate, lat: p.lat, lng: p.lng, pm25: p.pm25 }));
-  for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
-    const batch = rows.slice(i, i + DB_BATCH_SIZE);
-    const { error } = await supabase
-      .from('cams_grid')
-      .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
-    if (error)
-      throw new Error(
-        `[cams-ingest] Supabase upsert failed (batch ${Math.floor(i / DB_BATCH_SIZE) + 1}): ${error.message}`,
-      );
-  }
-  console.log(`[cams-ingest] Persisted ${points.length} rows to cams_grid`);
 
   return { stored: points.length };
 }
