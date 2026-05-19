@@ -225,7 +225,18 @@ export function MapView() {
       maxBounds: MAX_BOUNDS,
       accessToken: TOKEN,
       projection: 'mercator',
+      attributionControl: false,
     });
+
+    mapInstance.addControl(
+      new mapboxgl.AttributionControl({
+        customAttribution: [
+          'NASA FIRMS',
+          '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
+          '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
+        ],
+      }),
+    );
 
     mapInstance.on('load', () => {
       if (!mounted) return;
