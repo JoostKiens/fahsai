@@ -15,9 +15,9 @@ export function Sidebar() {
       initial={false}
       animate={{ width: sidebarOpen ? 260 : 0 }}
       transition={SPRING}
-      className="hidden md:flex flex-shrink-0 overflow-hidden z-20 pointer-events-auto"
+      className="hidden md:flex shrink-0 overflow-hidden z-20 pointer-events-auto"
     >
-      <div className="w-[260px] flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+      <div className="w-[260px] flex flex-col bg-white border-r border-gray-200 shrink-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <span className="text-sm font-semibold text-gray-800">Layers</span>
