@@ -8,7 +8,10 @@ import { supabase } from '../db/client.js';
 //             selected date; on scrubber day 0 (T-30) that reaches back to T-37
 //   +2 days — buffer for UTC+7 timezone boundary and prune job timing
 //   = 40 days
-const RETENTION_DAYS = 40;
+// Increased to 130 to back a planned 120-day scrubber window (120 days + 7-day Explain
+// history buffer + 2-day UTC/prune timing buffer). Also preserves the full fire season
+// (Feb–April) for the Explain feature. ~260 MB on Supabase free tier (500 MB limit).
+const RETENTION_DAYS = 130;
 
 export async function runPrune(): Promise<{
   firePointsDeleted: number;
