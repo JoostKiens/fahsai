@@ -283,12 +283,12 @@ function SecondarySection({
       {windVec && (
         <Row>
           <span className="text-gray-500">Wind</span>
-          <span className="text-[11px] text-gray-700 font-medium inline-flex items-center gap-1">
+          <span className="text-[11px] text-gray-700 font-medium inline-flex items-center gap-1 whitespace-nowrap">
             <WindArrow
               dirDeg={windVec.wind_direction_deg}
-              size={10}
+              size={11}
               color="#374151"
-              strokeWidth={1.5}
+              strokeWidth={1.6}
             />
             from {degToCompass(windVec.wind_direction_deg)} · {windVec.wind_speed_kmh.toFixed(1)}{' '}
             km/h
@@ -442,15 +442,15 @@ function PowerPlantPanel({
       {plant.capacityMw !== null && (
         <Row>
           <span className="text-gray-500">Capacity</span>
-          <span className="text-[11px] text-gray-700 font-medium">
+          <span className="text-[11px] text-gray-700 font-medium tabular-nums">
             {Math.round(plant.capacityMw).toLocaleString('en-US')} MW
           </span>
         </Row>
       )}
       {plant.owner && (
-        <Row>
-          <span className="text-gray-500">Owner</span>
-          <span className="text-[11px] text-gray-700 font-medium truncate max-w-[120px]">
+        <Row align="start">
+          <span className="text-gray-500 shrink-0">Owner</span>
+          <span className="text-[11px] text-gray-700 font-medium text-right text-balance leading-snug max-w-[170px]">
             {plant.owner}
           </span>
         </Row>
@@ -458,7 +458,9 @@ function PowerPlantPanel({
       {plant.commissionedYear !== null && (
         <Row>
           <span className="text-gray-500">Built</span>
-          <span className="text-[11px] text-gray-700 font-medium">{plant.commissionedYear}</span>
+          <span className="text-[11px] text-gray-700 font-medium tabular-nums">
+            {plant.commissionedYear}
+          </span>
         </Row>
       )}
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
@@ -468,9 +470,17 @@ function PowerPlantPanel({
 
 // --- Shared primitives ---
 
-function Row({ children }: { children: React.ReactNode }) {
+function Row({
+  children,
+  align = 'center',
+}: {
+  children: React.ReactNode;
+  align?: 'center' | 'start';
+}) {
   return (
-    <motion.div className="flex justify-between items-center text-[11px] py-1">
+    <motion.div
+      className={`flex justify-between gap-3 text-[11px] py-1 ${align === 'start' ? 'items-start' : 'items-center'}`}
+    >
       {children}
     </motion.div>
   );
