@@ -2,6 +2,7 @@ import { Toaster } from 'sonner';
 import { MapView } from './components/Map/MapView';
 import { UIOverlay } from './components/ui/UIOverlay';
 import { Scrubber } from './components/ui/Scrubber/Scrubber';
+import { Header } from './components/ui/Header/Header';
 import { Sidebar } from './components/ui/Sidebar/Sidebar';
 import { useDataNotifications } from './hooks/useDataNotifications';
 
@@ -9,6 +10,7 @@ function AppContent() {
   useDataNotifications();
   return (
     <div className="flex flex-col h-screen">
+      <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <div className="relative flex-1 overflow-hidden">
