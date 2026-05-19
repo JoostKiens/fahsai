@@ -29,13 +29,18 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
       }
     },
     {
-      retries: 3,
-      minTimeout: 2 * 60 * 1000,
+      retries: 2,
+      minTimeout: 60 * 1000,
       factor: 2,
-      onFailedAttempt: (err) =>
+      onFailedAttempt: (err) => {
+        const cause =
+          err.cause instanceof Error
+            ? ((err.cause as { code?: string }).code ?? err.cause.name ?? err.cause.message)
+            : undefined;
         console.warn(
-          `[cams-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
-        ),
+          `[cams-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause ? ` (${cause})` : ''}`,
+        );
+      },
     },
   );
   console.log(`[cams-ingest] Fetched ${points.length} grid points`);
