@@ -23,7 +23,7 @@ function GroupHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <p className="text-sm uppercase tracking-wide text-gray-700 mb-2">{label}</p>
+      <p className="text-sm uppercase tracking-wide text-gray-500 font-medium mb-2">{label}</p>
       {onToggle && toggleLabel && checked !== undefined && (
         <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
       )}
@@ -47,9 +47,9 @@ function SubRow({
   return (
     <div className="flex items-start gap-2 py-1">
       <div className="flex-1">
-        <span className="text-sm text-gray-400">{label}</span>
+        <span className="text-sm text-gray-700 font-medium">{label}</span>
         {description && (
-          <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{description}</p>
+          <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{description}</p>
         )}
       </div>
       <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
@@ -83,7 +83,7 @@ function AirQualityGroup() {
       {(aqGrid || aqStations) && (
         <div className="mt-2.5 space-y-1">
           <div className="flex justify-end mb-0.5">
-            <span className="text-[9px] text-gray-400">µg/m³</span>
+            <span className="text-[10px] text-gray-400">µg/m³</span>
           </div>
           {AQI_CATEGORIES.map((cat) => (
             <div key={cat.label} className="flex items-center gap-2">
@@ -91,8 +91,8 @@ function AirQualityGroup() {
                 className="shrink-0 w-2.5 h-2.5 rounded-full"
                 style={{ backgroundColor: `rgb(${cat.rgb[0]},${cat.rgb[1]},${cat.rgb[2]})` }}
               />
-              <span className="flex-1 text-[10px] text-gray-500 leading-tight">{cat.label}</span>
-              <span className="text-[9px] text-gray-400 font-mono tabular-nums">{cat.range}</span>
+              <span className="flex-1 text-[11px] text-gray-500 leading-tight">{cat.label}</span>
+              <span className="text-[11px] text-gray-400 tabular-nums">{cat.range}</span>
             </div>
           ))}
         </div>
@@ -116,7 +116,7 @@ function FiresGroup() {
       {visible && (
         <div className="mt-2.5 space-y-1">
           <div className="flex justify-end mb-0.5">
-            <span className="text-[9px] text-gray-400">MW</span>
+            <span className="text-[10px] text-gray-400">MW</span>
           </div>
           {FIRE_TIERS.map((tier) => (
             <div key={tier.label} className="flex items-center gap-2">
@@ -131,11 +131,11 @@ function FiresGroup() {
                   />
                 </svg>
               </span>
-              <span className="flex-1 text-[10px] text-gray-500 leading-tight">{tier.label}</span>
-              <span className="text-[9px] text-gray-400 font-mono tabular-nums">{tier.range}</span>
+              <span className="flex-1 text-[11px] text-gray-500 leading-tight">{tier.label}</span>
+              <span className="text-[11px] text-gray-400 tabular-nums">{tier.range}</span>
             </div>
           ))}
-          <p className="text-[10px] text-gray-500 leading-tight mt-1.5">
+          <p className="text-[11px] text-gray-500 leading-tight mt-2">
             Fire radiative power (FRP) is a proxy for smoke and PM2.5 emissions
           </p>
         </div>
@@ -158,10 +158,10 @@ function WindGroup() {
       />
       {visible && (
         <div className="mt-1 space-y-0.5">
-          <p className="text-[10px] text-gray-500 leading-tight">
+          <p className="text-[11px] text-gray-500 leading-tight">
             Particle speed reflects wind strength
           </p>
-          <p className="text-[10px] text-gray-500 leading-tight">
+          <p className="text-[11px] text-gray-500 leading-tight">
             Snapshot at 14:00 local time (UTC+7)
           </p>
         </div>
@@ -187,7 +187,7 @@ function PowerPlantsGroup() {
           {Object.entries(FUEL_COLORS).map(([fuel, color]) => (
             <div key={fuel} className="flex items-center gap-2">
               <DiamondSwatch color={color} />
-              <span className="text-[10px] text-gray-400">{fuel}</span>
+              <span className="text-[11px] text-gray-500">{fuel}</span>
             </div>
           ))}
         </div>
