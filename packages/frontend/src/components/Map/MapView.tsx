@@ -161,6 +161,8 @@ export function MapView() {
           confidence: d.confidence,
           countryId: d.countryId,
           detectedAt: d.detectedAt,
+          fireType: d.fireType,
+          daynight: d.daynight,
         },
       });
     };

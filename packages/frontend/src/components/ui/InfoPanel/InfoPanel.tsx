@@ -374,25 +374,33 @@ function FirePanel({
   aqPoint,
   windVec,
 }: {
-  fire: { frp: number | null; confidence: string | null; detectedAt: string };
+  fire: {
+    frp: number | null;
+    confidence: string | null;
+    detectedAt: string;
+    fireType: number | null;
+    daynight: string | null;
+  };
   aqPoint: { pm25: number } | null;
   windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
+  const type = fireTypeLabel(fire.fireType);
+  const dn = daynightLabel(fire.daynight);
 
   return (
     <>
       <Row>
         <span className="text-gray-500">Intensity</span>
-        <div className="text-right">
-          <div className="text-[11px] text-gray-700 font-medium">{intensity.label}</div>
-          {intensity.raw && <div className="text-[10px] text-gray-400">{intensity.raw}</div>}
-        </div>
+        <span className="text-right">
+          <span className="text-gray-700 font-medium">{intensity.label}</span>
+          {intensity.raw && <span className="text-gray-400 ml-1">{intensity.raw}</span>}
+        </span>
       </Row>
       <Row>
         <span className="text-gray-500">Confidence</span>
-        <span className="flex items-center gap-1 text-[11px] text-gray-700 font-medium">
+        <span className="flex items-center gap-1 text-gray-700 font-medium">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
             style={{ backgroundColor: conf.color }}
@@ -400,8 +408,15 @@ function FirePanel({
           {conf.label}
         </span>
       </Row>
+      {type && (
+        <Row>
+          <span className="text-gray-500">Type</span>
+          <span className="text-gray-700 font-medium">{type}</span>
+        </Row>
+      )}
       <Row>
         <span className="text-[11px] text-gray-400">
+          Detected at{' '}
           {new Date(fire.detectedAt).toLocaleString('en-GB', {
             day: 'numeric',
             month: 'short',
@@ -409,6 +424,7 @@ function FirePanel({
             minute: '2-digit',
             timeZone: 'Asia/Bangkok',
           })}
+          {dn && <> · {dn}</>}
         </span>
       </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
@@ -498,6 +514,25 @@ function frpToIntensity(frp: number | null): { label: string; raw: string | null
   if (frp < 50) return { label: 'Moderate fire', raw: `(${frp.toFixed(0)} MW)` };
   if (frp < 200) return { label: 'Large fire', raw: `(${frp.toFixed(0)} MW)` };
   return { label: 'Extreme fire', raw: `(${frp.toFixed(0)} MW)` };
+}
+
+const FIRE_TYPE_LABELS: Record<number, string> = {
+  0: 'Vegetation',
+  1: 'Volcano',
+  2: 'Industrial source',
+  3: 'Offshore flare',
+};
+
+function fireTypeLabel(t: number | null | undefined): string | null {
+  return t == null ? null : (FIRE_TYPE_LABELS[t] ?? null);
+}
+
+function daynightLabel(dn: string | null | undefined): string | null {
+  if (!dn) return null;
+  const u = dn.toUpperCase();
+  if (u === 'D') return 'Daytime';
+  if (u === 'N') return 'Nighttime';
+  return null;
 }
 
 function mapConfidence(raw: string | null): { label: string; color: string } {
