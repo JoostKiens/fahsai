@@ -154,8 +154,7 @@ keeps API keys server-side.
   cache key `weather:{date}` TTL 25h. Route checks Redis first; on miss reads from
   Supabase and repopulates Redis. Ingest writes to both.
 - License: CC BY 4.0 — attribution link required in UI footer
-- Note: only wind fields are currently consumed by the UI and "Explain This" feature.
-  Precipitation, humidity, and temperature are stored for future use.
+- Note: wind, precipitation, and humidity are consumed by the station InfoPanel's 5-day weather table.
 - Render as: wind particles (animated PathLayer) and static arrow vectors
 
 ### Open-Meteo Air Quality — PM2.5 gridded model (CAMS)
@@ -275,8 +274,8 @@ create index if not exists aq_grid_date_idx on aq_grid (date);
 
 -- Weather grid (Open-Meteo forecast/archive, snapshot at 07:00 UTC = 14:00 BKK)
 -- Pruned after 40 days. Redis (weather:{date}, TTL 25h) is the hot cache; Supabase is
--- the persistent store. Only wind fields are currently used by the UI and Explain feature;
--- precipitation, humidity, and temperature are stored for future use.
+-- the persistent store. Wind, precipitation, and humidity are consumed by the station
+-- InfoPanel's 5-day weather table.
 ```sql
 create table if not exists weather_readings (
   date                      date   not null,
@@ -287,9 +286,6 @@ create table if not exists weather_readings (
   wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
   precipitation_sum         float8,          -- daily total mm
   relative_humidity_2m      float8,          -- % at 07:00 UTC snapshot
-  temperature_2m_mean       float8,          -- daily mean °C
-  temperature_2m_min        float8,          -- daily min °C
-  temperature_2m_max        float8,          -- daily max °C
   primary key (date, lat, lng)
 );
 create index if not exists weather_readings_date_idx on weather_readings (date);
@@ -351,7 +347,8 @@ GET /api/weather?date=YYYY-MM-DD&bbox=...
   Redis cache key: weather:{date}, TTL 25h. On miss, reads from Supabase weather_readings.
   Does not fetch from Open-Meteo on demand — data must have been ingested by weather-ingest.
   Returns 404 if no rows exist for the requested date.
-  Response includes all weather_readings fields; only wind fields are currently used by the UI.
+  Response includes all weather_readings fields; wind, precipitation, and humidity are
+  consumed by the station InfoPanel's 5-day weather table.
 
 GET /api/aq/pm25?date=YYYY-MM-DD&bbox=...
   Returns Open-Meteo CAMS gridded PM2.5 for a specific date (up to 4,599 points at 0.4° grid, bbox [89,1,114,30]).
