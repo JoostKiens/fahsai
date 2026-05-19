@@ -33,8 +33,10 @@ interface UIStore {
   toggleSidebar: () => void;
   selectedPoint: SelectedPoint | null;
   setSelectedPoint: (point: SelectedPoint | null) => void;
-  scrubberDay: number; // 0 = 30 days ago, 29 = yesterday
+  scrubberDay: number; // 0 = oldest day in range, scrubberDays-1 = latestDate
   setScrubberDay: (day: number) => void;
+  scrubberDays: number; // total days shown in the scrubber (30 | 60 | 90 | 120)
+  setScrubberDays: (days: number) => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
   mapZoom: number;
@@ -57,6 +59,8 @@ export const useUIStore = create<UIStore>((set) => ({
   setSelectedPoint: (point) => set({ selectedPoint: point }),
   scrubberDay: 29,
   setScrubberDay: (day) => set({ scrubberDay: day }),
+  scrubberDays: 30,
+  setScrubberDays: (days) => set({ scrubberDays: days, scrubberDay: days - 1 }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
   mapZoom: 5.5,
@@ -73,14 +77,14 @@ export const useUIStore = create<UIStore>((set) => ({
 
 const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 — Bangkok / ICT
 
-// day 0 = 29 days before latestDate, day 29 = latestDate.
+// day 0 = (days-1) days before latestDate, day (days-1) = latestDate.
 // When latestDate is unknown (loading), falls back to yesterday ICT.
-export function dayToDate(day: number, latestDate?: string): string {
+export function dayToDate(day: number, latestDate?: string, days = 30): string {
   if (latestDate) {
     const anchorMs = new Date(latestDate + 'T00:00:00Z').getTime();
-    return new Date(anchorMs - (29 - day) * 86_400_000).toISOString().slice(0, 10);
+    return new Date(anchorMs - (days - 1 - day) * 86_400_000).toISOString().slice(0, 10);
   }
   const todayIctMs = Date.now() + ICT_OFFSET_MS;
-  const d = new Date(todayIctMs - (30 - day) * 86_400_000);
+  const d = new Date(todayIctMs - (days - day) * 86_400_000);
   return d.toISOString().slice(0, 10);
 }
