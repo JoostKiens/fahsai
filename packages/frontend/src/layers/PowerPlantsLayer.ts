@@ -54,7 +54,7 @@ export function iconSizeForZoom(zoom: number): number {
 export function createPowerPlantsLayer(
   data: PowerPlantCollection,
   opacity: number,
-  zoom: number,
+  iconSize: number,
   onClick: (info: PickingInfo) => void,
 ): Layer {
   return new IconLayer<PowerPlantFeature>({
@@ -64,7 +64,7 @@ export function createPowerPlantsLayer(
     iconMapping: ICON_MAPPING,
     getPosition: (d) => d.geometry.coordinates,
     getIcon: (d) => d.properties.fuel_type,
-    getSize: iconSizeForZoom(zoom),
+    getSize: iconSize,
     opacity,
     pickable: true,
     onClick,
