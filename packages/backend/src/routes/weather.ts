@@ -3,7 +3,7 @@ import type { WeatherReading, WindReading } from '@thailand-aq/types';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../lib/bbox.js';
-import { weatherCacheKey } from '../jobs/weather-ingest.js';
+import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -60,7 +60,7 @@ export function weatherRoutes(app: FastifyInstance): void {
         return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
       }
 
-      const cacheKey = `weather:wind:${date}`;
+      const cacheKey = windCacheKey(date);
       let readings = await redis.get<WindReading[]>(cacheKey);
 
       if (!readings?.length || readings.length < 4000) {

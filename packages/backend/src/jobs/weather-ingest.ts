@@ -1,15 +1,18 @@
 import pRetry, { AbortError } from 'p-retry';
-import { redis } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchWeatherGridForDate } from '../lib/openmeteo.js';
 
-const CACHE_TTL_SECONDS = 25 * 60 * 60; // 25h — outlasts daily cron by 1h
 const DB_BATCH_SIZE = 500;
 // Full weather grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
 
 export function weatherCacheKey(date: string): string {
   return `weather:${date}`;
+}
+
+export function windCacheKey(date: string): string {
+  return `weather:wind:${date}`;
 }
 
 export type RunWeatherIngestOptions = {
@@ -72,18 +75,9 @@ export async function runWeatherIngest(
     return { stored: 0 };
   }
 
-  // Only cache complete grids — partial data from a rate-limited run must not
-  // poison Redis. Supabase still receives partial rows via upsert below.
-  if (readings.length >= MIN_COMPLETE_POINTS) {
-    await redis.set(weatherCacheKey(targetDate), readings, { ex: CACHE_TTL_SECONDS });
-    console.log(`[weather-ingest] Stored in Redis as weather:${targetDate} (TTL 25h)`);
-  } else {
-    console.warn(
-      `[weather-ingest] Only ${readings.length} points — below threshold (${MIN_COMPLETE_POINTS}), skipping Redis write`,
-    );
-  }
-
-  // Persist to Supabase in batches so historical dates survive Redis TTL expiry
+  // Persist to Supabase first — durable store must be written before the cache.
+  // If Redis write fails after this, the API route will read from Supabase on cache
+  // miss and repopulate Redis automatically.
   const rows = readings.map((r) => ({
     date: targetDate,
     lat: r.lat,
@@ -97,15 +91,53 @@ export async function runWeatherIngest(
 
   for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
     const batch = rows.slice(i, i + DB_BATCH_SIZE);
-    const { error } = await supabase
-      .from('weather_readings')
-      .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
-    if (error)
-      throw new Error(
-        `[weather-ingest] Supabase upsert failed (batch ${Math.floor(i / DB_BATCH_SIZE) + 1}): ${error.message}`,
-      );
+    const batchNum = Math.floor(i / DB_BATCH_SIZE) + 1;
+    await pRetry(
+      async () => {
+        const { error } = await supabase
+          .from('weather_readings')
+          .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
+        if (error)
+          throw new AbortError(
+            `[weather-ingest] Supabase upsert failed (batch ${batchNum}): ${error.message}`,
+          );
+      },
+      {
+        retries: 3,
+        minTimeout: 1000,
+        factor: 2,
+        onFailedAttempt: (err) =>
+          console.warn(
+            `[weather-ingest] Supabase batch ${batchNum} attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+          ),
+      },
+    );
   }
   console.log(`[weather-ingest] Persisted ${readings.length} rows to weather_readings`);
+
+  // Set Redis directly: the ingest produces the exact value both weather routes serve
+  // verbatim (no join, deduplication, or projection needed), so we can warm both cache
+  // keys here rather than waiting for the first API request to repopulate them.
+  // Only cache complete grids — partial data from a rate-limited run must not poison Redis.
+  if (readings.length >= MIN_COMPLETE_POINTS) {
+    const windReadings = readings.map((r) => ({
+      lat: r.lat,
+      lng: r.lng,
+      wind_speed_kmh: r.wind_speed_kmh,
+      wind_direction_deg: r.wind_direction_deg,
+    }));
+    await Promise.all([
+      redis.set(weatherCacheKey(targetDate), readings, { ex: HISTORICAL_TTL_SECONDS }),
+      redis.set(windCacheKey(targetDate), windReadings, { ex: HISTORICAL_TTL_SECONDS }),
+    ]);
+    console.log(
+      `[weather-ingest] Stored in Redis as weather:${targetDate} and weather:wind:${targetDate} (TTL 7d)`,
+    );
+  } else {
+    console.warn(
+      `[weather-ingest] Only ${readings.length} points — below threshold (${MIN_COMPLETE_POINTS}), skipping Redis write`,
+    );
+  }
 
   return { stored: readings.length };
 }

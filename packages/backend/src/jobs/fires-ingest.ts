@@ -49,15 +49,27 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
     source: 'VIIRS_SNPP_NRT',
   }));
 
-  const { error } = await supabase
-    .from('fire_points')
-    .upsert(records, { onConflict: 'detected_at,lat,lng', ignoreDuplicates: true });
+  await pRetry(
+    async () => {
+      const { error } = await supabase
+        .from('fire_points')
+        .upsert(records, { onConflict: 'detected_at,lat,lng', ignoreDuplicates: true });
+      if (error) throw new AbortError(`[fires-ingest] Supabase upsert failed: ${error.message}`);
+    },
+    {
+      retries: 3,
+      minTimeout: 1000,
+      factor: 2,
+      onFailedAttempt: (err) =>
+        console.warn(
+          `[fires-ingest] Supabase upsert attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+        ),
+    },
+  );
 
-  if (error) {
-    throw new Error(`[fires-ingest] Supabase upsert failed: ${error.message}`);
-  }
-
-  // Invalidate the Redis cache for this date so the next API request re-fetches from Supabase.
+  // Invalidate rather than set: the fires route paginates and applies bbox filtering before
+  // caching, so the cached value is not the raw upserted rows. Deleting the key lets the
+  // route repopulate with the correct shape on the next request.
   await redis.del(`fires:date:${targetDate}`);
 
   console.log(`[fires-ingest] Upserted ${records.length} rows (duplicates silently skipped)`);
