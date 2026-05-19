@@ -30,7 +30,7 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     },
     {
       retries: 3,
-      minTimeout: 2000,
+      minTimeout: 2 * 60 * 1000,
       factor: 2,
       onFailedAttempt: (err) =>
         console.warn(

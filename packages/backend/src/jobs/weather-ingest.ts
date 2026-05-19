@@ -50,7 +50,7 @@ export async function runWeatherIngest(
     },
     {
       retries: 3,
-      minTimeout: 2000,
+      minTimeout: 2 * 60 * 1000,
       factor: 2,
       onFailedAttempt: (err) =>
         console.warn(

@@ -82,6 +82,7 @@ async function fetchWeatherBatch(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: requestBody,
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (res.status !== 429) break;
@@ -241,7 +242,7 @@ async function fetchAQBatch(
 
   let res: Response | undefined;
   for (let attempt = 0; attempt <= AQ_RETRY_DELAYS_MS.length; attempt++) {
-    res = await fetch(url);
+    res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (res.status !== 429) break;
 
     const body = (await res.json().catch(() => null)) as { reason?: string } | null;
