@@ -1,4 +1,54 @@
 import { Fragment } from 'react';
+
+// Widths for the four weather-table columns (date / wind / rain / humid).
+// Vary per row so adjacent rows don't look like a solid block.
+const SHIMMER_ROWS: [string, string, string, string][] = [
+  ['w-8', 'w-14', 'w-5', 'w-5'],
+  ['w-9', 'w-12', 'w-4', 'w-6'],
+  ['w-8', 'w-16', 'w-5', 'w-5'],
+  ['w-9', 'w-11', 'w-6', 'w-4'],
+  ['w-8', 'w-13', 'w-4', 'w-5'],
+];
+
+export function ShimmerHistory() {
+  return (
+    <>
+      {/* Bar chart ghost — same height as the real chart (48px bars + 16px labels) */}
+      <div className="flex items-end gap-[2px] h-[64px]">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-t-sm animate-pulse bg-gray-100"
+            style={{ height: `${24 + (i % 3) * 12}px` }}
+          />
+        ))}
+      </div>
+
+      {/* Weather section ghost — mirrors the "Weather" header + 6-row grid */}
+      <div className="mt-3">
+        {/* "Weather" label placeholder */}
+        <div className="h-[10px] w-12 rounded animate-pulse bg-gray-100 mb-2" />
+
+        {/* Column-header row + 5 data rows */}
+        <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
+          {/* Header row */}
+          {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
+            <div key={j} className={`h-[10px] rounded animate-pulse bg-gray-100 ${w}`} />
+          ))}
+
+          {/* 5 data rows */}
+          {SHIMMER_ROWS.map((cols, i) => (
+            <Fragment key={i}>
+              {cols.map((w, j) => (
+                <div key={j} className={`h-[10px] rounded animate-pulse bg-gray-100 ${w}`} />
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToRgb } from '../../../lib/aqiColors';
 import { degToCompass } from '../../../lib/ambient';
