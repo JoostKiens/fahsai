@@ -31,6 +31,11 @@ const CENTER: [number, number] = [101.0, 15.5];
 const ZOOM = 5.5;
 const MIN_ZOOM = 4.0;
 const MAX_BOUNDS: mapboxgl.LngLatBoundsLike = [...VIEWPORT_BBOX];
+const CUSTOM_ATTRIBUTION = [
+  'NASA FIRMS',
+  '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
+  '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
+];
 
 function detectBeforeId(map: mapboxgl.Map): string | undefined {
   const layers = map.getStyle().layers ?? [];
@@ -52,6 +57,7 @@ export function MapView() {
   // that would corrupt Mapbox's MSAA resolve of admin borders.
   const [dataOverlay, setDataOverlay] = useState<MapboxOverlay | null>(null);
   const [windOverlay, setWindOverlay] = useState<MapboxOverlay | null>(null);
+  const [compactAttribution, setCompactAttribution] = useState(false);
 
   const { data: fires } = useFires();
   const { data: aqi } = useAQI();
@@ -75,6 +81,27 @@ export function MapView() {
   const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
   const powerPlantIconSize = iconSizeForZoom(zoom);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setCompactAttribution(entry.contentRect.width <= 800);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!map) return;
+    const ctrl = new mapboxgl.AttributionControl({
+      compact: compactAttribution,
+      customAttribution: CUSTOM_ATTRIBUTION,
+    });
+    map.addControl(ctrl);
+    return () => {
+      map.removeControl(ctrl);
+    };
+  }, [map, compactAttribution]);
 
   useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
   const { data: latestDate } = useLatestDate();
@@ -220,16 +247,6 @@ export function MapView() {
       projection: 'mercator',
       attributionControl: false,
     });
-
-    mapInstance.addControl(
-      new mapboxgl.AttributionControl({
-        customAttribution: [
-          'NASA FIRMS',
-          '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
-          '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
-        ],
-      }),
-    );
 
     mapInstance.on('load', () => {
       if (!mounted) return;
