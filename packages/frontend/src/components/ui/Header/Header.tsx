@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../../../store/uiStore';
+
+const SCRUBBER_RANGE_OPTIONS = [30, 60, 90, 120] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
@@ -154,6 +156,8 @@ export function Header() {
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const scrubberDays = useUIStore((s) => s.scrubberDays);
+  const setScrubberDays = useUIStore((s) => s.setScrubberDays);
 
   return (
     <>
@@ -221,9 +225,24 @@ export function Header() {
 
       {/* Settings modal */}
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Settings">
-        <p className="text-[13px] text-gray-500">
-          No settings configured yet. Units, theme, and other preferences will appear here.
-        </p>
+        <div>
+          <p className="text-[11px] font-medium text-gray-700 mb-2">Date range</p>
+          <div className="inline-flex rounded-md border border-gray-200 divide-x divide-gray-200 overflow-hidden">
+            {SCRUBBER_RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setScrubberDays(opt)}
+                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  scrubberDays === opt
+                    ? 'bg-teal-700 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {opt}d
+              </button>
+            ))}
+          </div>
+        </div>
       </Modal>
     </>
   );

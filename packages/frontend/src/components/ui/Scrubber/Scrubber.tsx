@@ -4,7 +4,6 @@ import { useTimeStore } from '../../../store/timeStore';
 import { useLatestDate } from '../../../hooks/useLatestDate';
 import { PlayButton } from './PlayButton';
 
-const DAYS = 30;
 const PLAY_INTERVAL_MS = 800;
 const DEBOUNCE_MS = 300;
 
@@ -28,6 +27,7 @@ function formatTickDate(dateStr: string): string {
 export function Scrubber() {
   const scrubberDay = useUIStore((s) => s.scrubberDay);
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
+  const scrubberDays = useUIStore((s) => s.scrubberDays);
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
@@ -37,7 +37,7 @@ export function Scrubber() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingRef = useRef(false);
 
-  const dateStr = dayToDate(scrubberDay, latestDate);
+  const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
 
   // Debounced timeStore sync
   useEffect(() => {
@@ -55,7 +55,8 @@ export function Scrubber() {
     if (playing) {
       intervalRef.current = setInterval(() => {
         const current = useUIStore.getState().scrubberDay;
-        setScrubberDay(current >= DAYS - 1 ? 0 : current + 1);
+        const days = useUIStore.getState().scrubberDays;
+        setScrubberDay(current >= days - 1 ? 0 : current + 1);
       }, PLAY_INTERVAL_MS);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -103,7 +104,7 @@ export function Scrubber() {
         <input
           type="range"
           min={0}
-          max={DAYS - 1}
+          max={scrubberDays - 1}
           step={1}
           value={scrubberDay}
           onChange={handleSliderChange}
@@ -115,10 +116,12 @@ export function Scrubber() {
         />
         <div className="hidden md:flex justify-between mt-0.5">
           <span className="text-[10px] text-gray-400">
-            {formatTickDate(dayToDate(0, latestDate))}
+            {formatTickDate(dayToDate(0, latestDate, scrubberDays))}
           </span>
           <span className="text-[10px] text-gray-400">
-            {formatTickDate(dayToDate(Math.floor((DAYS - 1) / 2), latestDate))}
+            {formatTickDate(
+              dayToDate(Math.floor((scrubberDays - 1) / 2), latestDate, scrubberDays),
+            )}
           </span>
           <span className="text-[10px] text-gray-400">
             {latestDate ? `${formatTickDate(latestDate)} · UTC+7` : '—'}
