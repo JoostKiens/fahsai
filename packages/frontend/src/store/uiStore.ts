@@ -2,7 +2,14 @@ import { create } from 'zustand';
 
 export interface SelectedPoint {
   lngLat: [number, number];
-  fire?: { frp: number | null; confidence: string | null; countryId: string; detectedAt: string };
+  fire?: {
+    frp: number | null;
+    confidence: string | null;
+    countryId: string;
+    detectedAt: string;
+    fireType: number | null;
+    daynight: string | null;
+  };
   station?: {
     stationId: string;
     stationName: string;
