@@ -13,25 +13,27 @@ export function Sidebar() {
       role="complementary"
       aria-label="Map layers"
       initial={false}
-      animate={{ x: sidebarOpen ? 0 : -240 }}
+      animate={{ width: sidebarOpen ? 240 : 0 }}
       transition={SPRING}
-      className="absolute left-0 top-0 bottom-0 w-[240px] bg-white border-r border-gray-200 flex-col z-20 pointer-events-auto hidden md:flex"
+      className="hidden md:flex flex-shrink-0 overflow-hidden z-20 pointer-events-auto"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <span className="text-sm font-semibold text-gray-800">Layers</span>
-        <button
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Collapse sidebar"
-          className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-        >
-          <ChevronLeftIcon />
-        </button>
-      </div>
+      <div className="w-[240px] flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-800">Layers</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Collapse sidebar"
+            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          >
+            <ChevronLeftIcon />
+          </button>
+        </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        <LayerGroups />
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          <LayerGroups />
+        </div>
       </div>
     </motion.aside>
   );

@@ -67,7 +67,6 @@ export function MapView() {
 
   const deckPickedRef = useRef(false);
 
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const zoom = useUIStore((s) => s.mapZoom);
@@ -80,12 +79,6 @@ export function MapView() {
   useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
   const { data: latestDate } = useLatestDate();
   usePrefetchAdjacentDates(latestDate);
-
-  // Sync map padding with sidebar state
-  useEffect(() => {
-    if (!map) return;
-    map.easeTo({ padding: { left: sidebarOpen ? 240 : 0 }, duration: 300 });
-  }, [map, sidebarOpen]);
 
   // Heatmap layers — interleaved overlay only; beforeId keeps them below admin borders.
   useEffect(() => {
@@ -240,7 +233,6 @@ export function MapView() {
 
     mapInstance.on('load', () => {
       if (!mounted) return;
-      mapInstance.setPadding({ left: 240 });
       beforeIdRef.current = detectBeforeId(mapInstance);
 
       // Non-interleaved canvases stack in addControl order (first = bottom).
