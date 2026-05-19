@@ -123,7 +123,7 @@ export function InfoPanel() {
     <div
       role="region"
       aria-label="Point details"
-      className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-xl z-20 pointer-events-auto"
+      className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
     >
       <AnimatePresence mode="wait">
         {!selectedPoint ? (
