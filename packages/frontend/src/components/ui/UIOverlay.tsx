@@ -1,7 +1,6 @@
 import { Sidebar, SidebarReopenButton } from './Sidebar/Sidebar';
 import { SidebarToggleFAB } from './SidebarToggleFAB/SidebarToggleFAB';
 import { InfoPanel } from './InfoPanel/InfoPanel';
-import { AttributionBar } from './AttributionBar';
 
 export function UIOverlay() {
   return (
@@ -10,7 +9,6 @@ export function UIOverlay() {
       <SidebarReopenButton />
       <SidebarToggleFAB />
       <InfoPanel />
-      <AttributionBar />
     </div>
   );
 }
