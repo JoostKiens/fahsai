@@ -7,7 +7,6 @@ export interface SelectedPoint {
     confidence: string | null;
     countryId: string;
     detectedAt: string;
-    fireType: number | null;
     daynight: string | null;
   };
   station?: {

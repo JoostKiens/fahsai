@@ -46,7 +46,6 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
     satellite: row.satellite,
     confidence: row.confidence,
     daynight: row.daynight,
-    fire_type: row.fireType,
     source: 'VIIRS_SNPP_NRT',
   }));
 

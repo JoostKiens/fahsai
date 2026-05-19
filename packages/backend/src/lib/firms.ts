@@ -10,7 +10,6 @@ export interface FirmsRow {
   satellite: string;
   confidence: string;
   daynight: string;
-  fireType: number | null; // not present in FIRMS area API response — always null
   countryId: string | null; // not present in FIRMS area API response — always null
 }
 
@@ -42,7 +41,7 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
 // Actual VIIRS SNPP NRT area API columns (confirmed from live response):
 // latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,
 // instrument,confidence,version,bright_ti5,frp,daynight
-// Note: 'type' (fire_type) and 'country_id' are NOT included in area API responses.
+// Note: 'country_id' is NOT included in area API responses.
 function parseFirmsCsv(csv: string): FirmsRow[] {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return []; // header only or empty
@@ -82,7 +81,6 @@ function parseFirmsCsv(csv: string): FirmsRow[] {
       satellite: cols[iSatellite]?.trim() ?? '',
       confidence: cols[iConfidence]?.trim() ?? '',
       daynight: cols[iDaynight]?.trim() ?? '',
-      fireType: null,
       countryId: null,
     });
   }
