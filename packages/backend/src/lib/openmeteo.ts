@@ -315,12 +315,37 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
   );
 
   // Run batches sequentially with a polite pause between each to avoid burst rate-limiting.
-  // 16 batches × 3 s = ~48 s total — acceptable for a background ingest job.
+  // 16 batches × 35 s = ~9 min total — acceptable for a background ingest job.
+  // Each batch gets up to AQ_BATCH_CONNECT_RETRIES retries on ETIMEDOUT/connection errors
+  // so that a transient rate-limit on one batch doesn't restart the whole 16-batch sequence.
+  const AQ_BATCH_CONNECT_RETRIES = 3;
+  const AQ_BATCH_CONNECT_RETRY_DELAY_MS = 60_000;
+
   const results: PM25GridPoint[] = [];
   for (let i = 0; i < batches.length; i += AQ_BATCH_CONCURRENCY) {
     if (i > 0) await new Promise((r) => setTimeout(r, AQ_BATCH_PAUSE_MS));
     const chunk = batches.slice(i, i + AQ_BATCH_CONCURRENCY);
-    const chunkResults = await Promise.all(chunk.map((b) => fetchAQBatch(b.lats, b.lngs, date)));
+
+    const chunkResults = await Promise.all(
+      chunk.map(async (b) => {
+        for (let attempt = 0; attempt <= AQ_BATCH_CONNECT_RETRIES; attempt++) {
+          try {
+            return await fetchAQBatch(b.lats, b.lngs, date);
+          } catch (err) {
+            const isConnectionError =
+              err instanceof Error &&
+              (err.message.includes('fetch failed') || err.message.includes('ETIMEDOUT'));
+            if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
+            console.warn(
+              `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
+            );
+            await new Promise((r) => setTimeout(r, AQ_BATCH_CONNECT_RETRY_DELAY_MS));
+          }
+        }
+        throw new Error('[openmeteo] unreachable');
+      }),
+    );
+
     for (const points of chunkResults) {
       results.push(...points);
     }
