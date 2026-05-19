@@ -22,8 +22,8 @@ export interface AqiCategory {
 }
 
 export const AQI_CATEGORIES: AqiCategory[] = [
-  { label: 'Good', range: '0–12', rgb: [0, 228, 0], borderRgb: [0, 182, 0] },
-  { label: 'Moderate', range: '12–35', rgb: [255, 255, 0], borderRgb: [204, 204, 0] },
+  { label: 'Good', range: '0–12', rgb: [88, 196, 88], borderRgb: [70, 157, 70] },
+  { label: 'Moderate', range: '12–35', rgb: [240, 210, 50], borderRgb: [192, 168, 40] },
   {
     label: 'Unhealthy for sensitive groups',
     range: '35–55',
