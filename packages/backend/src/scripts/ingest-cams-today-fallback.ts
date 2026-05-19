@@ -3,7 +3,11 @@ import { supabase } from '../db/client.js';
 import { runCamsIngest } from '../jobs/cams-ingest.js';
 
 const MIN_COMPLETE_POINTS = 4000;
-const today = new Date().toISOString().slice(0, 10);
+// Fallback runs at 01:00 UTC — already the next calendar day — so "today" for
+// this script is yesterday relative to the primary cron that ran at 23:00 UTC.
+const d = new Date();
+d.setUTCDate(d.getUTCDate() - 1);
+const today = d.toISOString().slice(0, 10);
 
 try {
   const { count, error } = await supabase
