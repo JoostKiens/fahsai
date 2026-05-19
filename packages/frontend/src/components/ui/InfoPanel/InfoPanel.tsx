@@ -12,7 +12,7 @@ import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../lib/
 import { useCamsGrid } from '../../../hooks/useCamsGrid';
 import { useAQI } from '../../../hooks/useAQI';
 import { useWind } from '../../../hooks/useWind';
-import { History } from './History';
+import { History, ShimmerHistory } from './History';
 import { WindArrow } from './WindArrow';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -357,7 +357,7 @@ function StationPanel({
             <span className="normal-case tracking-normal text-gray-400">µg/m³</span>
           </p>
           {history.status === 'loading' || !history.data ? (
-            <ShimmerBars />
+            <ShimmerHistory />
           ) : (
             <History days={history.data} />
           )}
@@ -463,22 +463,6 @@ function PowerPlantPanel({
       )}
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
     </>
-  );
-}
-
-// --- Shimmer placeholder (5 bars) ---
-
-function ShimmerBars() {
-  return (
-    <div className="flex items-end gap-[2px] h-[64px]">
-      {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-t-sm animate-pulse bg-gray-100"
-          style={{ height: `${24 + (i % 3) * 12}px` }}
-        />
-      ))}
-    </div>
   );
 }
 
