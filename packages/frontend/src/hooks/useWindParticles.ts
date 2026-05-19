@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
 import { PathLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
@@ -18,7 +17,7 @@ const ANIM_SCALE = 0.0015;
 const TRAIL_SPEED_REF = 13; // km/h
 // Maximum alpha for a fresh particle head (0–255). Trail fades linearly to 0.
 // 176 = 220 * 0.8 — reduced to 80% to soften visual intensity.
-const PARTICLE_START_ALPHA = 150;
+const PARTICLE_START_ALPHA = 170;
 const BASE_ZOOM = 5.5;
 const MIN_AGE = 80;
 const MAX_AGE = 220;
