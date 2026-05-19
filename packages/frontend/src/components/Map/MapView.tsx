@@ -75,6 +75,7 @@ export function MapView() {
 
   const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
+  const powerPlantIconSize = iconSizeForZoom(zoom);
 
   useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
   const { data: latestDate } = useLatestDate();
@@ -124,7 +125,14 @@ export function MapView() {
 
     const layers =
       powerPlantsConfig.visible && powerPlants
-        ? [createPowerPlantsLayer(powerPlants, powerPlantsConfig.opacity, zoom, onPowerPlantClick)]
+        ? [
+            createPowerPlantsLayer(
+              powerPlants,
+              powerPlantsConfig.opacity,
+              powerPlantIconSize,
+              onPowerPlantClick,
+            ),
+          ]
         : [];
 
     powerPlantsOverlay.setProps({ layers });
@@ -133,7 +141,7 @@ export function MapView() {
     powerPlants,
     powerPlantsConfig.visible,
     powerPlantsConfig.opacity,
-    iconSizeForZoom(zoom),
+    powerPlantIconSize,
     setSelectedPoint,
   ]);
 
