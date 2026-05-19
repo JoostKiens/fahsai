@@ -1,26 +1,27 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import type { StationDayHistory } from '@thailand-aq/types';
 import { useUIStore } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
 import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
-import { pm25ToRgb, pm25ToCategory } from '../../../lib/aqiColors';
+import { pm25ToCategory } from '../../../lib/aqiColors';
 import { reverseGeocode } from '../../../lib/geocode';
+import { CountryFlag, alpha2ToIso3 } from '../../../lib/countryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../lib/ambient';
 import { useCamsGrid } from '../../../hooks/useCamsGrid';
 import { useAQI } from '../../../hooks/useAQI';
 import { useWind } from '../../../hooks/useWind';
+import { History } from './History';
+import { WindArrow } from './WindArrow';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const API = import.meta.env.VITE_API_BASE_URL;
 
-interface DayData {
-  date: string;
-  maxPm25: number;
-  readingCount: number;
-}
-
-type HistoryState = { status: 'idle' | 'loading' | 'success' | 'error'; data: DayData[] | null };
+type HistoryState = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  data: StationDayHistory[] | null;
+};
 
 export function InfoPanel() {
   const selectedPoint = useUIStore((s) => s.selectedPoint);
@@ -31,6 +32,7 @@ export function InfoPanel() {
   const { data: wind } = useWind();
 
   const [placeName, setPlaceName] = useState<string | null>(null);
+  const [geocodeCountryIso3, setGeocodeCountryIso3] = useState<string | null>(null);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [history, setHistory] = useState<HistoryState>({ status: 'idle', data: null });
 
@@ -39,12 +41,17 @@ export function InfoPanel() {
   useEffect(() => {
     if (!coordKey || !selectedPoint) {
       setPlaceName(null);
+      setGeocodeCountryIso3(null);
       return;
     }
     setPlaceName(null);
+    setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
     void reverseGeocode(selectedPoint.lngLat[0], selectedPoint.lngLat[1], TOKEN)
-      .then(setPlaceName)
+      .then(({ placeName: name, countryAlpha2 }) => {
+        setPlaceName(name);
+        setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
+      })
       .finally(() => setGeocodeLoading(false));
   }, [coordKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -57,23 +64,24 @@ export function InfoPanel() {
   }, [selectedDate, aqLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live measurement for the selected station — updates whenever AQI data refreshes.
-  // Falls back to the value baked in at click time while the new date is still loading.
   const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
   const displayStation =
     selectedPoint?.station && liveAqi
       ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
       : (selectedPoint?.station ?? null);
 
-  // Fetch 7-day history when a station or the selected date changes
+  // Fetch 5-day history when a station or the selected date changes
   useEffect(() => {
     if (!stationId) {
       setHistory({ status: 'idle', data: null });
       return;
     }
     setHistory({ status: 'loading', data: null });
-    fetch(`${API}/api/stations/${stationId}/history?days=7&date=${selectedDate}`)
+    fetch(`${API}/api/stations/${stationId}/history?days=5&date=${selectedDate}`)
       .then((r) => r.json())
-      .then((body: { days: DayData[] }) => setHistory({ status: 'success', data: body.days }))
+      .then((body: { days: StationDayHistory[] }) =>
+        setHistory({ status: 'success', data: body.days }),
+      )
       .catch(() => setHistory({ status: 'error', data: null }));
   }, [stationId, selectedDate]);
 
@@ -103,11 +111,19 @@ export function InfoPanel() {
       ? findNearestWind(wind, selectedPoint.lngLat[0], selectedPoint.lngLat[1])
       : null;
 
+  // Country for each panel type
+  const countryIso3 =
+    panelType === 'station'
+      ? (displayStation?.country ?? geocodeCountryIso3)
+      : panelType === 'powerPlant'
+        ? (selectedPoint?.powerPlant?.country ?? null)
+        : geocodeCountryIso3; // fire: from reverse geocode
+
   return (
     <div
       role="region"
       aria-label="Point details"
-      className="absolute top-3 right-3 w-[200px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-xl z-20 pointer-events-auto"
+      className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-xl z-20 pointer-events-auto"
     >
       <AnimatePresence mode="wait">
         {!selectedPoint ? (
@@ -142,6 +158,7 @@ export function InfoPanel() {
               geocodeLoading={geocodeLoading}
               stationName={displayStation?.stationName ?? null}
               plantName={selectedPoint.powerPlant?.name ?? null}
+              countryIso3={countryIso3}
               onClose={() => setSelectedPoint(null)}
             />
 
@@ -151,8 +168,6 @@ export function InfoPanel() {
               <StationPanel
                 station={displayStation}
                 lngLat={selectedPoint.lngLat}
-                aqPoint={aqPoint}
-                windVec={windVec}
                 history={history}
               />
             )}
@@ -182,6 +197,7 @@ function PanelHeader({
   geocodeLoading,
   stationName,
   plantName,
+  countryIso3,
   onClose,
 }: {
   panelType: string | null;
@@ -190,6 +206,7 @@ function PanelHeader({
   geocodeLoading: boolean;
   stationName: string | null;
   plantName: string | null;
+  countryIso3: string | null;
   onClose: () => void;
 }) {
   const badgeLabel =
@@ -204,25 +221,30 @@ function PanelHeader({
   return (
     <div className="flex items-start justify-between">
       <div className="min-w-0 flex-1 pr-2">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400 leading-tight mb-0.5">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-gray-500 leading-tight mb-0.5">
           {badgeLabel}
         </p>
         {panelType === 'station' && stationName && (
-          <p className="text-xs font-medium text-gray-700">{stationName}</p>
+          <p className="text-xs font-medium text-gray-800">{stationName}</p>
         )}
         {panelType === 'powerPlant' && plantName && (
-          <p className="text-xs font-medium text-gray-700 truncate">{plantName}</p>
+          <p className="text-xs font-medium text-gray-800 truncate">{plantName}</p>
         )}
         {geocodeLoading ? (
           <Shimmer className="h-3 w-24 mb-0.5 mt-0.5" />
         ) : placeName ? (
           <p
-            className={`truncate ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-400' : 'text-xs font-medium text-gray-700'}`}
+            className={`truncate inline-flex items-center gap-1 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-500' : 'text-xs font-medium text-gray-800'}`}
           >
-            {placeName}
+            <CountryFlag iso3={countryIso3} />
+            <span className="truncate">{placeName}</span>
+          </p>
+        ) : panelType === 'fire' ? (
+          <p className="inline-flex items-center gap-1 text-xs font-medium text-gray-800">
+            <CountryFlag iso3={countryIso3} />
           </p>
         ) : null}
-        <p className="text-[10px] font-mono text-gray-400 leading-tight">
+        <p className="text-[10px] text-gray-400 leading-tight">
           {lngLat[1].toFixed(4)}°N {lngLat[0].toFixed(4)}°E
         </p>
       </div>
@@ -237,7 +259,7 @@ function PanelHeader({
   );
 }
 
-// --- Secondary section (ambient AQ + wind) ---
+// --- Secondary section (ambient AQ + wind) — used by Fire and PowerPlant panels ---
 
 function SecondarySection({
   aqPoint,
@@ -251,21 +273,27 @@ function SecondarySection({
   return (
     <>
       <hr className="border-gray-100 my-2" />
-      <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-1">Ambient</p>
+      <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Ambient</p>
       {aqPoint && (
-        <div className="flex justify-between items-center text-xs py-1">
+        <Row>
           <span className="text-gray-500">PM2.5</span>
           <AqiBadge value={aqPoint.pm25} category={pm25ToCategory(aqPoint.pm25).label} />
-        </div>
+        </Row>
       )}
       {windVec && (
-        <div className="flex justify-between items-center text-xs py-1">
+        <Row>
           <span className="text-gray-500">Wind</span>
-          <span className="text-gray-800 font-medium">
+          <span className="text-[11px] text-gray-700 font-medium inline-flex items-center gap-1">
+            <WindArrow
+              dirDeg={windVec.wind_direction_deg}
+              size={10}
+              color="#374151"
+              strokeWidth={1.5}
+            />
             from {degToCompass(windVec.wind_direction_deg)} · {windVec.wind_speed_kmh.toFixed(1)}{' '}
             km/h
           </span>
-        </div>
+        </Row>
       )}
     </>
   );
@@ -276,19 +304,17 @@ function SecondarySection({
 function StationPanel({
   station,
   lngLat,
-  windVec,
   history,
 }: {
   station: {
     stationId: string;
     stationName: string;
+    country: string | null;
     pm25: number;
     unit: string;
     measuredAt: string;
   };
   lngLat: [number, number];
-  aqPoint: { pm25: number } | null;
-  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
   history: HistoryState;
 }) {
   const cat = pm25ToCategory(station.pm25);
@@ -303,6 +329,7 @@ function StationPanel({
       {station.measuredAt && (
         <Row>
           <span className="text-[11px] text-gray-400">
+            Measured at{' '}
             {new Date(station.measuredAt).toLocaleString('en-GB', {
               day: 'numeric',
               month: 'short',
@@ -313,19 +340,6 @@ function StationPanel({
           </span>
         </Row>
       )}
-      <SecondarySection windVec={windVec} />
-      {history.status !== 'idle' && history.status !== 'error' && (
-        <>
-          <hr className="border-gray-100 my-2" />
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-2">Last 7 days</p>
-          {history.status === 'loading' || !history.data ? (
-            <ShimmerBars />
-          ) : (
-            <HistoryChart days={history.data} />
-          )}
-        </>
-      )}
-      <hr className="border-gray-100 my-2" />
       <ExplainButton
         key={station.stationId}
         stationId={station.stationId}
@@ -333,7 +347,22 @@ function StationPanel({
         lng={lngLat[0]}
         globalQuotaExceeded={explainQuotaExceeded}
         onQuotaExceeded={() => setExplainQuotaExceeded(true)}
+        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors shadow-sm"
       />
+      {history.status !== 'idle' && history.status !== 'error' && (
+        <>
+          <hr className="border-gray-100 my-2" />
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            Last 5 days · PM2.5{' '}
+            <span className="normal-case tracking-normal text-gray-400">µg/m³</span>
+          </p>
+          {history.status === 'loading' || !history.data ? (
+            <ShimmerBars />
+          ) : (
+            <History days={history.data} />
+          )}
+        </>
+      )}
     </>
   );
 }
@@ -357,13 +386,13 @@ function FirePanel({
       <Row>
         <span className="text-gray-500">Intensity</span>
         <div className="text-right">
-          <div className="text-gray-800 font-medium text-xs">{intensity.label}</div>
+          <div className="text-[11px] text-gray-700 font-medium">{intensity.label}</div>
           {intensity.raw && <div className="text-[10px] text-gray-400">{intensity.raw}</div>}
         </div>
       </Row>
       <Row>
         <span className="text-gray-500">Confidence</span>
-        <span className="flex items-center gap-1 text-gray-800 font-medium">
+        <span className="flex items-center gap-1 text-[11px] text-gray-700 font-medium">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
             style={{ backgroundColor: conf.color }}
@@ -408,12 +437,12 @@ function PowerPlantPanel({
     <>
       <Row>
         <span className="text-gray-500">Fuel</span>
-        <span className="text-gray-800 font-medium">{plant.fuelType}</span>
+        <span className="text-[11px] text-gray-700 font-medium">{plant.fuelType}</span>
       </Row>
       {plant.capacityMw !== null && (
         <Row>
           <span className="text-gray-500">Capacity</span>
-          <span className="text-gray-800 font-medium">
+          <span className="text-[11px] text-gray-700 font-medium">
             {Math.round(plant.capacityMw).toLocaleString('en-US')} MW
           </span>
         </Row>
@@ -421,81 +450,28 @@ function PowerPlantPanel({
       {plant.owner && (
         <Row>
           <span className="text-gray-500">Owner</span>
-          <span className="text-gray-800 font-medium truncate max-w-[100px]">{plant.owner}</span>
+          <span className="text-[11px] text-gray-700 font-medium truncate max-w-[120px]">
+            {plant.owner}
+          </span>
         </Row>
       )}
       {plant.commissionedYear !== null && (
         <Row>
           <span className="text-gray-500">Built</span>
-          <span className="text-gray-800 font-medium">{plant.commissionedYear}</span>
+          <span className="text-[11px] text-gray-700 font-medium">{plant.commissionedYear}</span>
         </Row>
       )}
-      <Row>
-        <span className="text-gray-500">Country</span>
-        <span className="text-gray-800 font-medium">{plant.country}</span>
-      </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
     </>
   );
 }
 
-// --- History chart ---
-
-function HistoryChart({ days }: { days: DayData[] }) {
-  const MAX_BAR_H = 48;
-  const DAY_LABEL_H = 16;
-  const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
-
-  return (
-    <div className="flex items-stretch gap-1">
-      {/* Y-axis: max label at top, 0 label flush with bar baseline */}
-      <div
-        className="flex flex-col justify-between text-[9px] text-gray-400 text-right shrink-0"
-        style={{ paddingBottom: `${DAY_LABEL_H}px` }}
-      >
-        <span>{Math.round(maxPm25)}</span>
-        <span>0</span>
-      </div>
-
-      {/* Bars */}
-      <div
-        className="flex items-end gap-[2px] flex-1"
-        style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
-      >
-        {days.map(({ date, maxPm25: val, readingCount }) => {
-          const barH = readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
-          const [r, g, b] = pm25ToRgb(val);
-          const weekday = new Date(date + 'T00:00:00Z').toLocaleDateString('en', {
-            weekday: 'short',
-            timeZone: 'UTC',
-          });
-          return (
-            <div key={date} className="flex flex-col items-center flex-1">
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${barH}px`,
-                  backgroundColor: readingCount > 0 ? `rgb(${r},${g},${b})` : 'transparent',
-                  marginTop: `${MAX_BAR_H - barH}px`,
-                }}
-              />
-              <span
-                className={`text-[9px] mt-0.5 ${readingCount > 0 ? 'text-gray-400' : 'text-gray-200'}`}
-              >
-                {weekday.slice(0, 3)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// --- Shimmer placeholder (5 bars) ---
 
 function ShimmerBars() {
   return (
     <div className="flex items-end gap-[2px] h-[64px]">
-      {Array.from({ length: 7 }, (_, i) => (
+      {Array.from({ length: 5 }, (_, i) => (
         <div
           key={i}
           className="flex-1 rounded-t-sm animate-pulse bg-gray-100"
@@ -510,7 +486,9 @@ function ShimmerBars() {
 
 function Row({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div className="flex justify-between items-center text-xs py-1">{children}</motion.div>
+    <motion.div className="flex justify-between items-center text-[11px] py-1">
+      {children}
+    </motion.div>
   );
 }
 

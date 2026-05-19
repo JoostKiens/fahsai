@@ -6,6 +6,7 @@ export interface SelectedPoint {
   station?: {
     stationId: string;
     stationName: string;
+    country: string | null;
     pm25: number;
     unit: string;
     measuredAt: string;
