@@ -186,7 +186,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
         supabase
           .from('fire_points')
-          .select('lat, lng, frp, fire_type, detected_at')
+          .select('lat, lng, frp, detected_at')
           .gte('detected_at', since48h)
           .lt('detected_at', until)
           .gte('lat', lat - BOX_FIRE)
@@ -265,7 +265,6 @@ export function explainRoutes(app: FastifyInstance): void {
         lat: number;
         lng: number;
         frp: number | null;
-        fire_type: number | null;
         detected_at: string;
       };
       const fires = ((fireRows.data as unknown as FireRow[] | null) ?? [])
@@ -284,7 +283,6 @@ export function explainRoutes(app: FastifyInstance): void {
         quadrantFrp[q] += f.frp ?? 0;
       }
       const topFires = [...fires].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0)).slice(0, 5);
-      const vegFires = fires.filter((f) => f.fire_type === 0).length;
 
       // --- peers context ---
       type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
@@ -331,7 +329,7 @@ export function explainRoutes(app: FastifyInstance): void {
         fires.length === 0
           ? `No fires detected within ${effectiveRadiusKm} km in the last 48 hours`
           : [
-              `${fires.length} fire detections (${vegFires} vegetation, ${fires.length - vegFires} other)`,
+              `${fires.length} fire detections nearby`,
               `Total FRP: ${fires.reduce((s, f) => s + (f.frp ?? 0), 0).toFixed(0)} MW`,
               `By quadrant — N: ${quadrantCounts.N} fires (${quadrantFrp.N.toFixed(0)} MW), E: ${quadrantCounts.E} (${quadrantFrp.E.toFixed(0)} MW), S: ${quadrantCounts.S} (${quadrantFrp.S.toFixed(0)} MW), W: ${quadrantCounts.W} (${quadrantFrp.W.toFixed(0)} MW)`,
               topFires.length

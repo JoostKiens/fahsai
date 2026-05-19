@@ -378,7 +378,6 @@ function FirePanel({
     frp: number | null;
     confidence: string | null;
     detectedAt: string;
-    fireType: number | null;
     daynight: string | null;
   };
   aqPoint: { pm25: number } | null;
@@ -386,7 +385,6 @@ function FirePanel({
 }) {
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
-  const type = fireTypeLabel(fire.fireType);
   const dn = daynightLabel(fire.daynight);
 
   return (
@@ -408,12 +406,6 @@ function FirePanel({
           {conf.label}
         </span>
       </Row>
-      {type && (
-        <Row>
-          <span className="text-gray-500">Type</span>
-          <span className="text-gray-700 font-medium">{type}</span>
-        </Row>
-      )}
       <Row>
         <span className="text-[11px] text-gray-400">
           Detected at{' '}
@@ -514,17 +506,6 @@ function frpToIntensity(frp: number | null): { label: string; raw: string | null
   if (frp < 50) return { label: 'Moderate fire', raw: `(${frp.toFixed(0)} MW)` };
   if (frp < 200) return { label: 'Large fire', raw: `(${frp.toFixed(0)} MW)` };
   return { label: 'Extreme fire', raw: `(${frp.toFixed(0)} MW)` };
-}
-
-const FIRE_TYPE_LABELS: Record<number, string> = {
-  0: 'Vegetation',
-  1: 'Volcano',
-  2: 'Industrial source',
-  3: 'Offshore flare',
-};
-
-function fireTypeLabel(t: number | null | undefined): string | null {
-  return t == null ? null : (FIRE_TYPE_LABELS[t] ?? null);
 }
 
 function daynightLabel(dn: string | null | undefined): string | null {

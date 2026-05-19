@@ -197,14 +197,12 @@ create table fire_points (
   satellite    text,             -- 'N' = Suomi-NPP, '1' = NOAA-20
   confidence   text,             -- 'low', 'nominal', 'high'
   daynight     text,             -- 'D' or 'N'
-  fire_type    int2,             -- 0=vegetation, 1=volcano, 2=static land, 3=offshore
   source       text default 'VIIRS_SNPP_NRT',
   created_at   timestamptz default now()
 );
 create index on fire_points using gist(location);
 create index on fire_points (detected_at);
 create index on fire_points (country_id);
-create index on fire_points (fire_type);
 create index on fire_points (confidence);
 
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
@@ -325,7 +323,7 @@ needed (format: `west,south,east,north`, default: `89,1,114,30`).
 ```
 GET /api/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.
-  Supports optional query params: confidence=high,nominal  fire_type=0,2
+  Supports optional query params: confidence=high,nominal
 
 GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
   Returns fire points for a date range (used by time scrubber). Max 10 days.
@@ -381,7 +379,6 @@ export interface FirePoint {
   satellite: string | null; // 'N' = Suomi-NPP, '1' = NOAA-20
   confidence: string | null; // 'low' | 'nominal' | 'high'
   daynight: string | null; // 'D' | 'N'
-  fireType: number | null; // 0=vegetation, 1=volcano, 2=static land, 3=offshore
 }
 
 // station.ts
@@ -722,35 +719,8 @@ pnpm lint
 - Vitest: packages/backend (node env) and packages/frontend (jsdom env)
 - .vscode/settings.json: formatOnSave, eslint fixOnSave, rulers at 100
 
-## fire_type classification
+## Fire filtering
 
-The VIIRS FIRMS API returns a `fire_type` field for each detection.
-Do not use this field to filter out sources — use it to categorize and
-visualize sources separately. All types except volcanoes are potentially
-relevant to air pollution in the region.
-
-| Value | Label              | Relevant    | Notes                                                            |
-| ----- | ------------------ | ----------- | ---------------------------------------------------------------- |
-| 0     | Vegetation fire    | ✅ yes      | Agricultural burning, forest fires — primary cross-border source |
-| 1     | Active volcano     | ❌ no       | No active volcanoes in Thailand/Myanmar/Laos/Cambodia region     |
-| 2     | Static land source | ✅ yes      | Industrial facilities, refineries, power plants                  |
-| 3     | Offshore           | ✅ possibly | Offshore gas flaring in Gulf of Thailand                         |
-
-### Visualization implications
-
-- Do not pre-filter by fire_type during ingestion — store all detections
-- Expose fire_type as a filter in the sidebar UI so users can toggle
-  categories independently
-- Consider color-coding by fire_type as an alternative or addition to
-  color-coding by country
-- The distinction between type 0 (vegetation) and type 2 (industrial) is
-  analytically important: it helps separate agricultural burning narratives
-  from industrial pollution narratives, both of which are relevant to the
-  blame-shifting context this project addresses
-
-### Filtering recommendation
-
-The `confidence` field is the more appropriate field for filtering out
-noise. Filter to `confidence IN ('nominal', 'high')` by default in the
-UI, with an option to include low-confidence detections. Do not use
-fire_type as a quality filter.
+The `confidence` field is the appropriate field for filtering out noise.
+Filter to `confidence IN ('nominal', 'high')` by default in the UI, with
+an option to include low-confidence detections.
