@@ -18,7 +18,10 @@ const TRAIL_SPEED_REF = 13; // km/h
 // Maximum alpha for a fresh particle head (0–255). Trail fades linearly to 0.
 // 176 = 220 * 0.8 — reduced to 80% to soften visual intensity.
 const PARTICLE_START_ALPHA = 170;
+const PARTICLE_START_ALPHA_MAX = 240;
 const BASE_ZOOM = 5.5;
+const ZOOM_PLATEAU = 9;
+const TRAIL_LENGTH_MAX = 35;
 const MIN_AGE = 80;
 const MAX_AGE = 220;
 
@@ -185,6 +188,7 @@ function stepParticles(
   dtScale: number,
   spawnViewport: Viewport,
   gridMap: Map<string, number> | null,
+  trailLength: number,
 ): void {
   for (const p of particles) {
     const [dx, dy] = sampleWind(p.lng, p.lat, grid);
@@ -197,8 +201,8 @@ function stepParticles(
     const speed = Math.sqrt(dx * dx + dy * dy); // == wind_speed_kmh at this cell
     const maxTrail =
       speed > TRAIL_SPEED_REF
-        ? Math.max(2, Math.round(TRAIL_LENGTH * Math.sqrt(TRAIL_SPEED_REF / speed)))
-        : TRAIL_LENGTH;
+        ? Math.max(2, Math.round(trailLength * Math.sqrt(TRAIL_SPEED_REF / speed)))
+        : trailLength;
     if (p.trail.length > maxTrail) p.trail.length = maxTrail;
     p.age++;
 
@@ -221,6 +225,11 @@ function stepParticles(
       p.color = fresh.color;
     }
   }
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -318,14 +327,21 @@ export function useWindParticles(
       } else {
         const zoomScale = Math.pow(2, BASE_ZOOM - zoom);
         const dtScale = (dt / 16.67) * zoomScale;
-        stepParticles(particles, grid, dtScale, viewport, gridMap);
+        const zoomT = smoothstep(BASE_ZOOM, ZOOM_PLATEAU, zoom);
+        const dynamicAlpha = Math.round(
+          PARTICLE_START_ALPHA + zoomT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
+        );
+        const dynamicTrailLength = Math.round(
+          TRAIL_LENGTH + zoomT * (TRAIL_LENGTH_MAX - TRAIL_LENGTH),
+        );
+        stepParticles(particles, grid, dtScale, viewport, gridMap, dynamicTrailLength);
 
         const layer = new PathLayer<Particle>({
           id: 'wind-particles',
           data: particles.filter((p) => p.trail.length >= 2),
           getPath: (p) => p.trail,
           getColor: (p) =>
-            [...p.color, Math.round(opacity * PARTICLE_START_ALPHA * (1 - p.age / p.maxAge))] as [
+            [...p.color, Math.round(opacity * dynamicAlpha * (1 - p.age / p.maxAge))] as [
               number,
               number,
               number,
