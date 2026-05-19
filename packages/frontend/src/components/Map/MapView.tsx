@@ -174,6 +174,7 @@ export function MapView() {
         station: {
           stationId: d.stationId,
           stationName: d.stationName,
+          country: d.country,
           pm25: d.value,
           unit: d.unit,
           measuredAt: d.measuredAt,

@@ -9,6 +9,8 @@ interface Props {
   lng: number;
   globalQuotaExceeded: boolean;
   onQuotaExceeded: () => void;
+  /** Override the button element's className (replaces the default ghost-button style). */
+  className?: string;
 }
 
 export function ExplainButton({
@@ -17,6 +19,7 @@ export function ExplainButton({
   lng,
   globalQuotaExceeded,
   onQuotaExceeded,
+  className,
 }: Props) {
   const { text, loading, error, quotaExceeded, explain, reset } = useExplain();
   const selectedDate = useTimeStore((s) => s.selectedDate);
@@ -42,17 +45,19 @@ export function ExplainButton({
     if (!loading) void explain({ stationId, lat, lng, date: selectedDate });
   }
 
+  const defaultButtonClass = [
+    'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors',
+    isDisabled
+      ? 'border-gray-200 text-gray-300 bg-white cursor-not-allowed'
+      : 'border-teal-200 text-teal-600 bg-teal-50 hover:bg-teal-100',
+  ].join(' ');
+
   return (
     <div className="mt-2">
       <button
         onClick={handleClick}
         disabled={isDisabled}
-        className={[
-          'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors',
-          isDisabled
-            ? 'border-gray-200 text-gray-300 bg-white cursor-not-allowed'
-            : 'border-teal-200 text-teal-600 bg-teal-50 hover:bg-teal-100',
-        ].join(' ')}
+        className={className ?? defaultButtonClass}
       >
         {label}
       </button>

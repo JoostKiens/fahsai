@@ -8,6 +8,7 @@ export interface LatestMeasurement {
   stationName: string;
   lat: number;
   lng: number;
+  country: string | null;
   parameter: string;
   value: number;
   unit: string;
