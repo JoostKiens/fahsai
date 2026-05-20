@@ -114,7 +114,9 @@ export function InfoPanel() {
   // Country for each panel type
   const countryIso3 =
     panelType === 'station'
-      ? (displayStation?.country ?? geocodeCountryIso3)
+      ? displayStation?.country
+        ? (alpha2ToIso3(displayStation.country) ?? geocodeCountryIso3)
+        : geocodeCountryIso3
       : panelType === 'powerPlant'
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3; // fire: from reverse geocode
@@ -235,16 +237,16 @@ function PanelHeader({
           <p className="text-xs font-medium text-gray-800 truncate">{plantName}</p>
         )}
         {geocodeLoading ? (
-          <Shimmer className="h-3 w-24 mb-0.5 mt-0.5" />
+          <Shimmer className="h-4 w-28" />
         ) : placeName ? (
           <p
-            className={`truncate inline-flex items-center gap-1 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-500' : 'text-xs font-medium text-gray-800'}`}
+            className={`truncate flex items-center gap-1 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-500' : 'text-xs font-medium text-gray-800'}`}
           >
             <CountryFlag iso3={countryIso3} />
             <span className="truncate">{placeName}</span>
           </p>
         ) : panelType === 'fire' ? (
-          <p className="inline-flex items-center gap-1 text-xs font-medium text-gray-800">
+          <p className="flex items-center gap-1 text-xs font-medium text-gray-800">
             <CountryFlag iso3={countryIso3} />
           </p>
         ) : null}
