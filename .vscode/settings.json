@@ -19,6 +19,7 @@
     "mult",
     "NAAQS",
     "neighbour",
+    "neighbours",
     "NOAA",
     "OPENAQ",
     "openmeteo",
@@ -27,6 +28,7 @@
     "resourcewatch",
     "SNPP",
     "timestamptz",
+    "visualising",
     "winddirection",
     "windspeed",
     "zoomend"
