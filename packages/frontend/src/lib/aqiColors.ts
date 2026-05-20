@@ -80,12 +80,12 @@ export function contrastColor(rgb: RGB): RGBA {
 // Soft (tinted) backgrounds — used inside the InfoPanel badge and History bars only.
 // NOT used on the map, station dots, heatmap, or legend.
 const AQI_SOFT_BG: RGB[] = [
-  [220, 240, 220], // Good
-  [252, 244, 200], // Moderate
-  [255, 222, 188], // Unhealthy for sensitive groups
-  [255, 210, 210], // Unhealthy
-  [228, 210, 232], // Very unhealthy
-  [230, 200, 210], // Hazardous
+  [190, 230, 190], // Good
+  [250, 232, 145], // Moderate
+  [255, 200, 150], // Unhealthy for sensitive groups
+  [255, 175, 175], // Unhealthy
+  [208, 182, 218], // Very unhealthy
+  [218, 170, 190], // Hazardous
 ];
 
 // Dark category-colored text to sit on the soft backgrounds above.
