@@ -15,7 +15,10 @@ import { latestDateRoutes } from './routes/latest-date';
 const app = Fastify({ logger: true });
 
 await app.register(compress);
-await app.register(cors);
+const allowedOrigins = ['https://thailand-air-quality-map-frontend.vercel.app'];
+if (process.env.NODE_ENV !== 'production') allowedOrigins.push('http://localhost:5173');
+
+await app.register(cors, { origin: allowedOrigins, methods: ['GET', 'POST'] });
 await app.register(healthRoutes);
 await app.register(firesRoutes);
 await app.register(stationReadingsRoutes);
