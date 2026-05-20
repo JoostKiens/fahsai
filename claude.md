@@ -701,6 +701,33 @@ pnpm lint
   (the "causality" killer feature — build this after core layers are stable)
 - Year-over-year comparison — requires accumulating historical data from day one
 
+## Persisted user settings
+
+User-facing settings (those exposed in the Settings modal) are stored in
+`packages/frontend/src/store/settingsStore.ts` using Zustand's `persist` middleware.
+Settings are written to `localStorage` under the key `taqm:settings` and rehydrated
+automatically on app load — no manual `useEffect` needed.
+
+**To add a new setting:**
+
+1. Add the field and its setter to `SettingsStore` in `settingsStore.ts`.
+2. Set the default value in the `create(...)` initialiser.
+3. Bump `version` in the `persist` config and add a `migrate` function that handles
+   the old shape → new shape conversion (or returns the state unchanged if the field
+   is additive).
+4. Read the value in your component with `useSettingsStore((s) => s.myField)`.
+5. Expose the control in the Settings modal inside `Header.tsx`.
+
+**What belongs here vs. `uiStore`:**
+- `settingsStore` — user preferences that should survive a page reload (e.g. date range).
+- `uiStore` — transient session state that should reset on reload (e.g. modal open/closed,
+  selected map point, playing state).
+
+**Schema version history:**
+- `version: 1` — initial: `scrubberDays` (30 | 60 | 90 | 120)
+
+---
+
 ## Code style
 
 - Prettier for formatting, ESLint for code quality

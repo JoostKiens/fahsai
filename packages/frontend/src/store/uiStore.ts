@@ -37,8 +37,6 @@ interface UIStore {
   dismissHint: () => void;
   scrubberDay: number; // 0 = oldest day in range, scrubberDays-1 = latestDate
   setScrubberDay: (day: number) => void;
-  scrubberDays: number; // total days shown in the scrubber (30 | 60 | 90 | 120)
-  setScrubberDays: (days: number) => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
   mapZoom: number;
@@ -63,8 +61,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   dismissHint: () => set({ hintDismissed: true }),
   scrubberDay: 29,
   setScrubberDay: (day) => set({ scrubberDay: day }),
-  scrubberDays: 30,
-  setScrubberDays: (days) => set({ scrubberDays: days, scrubberDay: days - 1 }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
   mapZoom: 5.5,
