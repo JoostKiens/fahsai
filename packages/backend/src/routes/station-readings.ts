@@ -7,6 +7,7 @@ import { parseBbox, DEFAULT_BBOX } from '../lib/bbox.js';
 const VALID_PARAMETERS = ['pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'] as const;
 const MAX_HISTORY_HOURS = 168; // 7 days
 const BKK_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
+const CURRENT_DATE_TTL_SECONDS = 3600;
 
 interface WeatherData {
   windSpeedKmh: number | null;
@@ -204,6 +205,15 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       // Anchor the window to the requested end date (BKK); default to today BKK.
       const endDateStr =
         req.query.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+      const todayBkk = new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+      const isHistorical = endDateStr < todayBkk;
+      const cacheKey = `station-history:${stationId}:${endDateStr}:${days}`;
+
+      const cached = await redis.get<{ stationId: string; days: DayData[] }>(cacheKey);
+      if (cached !== null) {
+        const ttl = isHistorical ? HISTORICAL_TTL_SECONDS : CURRENT_DATE_TTL_SECONDS;
+        return reply.header('Cache-Control', `public, max-age=${ttl}`).send(cached);
+      }
       const [yr, mo, dy] = endDateStr.split('-').map(Number);
       // UTC ms of BKK midnight for the end date (BKK midnight = UTC date - 7h)
       const endMidnightUtcMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS;
@@ -337,7 +347,12 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         });
       }
 
-      return reply.send({ stationId, days: result });
+      const ttl = isHistorical ? HISTORICAL_TTL_SECONDS : CURRENT_DATE_TTL_SECONDS;
+      await redis.set(cacheKey, { stationId, days: result }, { ex: ttl });
+
+      return reply
+        .header('Cache-Control', `public, max-age=${ttl}`)
+        .send({ stationId, days: result });
     },
   );
 }
