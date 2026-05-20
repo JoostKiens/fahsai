@@ -1,6 +1,7 @@
 import { SidebarReopenButton } from './Sidebar/Sidebar';
 import { SidebarToggleFAB } from './SidebarToggleFAB/SidebarToggleFAB';
 import { InfoPanel } from './InfoPanel/InfoPanel';
+import { HintPill } from './HintPill/HintPill';
 
 export function UIOverlay() {
   return (
@@ -8,6 +9,7 @@ export function UIOverlay() {
       <SidebarReopenButton />
       <SidebarToggleFAB />
       <InfoPanel />
+      <HintPill />
     </div>
   );
 }
