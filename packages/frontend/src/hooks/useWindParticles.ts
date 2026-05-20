@@ -145,7 +145,7 @@ const PARTICLE_COLORS: [number, number, number][] = [
   [168, 197, 160], // Good              — muted sage
   [240, 220, 100], // Moderate          — vivid gold
   [240, 165, 75], // Unhealthy (s)     — vivid orange
-  [240, 90, 90], // Unhealthy         — vivid red
+  [255, 120, 115], // Unhealthy         — coral-red (contrast against red CAMS background)
   [180, 130, 210], // Very unhealthy    — vivid purple
   [205, 80, 110], // Hazardous         — vivid rose
 ];
