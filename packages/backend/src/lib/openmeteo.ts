@@ -277,7 +277,11 @@ async function fetchAQBatch(
   }
 
   if (!res?.ok) {
-    throw new Error(`Open-Meteo Air Quality API error: ${res?.status} ${res?.statusText}`);
+    const status = res?.status ?? 'none';
+    const body = res ? await res.text().catch(() => '') : '';
+    const detail = body.slice(0, 300);
+    console.error(`[openmeteo] AQ batch HTTP ${status}: ${detail}`);
+    throw new Error(`Open-Meteo Air Quality API error: ${status} — ${detail || res?.statusText}`);
   }
 
   // API returns a single object when one location is requested, array for multiple.
@@ -338,7 +342,9 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
           } catch (err) {
             const isConnectionError =
               err instanceof Error &&
-              (err.message.includes('fetch failed') || err.message.includes('ETIMEDOUT'));
+              (err.message.includes('fetch failed') ||
+                err.message.includes('ETIMEDOUT') ||
+                (err as { name?: string }).name === 'TimeoutError');
             if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
             console.warn(
               `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
