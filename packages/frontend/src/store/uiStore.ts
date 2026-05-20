@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSettingsStore } from './settingsStore';
 
 export interface SelectedPoint {
   lngLat: [number, number];
@@ -59,7 +60,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSelectedPoint: (p) => set({ selectedPoint: p, hintDismissed: p ? true : get().hintDismissed }),
   hintDismissed: false,
   dismissHint: () => set({ hintDismissed: true }),
-  scrubberDay: 29,
+  scrubberDay: useSettingsStore.getState().scrubberDays - 1,
   setScrubberDay: (day) => set({ scrubberDay: day }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
