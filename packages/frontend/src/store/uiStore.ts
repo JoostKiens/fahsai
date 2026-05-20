@@ -33,6 +33,8 @@ interface UIStore {
   toggleSidebar: () => void;
   selectedPoint: SelectedPoint | null;
   setSelectedPoint: (point: SelectedPoint | null) => void;
+  hintDismissed: boolean;
+  dismissHint: () => void;
   scrubberDay: number; // 0 = oldest day in range, scrubberDays-1 = latestDate
   setScrubberDay: (day: number) => void;
   scrubberDays: number; // total days shown in the scrubber (30 | 60 | 90 | 120)
@@ -51,12 +53,14 @@ interface UIStore {
   setSettingsOpen: (v: boolean) => void;
 }
 
-export const useUIStore = create<UIStore>((set) => ({
+export const useUIStore = create<UIStore>((set, get) => ({
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   selectedPoint: null,
-  setSelectedPoint: (point) => set({ selectedPoint: point }),
+  setSelectedPoint: (p) => set({ selectedPoint: p, hintDismissed: p ? true : get().hintDismissed }),
+  hintDismissed: false,
+  dismissHint: () => set({ hintDismissed: true }),
   scrubberDay: 29,
   setScrubberDay: (day) => set({ scrubberDay: day }),
   scrubberDays: 30,
