@@ -12,16 +12,11 @@ import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../lib/
 import { useCamsGrid } from '../../../hooks/useCamsGrid';
 import { useAQI } from '../../../hooks/useAQI';
 import { useWind } from '../../../hooks/useWind';
+import { useStationHistory } from '../../../hooks/useStationHistory';
 import { History, ShimmerHistory } from './History';
 import { WindArrow } from './WindArrow';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const API = import.meta.env.VITE_API_BASE_URL;
-
-type HistoryState = {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  data: StationDayHistory[] | null;
-};
 
 export function InfoPanel() {
   const selectedPoint = useUIStore((s) => s.selectedPoint);
@@ -34,7 +29,6 @@ export function InfoPanel() {
   const [placeName, setPlaceName] = useState<string | null>(null);
   const [geocodeCountryIso3, setGeocodeCountryIso3] = useState<string | null>(null);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [history, setHistory] = useState<HistoryState>({ status: 'idle', data: null });
 
   // Reverse geocode whenever coordinates change
   const coordKey = selectedPoint ? `${selectedPoint.lngLat[0]},${selectedPoint.lngLat[1]}` : null;
@@ -63,27 +57,14 @@ export function InfoPanel() {
     if (!aqData.find((m) => m.stationId === stationId)) setSelectedPoint(null);
   }, [selectedDate, aqLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
+
   // Live measurement for the selected station — updates whenever AQI data refreshes.
   const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
   const displayStation =
     selectedPoint?.station && liveAqi
       ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
       : (selectedPoint?.station ?? null);
-
-  // Fetch 5-day history when a station or the selected date changes
-  useEffect(() => {
-    if (!stationId) {
-      setHistory({ status: 'idle', data: null });
-      return;
-    }
-    setHistory({ status: 'loading', data: null });
-    fetch(`${API}/api/stations/${stationId}/history?days=5&date=${selectedDate}`)
-      .then((r) => r.json())
-      .then((body: { days: StationDayHistory[] }) =>
-        setHistory({ status: 'success', data: body.days }),
-      )
-      .catch(() => setHistory({ status: 'error', data: null }));
-  }, [stationId, selectedDate]);
 
   // Close on Escape
   useEffect(() => {
@@ -179,7 +160,8 @@ export function InfoPanel() {
             <StationPanel
               station={displayStation}
               lngLat={selectedPoint.lngLat}
-              history={history}
+              historyDays={historyDays}
+              historyLoading={historyLoading}
             />
           )}
           {selectedPoint.fire && (
@@ -322,7 +304,8 @@ function SecondarySection({
 function StationPanel({
   station,
   lngLat,
-  history,
+  historyDays,
+  historyLoading,
 }: {
   station: {
     stationId: string;
@@ -333,7 +316,8 @@ function StationPanel({
     measuredAt: string;
   };
   lngLat: [number, number];
-  history: HistoryState;
+  historyDays: StationDayHistory[] | undefined;
+  historyLoading: boolean;
 }) {
   const cat = pm25ToCategory(station.pm25);
   const explainQuotaExceeded = useUIStore((s) => s.explainQuotaExceeded);
@@ -367,18 +351,14 @@ function StationPanel({
         onQuotaExceeded={() => setExplainQuotaExceeded(true)}
         className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors shadow-sm"
       />
-      {history.status !== 'idle' && history.status !== 'error' && (
+      {(historyLoading || historyDays) && (
         <>
           <hr className="border-gray-100 my-2" />
           <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
             Last 5 days · PM2.5{' '}
             <span className="normal-case tracking-normal text-gray-400">µg/m³</span>
           </p>
-          {history.status === 'loading' || !history.data ? (
-            <ShimmerHistory />
-          ) : (
-            <History days={history.data} />
-          )}
+          {historyLoading || !historyDays ? <ShimmerHistory /> : <History days={historyDays} />}
         </>
       )}
     </>
