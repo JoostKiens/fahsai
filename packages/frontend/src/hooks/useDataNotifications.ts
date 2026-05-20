@@ -4,14 +4,12 @@ import { useFires } from './useFires';
 import { useAQI } from './useAQI';
 import { useWind } from './useWind';
 import { useCamsGrid } from './useCamsGrid';
-import { useLatestDate } from './useLatestDate';
-import { useTimeStore } from '../store/timeStore';
+import { useTimeStore, selectIsSettled } from '../store/timeStore';
 
 type ToastId = string | number;
 
 export function useDataNotifications() {
-  const selectedDate = useTimeStore((s) => s.selectedDate);
-  const { data: latestDate } = useLatestDate();
+  const isSettled = useTimeStore(selectIsSettled);
   const fires = useFires();
   const aqi = useAQI();
   const wind = useWind();
@@ -22,10 +20,7 @@ export function useDataNotifications() {
   const windId = useRef<ToastId | null>(null);
   const camsId = useRef<ToastId | null>(null);
 
-  // True once the scrubber has settled: selectedDate is within the valid range anchored to latestDate.
-  // While selectedDate > latestDate the 300ms debounce is still in-flight and queries are fetching
-  // for the wrong date — suppress toasts until the date stabilises.
-  const isSettled = !!latestDate && selectedDate <= latestDate;
+  const selectedDate = useTimeStore((s) => s.selectedDate);
 
   // Dismiss all active gap toasts when the date changes
   useEffect(() => {

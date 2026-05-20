@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore, dayToDate } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
-import { useLatestDate } from '../../../hooks/useLatestDate';
 import { PlayButton } from './PlayButton';
 
 const PLAY_INTERVAL_MS = 800;
@@ -32,7 +31,7 @@ export function Scrubber() {
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
-  const { data: latestDate } = useLatestDate();
+  const latestDate = useTimeStore((s) => s.latestDate);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,7 +39,7 @@ export function Scrubber() {
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
 
-  // Debounced timeStore sync
+  // Sync scrubber position → timeStore (debounced to avoid per-drag refetches).
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -49,7 +48,7 @@ export function Scrubber() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [scrubberDay, dateStr, setDate]);
+  }, [dateStr, setDate]);
 
   // Play interval
   useEffect(() => {
@@ -104,9 +103,7 @@ export function Scrubber() {
         <span className="text-[13px] font-semibold text-gray-900 tabular-nums">
           {formatDate(dateStr)}
         </span>
-        <span className="text-[10px] text-gray-400 font-medium tabular-nums">
-          {latestDate ? 'UTC+7' : '—'}
-        </span>
+        <span className="text-[10px] text-gray-400 font-medium tabular-nums">UTC+7</span>
       </div>
 
       {/* Row 2 — slider (+ play button and date on desktop) */}
@@ -144,7 +141,7 @@ export function Scrubber() {
               )}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {latestDate ? `${formatTickDate(latestDate)} · UTC+7` : '—'}
+              {formatTickDate(latestDate)} · UTC+7
             </span>
           </div>
           {/* Mobile: start + end ticks only (UTC+7 already in row 1) */}
@@ -153,7 +150,7 @@ export function Scrubber() {
               {formatTickDate(dayToDate(0, latestDate, scrubberDays))}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {latestDate ? formatTickDate(latestDate) : '—'}
+              {formatTickDate(latestDate)}
             </span>
           </div>
         </div>
