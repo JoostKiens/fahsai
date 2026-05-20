@@ -80,6 +80,9 @@ simplicity and correctness over premature optimization.
 
 - Node.js 20+ with TypeScript
 - Fastify (HTTP framework)
+- `@fastify/cors` — registered before all routes in `server.ts`; allows
+  `https://thailand-air-quality-map-frontend.vercel.app` in all environments plus
+  `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
 - Upstash Redis (hot cache with TTL)
 - Supabase (Postgres + PostGIS for persistent storage)
 
