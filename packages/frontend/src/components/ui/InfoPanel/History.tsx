@@ -33,20 +33,20 @@ export function ShimmerHistory() {
       {/* Weather section ghost — mirrors the "Weather" header + 6-row grid */}
       <div className="mt-3">
         {/* "Weather" label placeholder */}
-        <div className="h-[10px] w-12 rounded animate-pulse bg-gray-100 mb-2" />
+        <div className="h-[15px] w-12 rounded animate-pulse bg-gray-100 mb-1" />
 
         {/* Column-header row + 5 data rows */}
         <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
           {/* Header row */}
           {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
-            <div key={j} className={`h-[10px] rounded animate-pulse bg-gray-100 ${w}`} />
+            <div key={j} className={`h-[15px] rounded animate-pulse bg-gray-100 ${w}`} />
           ))}
 
           {/* 5 data rows */}
           {SHIMMER_ROWS.map((cols, i) => (
             <Fragment key={i}>
               {cols.map((w, j) => (
-                <div key={j} className={`h-[10px] rounded animate-pulse bg-gray-100 ${w}`} />
+                <div key={j} className={`h-[15px] rounded animate-pulse bg-gray-100 ${w}`} />
               ))}
             </Fragment>
           ))}
