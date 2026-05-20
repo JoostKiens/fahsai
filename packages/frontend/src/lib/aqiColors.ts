@@ -76,3 +76,38 @@ export function contrastColor(rgb: RGB): RGBA {
   const lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
   return lum > 150 ? [0, 0, 0, 255] : [255, 255, 255, 255];
 }
+
+// Soft (tinted) backgrounds — used inside the InfoPanel badge and History bars only.
+// NOT used on the map, station dots, heatmap, or legend.
+const AQI_SOFT_BG: RGB[] = [
+  [220, 240, 220], // Good
+  [252, 244, 200], // Moderate
+  [255, 222, 188], // Unhealthy for sensitive groups
+  [255, 210, 210], // Unhealthy
+  [228, 210, 232], // Very unhealthy
+  [230, 200, 210], // Hazardous
+];
+
+// Dark category-colored text to sit on the soft backgrounds above.
+const AQI_SOFT_TEXT: RGB[] = [
+  [40, 110, 40], // Good
+  [130, 100, 0], // Moderate
+  [170, 80, 0], // Unhealthy for sensitive groups
+  [170, 0, 0], // Unhealthy
+  [95, 35, 100], // Very unhealthy
+  [110, 0, 30], // Hazardous
+];
+
+export function pm25ToSoftRgb(pm25: number): RGB {
+  for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
+    if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_SOFT_BG[i];
+  }
+  return AQI_SOFT_BG[AQI_SOFT_BG.length - 1];
+}
+
+export function pm25ToSoftTextRgb(pm25: number): RGB {
+  for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
+    if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_SOFT_TEXT[i];
+  }
+  return AQI_SOFT_TEXT[AQI_SOFT_TEXT.length - 1];
+}
