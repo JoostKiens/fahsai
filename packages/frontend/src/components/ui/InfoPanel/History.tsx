@@ -1,6 +1,10 @@
 import { Fragment, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import type { StationDayHistory } from '@thailand-aq/types';
+import { pm25ToSoftRgb } from '../../../lib/aqiColors';
+import { degToCompass } from '../../../lib/ambient';
+import { WindArrow } from './WindArrow';
 
 // Widths for the four weather-table columns (date / wind / rain / humid).
 // Vary per row so adjacent rows don't look like a solid block.
@@ -52,11 +56,6 @@ export function ShimmerHistory() {
   );
 }
 
-import type { StationDayHistory } from '@thailand-aq/types';
-import { pm25ToSoftRgb } from '../../../lib/aqiColors';
-import { degToCompass } from '../../../lib/ambient';
-import { WindArrow } from './WindArrow';
-
 function formatDateLabel(isoDate: string) {
   return new Date(isoDate + 'T00:00:00Z').toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -77,7 +76,7 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
     // Outer div owns position; inner motion.div owns animation — kept separate to
     // avoid motion's transform conflicting with the translate centering on the wrapper.
     <div
-      className="fixed z-[9999] pointer-events-none"
+      className="fixed z-10 pointer-events-none"
       style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 6px))' }}
     >
       <motion.div
@@ -125,7 +124,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
 
   return (
     <>
-      <AnimatePresence>{tooltip && <BarTooltip key="bar-tooltip" {...tooltip} />}</AnimatePresence>
+      {tooltip && <BarTooltip {...tooltip} />}
 
       {/* PM2.5 bar chart */}
       <div className="flex items-stretch gap-1">
