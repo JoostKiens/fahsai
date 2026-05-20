@@ -28,6 +28,8 @@ import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
 const ZOOM = 5.5;
+const CENTER_MOBILE: [number, number] = [102.0, 13.5];
+const ZOOM_MOBILE = 4.7;
 const MIN_ZOOM = 4.0;
 const MAX_BOUNDS: mapboxgl.LngLatBoundsLike = [...VIEWPORT_BBOX];
 const CUSTOM_ATTRIBUTION = [
@@ -44,9 +46,11 @@ function parseUrlMapState() {
   const validLat = isFinite(lat) && lat >= -90 && lat <= 90;
   const validLng = isFinite(lng) && lng >= -180 && lng <= 180;
   const validZoom = isFinite(zoom) && zoom >= 0 && zoom <= 24;
+  const isMobile = window.innerWidth < 768;
   return {
-    center: validLat && validLng ? ([lng, lat] as [number, number]) : CENTER,
-    zoom: validZoom ? Math.max(MIN_ZOOM, zoom) : ZOOM,
+    center:
+      validLat && validLng ? ([lng, lat] as [number, number]) : isMobile ? CENTER_MOBILE : CENTER,
+    zoom: validZoom ? Math.max(MIN_ZOOM, zoom) : isMobile ? ZOOM_MOBILE : ZOOM,
   };
 }
 
