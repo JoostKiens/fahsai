@@ -15,9 +15,9 @@ export function Toggle({ checked, onChange, label }: Props) {
       onClick={onChange}
       className={`
         relative flex items-center w-8 h-[18px] rounded-full cursor-pointer
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-1
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1
         transition-colors duration-150
-        ${checked ? 'bg-sky-600' : 'bg-gray-200'}
+        ${checked ? 'bg-teal-600' : 'bg-gray-200'}
       `}
     >
       <LayoutGroup>
