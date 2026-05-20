@@ -280,8 +280,20 @@ function SecondarySection({
       <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Ambient</p>
       {aqPoint && (
         <Row>
-          <span className="text-gray-500">PM2.5</span>
-          <AqiBadge value={aqPoint.pm25} category={pm25ToCategory(aqPoint.pm25).label} />
+          <span className="text-gray-500">
+            PM2.5{' '}
+            <span
+              className="text-gray-400"
+              title="Ambient air at this location is estimated from the CAMS reanalysis grid — typical resolution ~40 km."
+            >
+              · modelled
+            </span>
+          </span>
+          <AqiBadge
+            value={aqPoint.pm25}
+            category={pm25ToCategory(aqPoint.pm25).label}
+            source="modelled"
+          />
         </Row>
       )}
       {windVec && (

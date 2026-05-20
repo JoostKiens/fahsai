@@ -50,7 +50,7 @@ export function ShimmerHistory() {
   );
 }
 import type { StationDayHistory } from '@thailand-aq/types';
-import { pm25ToRgb } from '../../../lib/aqiColors';
+import { pm25ToSoftRgb } from '../../../lib/aqiColors';
 import { degToCompass } from '../../../lib/ambient';
 import { WindArrow } from './WindArrow';
 
@@ -90,7 +90,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
           {days.map(({ date, maxPm25: val, readingCount }) => {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
-            const [r, g, b] = pm25ToRgb(val);
+            const [r, g, b] = pm25ToSoftRgb(val);
             return (
               <div key={date} className="flex flex-col items-center flex-1">
                 <div
