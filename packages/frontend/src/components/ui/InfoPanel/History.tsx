@@ -1,4 +1,6 @@
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Widths for the four weather-table columns (date / wind / rain / humid).
 // Vary per row so adjacent rows don't look like a solid block.
@@ -49,6 +51,7 @@ export function ShimmerHistory() {
     </>
   );
 }
+
 import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToSoftRgb } from '../../../lib/aqiColors';
 import { degToCompass } from '../../../lib/ambient';
@@ -67,13 +70,63 @@ function compass2(deg: number): string {
   return c.length > 2 ? c.slice(0, 2) : c;
 }
 
+type TooltipState = { value: number; x: number; y: number } | null;
+
+function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
+  return createPortal(
+    // Outer div owns position; inner motion.div owns animation — kept separate to
+    // avoid motion's transform conflicting with the translate centering on the wrapper.
+    <div
+      className="fixed z-[9999] pointer-events-none"
+      style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 6px))' }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 4 }}
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+        className="bg-gray-900 text-white text-[11px] font-semibold tabular-nums px-2 py-1 rounded shadow-lg whitespace-nowrap"
+      >
+        {Math.round(value)} <span className="font-normal opacity-60">µg/m³</span>
+      </motion.div>
+    </div>,
+    document.getElementById('tooltip')!,
+  );
+}
+
 export function History({ days }: { days: StationDayHistory[] }) {
   const MAX_BAR_H = 48;
   const DAY_LABEL_H = 16;
   const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
+  const [tooltip, setTooltip] = useState<TooltipState>(null);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss on touch outside the chart area
+  useEffect(() => {
+    if (!activeDate) return;
+    function onTouchStart(e: TouchEvent) {
+      if (!chartRef.current?.contains(e.target as Node)) {
+        setTooltip(null);
+        setActiveDate(null);
+      }
+    }
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    return () => document.removeEventListener('touchstart', onTouchStart);
+  }, [activeDate]);
+
+  // Remove tooltip from DOM on unmount
+  useEffect(() => {
+    return () => {
+      setTooltip(null);
+      setActiveDate(null);
+    };
+  }, []);
 
   return (
     <>
+      <AnimatePresence>{tooltip && <BarTooltip key="bar-tooltip" {...tooltip} />}</AnimatePresence>
+
       {/* PM2.5 bar chart */}
       <div className="flex items-stretch gap-1">
         <div
@@ -84,6 +137,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
           <span>0</span>
         </div>
         <div
+          ref={chartRef}
           className="flex items-end gap-[2px] flex-1"
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
@@ -91,8 +145,43 @@ export function History({ days }: { days: StationDayHistory[] }) {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
             const [r, g, b] = pm25ToSoftRgb(val);
+            const isActive = activeDate === date;
+
             return (
-              <div key={date} className="flex flex-col items-center flex-1">
+              <div
+                key={date}
+                className="flex flex-col items-center flex-1"
+                onPointerEnter={(e) => {
+                  if (e.pointerType === 'touch' || readingCount === 0) return;
+                  const col = e.currentTarget.getBoundingClientRect();
+                  setTooltip({
+                    value: val,
+                    x: col.left + col.width / 2,
+                    y: col.top + (MAX_BAR_H - barH),
+                  });
+                  setActiveDate(date);
+                }}
+                onPointerLeave={(e) => {
+                  if (e.pointerType === 'touch') return;
+                  setTooltip(null);
+                  setActiveDate(null);
+                }}
+                onPointerDown={(e) => {
+                  if (e.pointerType !== 'touch' || readingCount === 0) return;
+                  if (isActive) {
+                    setTooltip(null);
+                    setActiveDate(null);
+                  } else {
+                    const col = e.currentTarget.getBoundingClientRect();
+                    setTooltip({
+                      value: val,
+                      x: col.left + col.width / 2,
+                      y: col.top + (MAX_BAR_H - barH),
+                    });
+                    setActiveDate(date);
+                  }
+                }}
+              >
                 <div
                   className="w-full rounded-t-sm"
                   style={{
