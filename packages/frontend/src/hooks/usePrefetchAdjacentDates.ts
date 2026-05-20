@@ -12,12 +12,12 @@ function shiftDate(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function usePrefetchAdjacentDates(latestDate?: string) {
+export function usePrefetchAdjacentDates() {
   const queryClient = useQueryClient();
   const selectedDate = useTimeStore((s) => s.selectedDate);
+  const latestDate = useTimeStore((s) => s.latestDate);
 
   useEffect(() => {
-    if (latestDate === undefined) return;
     for (const offset of [-1, 1]) {
       const date = shiftDate(selectedDate, offset);
       if (date > latestDate) continue;

@@ -24,7 +24,6 @@ import {
 import { usePowerPlants } from '../../hooks/usePowerPlants';
 import { createPowerPlantsLayer, iconSizeForZoom } from '../../layers/PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
-import { useLatestDate } from '../../hooks/useLatestDate';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
@@ -119,8 +118,7 @@ export function MapView() {
   }, [map, compactAttribution]);
 
   useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
-  const { data: latestDate } = useLatestDate();
-  usePrefetchAdjacentDates(latestDate);
+  usePrefetchAdjacentDates();
 
   // Heatmap layers — interleaved overlay only; beforeId keeps them below admin borders.
   useEffect(() => {

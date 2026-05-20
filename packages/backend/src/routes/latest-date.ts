@@ -9,8 +9,10 @@ const LOOKBACK_DAYS = 7;
 
 export function latestDateRoutes(app: FastifyInstance): void {
   app.get('/api/latest-date', async (_req, reply) => {
+    const CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=60';
+
     const cached = await redis.get<string>(CACHE_KEY);
-    if (cached) return reply.send({ date: cached });
+    if (cached) return reply.header('Cache-Control', CACHE_CONTROL).send({ date: cached });
 
     const now = Date.now();
 
@@ -38,7 +40,7 @@ export function latestDateRoutes(app: FastifyInstance): void {
         (measResult.count ?? 0) >= 1
       ) {
         await redis.set(CACHE_KEY, date, { ex: CACHE_TTL_SECONDS });
-        return reply.send({ date });
+        return reply.header('Cache-Control', CACHE_CONTROL).send({ date });
       }
     }
 

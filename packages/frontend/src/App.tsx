@@ -6,6 +6,7 @@ import { Header } from './components/ui/Header/Header';
 import { Sidebar } from './components/ui/Sidebar/Sidebar';
 import { useDataNotifications } from './hooks/useDataNotifications';
 import { useUrlSync } from './hooks/useUrlSync';
+import { LatestDateProvider } from './providers/LatestDateProvider';
 
 function AppContent() {
   useDataNotifications();
@@ -27,10 +28,10 @@ function AppContent() {
 
 function App() {
   return (
-    <>
+    <LatestDateProvider>
       <AppContent />
       <Toaster position="bottom-right" offset={{ bottom: 82, right: 12 }} theme="light" />
-    </>
+    </LatestDateProvider>
   );
 }
 
