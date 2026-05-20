@@ -5,9 +5,11 @@ import { Scrubber } from './components/ui/Scrubber/Scrubber';
 import { Header } from './components/ui/Header/Header';
 import { Sidebar } from './components/ui/Sidebar/Sidebar';
 import { useDataNotifications } from './hooks/useDataNotifications';
+import { useUrlSync } from './hooks/useUrlSync';
 
 function AppContent() {
   useDataNotifications();
+  useUrlSync();
   return (
     <div className="flex flex-col h-screen">
       <Header />

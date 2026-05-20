@@ -40,6 +40,8 @@ interface UIStore {
   setScrubberDay: (day: number) => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
+  mapCenter: [number, number]; // [lng, lat]
+  setMapCenter: (center: [number, number]) => void;
   mapZoom: number;
   setMapZoom: (zoom: number) => void;
   explainQuotaExceeded: boolean;
@@ -64,6 +66,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setScrubberDay: (day) => set({ scrubberDay: day }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
+  mapCenter: [101.0, 15.5],
+  setMapCenter: (center) => set({ mapCenter: center }),
   mapZoom: 5.5,
   setMapZoom: (zoom) => set({ mapZoom: zoom }),
   explainQuotaExceeded: false,
