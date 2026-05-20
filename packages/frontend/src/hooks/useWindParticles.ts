@@ -35,6 +35,11 @@ const GRID_STEP = 0.4;
 const GRID_LNG_COUNT = Math.floor((GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP) + 1; // 63
 const GRID_LAT_COUNT = Math.floor((GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP) + 1; // 73
 
+const TRACE_STEP_HOURS = 3; // 8 steps × 3h = 24h
+const TRACE_STEPS = 8;
+const KMH_TO_DEG_LAT = 1 / 111; // 1 degree lat ≈ 111 km, constant
+const HOURS_PER_STEP = TRACE_STEP_HOURS;
+
 // Hard limits — wind grid coverage. Particles are clamped to these.
 const SPAWN_LNG_MIN = 89;
 const SPAWN_LNG_MAX = 114;
@@ -101,6 +106,19 @@ function sampleWind(lng: number, lat: number, grid: WindGrid): [number, number] 
   ];
 }
 
+function traceBack24h(lng: number, lat: number, grid: WindGrid): [number, number] {
+  let x = lng;
+  let y = lat;
+  for (let i = 0; i < TRACE_STEPS; i++) {
+    const [dx, dy] = sampleWind(x, y, grid);
+    const cosLat = Math.max(Math.cos((y * Math.PI) / 180), 0.1);
+    const kmhToDegLng = 1 / (111 * cosLat);
+    x -= dx * HOURS_PER_STEP * kmhToDegLng;
+    y -= dy * HOURS_PER_STEP * KMH_TO_DEG_LAT;
+  }
+  return [x, y];
+}
+
 // ─── viewport ─────────────────────────────────────────────────────────────────
 
 type Viewport = [west: number, south: number, east: number, north: number];
@@ -148,11 +166,24 @@ function pm25ToParticleColor(pm25: number): [number, number, number] {
 function sampleSpawnColor(
   lng: number,
   lat: number,
+  grid: WindGrid | null,
   gridMap: Map<string, number> | null,
 ): [number, number, number] {
   if (!gridMap) return [255, 255, 255];
-  const lngIdx = Math.round((lng - GRID_LNG_MIN) / GRID_STEP);
-  const latIdx = Math.round((lat - GRID_LAT_MIN) / GRID_STEP);
+
+  const [originLng, originLat] = grid ? traceBack24h(lng, lat, grid) : [lng, lat];
+
+  if (
+    originLng < GRID_LNG_MIN ||
+    originLng > GRID_LNG_MAX ||
+    originLat < GRID_LAT_MIN ||
+    originLat > GRID_LAT_MAX
+  ) {
+    return [255, 255, 255];
+  }
+
+  const lngIdx = Math.round((originLng - GRID_LNG_MIN) / GRID_STEP);
+  const latIdx = Math.round((originLat - GRID_LAT_MIN) / GRID_STEP);
   const pm25 = gridMap.get(`${lngIdx},${latIdx}`);
   if (pm25 === undefined) return [255, 255, 255];
   return pm25ToParticleColor(pm25);
@@ -160,6 +191,7 @@ function sampleSpawnColor(
 
 function spawnParticle(
   viewport: Viewport,
+  grid: WindGrid | null,
   gridMap: Map<string, number> | null,
   scatterAge = false,
 ): Particle {
@@ -173,13 +205,17 @@ function spawnParticle(
     age: scatterAge ? Math.floor(Math.random() * maxAge) : 0,
     maxAge,
     trail: [],
-    color: sampleSpawnColor(lng, lat, gridMap),
+    color: sampleSpawnColor(lng, lat, grid, gridMap),
   };
 }
 
-function initParticles(viewport: Viewport, gridMap: Map<string, number> | null): Particle[] {
+function initParticles(
+  viewport: Viewport,
+  grid: WindGrid | null,
+  gridMap: Map<string, number> | null,
+): Particle[] {
   // scatterAge=true distributes initial ages so they don't all fade out simultaneously
-  return Array.from({ length: N_PARTICLES }, () => spawnParticle(viewport, gridMap, true));
+  return Array.from({ length: N_PARTICLES }, () => spawnParticle(viewport, grid, gridMap, true));
 }
 
 function stepParticles(
@@ -216,7 +252,7 @@ function stepParticles(
       p.lat > SPAWN_LAT_MAX;
 
     if (p.age >= p.maxAge || oob) {
-      const fresh = spawnParticle(spawnViewport, gridMap, false);
+      const fresh = spawnParticle(spawnViewport, grid, gridMap, false);
       p.lng = fresh.lng;
       p.lat = fresh.lat;
       p.age = 0;
@@ -296,7 +332,7 @@ export function useWindParticles(
     // Recolor existing particles immediately so particles spawned before CAMS
     // loaded don't stay white until they happen to die and respawn.
     for (const p of stateRef.current.particles) {
-      p.color = sampleSpawnColor(p.lng, p.lat, map);
+      p.color = sampleSpawnColor(p.lng, p.lat, stateRef.current.grid, map);
     }
   }, [aqGrid]);
 
@@ -304,7 +340,11 @@ export function useWindParticles(
   useEffect(() => {
     if (!wind?.length) return;
     stateRef.current.grid = buildGrid(wind);
-    stateRef.current.particles = initParticles(stateRef.current.viewport, stateRef.current.gridMap);
+    stateRef.current.particles = initParticles(
+      stateRef.current.viewport,
+      stateRef.current.grid,
+      stateRef.current.gridMap,
+    );
   }, [wind]);
 
   // Animation loop — runs as long as the overlay, map, and wind data are present.
