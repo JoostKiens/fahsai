@@ -30,8 +30,6 @@ There's a shared daily quota of 1,400 requests per Bangkok calendar day. When it
 
 ## Data
 
-All data is ingested server-side. The frontend never touches a third-party API.
-
 | Source                                                           | What                                        | Cadence   | License        |
 | ---------------------------------------------------------------- | ------------------------------------------- | --------- | -------------- |
 | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/SNPP) | Fire detections — location, FRP, confidence | Every 3 h | NASA open data |
@@ -45,19 +43,10 @@ All data is ingested server-side. The frontend never touches a third-party API.
 ## Stack
 
 **Frontend:** React 18 · TypeScript · Vite · Mapbox GL JS · Deck.gl · Zustand · TanStack Query v5
+
 **Backend:** Node.js 20 · Fastify · Supabase (PostgreSQL + PostGIS) · Upstash Redis · Google Gemini API
+
 **Deployment:** Vercel (frontend) · Railway (backend + cron jobs)
-
-Monorepo — `packages/frontend`, `packages/backend`, `packages/types`. Ingestion runs as Railway cron scripts, writes to Supabase, warms Redis. Routes check Redis first, fall back to Supabase on miss.
-
----
-
-## What's next
-
-- **Trajectory lines** — animate actual smoke paths from fire clusters to cities using the wind grid; this is the killer feature
-- **Burn scars** — Sentinel-2 NDVI to show cumulative burned area per season
-- **Population exposure** — overlay population density on the PM2.5 grid
-- **Year-over-year comparison** — needs more accumulated data, coming eventually
 
 ---
 
