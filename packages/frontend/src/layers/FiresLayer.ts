@@ -72,10 +72,10 @@ export function createFiresLayer(
         getFillColor: (d) => ringColor(ring, d),
         updateTriggers: { getRadius: baseRadius },
         parameters: ADDITIVE_BLEND,
-        // All rings are pickable so cursor covers the full glow area (outer ring = 4× radius);
-        // onClick is wired only on the inner core to avoid duplicate events.
+        // All rings are pickable and handle clicks — Deck.gl picks the topmost layer at the
+        // pointer position, so only one onClick fires per click regardless of overlap.
         pickable: true,
-        onClick: i === 2 ? onClick : undefined,
+        onClick,
       }),
   );
 }
