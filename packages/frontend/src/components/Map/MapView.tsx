@@ -37,6 +37,20 @@ const CUSTOM_ATTRIBUTION = [
   '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
 ];
 
+function parseUrlMapState() {
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get('lat') ?? '');
+  const lng = parseFloat(p.get('lng') ?? '');
+  const zoom = parseFloat(p.get('zoom') ?? '');
+  const validLat = isFinite(lat) && lat >= -90 && lat <= 90;
+  const validLng = isFinite(lng) && lng >= -180 && lng <= 180;
+  const validZoom = isFinite(zoom) && zoom >= 0 && zoom <= 24;
+  return {
+    center: validLat && validLng ? ([lng, lat] as [number, number]) : CENTER,
+    zoom: validZoom ? Math.max(MIN_ZOOM, zoom) : ZOOM,
+  };
+}
+
 function detectBeforeId(map: mapboxgl.Map): string | undefined {
   const layers = map.getStyle().layers ?? [];
   return layers.find((l) => l.id.startsWith('admin') || l.type === 'symbol')?.id;
@@ -77,6 +91,7 @@ export function MapView() {
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const zoom = useUIStore((s) => s.mapZoom);
   const setMapZoom = useUIStore((s) => s.setMapZoom);
+  const setMapCenter = useUIStore((s) => s.setMapCenter);
 
   const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
@@ -236,11 +251,12 @@ export function MapView() {
     if (!containerRef.current) return;
     let mounted = true;
 
+    const { center: initialCenter, zoom: initialZoom } = parseUrlMapState();
     const mapInstance = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/joostkiens/cm30pk39v00ah01qz4n2i1ssu',
-      center: CENTER,
-      zoom: ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
       minZoom: MIN_ZOOM,
       maxBounds: MAX_BOUNDS,
       accessToken: TOKEN,
@@ -311,6 +327,12 @@ export function MapView() {
       if (mounted) setMapZoom(mapInstance.getZoom());
     });
 
+    mapInstance.on('moveend', () => {
+      if (!mounted) return;
+      const { lng, lat } = mapInstance.getCenter();
+      setMapCenter([lng, lat]);
+    });
+
     mapInstance.on('click', () => {
       if (!mounted) return;
       if (deckPickedRef.current) {
@@ -331,7 +353,7 @@ export function MapView() {
       setDataOverlay(null);
       mapInstance.remove();
     };
-  }, [setSelectedPoint, setMapZoom]);
+  }, [setSelectedPoint, setMapZoom, setMapCenter]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 }
