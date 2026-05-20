@@ -89,7 +89,9 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
   // full 4,599 points even when Redis is skipped.
   if (points.length >= MIN_COMPLETE_POINTS) {
     await redis.set(`cams:pm25:${targetDate}`, points, { ex: HISTORICAL_TTL_SECONDS });
-    console.log(`[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL 7d)`);
+    console.log(
+      `[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL ${HISTORICAL_TTL_SECONDS})`,
+    );
   } else {
     console.warn(
       `[cams-ingest] Only ${points.length} points — below threshold (${MIN_COMPLETE_POINTS}), skipping Redis write`,
