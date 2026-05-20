@@ -16,14 +16,20 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
       return d.toISOString().slice(0, 10);
     })();
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
+  }
+
   console.log(`[cams-ingest] Fetching PM2.5 grid from Open-Meteo for ${targetDate}...`);
   const points = await pRetry(
     async () => {
       try {
         return await fetchAirQualityGrid(targetDate);
       } catch (err) {
-        if (err instanceof Error && /\b4\d\d\b/.test(err.message))
-          throw new AbortError(err.message);
+        // Pass the Error object (not just err.message) so p-retry preserves the original
+        // stack. new AbortError(string) captures its own stack before name/message are set,
+        // making the logged error appear message-less.
+        if (err instanceof Error && /\b4\d\d\b/.test(err.message)) throw new AbortError(err);
         throw err;
       }
     },
