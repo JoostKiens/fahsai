@@ -119,6 +119,32 @@ export function InfoPanel() {
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3; // fire: from reverse geocode
 
+  if (!selectedPoint) {
+    return (
+      <div
+        role="region"
+        aria-label="Point details"
+        className="hidden md:block absolute top-3 right-3 w-[260px] bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
+      >
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="flex flex-col items-center justify-center h-[100px] gap-2 text-gray-400"
+        >
+          <CursorClickIcon />
+          <span className="text-sm text-center leading-tight">
+            Click a point
+            <br />
+            on the map
+          </span>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div
       role="region"
@@ -126,63 +152,41 @@ export function InfoPanel() {
       className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
     >
       <AnimatePresence mode="wait">
-        {!selectedPoint ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="flex flex-col items-center justify-center h-[100px] gap-2 text-gray-400"
-          >
-            <CursorClickIcon />
-            <span className="text-sm text-center leading-tight">
-              Click a point
-              <br />
-              on the map
-            </span>
-          </motion.div>
-        ) : (
-          <motion.div
-            key={panelType}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="p-3"
-          >
-            <PanelHeader
-              panelType={panelType}
+        <motion.div
+          key={panelType}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          className="p-3"
+        >
+          <PanelHeader
+            panelType={panelType}
+            lngLat={selectedPoint.lngLat}
+            placeName={placeName}
+            geocodeLoading={geocodeLoading}
+            stationName={displayStation?.stationName ?? null}
+            plantName={selectedPoint.powerPlant?.name ?? null}
+            countryIso3={countryIso3}
+            onClose={() => setSelectedPoint(null)}
+          />
+
+          <hr className="border-gray-100 my-2" />
+
+          {displayStation && (
+            <StationPanel
+              station={displayStation}
               lngLat={selectedPoint.lngLat}
-              placeName={placeName}
-              geocodeLoading={geocodeLoading}
-              stationName={displayStation?.stationName ?? null}
-              plantName={selectedPoint.powerPlant?.name ?? null}
-              countryIso3={countryIso3}
-              onClose={() => setSelectedPoint(null)}
+              history={history}
             />
-
-            <hr className="border-gray-100 my-2" />
-
-            {displayStation && (
-              <StationPanel
-                station={displayStation}
-                lngLat={selectedPoint.lngLat}
-                history={history}
-              />
-            )}
-            {selectedPoint.fire && (
-              <FirePanel fire={selectedPoint.fire} aqPoint={aqPoint} windVec={windVec} />
-            )}
-            {selectedPoint.powerPlant && (
-              <PowerPlantPanel
-                plant={selectedPoint.powerPlant}
-                aqPoint={aqPoint}
-                windVec={windVec}
-              />
-            )}
-          </motion.div>
-        )}
+          )}
+          {selectedPoint.fire && (
+            <FirePanel fire={selectedPoint.fire} aqPoint={aqPoint} windVec={windVec} />
+          )}
+          {selectedPoint.powerPlant && (
+            <PowerPlantPanel plant={selectedPoint.powerPlant} aqPoint={aqPoint} windVec={windVec} />
+          )}
+        </motion.div>
       </AnimatePresence>
     </div>
   );
