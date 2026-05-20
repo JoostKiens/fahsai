@@ -8,11 +8,9 @@
 
 ---
 
-Every dry season, Thailand's air turns dangerous. Politicians point at neighboring countries; neighboring countries point back. The actual story — fires burning across Myanmar and Laos, wind carrying the smoke straight into Chiang Mai — is sitting in public satellite data. It just hadn't been put on a map.
+Thailand's dry season air quality is severe and its causes are genuinely complex — fires, agriculture, industry, transport, geography, wind. This map puts the available data in one place so you can look at it yourself.
 
-NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, all layered together and updated daily. A 30-day time scrubber lets you watch a smoke event unfold hour by hour. Free, no login, no ads.
-
-If you're a journalist pinning down a date range, a researcher comparing station readings to fire radiative power, a student writing about regional air policy, or just someone in Bangkok wondering why the air index went red overnight — this is for you.
+NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A 30-day time scrubber lets you move through a smoke event day by day. Free, no login.
 
 ---
 
