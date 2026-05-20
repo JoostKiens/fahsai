@@ -223,6 +223,7 @@ export function Header() {
           pollution in Thailand and its neighbours.
         </p>
         <p className="mt-3 text-[12px] text-gray-500">Data: NASA FIRMS, OpenAQ, Open-Meteo, WRI.</p>
+        <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>
       </Modal>
 
       {/* Settings modal */}
