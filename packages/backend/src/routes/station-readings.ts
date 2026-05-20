@@ -23,11 +23,6 @@ interface DayData {
   weather: WeatherData | null;
 }
 
-// Weather grid constants — must match openmeteo.ts
-const WEATHER_LAT_MIN = 1.0;
-const WEATHER_LNG_MIN = 89.0;
-const WEATHER_STEP = 0.4;
-
 interface LatestMeasurement {
   stationId: string;
   stationName: string;
@@ -83,46 +78,55 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         query = query.lte('measured_at', until);
       }
 
-      const { data: rows, error } = await query.order('measured_at', { ascending: false });
-
-      if (error) throw new Error(`Supabase query failed: ${error.message}`);
-
-      // Deduplicate: first occurrence per station = most recent (sorted DESC above)
+      // Paginate past Supabase's 1000-row server-side cap. Ordered DESC so the first
+      // occurrence of each station_id across pages is always its most recent reading.
       const seen = new Set<string>();
       const latest: LatestMeasurement[] = [];
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      while (true) {
+        const { data: rows, error } = await query
+          .order('measured_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
 
-      for (const row of rows ?? []) {
-        const station = row.stations as unknown as {
-          id: string;
-          name: string;
-          lat: number;
-          lng: number;
-          country: string | null;
-        } | null;
-        if (!station || station.lat === null || station.lng === null) continue;
-        if (seen.has(row.station_id as string)) continue;
-        seen.add(row.station_id as string);
+        if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
-        // bbox filter
-        if (
-          station.lat < bbox.south ||
-          station.lat > bbox.north ||
-          station.lng < bbox.west ||
-          station.lng > bbox.east
-        )
-          continue;
+        for (const row of rows ?? []) {
+          const station = row.stations as unknown as {
+            id: string;
+            name: string;
+            lat: number;
+            lng: number;
+            country: string | null;
+          } | null;
+          if (!station || station.lat === null || station.lng === null) continue;
+          if (seen.has(row.station_id as string)) continue;
+          seen.add(row.station_id as string);
 
-        latest.push({
-          stationId: row.station_id as string,
-          stationName: station.name,
-          lat: station.lat,
-          lng: station.lng,
-          country: station.country,
-          parameter: row.parameter as string,
-          value: row.value as number,
-          unit: row.unit as string,
-          measuredAt: row.measured_at as string,
-        });
+          // bbox filter
+          if (
+            station.lat < bbox.south ||
+            station.lat > bbox.north ||
+            station.lng < bbox.west ||
+            station.lng > bbox.east
+          )
+            continue;
+
+          latest.push({
+            stationId: row.station_id as string,
+            stationName: station.name,
+            lat: station.lat,
+            lng: station.lng,
+            country: station.country,
+            parameter: row.parameter as string,
+            value: row.value as number,
+            unit: row.unit as string,
+            measuredAt: row.measured_at as string,
+          });
+        }
+
+        if (!rows?.length || rows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
       }
 
       if (isDefaultBbox) {
@@ -187,7 +191,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
   // GET /api/stations/:stationId/history?days=7&date=YYYY-MM-DD
   // date = selected end date in BKK timezone (defaults to today BKK).
   // Returns `days` rows ending on that date (inclusive), oldest-first.
-  // Each row includes weather from the nearest 0.4° grid point (weather_readings table).
+  // Weather comes from station_weather (pre-computed at ingest time), not weather_readings.
   app.get<{ Params: { stationId: string }; Querystring: { days?: string; date?: string } }>(
     '/api/stations/:stationId/history',
     async (req, reply) => {
@@ -207,13 +211,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         req.query.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
       const todayBkk = new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
       const isHistorical = endDateStr < todayBkk;
-      const cacheKey = `station-history:${stationId}:${endDateStr}:${days}`;
 
-      const cached = await redis.get<{ stationId: string; days: DayData[] }>(cacheKey);
-      if (cached !== null) {
-        const ttl = isHistorical ? HISTORICAL_TTL_SECONDS : CURRENT_DATE_TTL_SECONDS;
-        return reply.header('Cache-Control', `public, max-age=${ttl}`).send(cached);
-      }
       const [yr, mo, dy] = endDateStr.split('-').map(Number);
       // UTC ms of BKK midnight for the end date (BKK midnight = UTC date - 7h)
       const endMidnightUtcMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS;
@@ -222,13 +220,14 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const since = new Date(startMidnightUtcMs).toISOString();
       const until = new Date(endMidnightUtcMs + 86_400_000).toISOString(); // exclusive
 
-      // BKK calendar start date string for weather query
+      // BKK calendar start date for weather query
       const startDateStr = new Date(Date.UTC(yr, mo - 1, dy) - (days - 1) * 86_400_000)
         .toISOString()
         .slice(0, 10);
 
-      // Fetch PM2.5 readings and station location in parallel
-      const [{ data, error }, { data: stationRow }] = await Promise.all([
+      // Single DB round-trip: PM2.5 readings and pre-computed station weather in parallel.
+      // station_weather is populated by weather-ingest; no grid snap needed at query time.
+      const [{ data, error }, { data: weatherData }] = await Promise.all([
         supabase
           .from('station_readings')
           .select('value, measured_at')
@@ -236,18 +235,25 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           .eq('parameter', 'pm25')
           .gte('measured_at', since)
           .lt('measured_at', until),
-        supabase.from('stations').select('lat, lng').eq('id', stationId).single(),
+        supabase
+          .from('station_weather')
+          .select(
+            'date, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          )
+          .eq('station_id', stationId)
+          .gte('date', startDateStr)
+          .lte('date', endDateStr),
       ]);
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
-      // Group by Bangkok calendar day (UTC+7) in JS to avoid Postgres timezone dependency
+      // Group readings by Bangkok calendar day (UTC+7)
       const byDay = new Map<string, { max: number; count: number }>();
       for (const row of data ?? []) {
         const bkkMs = new Date(row.measured_at as string).getTime() + BKK_OFFSET_MS;
         const date = new Date(bkkMs).toISOString().slice(0, 10);
-        const entry = byDay.get(date);
         const val = row.value as number;
+        const entry = byDay.get(date);
         if (!entry) {
           byDay.set(date, { max: val, count: 1 });
         } else {
@@ -256,81 +262,14 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         }
       }
 
-      // Fetch weather from nearest 0.4° grid point
       const weatherByDate = new Map<string, WeatherData>();
-      if (stationRow) {
-        const stationLat = stationRow.lat as number;
-        const stationLng = stationRow.lng as number;
-
-        // Snap to nearest grid point using grid-aligned formula (grid starts at LAT_MIN/LNG_MIN)
-        const nearestLat = parseFloat(
-          (
-            WEATHER_LAT_MIN +
-            Math.round((stationLat - WEATHER_LAT_MIN) / WEATHER_STEP) * WEATHER_STEP
-          ).toFixed(2),
-        );
-        const nearestLng = parseFloat(
-          (
-            WEATHER_LNG_MIN +
-            Math.round((stationLng - WEATHER_LNG_MIN) / WEATHER_STEP) * WEATHER_STEP
-          ).toFixed(2),
-        );
-
-        let { data: weatherRows } = await supabase
-          .from('weather_readings')
-          .select(
-            'date, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-          )
-          .gte('date', startDateStr)
-          .lte('date', endDateStr)
-          .eq('lat', nearestLat)
-          .eq('lng', nearestLng);
-
-        // Fallback: if snapped point has no data, find nearest existing point within 1°
-        if (!weatherRows?.length) {
-          const { data: nearby } = await supabase
-            .from('weather_readings')
-            .select('lat, lng')
-            .eq('date', endDateStr)
-            .gte('lat', nearestLat - 1.0)
-            .lte('lat', nearestLat + 1.0)
-            .gte('lng', nearestLng - 1.0)
-            .lte('lng', nearestLng + 1.0);
-
-          if (nearby?.length) {
-            let fallbackLat = nearestLat;
-            let fallbackLng = nearestLng;
-            let bestDist = Infinity;
-            for (const p of nearby) {
-              const d =
-                ((p.lat as number) - nearestLat) ** 2 + ((p.lng as number) - nearestLng) ** 2;
-              if (d < bestDist) {
-                bestDist = d;
-                fallbackLat = p.lat as number;
-                fallbackLng = p.lng as number;
-              }
-            }
-            const { data: retryRows } = await supabase
-              .from('weather_readings')
-              .select(
-                'date, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-              )
-              .gte('date', startDateStr)
-              .lte('date', endDateStr)
-              .eq('lat', fallbackLat)
-              .eq('lng', fallbackLng);
-            weatherRows = retryRows;
-          }
-        }
-
-        for (const row of weatherRows ?? []) {
-          weatherByDate.set(row.date as string, {
-            windSpeedKmh: row.wind_speed_kmh as number | null,
-            windDirectionDeg: row.wind_direction_deg as number | null,
-            precipitationSumMm: row.precipitation_sum as number | null,
-            relativeHumidity2m: row.relative_humidity_2m as number | null,
-          });
-        }
+      for (const row of weatherData ?? []) {
+        weatherByDate.set(row.date as string, {
+          windSpeedKmh: row.wind_speed_kmh as number | null,
+          windDirectionDeg: row.wind_direction_deg as number | null,
+          precipitationSumMm: row.precipitation_sum as number | null,
+          relativeHumidity2m: row.relative_humidity_2m as number | null,
+        });
       }
 
       // Build result: oldest-first, from (endDate - days + 1) to endDate
@@ -347,12 +286,10 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         });
       }
 
-      const ttl = isHistorical ? HISTORICAL_TTL_SECONDS : CURRENT_DATE_TTL_SECONDS;
-      await redis.set(cacheKey, { stationId, days: result }, { ex: ttl });
-
-      return reply
-        .header('Cache-Control', `public, max-age=${ttl}`)
-        .send({ stationId, days: result });
+      const cacheControl = isHistorical
+        ? CACHE_CONTROL_IMMUTABLE
+        : `public, max-age=${CURRENT_DATE_TTL_SECONDS}`;
+      return reply.header('Cache-Control', cacheControl).send({ stationId, days: result });
     },
   );
 }

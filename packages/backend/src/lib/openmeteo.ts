@@ -133,11 +133,15 @@ async function fetchWeatherBatch(
   const raw = (await res.json()) as OpenMeteoWeatherResult | OpenMeteoWeatherResult[];
   const results = Array.isArray(raw) ? raw : [raw];
 
-  return results.map((loc) => {
+  // Use the requested lat/lng (lats[i]/lngs[i]) rather than loc.latitude/loc.longitude.
+  // The API snaps to its own internal grid and may return a slightly different float
+  // (e.g. 13.7999997 instead of 13.8). Storing the requested coordinates keeps the DB
+  // consistent with what our snap formula computes at query time.
+  return results.map((loc, i) => {
     const idx = targetHourIndex(loc.hourly.time, date, HISTORICAL_HOUR_UTC);
     return {
-      lat: loc.latitude,
-      lng: loc.longitude,
+      lat: lats[i],
+      lng: lngs[i],
       wind_speed_kmh: loc.hourly.wind_speed_10m[idx] ?? 0,
       wind_speed_max_kmh: loc.daily.wind_speed_10m_max[0] ?? null,
       wind_direction_deg: loc.hourly.wind_direction_10m[idx] ?? 0,
