@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore } from '../../../store/uiStore';
 
 const SCRUBBER_RANGE_OPTIONS = [30, 60, 90, 120] as const;
@@ -156,8 +157,9 @@ export function Header() {
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
-  const scrubberDays = useUIStore((s) => s.scrubberDays);
-  const setScrubberDays = useUIStore((s) => s.setScrubberDays);
+  const scrubberDays = useSettingsStore((s) => s.scrubberDays);
+  const setScrubberDays = useSettingsStore((s) => s.setScrubberDays);
+  const setScrubberDay = useUIStore((s) => s.setScrubberDay);
 
   return (
     <>
@@ -231,7 +233,10 @@ export function Header() {
             {SCRUBBER_RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt}
-                onClick={() => setScrubberDays(opt)}
+                onClick={() => {
+                  setScrubberDays(opt);
+                  setScrubberDay(opt - 1);
+                }}
                 className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   scrubberDays === opt
                     ? 'bg-teal-700 text-white'

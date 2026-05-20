@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore, dayToDate } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
 import { useLatestDate } from '../../../hooks/useLatestDate';
@@ -27,7 +28,7 @@ function formatTickDate(dateStr: string): string {
 export function Scrubber() {
   const scrubberDay = useUIStore((s) => s.scrubberDay);
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
-  const scrubberDays = useUIStore((s) => s.scrubberDays);
+  const scrubberDays = useSettingsStore((s) => s.scrubberDays);
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
@@ -55,7 +56,7 @@ export function Scrubber() {
     if (playing) {
       intervalRef.current = setInterval(() => {
         const current = useUIStore.getState().scrubberDay;
-        const days = useUIStore.getState().scrubberDays;
+        const days = useSettingsStore.getState().scrubberDays;
         setScrubberDay(current >= days - 1 ? 0 : current + 1);
       }, PLAY_INTERVAL_MS);
     } else {
