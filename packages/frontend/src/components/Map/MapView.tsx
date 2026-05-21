@@ -7,6 +7,7 @@ import type { LatestMeasurement } from '../../hooks/useAQI';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createOverlay, type OverlayInstance } from '../../lib/deck-overlay';
+import { mapRef as globalMapRef } from '../../lib/mapRef';
 import { useLayerStore } from '../../store/layerStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFires } from '../../hooks/useFires';
@@ -428,9 +429,11 @@ export function MapView() {
     });
 
     mapRef.current = mapInstance;
+    globalMapRef.current = mapInstance;
 
     return () => {
       mounted = false;
+      globalMapRef.current = null;
       document.head.querySelector('style[data-deck-cursor]')?.remove();
       setMap(null);
       setHeatmapOverlay(null);
