@@ -121,7 +121,25 @@ export async function fetchSensorDailyAverage(
   let attempt = 0;
 
   while (true) {
-    const res = await fetch(url, { headers: { 'X-API-Key': apiKey } });
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { 'X-API-Key': apiKey } });
+    } catch (err) {
+      if (attempt >= MAX_RETRIES) {
+        console.warn(
+          `[openaq] sensor ${sensorId}: network error after ${attempt} retries (${(err as Error).message}), skipping`,
+        );
+        return { readings: [], rateLimitRemaining: null, rateLimitResetMs: null };
+      }
+      const waitMs = Math.min(30_000, 2_000 * 2 ** attempt);
+      attempt++;
+      console.warn(
+        `[openaq] sensor ${sensorId}: network error (${(err as Error).message}), retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${MAX_RETRIES})`,
+      );
+      await sleep(waitMs);
+      continue;
+    }
+
     const rateLimit = parseRateLimitHeaders(res.headers);
 
     if (res.status === 429) {

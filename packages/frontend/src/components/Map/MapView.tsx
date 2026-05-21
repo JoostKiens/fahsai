@@ -1,34 +1,61 @@
 import { useRef, useEffect, useState } from 'react';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import type { PickingInfo } from 'deck.gl';
+import { ScatterplotLayer } from 'deck.gl';
+import type { Layer, PickingInfo } from 'deck.gl';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '../../hooks/useAQI';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createOverlay, type OverlayInstance } from '../../lib/deck-overlay';
+import { mapRef as globalMapRef } from '../../lib/mapRef';
 import { useLayerStore } from '../../store/layerStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFires } from '../../hooks/useFires';
 import { useAQI } from '../../hooks/useAQI';
-import { useAQGrid } from '../../hooks/useAQGrid';
+import { useCamsGrid } from '../../hooks/useCamsGrid';
+import { usePM25Bitmap } from '../../hooks/usePM25Bitmap';
 import { VIEWPORT_BBOX } from '../../lib/bbox';
-import { createFiresLayer } from '../../layers/FiresLayer';
+import { createFiresLayer, baseRadiusForZoom } from '../../layers/FiresLayer';
 import { useWind } from '../../hooks/useWind';
 import { useWindParticles } from '../../hooks/useWindParticles';
 import {
   createLandMaskLayer,
   createPM25BitmapLayer,
   createPM25StationsLayers,
-  CLUSTER_MAX_ZOOM,
 } from '../../layers/PM25Layer';
 import { usePowerPlants } from '../../hooks/usePowerPlants';
-import { createPowerPlantsLayer } from '../../layers/PowerPlantsLayer';
+import { createPowerPlantsLayer, iconSizeForZoom } from '../../layers/PowerPlantsLayer';
+import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
+import { useSettingsStore } from '../../store/settingsStore';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
 const ZOOM = 5.5;
+const CENTER_MOBILE: [number, number] = [102.0, 13.5];
+const ZOOM_MOBILE = 4.7;
 const MIN_ZOOM = 4.0;
 const MAX_BOUNDS: mapboxgl.LngLatBoundsLike = [...VIEWPORT_BBOX];
+const CUSTOM_ATTRIBUTION = [
+  'NASA FIRMS',
+  '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
+  '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
+];
+
+function parseUrlMapState() {
+  const p = new URLSearchParams(window.location.search);
+  const lat = parseFloat(p.get('lat') ?? '');
+  const lng = parseFloat(p.get('lng') ?? '');
+  const zoom = parseFloat(p.get('zoom') ?? '');
+  const validLat = isFinite(lat) && lat >= -90 && lat <= 90;
+  const validLng = isFinite(lng) && lng >= -180 && lng <= 180;
+  const validZoom = isFinite(zoom) && zoom >= 0 && zoom <= 24;
+  const isMobile = window.innerWidth < 768;
+  return {
+    center:
+      validLat && validLng ? ([lng, lat] as [number, number]) : isMobile ? CENTER_MOBILE : CENTER,
+    zoom: validZoom ? Math.max(MIN_ZOOM, zoom) : isMobile ? ZOOM_MOBILE : ZOOM,
+  };
+}
 
 function detectBeforeId(map: mapboxgl.Map): string | undefined {
   const layers = map.getStyle().layers ?? [];
@@ -43,17 +70,20 @@ export function MapView() {
   // heatmapOverlay: interleaved — renders land-mask + pm25-bitmap inside Mapbox's
   // WebGL pipeline so beforeId can place them below admin boundary layers.
   const [heatmapOverlay, setHeatmapOverlay] = useState<OverlayInstance | null>(null);
-  // dataOverlay: non-interleaved — renders fires, power plants, and AQI stations on
-  // a separate canvas. Kept out of the interleaved pipeline so deck.gl never leaves
-  // dirty WebGL blend state that would corrupt Mapbox's MSAA resolve of admin borders.
+  // powerPlantsOverlay: static layer, isolated so zoom changes don't trigger its rebuild.
+  const [powerPlantsOverlay, setPowerPlantsOverlay] = useState<MapboxOverlay | null>(null);
+  // dataOverlay: non-interleaved — renders fires and AQI stations (both zoom-dependent).
+  // Kept out of the interleaved pipeline so deck.gl never leaves dirty WebGL blend state
+  // that would corrupt Mapbox's MSAA resolve of admin borders.
   const [dataOverlay, setDataOverlay] = useState<MapboxOverlay | null>(null);
   const [windOverlay, setWindOverlay] = useState<MapboxOverlay | null>(null);
+  const [compactAttribution, setCompactAttribution] = useState(false);
 
   const { data: fires } = useFires();
   const { data: aqi } = useAQI();
-  const { data: aqGrid } = useAQGrid();
+  const { data: aqGrid } = useCamsGrid();
+  const pm25Bitmap = usePM25Bitmap(aqGrid);
   const { data: wind } = useWind();
-  const { data: powerPlants } = usePowerPlants();
 
   const aqGridConfig = useLayerStore((s) => s.layers.aqGrid);
   const aqStationsConfig = useLayerStore((s) => s.layers.aqStations);
@@ -63,18 +93,58 @@ export function MapView() {
 
   const deckPickedRef = useRef(false);
 
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
+  const selectedPoint = useUIStore((s) => s.selectedPoint);
   const zoom = useUIStore((s) => s.mapZoom);
   const setMapZoom = useUIStore((s) => s.setMapZoom);
+  const setMapCenter = useUIStore((s) => s.setMapCenter);
 
-  useWindParticles(windOverlay, map, wind, windConfig);
+  const language = useSettingsStore((s) => s.language) ?? 'en';
 
-  // Sync map padding with sidebar state
+  const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
+  const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
+  const powerPlantIconSize = iconSizeForZoom(zoom);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setCompactAttribution(entry.contentRect.width <= 800);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!map) return;
-    map.easeTo({ padding: { left: sidebarOpen ? 240 : 0 }, duration: 300 });
-  }, [map, sidebarOpen]);
+    const ctrl = new mapboxgl.AttributionControl({
+      compact: compactAttribution,
+      customAttribution: CUSTOM_ATTRIBUTION,
+    });
+    map.addControl(ctrl);
+    return () => {
+      map.removeControl(ctrl);
+    };
+  }, [map, compactAttribution]);
+
+  useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
+  usePrefetchAdjacentDates();
+
+  // Switch Mapbox place-label language when the user changes language.
+  useEffect(() => {
+    if (!map) return;
+    const field: mapboxgl.ExpressionSpecification =
+      language === 'th'
+        ? ['coalesce', ['get', 'name_th'], ['get', 'name']]
+        : ['coalesce', ['get', 'name_en'], ['get', 'name']];
+    map.getStyle().layers?.forEach((layer) => {
+      if (layer.type !== 'symbol') return;
+      try {
+        map.setLayoutProperty(layer.id, 'text-field', field);
+      } catch {
+        // layer has no text-field — skip silently
+      }
+    });
+  }, [map, language]);
 
   // Heatmap layers — interleaved overlay only; beforeId keeps them below admin borders.
   useEffect(() => {
@@ -82,72 +152,17 @@ export function MapView() {
     const beforeId = beforeIdRef.current;
     const layers = [];
 
-    if (aqGridConfig.visible) {
+    if (aqGridConfig.visible && pm25Bitmap) {
       layers.push(createLandMaskLayer(beforeId));
-      if (aqGrid) layers.push(createPM25BitmapLayer(aqGrid, beforeId));
+      layers.push(createPM25BitmapLayer(pm25Bitmap, beforeId));
     }
 
     heatmapOverlay.setProps({ layers });
-  }, [heatmapOverlay, aqGrid, aqGridConfig.visible]);
+  }, [heatmapOverlay, pm25Bitmap, aqGridConfig.visible]);
 
-  // Data layers — non-interleaved overlay; render on a separate canvas above Mapbox.
+  // Power plants — rebuilt when zoom crosses tier thresholds (icon size is zoom-dependent).
   useEffect(() => {
-    if (!dataOverlay) return;
-    const layers = [];
-
-    const onFireClick = (info: PickingInfo) => {
-      if (!info.object) return;
-      const d = info.object as FirePoint;
-      deckPickedRef.current = true;
-      setSelectedPoint({
-        lngLat: [d.lng, d.lat],
-        fire: {
-          frp: d.frp,
-          confidence: d.confidence,
-          countryId: d.countryId,
-          detectedAt: d.detectedAt,
-        },
-      });
-    };
-
-    const onStationClick = (info: PickingInfo) => {
-      if (!info.object) return;
-      const d = (info.object as { properties: LatestMeasurement }).properties;
-      deckPickedRef.current = true;
-      setSelectedPoint({
-        lngLat: [d.lng, d.lat],
-        station: {
-          stationId: d.stationId,
-          stationName: d.stationName,
-          pm25: d.value,
-          unit: d.unit,
-          measuredAt: d.measuredAt,
-        },
-      });
-    };
-
-    const onClusterClick = (
-      _clusterId: number,
-      lngLat: [number, number],
-      expansionZoom: number,
-      leaves: LatestMeasurement[],
-    ) => {
-      deckPickedRef.current = true;
-      if (expansionZoom <= CLUSTER_MAX_ZOOM) {
-        mapRef.current?.flyTo({ center: lngLat, zoom: expansionZoom, duration: 500 });
-      } else {
-        setSelectedPoint({
-          lngLat,
-          cluster: {
-            stations: leaves.map((l) => ({
-              stationId: l.stationId,
-              stationName: l.stationName,
-              pm25: l.value,
-            })),
-          },
-        });
-      }
-    };
+    if (!powerPlantsOverlay) return;
 
     const onPowerPlantClick = (info: PickingInfo) => {
       if (!info.object) return;
@@ -167,11 +182,95 @@ export function MapView() {
       });
     };
 
+    const layers: Layer[] = [];
+
     if (powerPlantsConfig.visible && powerPlants) {
       layers.push(
-        createPowerPlantsLayer(powerPlants, powerPlantsConfig.opacity, onPowerPlantClick),
+        createPowerPlantsLayer(
+          powerPlants,
+          powerPlantsConfig.opacity,
+          powerPlantIconSize,
+          onPowerPlantClick,
+        ),
       );
     }
+
+    if (powerPlantsConfig.visible && selectedPoint?.powerPlant) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'powerplant-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: Math.round(powerPlantIconSize / 2) + 6,
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 220] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2,
+          parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
+        }),
+      );
+    }
+
+    powerPlantsOverlay.setProps({ layers });
+  }, [
+    powerPlantsOverlay,
+    powerPlants,
+    powerPlantsConfig.visible,
+    powerPlantsConfig.opacity,
+    powerPlantIconSize,
+    selectedPoint,
+    setSelectedPoint,
+  ]);
+
+  // Fires + stations — zoom-dependent, rebuilt when zoom crosses layer thresholds.
+  useEffect(() => {
+    if (!dataOverlay) return;
+    const layers = [];
+
+    const onFireClick = (info: PickingInfo) => {
+      if (!info.object) return;
+      const d = info.object as FirePoint;
+      deckPickedRef.current = true;
+      setSelectedPoint({
+        lngLat: [d.lng, d.lat],
+        fire: {
+          frp: d.frp,
+          confidence: d.confidence,
+          countryId: d.countryId,
+          detectedAt: d.detectedAt,
+          daynight: d.daynight,
+        },
+      });
+    };
+
+    const onStationClick = (info: PickingInfo) => {
+      if (!info.object) return;
+      const d = (info.object as { properties: LatestMeasurement }).properties;
+      deckPickedRef.current = true;
+      setSelectedPoint({
+        lngLat: [d.lng, d.lat],
+        station: {
+          stationId: d.stationId,
+          stationName: d.stationName,
+          country: d.country,
+          pm25: d.value,
+          unit: d.unit,
+          measuredAt: d.measuredAt,
+        },
+      });
+    };
+
+    const onClusterClick = (
+      _clusterId: number,
+      lngLat: [number, number],
+      expansionZoom: number,
+    ) => {
+      deckPickedRef.current = true;
+      mapRef.current?.flyTo({ center: lngLat, zoom: expansionZoom, duration: 500 });
+    };
 
     if (firesConfig.visible && fires) {
       layers.push(...createFiresLayer(fires, firesConfig.opacity, zoom, onFireClick));
@@ -179,6 +278,46 @@ export function MapView() {
 
     if (aqStationsConfig.visible && aqi) {
       layers.push(...createPM25StationsLayers(aqi, zoom, onStationClick, onClusterClick));
+    }
+
+    const selectionParams = { depthCompare: 'always' as const, depthWriteEnabled: false };
+
+    if (firesConfig.visible && selectedPoint?.fire) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'fire-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: Math.max(16, baseRadiusForZoom(zoom) * 5),
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 210] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2,
+          parameters: selectionParams,
+        }),
+      );
+    }
+
+    if (aqStationsConfig.visible && selectedPoint?.station) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'station-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: 22,
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 220] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2.5,
+          parameters: selectionParams,
+        }),
+      );
     }
 
     dataOverlay.setProps({ layers });
@@ -190,9 +329,7 @@ export function MapView() {
     aqi,
     aqStationsConfig.visible,
     zoom,
-    powerPlants,
-    powerPlantsConfig.visible,
-    powerPlantsConfig.opacity,
+    selectedPoint,
     setSelectedPoint,
   ]);
 
@@ -200,26 +337,29 @@ export function MapView() {
     if (!containerRef.current) return;
     let mounted = true;
 
+    const { center: initialCenter, zoom: initialZoom } = parseUrlMapState();
     const mapInstance = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/joostkiens/cm30pk39v00ah01qz4n2i1ssu',
-      center: CENTER,
-      zoom: ZOOM,
+      center: initialCenter,
+      zoom: initialZoom,
       minZoom: MIN_ZOOM,
       maxBounds: MAX_BOUNDS,
       accessToken: TOKEN,
       projection: 'mercator',
+      attributionControl: false,
     });
 
     mapInstance.on('load', () => {
       if (!mounted) return;
-      mapInstance.setPadding({ left: 240 });
       beforeIdRef.current = detectBeforeId(mapInstance);
 
       // Non-interleaved canvases stack in addControl order (first = bottom).
-      // Wind goes below data layers; heatmap is interleaved so order doesn't matter for it.
+      // Wind → power plants → fires/stations; heatmap is interleaved so order doesn't matter.
       const windOv = new MapboxOverlay({ layers: [] });
       mapInstance.addControl(windOv);
+      const powerPlantsOv = new MapboxOverlay({ layers: [] });
+      mapInstance.addControl(powerPlantsOv);
       const dataOv = new MapboxOverlay({ layers: [] });
       mapInstance.addControl(dataOv);
       const heatmapOv = createOverlay({ layers: [] });
@@ -246,7 +386,9 @@ export function MapView() {
       mapInstance.on('mousemove', (e) => {
         let picked = false;
         try {
-          picked = !!dataOv.pickObject({ x: e.point.x, y: e.point.y });
+          picked =
+            !!dataOv.pickObject({ x: e.point.x, y: e.point.y }) ||
+            !!powerPlantsOv.pickObject({ x: e.point.x, y: e.point.y });
         } catch {
           // overlay not yet initialised
         }
@@ -261,6 +403,7 @@ export function MapView() {
 
       setMapZoom(mapInstance.getZoom());
       setWindOverlay(windOv);
+      setPowerPlantsOverlay(powerPlantsOv);
       setDataOverlay(dataOv);
       setHeatmapOverlay(heatmapOv);
       setMap(mapInstance);
@@ -268,6 +411,12 @@ export function MapView() {
 
     mapInstance.on('zoomend', () => {
       if (mounted) setMapZoom(mapInstance.getZoom());
+    });
+
+    mapInstance.on('moveend', () => {
+      if (!mounted) return;
+      const { lng, lat } = mapInstance.getCenter();
+      setMapCenter([lng, lat]);
     });
 
     mapInstance.on('click', () => {
@@ -280,16 +429,19 @@ export function MapView() {
     });
 
     mapRef.current = mapInstance;
+    globalMapRef.current = mapInstance;
 
     return () => {
       mounted = false;
+      globalMapRef.current = null;
       document.head.querySelector('style[data-deck-cursor]')?.remove();
       setMap(null);
       setHeatmapOverlay(null);
+      setPowerPlantsOverlay(null);
       setDataOverlay(null);
       mapInstance.remove();
     };
-  }, [setSelectedPoint, setMapZoom]);
+  }, [setSelectedPoint, setMapZoom, setMapCenter]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 }

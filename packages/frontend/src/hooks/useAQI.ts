@@ -8,6 +8,7 @@ export interface LatestMeasurement {
   stationName: string;
   lat: number;
   lng: number;
+  country: string | null;
   parameter: string;
   value: number;
   unit: string;
@@ -19,10 +20,12 @@ export function useAQI() {
   return useQuery({
     queryKey: ['aqi-latest', 'pm25', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/measurements/latest?parameter=pm25&date=${selectedDate}`);
+      const res = await fetch(
+        `${API}/api/station-readings/latest?parameter=pm25&date=${selectedDate}`,
+      );
       if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
       return ((await res.json()) as { data: LatestMeasurement[] }).data;
     },
-    staleTime: 60 * 60 * 1000, // 1h — matches backend Redis TTL
+    staleTime: Infinity, // historical dates are immutable after ingestion
   });
 }

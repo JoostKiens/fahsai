@@ -1,10 +1,15 @@
-const cache = new Map<string, string | null>();
+interface GeocodeResult {
+  placeName: string | null;
+  countryAlpha2: string | null;
+}
+
+const cache = new Map<string, GeocodeResult>();
 
 export async function reverseGeocode(
   lng: number,
   lat: number,
   accessToken: string,
-): Promise<string | null> {
+): Promise<GeocodeResult> {
   const key = `${lng.toFixed(3)},${lat.toFixed(3)}`;
   if (cache.has(key)) return cache.get(key)!;
 
@@ -15,7 +20,7 @@ export async function reverseGeocode(
     );
     if (!res.ok) throw new Error('geocode failed');
     const data = (await res.json()) as {
-      features?: { context?: { id: string; text: string }[] }[];
+      features?: { context?: { id: string; text: string; short_code?: string }[] }[];
     };
     const context = data.features?.[0]?.context ?? [];
     const pick = (type: string) => context.find((c) => c.id.startsWith(type))?.text;
@@ -28,11 +33,16 @@ export async function reverseGeocode(
       .filter((v, i, arr) => arr.indexOf(v) === i)
       .slice(0, 2);
 
-    const result = parts.length ? parts.join(' · ') : null;
+    const placeName = parts.length ? parts.join(' · ') : null;
+    const countryCtx = context.find((c) => c.id.startsWith('country'));
+    const countryAlpha2 = countryCtx?.short_code?.toLowerCase() ?? null;
+
+    const result: GeocodeResult = { placeName, countryAlpha2 };
     cache.set(key, result);
     return result;
   } catch {
-    cache.set(key, null);
-    return null;
+    const result: GeocodeResult = { placeName: null, countryAlpha2: null };
+    cache.set(key, result);
+    return result;
   }
 }

@@ -6,13 +6,14 @@ export const FUEL_COLORS: Record<string, string> = {
   Coal: '#999999',
   Gas: '#4a9edd',
   Oil: '#d4a017',
+  Diesel: '#c17f24',
 };
 
-const FUELS = ['Coal', 'Gas', 'Oil'];
+const FUELS = ['Coal', 'Gas', 'Oil', 'Diesel'];
 
 function buildAtlas(): string {
   const canvas = document.createElement('canvas');
-  canvas.width = 96;
+  canvas.width = 128;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
   FUELS.forEach((fuel, i) => {
@@ -25,6 +26,8 @@ function buildAtlas(): string {
     ctx.lineTo(cx, cy + r);
     ctx.lineTo(cx - r, cy);
     ctx.closePath();
+    ctx.fillStyle = FUEL_COLORS[fuel] + '66'; // 40% opacity (0x66 = 102 = 40% of 255)
+    ctx.fill();
     ctx.strokeStyle = FUEL_COLORS[fuel]!;
     ctx.lineWidth = 1.5;
     ctx.stroke();
@@ -38,11 +41,20 @@ const ICON_MAPPING = {
   Coal: { x: 0, y: 0, width: 32, height: 32, anchorY: 16 },
   Gas: { x: 32, y: 0, width: 32, height: 32, anchorY: 16 },
   Oil: { x: 64, y: 0, width: 32, height: 32, anchorY: 16 },
+  Diesel: { x: 96, y: 0, width: 32, height: 32, anchorY: 16 },
 };
+
+export function iconSizeForZoom(zoom: number): number {
+  if (zoom >= 12) return 32;
+  if (zoom >= 8) return 26;
+  if (zoom >= 4) return 22;
+  return 18;
+}
 
 export function createPowerPlantsLayer(
   data: PowerPlantCollection,
   opacity: number,
+  iconSize: number,
   onClick: (info: PickingInfo) => void,
 ): Layer {
   return new IconLayer<PowerPlantFeature>({
@@ -52,12 +64,9 @@ export function createPowerPlantsLayer(
     iconMapping: ICON_MAPPING,
     getPosition: (d) => d.geometry.coordinates,
     getIcon: (d) => d.properties.fuel_type,
-    getSize: 24,
+    getSize: iconSize,
     opacity,
     pickable: true,
-    // alphaCutoff: 0 makes the entire icon bounding box pickable, not just
-    // the opaque outline pixels — needed because the diamond icons are stroked only.
-    alphaCutoff: 0,
     onClick,
     parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
   });

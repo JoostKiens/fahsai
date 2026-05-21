@@ -8,12 +8,17 @@ import { supabase } from '../db/client.js';
 //             selected date; on scrubber day 0 (T-30) that reaches back to T-37
 //   +2 days — buffer for UTC+7 timezone boundary and prune job timing
 //   = 40 days
-const RETENTION_DAYS = 40;
+// Increased to 130 to back a planned 120-day scrubber window (120 days + 7-day Explain
+// history buffer + 2-day UTC/prune timing buffer). Also preserves the full fire season
+// (Feb–April) for the Explain feature. ~260 MB on Supabase free tier (500 MB limit).
+const RETENTION_DAYS = 130;
 
 export async function runPrune(): Promise<{
   firePointsDeleted: number;
   measurementsDeleted: number;
   aqGridDeleted: number;
+  weatherReadingsDeleted: number;
+  stationWeatherDeleted: number;
 }> {
   console.log(`[prune] Deleting records older than ${RETENTION_DAYS} days...`);
 
@@ -32,7 +37,7 @@ export async function runPrune(): Promise<{
   }
 
   const { count: measurementsDeleted, error: measurementsError } = await supabase
-    .from('measurements')
+    .from('station_readings')
     .delete({ count: 'exact' })
     .lt('measured_at', cutoffIso);
 
@@ -41,20 +46,40 @@ export async function runPrune(): Promise<{
   }
 
   const { count: aqGridDeleted, error: aqGridError } = await supabase
-    .from('aq_grid')
+    .from('cams_grid')
     .delete({ count: 'exact' })
     .lt('date', cutoffDate);
 
   if (aqGridError) {
-    throw new Error(`Failed to prune aq_grid: ${aqGridError.message}`);
+    throw new Error(`Failed to prune cams_grid: ${aqGridError.message}`);
+  }
+
+  const { count: weatherReadingsDeleted, error: weatherError } = await supabase
+    .from('weather_readings')
+    .delete({ count: 'exact' })
+    .lt('date', cutoffDate);
+
+  if (weatherError) {
+    throw new Error(`Failed to prune weather_readings: ${weatherError.message}`);
+  }
+
+  const { count: stationWeatherDeleted, error: stationWeatherError } = await supabase
+    .from('station_weather')
+    .delete({ count: 'exact' })
+    .lt('date', cutoffDate);
+
+  if (stationWeatherError) {
+    throw new Error(`Failed to prune station_weather: ${stationWeatherError.message}`);
   }
 
   console.log(
-    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} measurements, ${aqGridDeleted ?? 0} aq_grid rows`,
+    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} station_readings, ${aqGridDeleted ?? 0} cams_grid, ${weatherReadingsDeleted ?? 0} weather_readings, ${stationWeatherDeleted ?? 0} station_weather`,
   );
   return {
     firePointsDeleted: firePointsDeleted ?? 0,
     measurementsDeleted: measurementsDeleted ?? 0,
     aqGridDeleted: aqGridDeleted ?? 0,
+    weatherReadingsDeleted: weatherReadingsDeleted ?? 0,
+    stationWeatherDeleted: stationWeatherDeleted ?? 0,
   };
 }

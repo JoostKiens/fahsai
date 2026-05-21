@@ -1,4 +1,4 @@
-import type { PM25GridPoint, WindVector } from '@thailand-aq/types';
+import type { PM25GridPoint, WindReading } from '@thailand-aq/types';
 
 const COMPASS = [
   'N',
@@ -24,7 +24,6 @@ export function degToCompass(deg: number): string {
   return COMPASS[idx];
 }
 
-// AQ grid is 0.4° — only return a cell if the click is within 0.2° (half cell)
 export function findNearestAQPoint(
   grid: PM25GridPoint[],
   lng: number,
@@ -40,16 +39,16 @@ export function findNearestAQPoint(
       best = p;
     }
   }
-  return bestDist <= 0.04 ? best : null; // 0.2° radius
+  return best;
 }
 
 export function findNearestWind(
-  vectors: WindVector[],
+  vectors: WindReading[],
   lng: number,
   lat: number,
-): WindVector | null {
+): WindReading | null {
   if (!vectors.length) return null;
-  let best: WindVector | null = null;
+  let best: WindReading | null = null;
   let bestDist = Infinity;
   for (const v of vectors) {
     const d = (v.lng - lng) ** 2 + (v.lat - lat) ** 2;

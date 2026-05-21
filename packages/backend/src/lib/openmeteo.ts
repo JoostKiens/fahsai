@@ -1,10 +1,197 @@
-import type { WindVector, PM25GridPoint } from '@thailand-aq/types';
+import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 
-// 2° grid for wind — 224 points (14 lng × 16 lat)
-// Starts one step outside VIEWPORT_BBOX [89,1,114,30] so bilinear interpolation
-// has full coverage at every viewport corner.
-const LNG_POINTS = [88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114];
-const LAT_POINTS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+// ─── Weather grid ─────────────────────────────────────────────────────────────
+//
+// 0.4° grid over bbox [89,1,114,30] — matches the CAMS AQ grid resolution.
+// 63 lng × 73 lat = 4,599 points per date.
+// Math.floor avoids the off-by-one from floating-point imprecision: 25/0.4 = 62.5
+// which Math.round would turn into 63, giving 64 points instead of 63.
+const WEATHER_STEP = 0.4;
+const WEATHER_LNG_MIN = 89;
+const WEATHER_LNG_MAX = 114;
+const WEATHER_LAT_MIN = 1;
+const WEATHER_LAT_MAX = 30;
+const WEATHER_LNG_COUNT = Math.floor((WEATHER_LNG_MAX - WEATHER_LNG_MIN) / WEATHER_STEP) + 1; // 63
+const WEATHER_LAT_COUNT = Math.floor((WEATHER_LAT_MAX - WEATHER_LAT_MIN) / WEATHER_STEP) + 1; // 73
+
+// 300 locations per batch — the multi-location POST endpoint requires per-location
+// arrays for timezone/start_date/end_date, so payload grows linearly with batch size.
+// 500 caused 413; 300 keeps each POST body ~18 KB. 4,599 points → 16 batches of ≤300
+// → 16 API calls per ingest run (well within the 10,000/day free tier limit).
+const WEATHER_BATCH_SIZE = 300;
+
+// 5 s between batches avoids the minutely burst limit.
+// 10 batches × 5 s = ~50 s total run time.
+const WEATHER_BATCH_PAUSE_MS = 5_000;
+
+// 07:00 UTC = 14:00 BKK — peak daytime convective mixing, best for smoke transport
+const HISTORICAL_HOUR_UTC = 7;
+
+export type FetchWeatherGridOptions = {
+  /** UTC calendar day (YYYY-MM-DD) — decides forecast vs archive API. */
+  calendarDayUtc: string;
+};
+
+interface OpenMeteoWeatherResult {
+  latitude: number;
+  longitude: number;
+  hourly: {
+    time: string[];
+    wind_speed_10m: number[];
+    wind_direction_10m: number[];
+    relative_humidity_2m: number[];
+  };
+  daily: {
+    time: string[];
+    wind_speed_10m_max: (number | null)[];
+    precipitation_sum: (number | null)[];
+  };
+}
+
+// Max retries on 429 within a single batch call.
+const WEATHER_429_MAX_RETRIES = 3;
+// Fallback wait time when no header hint is available.
+const WEATHER_429_FALLBACK_MS = 65_000;
+
+async function fetchWeatherBatch(
+  lats: number[],
+  lngs: number[],
+  date: string,
+  isToday: boolean,
+): Promise<WeatherReading[]> {
+  const baseUrl = isToday
+    ? 'https://api.open-meteo.com/v1/forecast'
+    : 'https://archive-api.open-meteo.com/v1/archive';
+
+  // Use POST so that large lat/lng arrays go in the JSON body rather than the URL.
+  // GET with 1,000 locations produces ~11,000-char URLs which nginx rejects (414).
+  const requestBody = JSON.stringify({
+    latitude: lats,
+    longitude: lngs,
+    hourly: ['wind_speed_10m', 'wind_direction_10m', 'relative_humidity_2m'],
+    daily: ['wind_speed_10m_max', 'precipitation_sum'],
+    start_date: lats.map(() => date),
+    end_date: lats.map(() => date),
+    timezone: lats.map(() => 'UTC'),
+    wind_speed_unit: 'kmh',
+  });
+
+  let res: Response | undefined;
+  for (let attempt = 0; attempt <= WEATHER_429_MAX_RETRIES; attempt++) {
+    res = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (res.status !== 429) break;
+
+    // Log every header on 429 so we can see what rate-limit info Open-Meteo exposes.
+    const allHeaders: Record<string, string> = {};
+    res.headers.forEach((v, k) => {
+      allHeaders[k] = v;
+    });
+    const body429 = (await res.json().catch(() => null)) as { reason?: string } | null;
+    const reason = body429?.reason ?? '';
+    console.warn(
+      `[openmeteo] 429 weather batch (attempt ${attempt + 1}/${WEATHER_429_MAX_RETRIES + 1}), reason="${reason}", headers=${JSON.stringify(allHeaders)}`,
+    );
+
+    if (attempt >= WEATHER_429_MAX_RETRIES) break;
+
+    if (/daily/i.test(reason)) {
+      // Daily quota is exhausted — no point retrying until tomorrow. Throw so the
+      // caller (pRetry) propagates the error and the script exits with code 1.
+      throw new Error(`[openmeteo] daily API limit exceeded — aborting ingest run: "${reason}"`);
+    }
+
+    let delayMs: number;
+    let delaySource: string;
+    if (/minutely/i.test(reason)) {
+      delayMs = 65_000;
+      delaySource = 'minutely limit (65 s)';
+    } else if (/hourly/i.test(reason)) {
+      delayMs = 3_900_000; // 65 minutes
+      delaySource = 'hourly limit (65 min)';
+    } else {
+      delayMs = WEATHER_429_FALLBACK_MS;
+      delaySource = `unknown reason — fallback (${Math.round(WEATHER_429_FALLBACK_MS / 1000)} s)`;
+    }
+    console.warn(`[openmeteo] waiting ${Math.round(delayMs / 1000)}s: ${delaySource}`);
+
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+
+  if (!res || !res.ok) {
+    const body = res ? await res.text().catch(() => '(unreadable)') : '(no response)';
+    const msg = `Open-Meteo weather API error: ${res?.status ?? 'none'} — ${body.slice(0, 500)}`;
+    console.error(`[openmeteo] weather batch failed: ${msg}`);
+    throw new Error(msg);
+  }
+
+  const raw = (await res.json()) as OpenMeteoWeatherResult | OpenMeteoWeatherResult[];
+  const results = Array.isArray(raw) ? raw : [raw];
+
+  // Use the requested lat/lng (lats[i]/lngs[i]) rather than loc.latitude/loc.longitude.
+  // The API snaps to its own internal grid and may return a slightly different float
+  // (e.g. 13.7999997 instead of 13.8). Storing the requested coordinates keeps the DB
+  // consistent with what our snap formula computes at query time.
+  return results.map((loc, i) => {
+    const idx = targetHourIndex(loc.hourly.time, date, HISTORICAL_HOUR_UTC);
+    return {
+      lat: lats[i],
+      lng: lngs[i],
+      wind_speed_kmh: loc.hourly.wind_speed_10m[idx] ?? 0,
+      wind_speed_max_kmh: loc.daily.wind_speed_10m_max[0] ?? null,
+      wind_direction_deg: loc.hourly.wind_direction_10m[idx] ?? 0,
+      relative_humidity_2m: loc.hourly.relative_humidity_2m[idx] ?? null,
+      precipitation_sum: loc.daily.precipitation_sum[0] ?? null,
+    };
+  });
+}
+
+export async function fetchWeatherGridForDate(
+  date: string,
+  options: FetchWeatherGridOptions,
+): Promise<WeatherReading[]> {
+  const isToday = date === options.calendarDayUtc;
+
+  // Build flat list of all grid points
+  const allLats: number[] = [];
+  const allLngs: number[] = [];
+  for (let latIdx = 0; latIdx < WEATHER_LAT_COUNT; latIdx++) {
+    for (let lngIdx = 0; lngIdx < WEATHER_LNG_COUNT; lngIdx++) {
+      allLats.push(Math.round((WEATHER_LAT_MIN + latIdx * WEATHER_STEP) * 100) / 100);
+      allLngs.push(Math.round((WEATHER_LNG_MIN + lngIdx * WEATHER_STEP) * 100) / 100);
+    }
+  }
+
+  // Split into batches
+  const batches: Array<{ lats: number[]; lngs: number[] }> = [];
+  for (let i = 0; i < allLats.length; i += WEATHER_BATCH_SIZE) {
+    batches.push({
+      lats: allLats.slice(i, i + WEATHER_BATCH_SIZE),
+      lngs: allLngs.slice(i, i + WEATHER_BATCH_SIZE),
+    });
+  }
+
+  console.log(
+    `[openmeteo] weather grid: ${allLats.length} points (${WEATHER_LNG_COUNT}×${WEATHER_LAT_COUNT}), ${batches.length} batches of ≤${WEATHER_BATCH_SIZE}`,
+  );
+
+  const results: WeatherReading[] = [];
+  for (let i = 0; i < batches.length; i++) {
+    const b = batches[i];
+    const readings = await fetchWeatherBatch(b.lats, b.lngs, date, isToday);
+    results.push(...readings);
+    if (i < batches.length - 1) await new Promise((r) => setTimeout(r, WEATHER_BATCH_PAUSE_MS));
+  }
+
+  return results;
+}
+
+// ─── AQ grid (PM2.5 from CAMS via Open-Meteo Air Quality API) ─────────────────
 
 // 0.4° grid for PM2.5 — matches Open-Meteo CAMS native resolution
 // bbox [89,1,114,30] → 63 × 73 = 4,599 points; 16 batches of 300.
@@ -32,79 +219,11 @@ const AQ_BATCH_PAUSE_MS = 35_000;
 // Short retries handle transient spikes; last entry (10 min) covers quota window resets
 const AQ_RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 600_000];
 
-interface OpenMeteoResult {
-  latitude: number;
-  longitude: number;
-  hourly: {
-    time: string[]; // 'YYYY-MM-DDTHH:MM'
-    windspeed_10m: number[];
-    winddirection_10m: number[];
-  };
-}
-
-// 07:00 UTC = 14:00 BKK — peak daytime convective mixing, best for smoke transport
-const HISTORICAL_HOUR_UTC = 7;
-
-export type FetchWindGridOptions = {
-  /** UTC calendar day (YYYY-MM-DD) used to decide forecast vs archive; must be one snapshot for the whole request. */
-  calendarDayUtc: string;
-};
-
-export async function fetchWindGridForDate(
-  date: string,
-  options: FetchWindGridOptions,
-): Promise<WindVector[]> {
-  const lats: number[] = [];
-  const lngs: number[] = [];
-  for (const lat of LAT_POINTS) {
-    for (const lng of LNG_POINTS) {
-      lats.push(lat);
-      lngs.push(lng);
-    }
-  }
-
-  const isToday = date === options.calendarDayUtc;
-
-  const baseUrl = isToday
-    ? 'https://api.open-meteo.com/v1/forecast'
-    : 'https://archive-api.open-meteo.com/v1/archive';
-
-  const params = new URLSearchParams({
-    latitude: lats.join(','),
-    longitude: lngs.join(','),
-    hourly: 'windspeed_10m,winddirection_10m',
-    start_date: date,
-    end_date: date,
-    timezone: 'UTC',
-    wind_speed_unit: 'kmh',
-  });
-
-  const res = await fetch(`${baseUrl}?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error(`Open-Meteo API error: ${res.status} ${res.statusText}`);
-  }
-
-  const results = (await res.json()) as OpenMeteoResult[];
-  const nowUtc = Date.now();
-
-  return results.map((loc) => {
-    const idx = isToday
-      ? currentHourIndex(loc.hourly.time, nowUtc)
-      : targetHourIndex(loc.hourly.time, date, HISTORICAL_HOUR_UTC);
-    return {
-      lat: loc.latitude,
-      lng: loc.longitude,
-      speedKmh: loc.hourly.windspeed_10m[idx] ?? 0,
-      directionDeg: loc.hourly.winddirection_10m[idx] ?? 0,
-    };
-  });
-}
-
 interface OpenMeteoAQResult {
   latitude: number;
   longitude: number;
   hourly: {
-    time: string[];
+    time: string[]; // 'YYYY-MM-DDTHH:MM'
     pm2_5: (number | null)[];
   };
 }
@@ -127,7 +246,7 @@ async function fetchAQBatch(
 
   let res: Response | undefined;
   for (let attempt = 0; attempt <= AQ_RETRY_DELAYS_MS.length; attempt++) {
-    res = await fetch(url);
+    res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
     if (res.status !== 429) break;
 
     const body = (await res.json().catch(() => null)) as { reason?: string } | null;
@@ -158,7 +277,11 @@ async function fetchAQBatch(
   }
 
   if (!res?.ok) {
-    throw new Error(`Open-Meteo Air Quality API error: ${res?.status} ${res?.statusText}`);
+    const status = res?.status ?? 'none';
+    const body = res ? await res.text().catch(() => '') : '';
+    const detail = body.slice(0, 300);
+    console.error(`[openmeteo] AQ batch HTTP ${status}: ${detail}`);
+    throw new Error(`Open-Meteo Air Quality API error: ${status} — ${detail || res?.statusText}`);
   }
 
   // API returns a single object when one location is requested, array for multiple.
@@ -200,12 +323,39 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
   );
 
   // Run batches sequentially with a polite pause between each to avoid burst rate-limiting.
-  // 16 batches × 3 s = ~48 s total — acceptable for a background ingest job.
+  // 16 batches × 35 s = ~9 min total — acceptable for a background ingest job.
+  // Each batch gets up to AQ_BATCH_CONNECT_RETRIES retries on ETIMEDOUT/connection errors
+  // so that a transient rate-limit on one batch doesn't restart the whole 16-batch sequence.
+  const AQ_BATCH_CONNECT_RETRIES = 3;
+  const AQ_BATCH_CONNECT_RETRY_DELAY_MS = 60_000;
+
   const results: PM25GridPoint[] = [];
   for (let i = 0; i < batches.length; i += AQ_BATCH_CONCURRENCY) {
     if (i > 0) await new Promise((r) => setTimeout(r, AQ_BATCH_PAUSE_MS));
     const chunk = batches.slice(i, i + AQ_BATCH_CONCURRENCY);
-    const chunkResults = await Promise.all(chunk.map((b) => fetchAQBatch(b.lats, b.lngs, date)));
+
+    const chunkResults = await Promise.all(
+      chunk.map(async (b) => {
+        for (let attempt = 0; attempt <= AQ_BATCH_CONNECT_RETRIES; attempt++) {
+          try {
+            return await fetchAQBatch(b.lats, b.lngs, date);
+          } catch (err) {
+            const isConnectionError =
+              err instanceof Error &&
+              (err.message.includes('fetch failed') ||
+                err.message.includes('ETIMEDOUT') ||
+                (err as { name?: string }).name === 'TimeoutError');
+            if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
+            console.warn(
+              `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
+            );
+            await new Promise((r) => setTimeout(r, AQ_BATCH_CONNECT_RETRY_DELAY_MS));
+          }
+        }
+        throw new Error('[openmeteo] unreachable');
+      }),
+    );
+
     for (const points of chunkResults) {
       results.push(...points);
     }
@@ -214,17 +364,9 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
   return results;
 }
 
-// Find the index of the latest past hour in the time array
-function currentHourIndex(times: string[], nowMs: number): number {
-  let best = 0;
-  for (let i = 0; i < times.length; i++) {
-    const t = new Date(times[i] + ':00Z').getTime();
-    if (t <= nowMs) best = i;
-    else break;
-  }
-  return best;
-}
+// ─── Shared time helpers ──────────────────────────────────────────────────────
 
+// Find the index of the latest past hour in the time array
 function parseOpenMeteoUtcMs(time: string): number {
   if (/[Zz]|[+-]\d{2}(?::?\d{2})?$/.test(time)) {
     return Date.parse(time);

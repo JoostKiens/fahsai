@@ -1,10 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { FirePoint } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
-import { redis } from '../cache/client.js';
+import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../lib/bbox.js';
 
-const CACHE_TTL_SECONDS = 3 * 60 * 60; // 3 hours
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function firesRoutes(app: FastifyInstance): void {
@@ -22,16 +21,17 @@ export function firesRoutes(app: FastifyInstance): void {
     // Redis cache — only for default bbox requests
     if (isDefaultBbox) {
       const cached = await redis.get<FirePoint[]>(`fires:date:${date}`);
-      if (cached !== null) return reply.send({ data: cached });
+      if (cached !== null)
+        return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
     }
 
     const data = await queryFires(date, date, bbox);
 
     if (isDefaultBbox) {
-      await redis.set(`fires:date:${date}`, data, { ex: CACHE_TTL_SECONDS });
+      await redis.set(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
     }
 
-    return reply.send({ data });
+    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
   });
 
   // GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
@@ -56,7 +56,7 @@ export function firesRoutes(app: FastifyInstance): void {
 
       const bbox = parseBbox(rawBbox);
       const data = await queryFires(start, end, bbox);
-      return reply.send({ data });
+      return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
     },
   );
 }
@@ -76,7 +76,7 @@ async function queryFires(
     const { data, error } = await supabase
       .from('fire_points')
       .select(
-        'id, detected_at, lat, lng, frp, bright_ti4, bright_ti5, satellite, confidence, daynight, country_id, fire_type',
+        'id, detected_at, lat, lng, frp, bright_ti4, bright_ti5, satellite, confidence, daynight, country_id',
       )
       .gte('detected_at', `${start}T00:00:00Z`)
       .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
@@ -102,7 +102,6 @@ async function queryFires(
         satellite: row.satellite as string | null,
         confidence: row.confidence as string | null,
         daynight: row.daynight as string | null,
-        fireType: row.fire_type as number | null,
       });
     }
 

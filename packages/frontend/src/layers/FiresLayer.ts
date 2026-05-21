@@ -26,11 +26,12 @@ const ADDITIVE_BLEND = {
   blendAlphaOperation: 'add',
 } as const;
 
-// Map brightTi4 (brightness temp K, ~300 background) to a radius scale factor.
-// 300 K → 0.6×, 500 K → 2.0×, clamped at both ends.
+// Map FRP (fire radiative power, MW) to a radius scale factor.
+// 0 MW → 0.6×, 200 MW → 2.0×, clamped at both ends.
+// FRP is the standard proxy for smoke and PM2.5 emissions.
 function intensityMultiplier(d: FirePoint): number {
-  if (d.brightTi4 === null) return 1.0;
-  return Math.min(2.0, Math.max(0.6, 0.6 + ((d.brightTi4 - 300) / 200) * 1.4));
+  if (d.frp === null) return 1.0;
+  return Math.min(2.0, Math.max(0.6, 0.6 + (Math.min(d.frp, 200) / 200) * 1.4));
 }
 
 function ringColor(ring: (typeof RINGS)[number], d: FirePoint): RGBA4 {
@@ -42,7 +43,7 @@ function ringColor(ring: (typeof RINGS)[number], d: FirePoint): RGBA4 {
  * Returns three additive-blended ScatterplotLayers (outer glow → mid halo → inner core)
  * that render each fire point as a firefly/bloom effect. Layers use GL additive blending
  * so overlapping points accumulate light — dense clusters naturally appear brighter.
- * Intensity scales with `brightTi4`; low-confidence points render at half opacity.
+ * Intensity scales with FRP (fire radiative power); low-confidence points render at half opacity.
  */
 export function baseRadiusForZoom(zoom: number): number {
   if (zoom >= 11) return 6;
@@ -71,10 +72,10 @@ export function createFiresLayer(
         getFillColor: (d) => ringColor(ring, d),
         updateTriggers: { getRadius: baseRadius },
         parameters: ADDITIVE_BLEND,
-        // All rings are pickable so cursor covers the full glow area (outer ring = 4× radius);
-        // onClick is wired only on the inner core to avoid duplicate events.
+        // All rings are pickable and handle clicks — Deck.gl picks the topmost layer at the
+        // pointer position, so only one onClick fires per click regardless of overlap.
         pickable: true,
-        onClick: i === 2 ? onClick : undefined,
+        onClick,
       }),
   );
 }

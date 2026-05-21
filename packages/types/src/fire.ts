@@ -10,5 +10,4 @@ export interface FirePoint {
   satellite: string | null; // 'N' = Suomi-NPP, '1' = NOAA-20
   confidence: string | null; // 'low' | 'nominal' | 'high'
   daynight: string | null; // 'D' | 'N'
-  fireType: number | null; // 0=vegetation, 1=volcano, 2=static land, 3=offshore
 }
