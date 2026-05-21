@@ -1,125 +1,156 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม</title>
-    <meta name="description" content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน" />
+    <meta
+      name="description"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+    />
     <link rel="canonical" href="https://fahsai.fyi/th/" />
     <link rel="alternate" hreflang="en" href="https://fahsai.fyi/" />
     <link rel="alternate" hreflang="th" href="https://fahsai.fyi/th/" />
     <link rel="alternate" hreflang="x-default" href="https://fahsai.fyi/" />
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fahsai.fyi/th/" />
     <meta property="og:site_name" content="Fahsai" />
     <meta property="og:title" content="แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม" />
-    <meta property="og:description" content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน" />
+    <meta
+      property="og:description"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+    />
     <meta property="og:image" content="https://fahsai.fyi/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="แผนที่แสดงจุดไฟและฝุ่น PM2.5 ทั่วไทยและประเทศเพื่อนบ้านในช่วงหมอกควัน" />
+    <meta
+      property="og:image:alt"
+      content="แผนที่แสดงจุดไฟและฝุ่น PM2.5 ทั่วไทยและประเทศเพื่อนบ้านในช่วงหมอกควัน"
+    />
     <meta property="og:locale" content="th_TH" />
     <meta property="og:locale:alternate" content="en_US" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม" />
-    <meta name="twitter:description" content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน" />
+    <meta
+      name="twitter:description"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+    />
     <meta name="twitter:image" content="https://fahsai.fyi/og-image.png" />
-    <meta name="twitter:image:alt" content="แผนที่แสดงจุดไฟและฝุ่น PM2.5 ทั่วไทยและประเทศเพื่อนบ้านในช่วงหมอกควัน" />
+    <meta
+      name="twitter:image:alt"
+      content="แผนที่แสดงจุดไฟและฝุ่น PM2.5 ทั่วไทยและประเทศเพื่อนบ้านในช่วงหมอกควัน"
+    />
 
     <!-- Structured data -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "WebApplication",
-          "name": "Fahsai",
-          "url": "https://fahsai.fyi/th/",
-          "description": "แผนที่เชิงโต้ตอบแสดงค่าฝุ่น PM2.5 จุดไฟ และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน",
-          "applicationCategory": "EnvironmentApplication",
-          "operatingSystem": "Any",
-          "browserRequirements": "Requires a modern browser with JavaScript enabled.",
-          "featureList": [
-            "Daily fire detection from NASA FIRMS VIIRS satellite data",
-            "PM2.5 air quality readings from OpenAQ ground stations",
-            "Gridded PM2.5 model from Copernicus CAMS via Open-Meteo",
-            "Animated wind particle visualization",
-            "30-day historical time scrubber"
-          ],
-          "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "Fahsai",
+            "url": "https://fahsai.fyi/th/",
+            "description": "แผนที่เชิงโต้ตอบแสดงค่าฝุ่น PM2.5 จุดไฟ และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน",
+            "applicationCategory": "EnvironmentApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires a modern browser with JavaScript enabled.",
+            "featureList": [
+              "Daily fire detection from NASA FIRMS VIIRS satellite data",
+              "PM2.5 air quality readings from OpenAQ ground stations",
+              "Gridded PM2.5 model from Copernicus CAMS via Open-Meteo",
+              "Animated wind particle visualization",
+              "30-day historical time scrubber"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "creator": {
+              "@type": "Person",
+              "name": "Joost Kiens",
+              "sameAs": [
+                "https://www.linkedin.com/in/joostkiens/",
+                "https://github.com/JoostKiens/"
+              ]
+            },
+            "inLanguage": "th"
           },
-          "creator": {
-            "@type": "Person",
-            "name": "Joost Kiens",
-            "sameAs": [
-              "https://www.linkedin.com/in/joostkiens/",
-              "https://github.com/JoostKiens/"
+          {
+            "@type": "Dataset",
+            "name": "Thailand Region Fire, PM2.5, and Wind Dataset",
+            "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, and Cambodia.",
+            "url": "https://fahsai.fyi/th/",
+            "keywords": [
+              "air quality",
+              "PM2.5",
+              "fire detection",
+              "VIIRS",
+              "NASA FIRMS",
+              "OpenAQ",
+              "CAMS",
+              "Thailand",
+              "Myanmar",
+              "Laos",
+              "Cambodia",
+              "Southeast Asia",
+              "haze",
+              "smoke",
+              "cross-border burning"
+            ],
+            "license": "https://creativecommons.org/licenses/by/4.0/",
+            "isAccessibleForFree": true,
+            "temporalCoverage": "P30D",
+            "creator": {
+              "@type": "Person",
+              "name": "Joost Kiens",
+              "sameAs": [
+                "https://www.linkedin.com/in/joostkiens/",
+                "https://github.com/JoostKiens/"
+              ]
+            },
+            "spatialCoverage": {
+              "@type": "Place",
+              "name": "Thailand, Myanmar, Laos, Cambodia",
+              "geo": {
+                "@type": "GeoShape",
+                "box": "1 89 30 114"
+              }
+            },
+            "variableMeasured": [
+              {
+                "@type": "PropertyValue",
+                "name": "PM2.5 concentration",
+                "unitText": "µg/m³"
+              },
+              {
+                "@type": "PropertyValue",
+                "name": "Fire Radiative Power",
+                "unitText": "MW"
+              },
+              {
+                "@type": "PropertyValue",
+                "name": "Wind speed",
+                "unitText": "km/h"
+              },
+              {
+                "@type": "PropertyValue",
+                "name": "Wind direction",
+                "unitText": "degrees"
+              }
             ]
-          },
-          "inLanguage": "th"
-        },
-        {
-          "@type": "Dataset",
-          "name": "Thailand Region Fire, PM2.5, and Wind Dataset",
-          "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, and Cambodia.",
-          "url": "https://fahsai.fyi/th/",
-          "keywords": [
-            "air quality", "PM2.5", "fire detection", "VIIRS", "NASA FIRMS",
-            "OpenAQ", "CAMS", "Thailand", "Myanmar", "Laos", "Cambodia",
-            "Southeast Asia", "haze", "smoke", "cross-border burning"
-          ],
-          "license": "https://creativecommons.org/licenses/by/4.0/",
-          "isAccessibleForFree": true,
-          "temporalCoverage": "P30D",
-          "creator": {
-            "@type": "Person",
-            "name": "Joost Kiens",
-            "sameAs": [
-              "https://www.linkedin.com/in/joostkiens/",
-              "https://github.com/JoostKiens/"
-            ]
-          },
-          "spatialCoverage": {
-            "@type": "Place",
-            "name": "Thailand, Myanmar, Laos, Cambodia",
-            "geo": {
-              "@type": "GeoShape",
-              "box": "1 89 30 114"
-            }
-          },
-          "variableMeasured": [
-            {
-              "@type": "PropertyValue",
-              "name": "PM2.5 concentration",
-              "unitText": "µg/m³"
-            },
-            {
-              "@type": "PropertyValue",
-              "name": "Fire Radiative Power",
-              "unitText": "MW"
-            },
-            {
-              "@type": "PropertyValue",
-              "name": "Wind speed",
-              "unitText": "km/h"
-            },
-            {
-              "@type": "PropertyValue",
-              "name": "Wind direction",
-              "unitText": "degrees"
-            }
-          ]
-        }
-      ]
-    }
+          }
+        ]
+      }
     </script>
   </head>
   <body>
