@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
+import { mapRef } from '../../../lib/mapRef';
 import { LayerGroups } from './LayerGroups';
 
 const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
@@ -17,6 +18,7 @@ export function Sidebar() {
       initial={false}
       animate={{ width: sidebarOpen ? 260 : 0 }}
       transition={SPRING}
+      onAnimationComplete={() => mapRef.current?.resize()}
       className="hidden md:flex shrink-0 overflow-hidden z-20 pointer-events-auto"
     >
       <div className="w-[260px] flex flex-col bg-white border-r border-gray-200 shrink-0">
