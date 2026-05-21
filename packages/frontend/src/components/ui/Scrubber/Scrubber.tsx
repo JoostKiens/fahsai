@@ -128,7 +128,7 @@ export function Scrubber() {
             onPointerUp={handlePointerUp}
             aria-label="Select date"
             aria-valuetext={formatDate(dateStr)}
-            className="w-full"
+            className="w-full touch-none"
           />
           {/* Desktop: start + middle + end ticks */}
           <div className="hidden md:flex justify-between mt-0.5">
