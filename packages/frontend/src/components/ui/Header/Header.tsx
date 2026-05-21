@@ -168,7 +168,7 @@ export function Header() {
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <Logo size={26} />
           <div className="leading-tight">
-            <p className="text-[13px] font-semibold text-gray-800">Thailand Air Quality Map</p>
+            <p className="text-[13px] font-semibold text-gray-800">Fahsai</p>
             <p className="text-[10px] text-gray-500">Causes of cross-border PM2.5 pollution</p>
           </div>
         </div>
@@ -176,9 +176,7 @@ export function Header() {
         {/* Mobile brand */}
         <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
           <Logo size={22} />
-          <span className="text-[12px] font-semibold text-gray-800 truncate">
-            Thailand Air Quality
-          </span>
+          <span className="text-[12px] font-semibold text-gray-800 truncate">Fahsai</span>
         </div>
 
         {/* Desktop spacer */}
@@ -193,7 +191,7 @@ export function Header() {
           </IconBtn>
           <IconBtn
             ariaLabel="GitHub repository"
-            href="https://github.com/JoostKiens/thailand-air-quality-map"
+            href="https://github.com/JoostKiens/fahsai"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -219,8 +217,8 @@ export function Header() {
       {/* About modal */}
       <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="About">
         <p className="text-[13px] text-gray-700 leading-relaxed">
-          Thailand Air Quality Map is a non-commercial civic project visualising the causes of PM2.5
-          pollution in Thailand and its neighbours.
+          Fahsai is a non-commercial civic project visualising the causes of PM2.5 pollution in
+          Thailand and its neighbours.
         </p>
         <p className="mt-3 text-[12px] text-gray-500">Data: NASA FIRMS, OpenAQ, Open-Meteo, WRI.</p>
         <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>

@@ -1,6 +1,6 @@
-# Thailand Air Quality Map
+# Fahsai
 
-[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-blue)](LICENSE.md) [![Live Demo](https://img.shields.io/badge/live%20demo-open-green)](https://thailand-air-quality-map-frontend.vercel.app)
+[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-blue)](LICENSE.md) [![Live Demo](https://img.shields.io/badge/live%20demo-open-green)](https://fahsai.fyi)
 
 ---
 

@@ -1,4 +1,4 @@
-# Thailand Air Quality Map — CLAUDE.md
+# Fahsai — CLAUDE.md
 
 ## Project overview
 
