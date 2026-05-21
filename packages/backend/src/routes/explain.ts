@@ -301,48 +301,78 @@ export function explainRoutes(app: FastifyInstance): void {
       const originWaypoint = centerTrajectory[centerTrajectory.length - 1];
 
       // --- fire query using footprint bbox ---
-      const fireRows = await supabase
-        .from('fire_points')
-        .select('lat, lng, frp, confidence, detected_at')
-        .gte('detected_at', since72h)
-        .lt('detected_at', until)
-        .gte('lat', footprintBbox.latMin)
-        .lte('lat', footprintBbox.latMax)
-        .gte('lng', footprintBbox.lngMin)
-        .lte('lng', footprintBbox.lngMax);
+      // Use UTC day end as the upper bound so the VIIRS PM pass (~18:30 UTC) is included.
+      // The fires route uses the same UTC-day convention; BKK midnight (anchorEndMs) is 7h
+      // earlier and silently drops the most recent satellite pass over the region.
+      const fireUntil = `${selectedDate}T23:59:59Z`;
+
+      // Paginate fire query — fire_points can exceed 1000 rows within the bbox/time window
+      // during peak burning season; Supabase silently truncates without .range(), returning
+      // the oldest rows (lowest bigserial IDs) and dropping the most recent fires entirely.
+      type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
+      const allFireRows: FireRow[] = [];
+      let fireOffset = 0;
+      while (true) {
+        const { data: firePage } = await supabase
+          .from('fire_points')
+          .select('lat, lng, frp, confidence, detected_at')
+          .gte('detected_at', since72h)
+          .lt('detected_at', fireUntil)
+          .gte('lat', footprintBbox.latMin)
+          .lte('lat', footprintBbox.latMax)
+          .gte('lng', footprintBbox.lngMin)
+          .lte('lng', footprintBbox.lngMax)
+          .order('detected_at', { ascending: false })
+          .range(fireOffset, fireOffset + GRID_PAGE_SIZE - 1);
+        if (!firePage?.length) break;
+        allFireRows.push(...(firePage as unknown as FireRow[]));
+        if (firePage.length < GRID_PAGE_SIZE) break;
+        fireOffset += GRID_PAGE_SIZE;
+      }
 
       req.log.info(
         {
-          fireError: fireRows.error?.message ?? null,
-          fireRowCount: fireRows.data?.length ?? 0,
+          fireRowCount: allFireRows.length,
           since72h,
-          until,
+          fireUntil,
           footprintBbox,
           corridorKm,
         },
         'explain: fire query result',
       );
 
-      type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
       const allWaypoints = members.flat();
 
-      const fires = ((fireRows.data as unknown as FireRow[] | null) ?? [])
+      const fires = allFireRows
         .map((f) => ({
           ...f,
           distKm: Math.min(...allWaypoints.map((w) => haversineKm(w.lat, w.lng, f.lat, f.lng))),
           bearing: bearingDeg(lat, lng, f.lat, f.lng),
         }))
         .filter((f) => f.distKm <= corridorKm)
-        .sort((a, b) => a.distKm - b.distKm);
+        // Sort newest first so the AI prompt shows the most actionable (recent) fires.
+        // Distance is the tiebreaker within the same age bucket.
+        .sort((a, b) => {
+          const ageA = Math.max(0, (anchorEndMs - new Date(a.detected_at).getTime()) / 3_600_000);
+          const ageB = Math.max(0, (anchorEndMs - new Date(b.detected_at).getTime()) / 3_600_000);
+          return ageA !== ageB ? ageA - ageB : a.distKm - b.distKm;
+        });
 
       // --- fire pressure score ---
+      // Recency weight: inverse decay with 24 h half-life so 3-day-old fires still
+      // contribute ~25% (vs ~1.4% with the old linear formula). Smoke from fires
+      // along the trajectory 72 h ago is exactly what the trajectory is designed to
+      // attribute — nearly zeroing it out was physically wrong.
+      // Normalization / 10: previous /50 required 5,000 units for 100/100, making
+      // typical burning-season fire events score near 0. With /10, 1,000 weighted
+      // FRP units = 100/100 — a realistic ceiling for a major fire event.
       const firePressureScore = fires.reduce((sum, f) => {
-        const ageHours = (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000;
-        const recencyWeight = Math.max(0, 1 - ageHours / 72);
+        const ageHours = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
+        const recencyWeight = 1 / (1 + ageHours / 24); // 24 h half-life inverse decay
         const transportWeight = 1 / (1 + f.distKm / corridorKm);
         return sum + (f.frp ?? 10) * recencyWeight * transportWeight;
       }, 0);
-      const firePressureNorm = Math.min(100, Math.round(firePressureScore / 50));
+      const firePressureNorm = Math.min(100, Math.round(firePressureScore / 10));
 
       // --- peers context ---
       type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
@@ -550,23 +580,38 @@ export function explainRoutes(app: FastifyInstance): void {
             .join('\n')
         : '  No CAMS data along trajectory';
 
-      // Fire string
+      // Fire string — time-bucket summary + top 20 newest fires
+      function fireBucket(maxAgeH: number, minAgeH = 0) {
+        const bucket = fires.filter((f) => {
+          const age = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
+          return age >= minAgeH && age < maxAgeH;
+        });
+        const totalFrp = bucket.reduce((s, f) => s + (f.frp ?? 0), 0);
+        return { count: bucket.length, totalFrp };
+      }
+      const b0 = fireBucket(24); // 0–24 h
+      const b1 = fireBucket(48, 24); // 24–48 h
+      const b2 = fireBucket(73, 48); // 48–72 h (73 to include clamped-to-0 edge)
+
       const fireStr =
         fires.length === 0
           ? '  No fires detected within transport corridor'
-          : fires
-              .slice(0, 20)
-              .map((f) => {
+          : [
+              `  By recency: 0-24h: ${b0.count} fires (${b0.totalFrp.toFixed(0)} MW FRP) | ` +
+                `24-48h: ${b1.count} fires (${b1.totalFrp.toFixed(0)} MW FRP) | ` +
+                `48-72h: ${b2.count} fires (${b2.totalFrp.toFixed(0)} MW FRP)`,
+              '  Most recent fires (up to 30, newest first):',
+              ...fires.slice(0, 30).map((f) => {
                 const ageH = Math.round(
-                  (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000,
+                  Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000),
                 );
                 return (
                   `  ${f.lat.toFixed(2)}°N ${f.lng.toFixed(2)}°E — ` +
                   `${f.distKm.toFixed(0)} km from path — ` +
                   `FRP ${(f.frp ?? 0).toFixed(0)} MW — ${ageH}h ago`
                 );
-              })
-              .join('\n');
+              }),
+            ].join('\n');
 
       // Urban sources string
       const sourcesStr =
