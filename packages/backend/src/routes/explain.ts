@@ -3,55 +3,15 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../lib/geo.js';
-import { getRelevantUrbanSources } from '../lib/urbanSources.js';
+import { URBAN_SOURCES } from '../data/urbanSources.js';
+import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
+import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DAILY_QUOTA_LIMIT = 1400;
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
-const FIRE_RADIUS_KM = 300;
-
-// --- geo helpers ---
-
-function quadrant(deg: number): 'N' | 'E' | 'S' | 'W' {
-  if (deg >= 315 || deg < 45) return 'N';
-  if (deg < 135) return 'E';
-  if (deg < 225) return 'S';
-  return 'W';
-}
-
-// Wind direction helpers — directionDeg is always the FROM direction (meteorological).
-// Never apply +180 at call sites; use these functions instead.
-interface WindDir {
-  fromLabel: string; // compass label for display ("from NNE")
-  toLabel: string; // compass label for travel direction ("toward SSW")
-  fromQuadrant: 'N' | 'E' | 'S' | 'W'; // upwind quadrant — fires here affect the station
-  toQuadrant: 'N' | 'E' | 'S' | 'W'; // downwind quadrant — smoke travels here
-}
-
-function parseWindDir(directionDeg: number): WindDir {
-  const toDeg = (directionDeg + 180) % 360;
-  return {
-    fromLabel: compassFromDeg(directionDeg),
-    toLabel: compassFromDeg(toDeg),
-    fromQuadrant: quadrant(directionDeg),
-    toQuadrant: quadrant(toDeg),
-  };
-}
-
-function nearestWind(vectors: WeatherReading[], lat: number, lng: number): WeatherReading | null {
-  if (!vectors.length) return null;
-  let best = vectors[0];
-  let bestD = (best.lat - lat) ** 2 + (best.lng - lng) ** 2;
-  for (const v of vectors.slice(1)) {
-    const d = (v.lat - lat) ** 2 + (v.lng - lng) ** 2;
-    if (d < bestD) {
-      bestD = d;
-      best = v;
-    }
-  }
-  return best;
-}
+const HISTORICAL_TTL_SECONDS = 604800; // 7 days
 
 function medianOf(arr: number[]): number {
   if (!arr.length) return 0;
@@ -94,6 +54,77 @@ function computeTrend(readings: number[]): string {
   return 'stable';
 }
 
+// --- upwind helpers ---
+
+const UPWIND_TOLERANCE_DEG = 60;
+
+function angleDiff(a: number, b: number): number {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+// --- fire pressure ---
+
+function firePressureLabel(score: number): string {
+  if (score === 0) return 'None';
+  if (score < 15) return 'Low';
+  if (score < 40) return 'Moderate';
+  if (score < 70) return 'High';
+  return 'Very high';
+}
+
+// Full weather grid is 4,599 points. Require ≥4,000 before trusting a cache hit —
+// incomplete caches from the 1000-row Supabase cap must be bypassed.
+const GRID_MIN_COMPLETE = 4000;
+const GRID_PAGE_SIZE = 1000;
+
+// --- wind grid fetching ---
+
+async function getWindGrid(date: string): Promise<WeatherReading[]> {
+  const cached = await redis.get<WeatherReading[]>(`weather:${date}`);
+  if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
+
+  // Paginate: weather_readings has 4,599 rows per date; Supabase silently caps at 1,000.
+  const all: WeatherReading[] = [];
+  let offset = 0;
+  while (true) {
+    const { data } = await supabase
+      .from('weather_readings')
+      .select(
+        'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+      )
+      .eq('date', date)
+      .range(offset, offset + GRID_PAGE_SIZE - 1);
+    if (!data?.length) break;
+    all.push(...(data as WeatherReading[]));
+    if (data.length < GRID_PAGE_SIZE) break;
+    offset += GRID_PAGE_SIZE;
+  }
+
+  if (!all.length) return [];
+  void redis.set(`weather:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
+  return all;
+}
+
+// --- CAMS sampling ---
+
+function sampleCams(
+  lat: number,
+  lng: number,
+  data: { lat: number; lng: number; pm25: number }[],
+): number | null {
+  if (!data.length) return null;
+  let best = data[0];
+  let bestD = (best.lat - lat) ** 2 + (best.lng - lng) ** 2;
+  for (const p of data.slice(1)) {
+    const d = (p.lat - lat) ** 2 + (p.lng - lng) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best.pm25;
+}
+
 // --- route ---
 
 export function explainRoutes(app: FastifyInstance): void {
@@ -126,42 +157,104 @@ export function explainRoutes(app: FastifyInstance): void {
       const [yr, mo, dy] = selectedDate.split('-').map(Number);
       const anchorEndMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS + 86_400_000;
 
-      const since48h = new Date(anchorEndMs - 48 * 3600_000).toISOString();
+      // 8 days so computeTrend (needs 8 readings) can compare recent vs older on daily data
+      const since7d = new Date(anchorEndMs - 8 * 86_400_000).toISOString();
+      const since24h = new Date(anchorEndMs - 24 * 3600_000).toISOString();
+      const since72h = new Date(anchorEndMs - 72 * 3600_000).toISOString();
       const until = new Date(anchorEndMs).toISOString();
-      const since7d = new Date(anchorEndMs - 7 * 86_400_000).toISOString();
-      const since3h = new Date(anchorEndMs - 3 * 3600_000).toISOString();
-      const BOX_FIRE = FIRE_RADIUS_KM / 111; // degrees bounding-box pre-filter
+
+      const d0 = selectedDate;
+      const d1 = offsetDate(selectedDate, -1);
+      const d2 = offsetDate(selectedDate, -2);
+      const d3 = offsetDate(selectedDate, -3);
+      const d4 = offsetDate(selectedDate, -4);
+
+      async function getCamsGrid(
+        date: string,
+      ): Promise<{ lat: number; lng: number; pm25: number }[]> {
+        const cached = await redis.get<{ lat: number; lng: number; pm25: number }[]>(
+          `cams:pm25:${date}`,
+        );
+        if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
+
+        // Paginate: cams_grid has 4,599 rows per date; Supabase silently caps at 1,000.
+        const all: { lat: number; lng: number; pm25: number }[] = [];
+        let offset = 0;
+        while (true) {
+          const { data } = await supabase
+            .from('cams_grid')
+            .select('lat, lng, pm25')
+            .eq('date', date)
+            .range(offset, offset + GRID_PAGE_SIZE - 1);
+          if (!data?.length) break;
+          all.push(...(data as { lat: number; lng: number; pm25: number }[]));
+          if (data.length < GRID_PAGE_SIZE) break;
+          offset += GRID_PAGE_SIZE;
+        }
+
+        if (!all.length) return [];
+        void redis.set(`cams:pm25:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
+        return all;
+      }
 
       // Gather all context in parallel
-      const [stationRows, fireRows, peerRows, windCache] = await Promise.all([
+      const [
+        stationRows,
+        peerRows,
+        stationWeatherRows,
+        wind0,
+        wind1,
+        wind2,
+        camsD0,
+        camsD1,
+        camsD2,
+      ] = await Promise.all([
         supabase
           .from('station_readings')
           .select('value, measured_at, stations(id, name)')
           .eq('station_id', stationId)
           .eq('parameter', 'pm25')
           .gte('measured_at', since7d)
+          .lt('measured_at', until)
           .order('measured_at', { ascending: false })
           .limit(170),
-
-        supabase
-          .from('fire_points')
-          .select('lat, lng, frp, detected_at')
-          .gte('detected_at', since48h)
-          .lt('detected_at', until)
-          .gte('lat', lat - BOX_FIRE)
-          .lte('lat', lat + BOX_FIRE)
-          .gte('lng', lng - BOX_FIRE)
-          .lte('lng', lng + BOX_FIRE),
 
         supabase
           .from('station_readings')
           .select('value, measured_at, station_id, stations(id, name, lat, lng)')
           .eq('parameter', 'pm25')
-          .gte('measured_at', since3h)
+          .gte('measured_at', since24h)
+          .lt('measured_at', until)
           .neq('station_id', stationId)
           .order('measured_at', { ascending: false }),
 
-        redis.get<WeatherReading[]>(`weather:${selectedDate}`),
+        // station_weather is pre-computed from the full grid at ingest time — use it for
+        // the station's own precipitation/humidity context instead of doing a grid snap
+        // (which is susceptible to the 1000-row Supabase cap on weather_readings).
+        // 5 days matches the history panel visible to the user.
+        supabase
+          .from('station_weather')
+          .select(
+            'date, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          )
+          .eq('station_id', stationId)
+          .in('date', [d0, d1, d2, d3, d4]),
+
+        getWindGrid(d0),
+        getWindGrid(d1),
+        getWindGrid(d2),
+
+        getCamsGrid(d0),
+        getCamsGrid(d1),
+        getCamsGrid(d2),
+      ]);
+
+      // Each trajectory waypoint has a date (d0, d1, or d2). Sample CAMS from the
+      // matching date's grid so the PM2.5 value corresponds to the actual date labeled.
+      const camsDataByDate = new Map([
+        [d0, camsD0],
+        [d1, camsD1],
+        [d2, camsD2],
       ]);
 
       if (stationRows.error) throw new Error(stationRows.error.message);
@@ -195,56 +288,61 @@ export function explainRoutes(app: FastifyInstance): void {
           avg: vals.reduce((s, v) => s + v, 0) / vals.length,
         }));
 
-      // --- wind context (needed before fires to compute effective radius) ---
-      const wind = windCache ? nearestWind(windCache, lat, lng) : null;
+      // --- trajectory ---
+      const windGridsByDate = new Map<string, WindGridPoint[]>([
+        [d0, wind0],
+        [d1, wind1],
+        [d2, wind2],
+      ]);
 
-      // Effective smoke travel radius based on current wind speed as a proxy for the
-      // past 48 h. At calm winds (< 5 km/h) transport is diffusion-dominated so we
-      // cap at 50 km. Otherwise: speed × 36 h lookback, capped at FIRE_RADIUS_KM.
-      // We use this to actually filter the fires shown to the model — not just as a hint —
-      // so the model cannot reason about fires it shouldn't know about.
-      const effectiveRadiusKm = wind
-        ? wind.wind_speed_kmh < 5
-          ? 50
-          : Math.min(Math.round(wind.wind_speed_kmh * 36), FIRE_RADIUS_KM)
-        : FIRE_RADIUS_KM;
+      const ensemble = traceEnsemble(lat, lng, selectedDate, windGridsByDate);
+      const { footprintBbox, corridorKm, members, meanWindSpeedKmh } = ensemble;
+      const centerTrajectory = members[0];
+      const originWaypoint = centerTrajectory[centerTrajectory.length - 1];
 
-      // --- urban emission sources ---
-      const urbanSources = getRelevantUrbanSources(lat, lng, wind?.wind_direction_deg ?? null);
+      // --- fire query using footprint bbox ---
+      const fireRows = await supabase
+        .from('fire_points')
+        .select('lat, lng, frp, confidence, detected_at')
+        .gte('detected_at', since72h)
+        .lt('detected_at', until)
+        .gte('lat', footprintBbox.latMin)
+        .lte('lat', footprintBbox.latMax)
+        .gte('lng', footprintBbox.lngMin)
+        .lte('lng', footprintBbox.lngMax);
 
-      // --- fires context ---
       req.log.info(
         {
           fireError: fireRows.error?.message ?? null,
           fireRowCount: fireRows.data?.length ?? 0,
-          since48h,
+          since72h,
           until,
+          footprintBbox,
+          corridorKm,
         },
         'explain: fire query result',
       );
 
-      type FireRow = {
-        lat: number;
-        lng: number;
-        frp: number | null;
-        detected_at: string;
-      };
+      type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
+      const allWaypoints = members.flat();
+
       const fires = ((fireRows.data as unknown as FireRow[] | null) ?? [])
         .map((f) => ({
           ...f,
-          distKm: haversineKm(lat, lng, f.lat, f.lng),
+          distKm: Math.min(...allWaypoints.map((w) => haversineKm(w.lat, w.lng, f.lat, f.lng))),
           bearing: bearingDeg(lat, lng, f.lat, f.lng),
         }))
-        .filter((f) => f.distKm <= effectiveRadiusKm);
+        .filter((f) => f.distKm <= corridorKm)
+        .sort((a, b) => a.distKm - b.distKm);
 
-      const quadrantCounts = { N: 0, E: 0, S: 0, W: 0 };
-      const quadrantFrp = { N: 0, E: 0, S: 0, W: 0 };
-      for (const f of fires) {
-        const q = quadrant(f.bearing);
-        quadrantCounts[q]++;
-        quadrantFrp[q] += f.frp ?? 0;
-      }
-      const topFires = [...fires].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0)).slice(0, 5);
+      // --- fire pressure score ---
+      const firePressureScore = fires.reduce((sum, f) => {
+        const ageHours = (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000;
+        const recencyWeight = Math.max(0, 1 - ageHours / 72);
+        const transportWeight = 1 / (1 + f.distKm / corridorKm);
+        return sum + (f.frp ?? 10) * recencyWeight * transportWeight;
+      }, 0);
+      const firePressureNorm = Math.min(100, Math.round(firePressureScore / 50));
 
       // --- peers context ---
       type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
@@ -256,7 +354,7 @@ export function explainRoutes(app: FastifyInstance): void {
         stations: unknown;
       }[]) ?? []) {
         const sid = row.station_id;
-        if (peerMap.has(sid)) continue; // already have most recent
+        if (peerMap.has(sid)) continue;
         const s = row.stations as PeerJoin;
         if (!s) continue;
         const distKm = haversineKm(lat, lng, s.lat, s.lng);
@@ -276,29 +374,215 @@ export function explainRoutes(app: FastifyInstance): void {
       const isStrongOutlier = outlierRatio !== null && (outlierRatio >= 2.0 || outlierRatio <= 0.4);
       const isElevatedOutlier = outlierRatio !== null && outlierRatio >= 1.4 && !isStrongOutlier;
 
-      // --- build prompt ---
+      // --- urban / industrial / power plant sources ---
+      const relevantSources = URBAN_SOURCES.map((source) => {
+        const distFromOrigin = haversineKm(
+          originWaypoint.lat,
+          originWaypoint.lng,
+          source.lat,
+          source.lng,
+        );
+        const minDistToPath = Math.min(
+          ...centerTrajectory.map((w) => haversineKm(w.lat, w.lng, source.lat, source.lng)),
+        );
+        const effectiveDist = Math.max(1, Math.min(distFromOrigin, minDistToPath));
+        if (effectiveDist > 800) return null;
+
+        const populationScore = source.population / effectiveDist ** 2;
+        const emissionScore = (source.emissionProxy * 10_000) / effectiveDist ** 2;
+        const influenceScore = populationScore + emissionScore;
+        if (influenceScore < 50) return null;
+
+        const nearestW = wind0.length
+          ? (nearestGridPoint(lat, lng, wind0 as WindGridPoint[]) as {
+              wind_direction_deg: number;
+            })
+          : null;
+        const bearing = bearingDeg(lat, lng, source.lat, source.lng);
+        const isUpwind = nearestW
+          ? angleDiff(bearing, nearestW.wind_direction_deg) <= UPWIND_TOLERANCE_DEG
+          : false;
+
+        return { ...source, distKm: effectiveDist, influenceScore, isUpwind };
+      })
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .sort((a, b) => b.influenceScore - a.influenceScore)
+        .slice(0, 8);
+
+      // --- CAMS sampling along center trajectory ---
+      const sampleIndices = [
+        Math.floor(centerTrajectory.length * 0.33),
+        Math.floor(centerTrajectory.length * 0.66),
+        centerTrajectory.length - 1,
+      ];
+      const camsSamples = sampleIndices
+        .filter((i) => i < centerTrajectory.length)
+        .map((i) => {
+          const wp = centerTrajectory[i];
+          // Use the CAMS grid for the waypoint's actual date so the label matches the data.
+          const camsForDate = camsDataByDate.get(wp.date) ?? camsD0;
+          return { waypoint: wp, pm25: sampleCams(wp.lat, wp.lng, camsForDate) };
+        })
+        .filter(
+          (s): s is { waypoint: (typeof centerTrajectory)[0]; pm25: number } => s.pm25 !== null,
+        );
+
+      // --- weather context (precipitation + humidity) ---
+      // Use station_weather for the station's own dates — it's pre-computed from the full
+      // grid at ingest time and is immune to the Supabase 1000-row cap on weather_readings.
+      type StationWeatherRow = {
+        date: string;
+        wind_speed_kmh: number | null;
+        wind_direction_deg: number | null;
+        precipitation_sum: number | null;
+        relative_humidity_2m: number | null;
+      };
+      const stationWeatherByDate = new Map<string, StationWeatherRow>();
+      for (const row of (stationWeatherRows.data ?? []) as StationWeatherRow[]) {
+        stationWeatherByDate.set(row.date, row);
+      }
+      const wx0 = stationWeatherByDate.get(d0) ?? null;
+      const wx1 = stationWeatherByDate.get(d1) ?? null;
+      const wx2 = stationWeatherByDate.get(d2) ?? null;
+      const wx3 = stationWeatherByDate.get(d3) ?? null;
+      const wx4 = stationWeatherByDate.get(d4) ?? null;
+
+      // For the trajectory origin (an arbitrary grid location) we still need to snap
+      // against the wind grid, since station_weather only covers known stations.
+      function nearestWeather(
+        grid: WeatherReading[],
+        wLat: number,
+        wLng: number,
+      ): WeatherReading | null {
+        if (!grid.length) return null;
+        return nearestGridPoint(wLat, wLng, grid as WindGridPoint[]) as WeatherReading;
+      }
+      const wxOriginGrid = (windGridsByDate.get(originWaypoint.date) ?? []) as WeatherReading[];
+      const wxOrigin =
+        originWaypoint !== centerTrajectory[0] && wxOriginGrid.length
+          ? nearestWeather(wxOriginGrid, originWaypoint.lat, originWaypoint.lng)
+          : null;
+
+      // --- build prompt strings ---
+
       const dailyLines = dailyAvgs
         .map((d) => `  ${d.date}: ${d.avg.toFixed(1)} µg/m³ (${pm25Cat(d.avg)})`)
         .join('\n');
 
-      const windDir = wind ? parseWindDir(wind.wind_direction_deg) : null;
-      const windStr =
-        windDir && wind
-          ? `From ${windDir.fromLabel} at ${wind.wind_speed_kmh.toFixed(1)} km/h (blowing toward ${windDir.toLabel})`
-          : 'No wind data available';
+      // Wind summary — 3 days
+      const windSummary = [d0, d1, d2]
+        .map((date) => {
+          const grid = windGridsByDate.get(date)!;
+          if (!grid.length) return `  ${date}: no data`;
+          const nearest = nearestGridPoint(lat, lng, grid);
+          return (
+            `  ${date}: from ${compassFromDeg(nearest.wind_direction_deg)} ` +
+            `at ${nearest.wind_speed_kmh.toFixed(1)} km/h`
+          );
+        })
+        .join('\n');
 
+      // Weather context — 5-day precipitation + humidity at station
+      const stationDays: Array<{ date: string; wx: StationWeatherRow | null }> = [
+        { date: d0, wx: wx0 },
+        { date: d1, wx: wx1 },
+        { date: d2, wx: wx2 },
+        { date: d3, wx: wx3 },
+        { date: d4, wx: wx4 },
+      ];
+
+      const precipRows = stationDays.map(({ date, wx }) => {
+        if (wx === null) return `  ${date}: no data`;
+        const precip = (wx.precipitation_sum ?? 0).toFixed(1);
+        const rh =
+          wx.relative_humidity_2m !== null ? ` RH ${wx.relative_humidity_2m.toFixed(0)}%` : '';
+        const humidWarn =
+          (wx.relative_humidity_2m ?? 0) >= 85
+            ? ' ⚠ high humidity — optical sensors may over-read PM2.5'
+            : '';
+        return `  ${date}: ${precip} mm rain,${rh}${humidWarn}`;
+      });
+
+      // Compute total precip over the 5-day window from available rows
+      const totalPrecip5d = stationDays.reduce(
+        (sum, { wx }) => sum + (wx?.precipitation_sum ?? 0),
+        0,
+      );
+      const availableDays = stationDays.filter(({ wx }) => wx !== null).length;
+      if (availableDays > 0) {
+        precipRows.push(
+          totalPrecip5d === 0
+            ? `  Total past ${availableDays} days: 0.0 mm — no rainfall. Rain-based explanations for PM2.5 changes are not applicable.`
+            : `  Total past ${availableDays} days: ${totalPrecip5d.toFixed(1)} mm`,
+        );
+      }
+
+      if (wxOrigin !== null) {
+        precipRows.push(
+          `  Trajectory origin (${originWaypoint.date}): ${(wxOrigin.precipitation_sum ?? 0).toFixed(1)} mm rain`,
+        );
+      }
+      const weatherContextStr = precipRows.join('\n');
+
+      // Trajectory summary
+      const trajectoryStr =
+        centerTrajectory.length < 2
+          ? 'Insufficient wind data — trajectory unavailable'
+          : [
+              `Traced ${(centerTrajectory.length - 1) * 6}h back using 5-member ensemble`,
+              `Origin region: ${originWaypoint.lat.toFixed(2)}°N, ${originWaypoint.lng.toFixed(2)}°E (${originWaypoint.date})`,
+              `Corridor width: ${corridorKm.toFixed(0)} km (based on mean wind ${meanWindSpeedKmh.toFixed(1)} km/h)`,
+              `Path (station → origin): ` +
+                centerTrajectory
+                  .filter((_, i) => i % 4 === 0 || i === centerTrajectory.length - 1)
+                  .map((w) => `${w.lat.toFixed(1)}°N ${w.lng.toFixed(1)}°E`)
+                  .join(' ← '),
+            ].join('\n');
+
+      // CAMS string
+      const camsStr = camsSamples.length
+        ? camsSamples
+            .map(
+              (s) =>
+                `  ${s.waypoint.lat.toFixed(1)}°N ${s.waypoint.lng.toFixed(1)}°E ` +
+                `(${s.waypoint.date}): ${s.pm25.toFixed(1)} µg/m³ (${pm25Cat(s.pm25)})`,
+            )
+            .join('\n')
+        : '  No CAMS data along trajectory';
+
+      // Fire string
       const fireStr =
         fires.length === 0
-          ? `No fires detected within ${effectiveRadiusKm} km in the last 48 hours`
-          : [
-              `${fires.length} fire detections nearby`,
-              `Total FRP: ${fires.reduce((s, f) => s + (f.frp ?? 0), 0).toFixed(0)} MW`,
-              `By quadrant — N: ${quadrantCounts.N} fires (${quadrantFrp.N.toFixed(0)} MW), E: ${quadrantCounts.E} (${quadrantFrp.E.toFixed(0)} MW), S: ${quadrantCounts.S} (${quadrantFrp.S.toFixed(0)} MW), W: ${quadrantCounts.W} (${quadrantFrp.W.toFixed(0)} MW)`,
-              topFires.length
-                ? `Top fires by FRP: ${topFires.map((f) => `${(f.frp ?? 0).toFixed(0)} MW at ${f.distKm.toFixed(0)} km ${compassFromDeg(f.bearing)}`).join(', ')}`
-                : '',
-            ]
-              .filter(Boolean)
+          ? '  No fires detected within transport corridor'
+          : fires
+              .slice(0, 20)
+              .map((f) => {
+                const ageH = Math.round(
+                  (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000,
+                );
+                return (
+                  `  ${f.lat.toFixed(2)}°N ${f.lng.toFixed(2)}°E — ` +
+                  `${f.distKm.toFixed(0)} km from path — ` +
+                  `FRP ${(f.frp ?? 0).toFixed(0)} MW — ${ageH}h ago`
+                );
+              })
+              .join('\n');
+
+      // Urban sources string
+      const sourcesStr =
+        relevantSources.length === 0
+          ? '  None identified within footprint'
+          : relevantSources
+              .map((s) => {
+                const upwindTag = s.isUpwind ? ' [currently upwind]' : '';
+                const detail =
+                  s.type === 'power_plant'
+                    ? `${s.emissionProxy} MW coal plant`
+                    : s.type === 'industrial'
+                      ? 'industrial zone'
+                      : `pop. ${(s.population / 1e6).toFixed(1)}M`;
+                return `  ${s.name}, ${s.country} — ${s.distKm.toFixed(0)} km — ${detail}${upwindTag}`;
+              })
               .join('\n');
 
       const peerStr =
@@ -313,29 +597,41 @@ export function explainRoutes(app: FastifyInstance): void {
                 .join('\n'),
             ].join('\n');
 
-      const urbanStr =
-        urbanSources.length === 0
-          ? 'No major urban sources within 300 km.'
-          : urbanSources
-              .map(
-                (s) =>
-                  `  ${s.name}, ${s.country} — ${s.distanceKm.toFixed(0)} km to the ${s.bearingCardinal}` +
-                  `, influence score ${s.influenceScore.toFixed(0)}` +
-                  (s.isUpwind ? ' ⬆ UPWIND' : ' (not currently upwind)'),
-              )
-              .join('\n');
-
       // Outlier note injected into the data section so the model sees it before reasoning.
+      const isHighOutlier = outlierRatio !== null && outlierRatio >= 2.0;
       const outlierNote = isStrongOutlier
-        ? `⚠ STRONG OUTLIER: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
+        ? isHighOutlier
+          ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
+          : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a sensor malfunction, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
         : isElevatedOutlier
           ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³) — noticeably above its neighbours. Mention this discrepancy and consider whether a localised source or measurement uncertainty may be contributing.`
           : '';
 
-      const upwindQuadrant = windDir?.fromQuadrant ?? null;
-      const upwindFireCount = upwindQuadrant ? quadrantCounts[upwindQuadrant] : 0;
+      // Dynamic seasonal context based on selected date's month
+      const month = new Date(selectedDate).getUTCMonth() + 1;
+      const seasonContext =
+        month >= 2 && month <= 4
+          ? 'Peak dry season and agricultural burning season in mainland Southeast Asia (Feb–Apr). Smoke can transport hundreds of kilometres under stable, low-wind conditions.'
+          : month >= 10 || month <= 1
+            ? 'Early or late dry season in mainland Southeast Asia (Oct–Jan). Agricultural burning is beginning or winding down; fire activity is lower than peak.'
+            : 'Monsoon season in mainland Southeast Asia (May–Sep). Fire activity is low; elevated PM2.5 is more likely from urban/industrial sources or stagnant air pockets.';
 
-      const prompt = `You are explaining current air quality data to a general audience in plain English.
+      // --- trajectory / fire / CAMS section — omitted for strong outliers ---
+      const transportSection = isStrongOutlier
+        ? `FIRES / TRAJECTORY / CAMS: Omitted — reading is a strong outlier vs peer stations (${outlierRatio.toFixed(1)}× median, station is ${isHighOutlier ? 'far above' : 'far below'} neighbours). Regional transport data is not relevant.`
+        : `3-DAY BACK-TRAJECTORY (5-member ensemble, surface-level approximation)
+${trajectoryStr}
+NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin region as indicative, not precise.
+
+AIR QUALITY ALONG TRAJECTORY (CAMS model PM2.5)
+${camsStr}
+
+CUMULATIVE FIRE PRESSURE (fires within transport corridor, last 72 h)
+Score: ${firePressureNorm}/100 — ${firePressureLabel(firePressureNorm)}
+Total fires along path: ${fires.length}
+${fireStr}`;
+
+      const prompt = `You are explaining current air quality to a general audience in plain English.
 
 STATION: ${stationName} (${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E)
 CURRENT PM2.5: ${latestPm25.toFixed(1)} µg/m³ — ${pm25Cat(latestPm25)}
@@ -344,36 +640,35 @@ RECENT TREND: ${trend}
 7-DAY DAILY AVERAGES
 ${dailyLines || '  No historical data'}
 
-WIND
-${windStr}
+WIND (last 3 days, nearest grid point to station)
+${windSummary}
 
-${
-  !isStrongOutlier
-    ? `FIRES WITHIN ${effectiveRadiusKm} KM (last 48 h ending ${selectedDate})
-${fireStr}
-${upwindQuadrant && upwindFireCount > 0 ? `→ ${upwindFireCount} fires in the upwind quadrant (${upwindQuadrant}), directly in the path of smoke toward this station` : ''}`
-    : `FIRES: Omitted — reading is a strong outlier vs peer stations. Regional fire data is not relevant.`
-}
+WEATHER CONTEXT (precipitation and humidity at station)
+${weatherContextStr}
 
-URBAN EMISSION SOURCES (within 300 km)
-${urbanStr}
-${wind ? `Wind is FROM the ${windDir!.fromLabel} — upwind sources are marked above.` : 'Wind data unavailable — upwind status could not be determined.'}
+${transportSection}
 
-PEER STATIONS WITHIN 75 KM (last 3 h)
+UPWIND EMISSION SOURCES (cities, industrial zones, power plants along trajectory)
+${sourcesStr}
+
+PEER STATIONS WITHIN 75 KM (last 24 h)
 ${peerStr}
 ${outlierNote ? `\n${outlierNote}` : ''}
 
-CONTEXT: April is peak dry season and agricultural burning season in mainland Southeast Asia (Thailand, Myanmar, Laos, Cambodia). Smoke can travel hundreds of kilometres under stable atmospheric conditions.
+CONTEXT: ${seasonContext}
 
-Write 1–3 short paragraphs in plain English. No markdown headers, no bullet points — flowing prose only.
-Be concise — one paragraph is fine if it covers everything.
-The reader already sees the station name, PM2.5 value, and AQI category on screen — do not repeat these or explain what PM2.5 is. Lead directly with what is interesting: why the reading is what it is.
-- Compare this reading against peer stations first. If it is significantly above or below its neighbours, lead with that — it likely reflects a sensor issue, a very local source, or a measurement anomaly rather than regional air quality.
-- ${latestPm25 > 35 ? `Only mention fires if they are upwind and plausibly explain the reading. Never mention fires to dismiss them.` : 'Explain why conditions are currently good.'}
-- Do not describe the week trend — the user already sees the 7-day chart in the UI.
-${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly (sensor issue, very local source, microclimate).' : ''}
-- Do not speculate beyond what the data shows. Be clear and accessible to a non-scientist.
-- If upwind urban sources are present, reason about whether vehicle traffic, industrial emissions, or general urban air pollution from those cities may be contributing to this reading — particularly outside peak burning season (November–April) when fire activity is lower. A large city upwind is especially relevant when fire counts are low but AQI is still elevated.`;
+Write 1–3 short paragraphs in plain English. No markdown, no bullet points — flowing prose only.
+The reader already sees the station name, PM2.5 value, and AQI category — do not repeat these verbatim.
+Lead with what is most interesting: where the air came from and what drove it.
+- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over 3 days, note what that means for the pollution origin.
+- The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
+- If power plants or industrial zones are along the trajectory, mention them only if fire pressure is low or moderate (they explain background pollution, not acute spikes).
+- Compare against peer stations. If this station is a strong outlier, lead with that.
+- Recent rain (see WEATHER CONTEXT) can wash out PM2.5 — factor this in if precipitation is significant (> 5 mm). High humidity (≥ 85%) may cause optical sensors to over-read.
+- ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good.'}
+- Do not describe the week trend — the user already sees the 5-day chart.
+- Do not speculate beyond what the data shows.
+${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}`;
 
       // Start streaming — hijack Fastify response so we control the raw socket
       reply.hijack();
