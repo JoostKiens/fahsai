@@ -22,7 +22,7 @@ The model sees more than just the PM2.5 number. It gets the 7-day daily trend, c
 
 The spatial reasoning is the interesting part. If the station is reading 2× higher than its neighbors, the model treats it as a local anomaly and won't spin a cross-border fire narrative. If the upwind quadrant is full of high-FRP fires and the regional median confirms it, that's what the explanation leads with.
 
-There's a shared daily quota of 1,400 requests per Bangkok calendar day. When it runs out, the button says so.
+There's a shared daily quota of 1,400 requests per Bangkok calendar day. When it runs out, the button is disabled.
 
 ---
 
