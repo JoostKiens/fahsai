@@ -706,13 +706,14 @@ CONTEXT: ${seasonContext}
 Write 1–3 short paragraphs in plain English. No markdown, no bullet points — flowing prose only.
 The reader already sees the station name, PM2.5 value, and AQI category — do not repeat these verbatim.
 Lead with what is most interesting: where the air came from and what drove it.
-- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over 3 days, note what that means for the pollution origin.
+- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
 - If power plants or industrial zones are along the trajectory, mention them only if fire pressure is low or moderate (they explain background pollution, not acute spikes).
 - Compare against peer stations. If this station is a strong outlier, lead with that.
 - Recent rain (see WEATHER CONTEXT) can wash out PM2.5 — factor this in if precipitation is significant (> 5 mm). High humidity (≥ 85%) may cause optical sensors to over-read.
 - ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good.'}
 - Do not describe the week trend — the user already sees the 5-day chart.
+- Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours"). Use natural language instead ("recently", "over the past few days", "in the last day or so").
 - Do not speculate beyond what the data shows.
 ${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}`;
 
