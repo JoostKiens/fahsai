@@ -875,3 +875,66 @@ this and will fail CI if they diverge.
 The `confidence` field is the appropriate field for filtering out noise.
 Filter to `confidence IN ('nominal', 'high')` by default in the UI, with
 an option to include low-confidence detections.
+
+---
+
+## Back-trajectory ensemble (explain endpoint)
+
+The `/api/explain` endpoint uses a 5-member backward trajectory ensemble to
+identify the 72-hour transport footprint of air arriving at a station.
+
+### How it works
+
+- 5 trajectories are traced from the station position (center + 4 cardinal
+  offsets of 0.4°) using daily wind grids stored in `weather_readings`.
+- Each trajectory steps backward in 6-hour increments for up to 72 hours,
+  using the nearest grid point's wind vector at each step.
+- The ensemble footprint (bounding box of all waypoints + corridor padding)
+  is used to query fires, CAMS PM2.5, and urban/industrial/power-plant sources.
+- A **cumulative fire pressure score** (0–100) weights fires by FRP, recency,
+  and proximity to the trajectory path.
+- When a station is a **strong outlier** (≥2× or ≤0.4× peer median), the
+  trajectory, CAMS, and fire sections are omitted — regional transport data is
+  not relevant for hyperlocal anomalies.
+
+### Implementation
+
+- Pure trajectory computation in `packages/backend/src/utils/trajectory.ts` — no I/O.
+- Wind grids are fetched for 3 dates (`d0`, `d1`, `d2`) in parallel, Redis-first
+  (`weather:{date}`, TTL 7d) with Supabase `weather_readings` fallback.
+- `getWindGrid` returns `WeatherReading[]` (from `@thailand-aq/types`), which is a
+  structural superset of `WindGridPoint` and includes `precipitation_sum` and
+  `relative_humidity_2m` used for the `WEATHER CONTEXT` prompt section.
+- CAMS data uses Redis key `cams:pm25:{date}` (TTL 7d), falling back to `cams_grid`.
+- A dynamic seasonal context string is selected based on the selected date's month:
+  peak burning (Feb–Apr), early/late dry (Oct–Jan), or monsoon (May–Sep).
+
+### Wind direction convention
+
+Wind direction follows meteorological convention: the value is the direction
+the wind is coming FROM, not blowing toward.
+- Wind direction = 270° → wind from West → air moves East
+- A source is upwind if the bearing FROM the station TO the source aligns
+  with the wind direction value (within ±60°).
+
+### Helper function signatures
+
+`nearestGridPoint(lat, lng, grid)` — lat first, consistent with all other geo
+functions in the codebase (`haversineKm`, `bearingDeg`). Do not reverse the
+argument order.
+
+### Urban sources and power plants
+
+`packages/backend/src/data/urbanSources.ts` includes cities, industrial zones,
+and power plants. Power plants use `emissionProxy` (MW capacity) for influence
+scoring rather than population. Industrial zones use `emissionProxy` on a 1–10
+scale. Influence is computed relative to proximity along the trajectory path
+(minimum distance to any center-trajectory waypoint), not straight-line distance
+from the station.
+
+Influence formula:
+```
+populationScore = source.population / effectiveDist²
+emissionScore   = (source.emissionProxy × 10_000) / effectiveDist²
+influenceScore  = populationScore + emissionScore
+```
