@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import type { PickingInfo } from 'deck.gl';
+import { ScatterplotLayer } from 'deck.gl';
+import type { Layer, PickingInfo } from 'deck.gl';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '../../hooks/useAQI';
 import mapboxgl from 'mapbox-gl';
@@ -13,7 +14,7 @@ import { useAQI } from '../../hooks/useAQI';
 import { useCamsGrid } from '../../hooks/useCamsGrid';
 import { usePM25Bitmap } from '../../hooks/usePM25Bitmap';
 import { VIEWPORT_BBOX } from '../../lib/bbox';
-import { createFiresLayer } from '../../layers/FiresLayer';
+import { createFiresLayer, baseRadiusForZoom } from '../../layers/FiresLayer';
 import { useWind } from '../../hooks/useWind';
 import { useWindParticles } from '../../hooks/useWindParticles';
 import {
@@ -160,17 +161,37 @@ export function MapView() {
       });
     };
 
-    const layers =
-      powerPlantsConfig.visible && powerPlants
-        ? [
-            createPowerPlantsLayer(
-              powerPlants,
-              powerPlantsConfig.opacity,
-              powerPlantIconSize,
-              onPowerPlantClick,
-            ),
-          ]
-        : [];
+    const layers: Layer[] = [];
+
+    if (powerPlantsConfig.visible && powerPlants) {
+      layers.push(
+        createPowerPlantsLayer(
+          powerPlants,
+          powerPlantsConfig.opacity,
+          powerPlantIconSize,
+          onPowerPlantClick,
+        ),
+      );
+    }
+
+    if (powerPlantsConfig.visible && selectedPoint?.powerPlant) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'powerplant-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: Math.round(powerPlantIconSize / 2) + 6,
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 220] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2,
+          parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
+        }),
+      );
+    }
 
     powerPlantsOverlay.setProps({ layers });
   }, [
@@ -179,6 +200,7 @@ export function MapView() {
     powerPlantsConfig.visible,
     powerPlantsConfig.opacity,
     powerPlantIconSize,
+    selectedPoint,
     setSelectedPoint,
   ]);
 
@@ -237,6 +259,46 @@ export function MapView() {
       layers.push(...createPM25StationsLayers(aqi, zoom, onStationClick, onClusterClick));
     }
 
+    const selectionParams = { depthCompare: 'always' as const, depthWriteEnabled: false };
+
+    if (firesConfig.visible && selectedPoint?.fire) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'fire-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: Math.max(16, baseRadiusForZoom(zoom) * 5),
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 210] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2,
+          parameters: selectionParams,
+        }),
+      );
+    }
+
+    if (aqStationsConfig.visible && selectedPoint?.station) {
+      const [lng, lat] = selectedPoint.lngLat;
+      layers.push(
+        new ScatterplotLayer({
+          id: 'station-selection-ring',
+          data: [{ lng, lat }],
+          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
+          getRadius: 22,
+          radiusUnits: 'pixels',
+          stroked: true,
+          filled: false,
+          getLineColor: [255, 255, 255, 220] as [number, number, number, number],
+          lineWidthUnits: 'pixels',
+          getLineWidth: 2.5,
+          parameters: selectionParams,
+        }),
+      );
+    }
+
     dataOverlay.setProps({ layers });
   }, [
     dataOverlay,
@@ -246,6 +308,7 @@ export function MapView() {
     aqi,
     aqStationsConfig.visible,
     zoom,
+    selectedPoint,
     setSelectedPoint,
   ]);
 
