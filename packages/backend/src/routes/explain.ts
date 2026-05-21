@@ -41,19 +41,6 @@ function pm25Cat(pm25: number): string {
 
 // --- trend ---
 
-function computeTrend(readings: number[]): string {
-  if (readings.length < 8) return 'insufficient data';
-  const recent = (readings[0] + readings[1] + readings[2] + readings[3]) / 4;
-  const older = (readings[4] + readings[5] + readings[6] + readings[7]) / 4;
-  if (older === 0) return 'stable';
-  const ratio = recent / older;
-  if (ratio > 1.15) return 'rising sharply';
-  if (ratio > 1.05) return 'rising';
-  if (ratio < 0.85) return 'falling sharply';
-  if (ratio < 0.95) return 'falling';
-  return 'stable';
-}
-
 // --- upwind helpers ---
 
 const UPWIND_TOLERANCE_DEG = 60;
@@ -270,7 +257,6 @@ export function explainRoutes(app: FastifyInstance): void {
         (r) => r.value,
       );
       const latestPm25 = readings[0];
-      const trend = computeTrend(readings);
 
       // Daily averages (group by BKK calendar day)
       const dailyMap = new Map<string, number[]>();
@@ -287,6 +273,21 @@ export function explainRoutes(app: FastifyInstance): void {
           date,
           avg: vals.reduce((s, v) => s + v, 0) / vals.length,
         }));
+
+      // Trend: latest day vs median of all prior days (needs ≥ 2 days).
+      // dailyAvgs is sorted ascending so the newest entry is at the end.
+      const trend = (() => {
+        if (dailyAvgs.length < 2) return 'insufficient data';
+        const latest = dailyAvgs[dailyAvgs.length - 1].avg;
+        const baseline = medianOf(dailyAvgs.slice(0, -1).map((d) => d.avg));
+        if (baseline === 0) return 'stable';
+        const ratio = latest / baseline;
+        if (ratio > 1.15) return 'rising sharply';
+        if (ratio > 1.05) return 'rising';
+        if (ratio < 0.85) return 'falling sharply';
+        if (ratio < 0.95) return 'falling';
+        return 'stable';
+      })();
 
       // --- trajectory ---
       const windGridsByDate = new Map<string, WindGridPoint[]>([
