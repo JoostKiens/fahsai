@@ -38,31 +38,14 @@ function XIcon() {
 
 function Logo({ size }: { size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-      <circle cx="16" cy="16" r="15" fill="#0f766e" />
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+      <circle cx="24" cy="24" r="24" fill="#0ea5e9" />
+      <circle cx="24" cy="22" r="6.5" fill="#fde68a" />
       <path
-        d="M8 14 Q12 11 16 14 T24 14"
-        stroke="#fff"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
+        d="M0 34 Q 8 28 16 33 Q 24 38 32 31 Q 40 25 48 32 L 48 48 L 0 48 Z"
+        fill="rgba(255,255,255,0.55)"
       />
-      <path
-        d="M8 18 Q12 15 16 18 T24 18"
-        stroke="#fff"
-        strokeOpacity="0.65"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 22 Q12 19 16 22 T24 22"
-        stroke="#fff"
-        strokeOpacity="0.4"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
-      />
+      <path d="M0 40 Q 10 30 20 38 Q 30 46 38 36 Q 44 30 48 38 L 48 48 L 0 48 Z" fill="#ffffff" />
     </svg>
   );
 }
