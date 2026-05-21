@@ -25,6 +25,7 @@ import {
 import { usePowerPlants } from '../../hooks/usePowerPlants';
 import { createPowerPlantsLayer, iconSizeForZoom } from '../../layers/PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
+import { useSettingsStore } from '../../store/settingsStore';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
@@ -97,6 +98,8 @@ export function MapView() {
   const setMapZoom = useUIStore((s) => s.setMapZoom);
   const setMapCenter = useUIStore((s) => s.setMapCenter);
 
+  const language = useSettingsStore((s) => s.language) ?? 'en';
+
   const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);
   const powerPlantIconSize = iconSizeForZoom(zoom);
@@ -124,6 +127,23 @@ export function MapView() {
 
   useWindParticles(windOverlay, map, wind, windConfig, aqGrid);
   usePrefetchAdjacentDates();
+
+  // Switch Mapbox place-label language when the user changes language.
+  useEffect(() => {
+    if (!map) return;
+    const field: mapboxgl.ExpressionSpecification =
+      language === 'th'
+        ? ['coalesce', ['get', 'name_th'], ['get', 'name']]
+        : ['coalesce', ['get', 'name_en'], ['get', 'name']];
+    map.getStyle().layers?.forEach((layer) => {
+      if (layer.type !== 'symbol') return;
+      try {
+        map.setLayoutProperty(layer.id, 'text-field', field);
+      } catch {
+        // layer has no text-field — skip silently
+      }
+    });
+  }, [map, language]);
 
   // Heatmap layers — interleaved overlay only; beforeId keeps them below admin borders.
   useEffect(() => {

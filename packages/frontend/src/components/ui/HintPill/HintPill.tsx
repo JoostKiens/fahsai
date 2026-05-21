@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
 
 const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;
 
 export function HintPill() {
+  const { t } = useTranslation();
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const hintDismissed = useUIStore((s) => s.hintDismissed);
   const dismissHint = useUIStore((s) => s.dismissHint);
@@ -18,14 +20,14 @@ export function HintPill() {
       setEntered(false);
       return;
     }
-    const t = setTimeout(() => setEntered(true), ENTRY_DELAY_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setEntered(true), ENTRY_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [visible]);
 
   useEffect(() => {
     if (!entered) return;
-    const t = setTimeout(dismissHint, AUTO_DISMISS_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(dismissHint, AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
   }, [entered, dismissHint]);
 
   return (
@@ -39,12 +41,12 @@ export function HintPill() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 4 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          aria-label="Dismiss hint"
+          aria-label={t('hint.dismiss')}
           className="md:hidden absolute bottom-[60px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full shadow-sm pointer-events-auto z-20"
         >
           <CursorClickIcon />
           <span className="text-[11px] text-gray-700 font-medium whitespace-nowrap">
-            Tap a marker for details
+            {t('hint.tapForDetails')}
           </span>
         </motion.button>
       )}

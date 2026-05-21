@@ -1,9 +1,11 @@
 import { Fragment, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToSoftRgb } from '../../../lib/aqiColors';
 import { degToCompass } from '../../../lib/ambient';
+import { dateLocale } from '../../../i18n';
 import { WindArrow } from './WindArrow';
 
 // Widths for the four weather-table columns (date / wind / rain / humid).
@@ -32,17 +34,11 @@ export function ShimmerHistory() {
 
       {/* Weather section ghost — mirrors the "Weather" header + 6-row grid */}
       <div className="mt-3">
-        {/* "Weather" label placeholder */}
         <div className="h-[15px] w-12 rounded animate-pulse bg-gray-100 mb-1" />
-
-        {/* Column-header row + 5 data rows */}
         <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
-          {/* Header row */}
           {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
             <div key={j} className={`h-[15px] rounded animate-pulse bg-gray-100 ${w}`} />
           ))}
-
-          {/* 5 data rows */}
           {SHIMMER_ROWS.map((cols, i) => (
             <Fragment key={i}>
               {cols.map((w, j) => (
@@ -56,14 +52,6 @@ export function ShimmerHistory() {
   );
 }
 
-function formatDateLabel(isoDate: string) {
-  return new Date(isoDate + 'T00:00:00Z').toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  });
-}
-
 function compass2(deg: number): string {
   const c = degToCompass(deg);
   return c.length > 2 ? c.slice(0, 2) : c;
@@ -73,8 +61,6 @@ type TooltipState = { value: number; x: number; y: number } | null;
 
 function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
   return createPortal(
-    // Outer div owns position; inner motion.div owns animation — kept separate to
-    // avoid motion's transform conflicting with the translate centering on the wrapper.
     <div
       className="fixed z-10 pointer-events-none"
       style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 6px))' }}
@@ -94,6 +80,9 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
 }
 
 export function History({ days }: { days: StationDayHistory[] }) {
+  const { t, i18n } = useTranslation();
+  const locale = dateLocale(i18n.language);
+
   const MAX_BAR_H = 48;
   const DAY_LABEL_H = 16;
   const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
@@ -101,7 +90,14 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // Dismiss on touch outside the chart area
+  function formatDateLabel(isoDate: string) {
+    return new Date(isoDate + 'T00:00:00Z').toLocaleDateString(locale, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    });
+  }
+
   useEffect(() => {
     if (!activeDate) return;
     function onTouchStart(e: TouchEvent) {
@@ -114,7 +110,6 @@ export function History({ days }: { days: StationDayHistory[] }) {
     return () => document.removeEventListener('touchstart', onTouchStart);
   }, [activeDate]);
 
-  // Remove tooltip from DOM on unmount
   useEffect(() => {
     return () => {
       setTooltip(null);
@@ -201,18 +196,22 @@ export function History({ days }: { days: StationDayHistory[] }) {
       </div>
 
       {/* Weather table */}
-      <p className="text-[10px] uppercase tracking-widest text-gray-500 mt-3 mb-1">Weather</p>
+      <p className="text-[10px] uppercase tracking-widest text-gray-500 mt-3 mb-1">
+        {t('history.weather')}
+      </p>
       <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[10px] items-center">
         {/* Column headers */}
         <span />
         <span className="text-gray-500 uppercase tracking-wider">
-          Wind <span className="normal-case tracking-normal text-gray-400">km/h</span>
+          {t('history.wind')}{' '}
+          <span className="normal-case tracking-normal text-gray-400">km/h</span>
         </span>
         <span className="text-center text-gray-500 uppercase tracking-wider">
-          Rain <span className="normal-case tracking-normal text-gray-400">mm</span>
+          {t('history.rain')} <span className="normal-case tracking-normal text-gray-400">mm</span>
         </span>
         <span className="text-center text-gray-500 uppercase tracking-wider">
-          Humid <span className="normal-case tracking-normal text-gray-400">%</span>
+          {t('history.humidity')}{' '}
+          <span className="normal-case tracking-normal text-gray-400">%</span>
         </span>
 
         {/* Data rows */}

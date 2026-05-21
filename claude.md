@@ -822,6 +822,14 @@ automatically on app load — no manual `useEffect` needed.
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
 
+## Internationalisation (i18n)
+
+Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
+
+**Whenever you add or rename a string in either file, update both files.** The keys in
+`en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
+this and will fail CI if they diverge.
+
 ## Dev tooling
 
 - ESLint 9 flat config (eslint.config.js at root)

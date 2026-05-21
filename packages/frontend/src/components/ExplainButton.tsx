@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useExplain } from '../hooks/useExplain';
 import { useTimeStore } from '../store/timeStore';
 import { sanitizeExplanation, parseBoldSegments } from '../utils/sanitize';
@@ -21,6 +22,7 @@ export function ExplainButton({
   onQuotaExceeded,
   className,
 }: Props) {
+  const { t } = useTranslation();
   const { text, loading, error, quotaExceeded, explain, reset } = useExplain();
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
@@ -30,12 +32,12 @@ export function ExplainButton({
 
   const isDisabled = globalQuotaExceeded || loading;
   const label = globalQuotaExceeded
-    ? 'Explain this (unavailable)'
+    ? t('explain.buttonUnavailable')
     : loading
-      ? 'Thinking…'
+      ? t('explain.thinking')
       : text
-        ? 'Refresh'
-        : 'Explain this';
+        ? t('explain.refresh')
+        : t('explain.button');
 
   function handleClick() {
     if (text && !loading) {
@@ -71,10 +73,10 @@ export function ExplainButton({
       )}
 
       {error === 'quota_exceeded' && !globalQuotaExceeded && (
-        <p className="mt-1 text-[10px] text-amber-600">Daily limit reached — try again tomorrow.</p>
+        <p className="mt-1 text-[10px] text-amber-600">{t('explain.quotaReached')}</p>
       )}
       {error === 'unavailable' && (
-        <p className="mt-1 text-[10px] text-red-400">Explanation unavailable. Try again later.</p>
+        <p className="mt-1 text-[10px] text-red-400">{t('explain.unavailable')}</p>
       )}
     </div>
   );
