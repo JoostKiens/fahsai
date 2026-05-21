@@ -1,13 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import { useLayerStore } from '../../../store/layerStore';
 import { AQI_CATEGORIES } from '../../../lib/aqiColors';
 import { FUEL_COLORS } from '../../../layers/PowerPlantsLayer';
 import { Toggle } from './Toggle';
 
 const FIRE_TIERS = [
-  { label: 'Small', range: '< 10', r: 3 },
-  { label: 'Moderate', range: '10–50', r: 4 },
-  { label: 'Large', range: '50–200', r: 6 },
-  { label: 'Extreme', range: '> 200', r: 8 },
+  { labelKey: 'fireTier.small' as const, range: '< 10', r: 3 },
+  { labelKey: 'fireTier.moderate' as const, range: '10–50', r: 4 },
+  { labelKey: 'fireTier.large' as const, range: '50–200', r: 6 },
+  { labelKey: 'fireTier.extreme' as const, range: '> 200', r: 8 },
 ];
 
 function GroupHeader({
@@ -58,26 +59,27 @@ function SubRow({
 }
 
 function AirQualityGroup() {
+  const { t } = useTranslation();
   const aqGrid = useLayerStore((s) => s.layers.aqGrid.visible);
   const aqStations = useLayerStore((s) => s.layers.aqStations.visible);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
     <article className="px-4 py-3">
-      <GroupHeader label="Air Quality (PM2.5)" />
+      <GroupHeader label={t('layers.airQuality')} />
       <SubRow
-        label="Station readings"
-        description="Ground measurements from monitoring stations"
+        label={t('layers.stationReadings')}
+        description={t('layers.stationReadingsDesc')}
         checked={aqStations}
         onToggle={() => toggleLayer('aqStations')}
-        toggleLabel="Toggle station readings"
+        toggleLabel={t('layers.toggleStationReadings')}
       />
       <SubRow
-        label="Ambient"
-        description="Modeled estimate · ~40 km resolution"
+        label={t('layers.ambient')}
+        description={t('layers.ambientDesc')}
         checked={aqGrid}
         onToggle={() => toggleLayer('aqGrid')}
-        toggleLabel="Toggle ambient"
+        toggleLabel={t('layers.toggleAmbient')}
       />
 
       {(aqGrid || aqStations) && (
@@ -86,12 +88,14 @@ function AirQualityGroup() {
             <span className="text-[10px] text-gray-400">µg/m³</span>
           </div>
           {AQI_CATEGORIES.map((cat) => (
-            <div key={cat.label} className="flex items-center gap-2">
+            <div key={cat.key} className="flex items-center gap-2">
               <span
                 className="shrink-0 w-2.5 h-2.5 rounded-full"
                 style={{ backgroundColor: `rgb(${cat.rgb[0]},${cat.rgb[1]},${cat.rgb[2]})` }}
               />
-              <span className="flex-1 text-[11px] text-gray-500 leading-tight">{cat.label}</span>
+              <span className="flex-1 text-[11px] text-gray-500 leading-tight">
+                {t(cat.key as never)}
+              </span>
               <span className="text-[11px] text-gray-400 tabular-nums">{cat.range}</span>
             </div>
           ))}
@@ -102,16 +106,17 @@ function AirQualityGroup() {
 }
 
 function FiresGroup() {
+  const { t } = useTranslation();
   const visible = useLayerStore((s) => s.layers.fires.visible);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
     <article className="px-4 py-3">
       <GroupHeader
-        label="Fires"
+        label={t('layers.fires')}
         checked={visible}
         onToggle={() => toggleLayer('fires')}
-        toggleLabel="Toggle fires"
+        toggleLabel={t('layers.toggleFires')}
       />
       {visible && (
         <div className="mt-2.5 space-y-1">
@@ -119,7 +124,7 @@ function FiresGroup() {
             <span className="text-[10px] text-gray-400">MW</span>
           </div>
           {FIRE_TIERS.map((tier) => (
-            <div key={tier.label} className="flex items-center gap-2">
+            <div key={tier.labelKey} className="flex items-center gap-2">
               <span className="shrink-0 w-6 flex items-center justify-center">
                 <svg width={tier.r * 2} height={tier.r * 2} className="shrink-0">
                   <circle
@@ -131,13 +136,13 @@ function FiresGroup() {
                   />
                 </svg>
               </span>
-              <span className="flex-1 text-[11px] text-gray-500 leading-tight">{tier.label}</span>
+              <span className="flex-1 text-[11px] text-gray-500 leading-tight">
+                {t(tier.labelKey)}
+              </span>
               <span className="text-[11px] text-gray-400 tabular-nums">{tier.range}</span>
             </div>
           ))}
-          <p className="text-[11px] text-gray-500 leading-tight mt-2">
-            Fire radiative power (FRP) is a proxy for smoke and PM2.5 emissions
-          </p>
+          <p className="text-[11px] text-gray-500 leading-tight mt-2">{t('layers.fireFrpNote')}</p>
         </div>
       )}
     </article>
@@ -145,25 +150,22 @@ function FiresGroup() {
 }
 
 function WindGroup() {
+  const { t } = useTranslation();
   const visible = useLayerStore((s) => s.layers.wind.visible);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
     <article className="px-4 py-3">
       <GroupHeader
-        label="Wind"
+        label={t('layers.wind')}
         checked={visible}
         onToggle={() => toggleLayer('wind')}
-        toggleLabel="Toggle wind"
+        toggleLabel={t('layers.toggleWind')}
       />
       {visible && (
         <div className="mt-1 space-y-0.5">
-          <p className="text-[11px] text-gray-500 leading-tight">
-            Particle speed reflects wind strength
-          </p>
-          <p className="text-[11px] text-gray-500 leading-tight">
-            Snapshot at 14:00 local time (UTC+7)
-          </p>
+          <p className="text-[11px] text-gray-500 leading-tight">{t('layers.windParticleNote')}</p>
+          <p className="text-[11px] text-gray-500 leading-tight">{t('layers.windSnapshotNote')}</p>
         </div>
       )}
     </article>
@@ -171,23 +173,26 @@ function WindGroup() {
 }
 
 function PowerPlantsGroup() {
+  const { t } = useTranslation();
   const visible = useLayerStore((s) => s.layers.powerPlants.visible);
   const toggleLayer = useLayerStore((s) => s.toggleLayer);
 
   return (
     <article className="px-4 py-3">
       <GroupHeader
-        label="Power Plants"
+        label={t('layers.powerPlants')}
         checked={visible}
         onToggle={() => toggleLayer('powerPlants')}
-        toggleLabel="Toggle power plants"
+        toggleLabel={t('layers.togglePowerPlants')}
       />
       {visible && (
         <div className="mt-2.5 space-y-1.5">
           {Object.entries(FUEL_COLORS).map(([fuel, color]) => (
             <div key={fuel} className="flex items-center gap-2">
               <DiamondSwatch color={color} />
-              <span className="text-[11px] text-gray-500">{fuel}</span>
+              <span className="text-[11px] text-gray-500">
+                {t(`fuelType.${fuel.toLowerCase()}` as never, { defaultValue: fuel })}
+              </span>
             </div>
           ))}
         </div>

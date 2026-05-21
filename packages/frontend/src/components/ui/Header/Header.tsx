@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore } from '../../../store/uiStore';
 
@@ -6,8 +7,6 @@ const SCRUBBER_RANGE_OPTIONS = [30, 60, 90, 120] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
-
-// ── Icons (local) ─────────────────────────────────────────────────────────────
 
 function MoreIcon() {
   return (
@@ -36,8 +35,6 @@ function XIcon() {
     </svg>
   );
 }
-
-// ── Logo (placeholder SVG — replace with real mark) ───────────────────────────
 
 function Logo({ size }: { size: number }) {
   return (
@@ -69,8 +66,6 @@ function Logo({ size }: { size: number }) {
     </svg>
   );
 }
-
-// ── IconBtn ───────────────────────────────────────────────────────────────────
 
 const ICON_BTN_CLS =
   'inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors';
@@ -104,8 +99,6 @@ function IconBtn({
   );
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
-
 function Modal({
   open,
   onClose,
@@ -117,6 +110,8 @@ function Modal({
   title: string;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -136,7 +131,7 @@ function Modal({
           <h2 className="text-[14px] font-semibold text-gray-800">{title}</h2>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('header.close')}
             className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <XIcon />
@@ -148,9 +143,8 @@ function Modal({
   );
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
-
 export function Header() {
+  const { t } = useTranslation();
   const headerMenuOpen = useUIStore((s) => s.headerMenuOpen);
   const setHeaderMenuOpen = useUIStore((s) => s.setHeaderMenuOpen);
   const aboutOpen = useUIStore((s) => s.aboutOpen);
@@ -169,7 +163,7 @@ export function Header() {
           <Logo size={26} />
           <div className="leading-tight">
             <p className="text-[13px] font-semibold text-gray-800">Fahsai</p>
-            <p className="text-[10px] text-gray-500">Causes of cross-border PM2.5 pollution</p>
+            <p className="text-[10px] text-gray-500">{t('header.subtitle')}</p>
           </div>
         </div>
 
@@ -186,18 +180,18 @@ export function Header() {
         <div className="hidden md:flex items-center gap-1 shrink-0">
           <LanguagePill />
           <span className="w-px h-5 bg-gray-200 mx-1" aria-hidden />
-          <IconBtn ariaLabel="About" onClick={() => setAboutOpen(true)}>
+          <IconBtn ariaLabel={t('header.about')} onClick={() => setAboutOpen(true)}>
             <InfoIcon />
           </IconBtn>
           <IconBtn
-            ariaLabel="GitHub repository"
+            ariaLabel={t('header.github')}
             href="https://github.com/JoostKiens/fahsai"
             target="_blank"
             rel="noopener noreferrer"
           >
             <GithubIcon />
           </IconBtn>
-          <IconBtn ariaLabel="Settings" onClick={() => setSettingsOpen(true)}>
+          <IconBtn ariaLabel={t('header.settings')} onClick={() => setSettingsOpen(true)}>
             <GearIcon />
           </IconBtn>
         </div>
@@ -206,7 +200,10 @@ export function Header() {
         <div className="flex md:hidden items-center gap-1 shrink-0">
           <LanguagePill />
           <div className="relative">
-            <IconBtn ariaLabel="More options" onClick={() => setHeaderMenuOpen(!headerMenuOpen)}>
+            <IconBtn
+              ariaLabel={t('header.moreOptions')}
+              onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+            >
               <MoreIcon />
             </IconBtn>
             <HeaderMenu />
@@ -215,19 +212,20 @@ export function Header() {
       </header>
 
       {/* About modal */}
-      <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="About">
-        <p className="text-[13px] text-gray-700 leading-relaxed">
-          Fahsai is a non-commercial civic project visualising the causes of PM2.5 pollution in
-          Thailand and its neighbours.
-        </p>
+      <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
+        <p className="text-[13px] text-gray-700 leading-relaxed">{t('about.body')}</p>
         <p className="mt-3 text-[12px] text-gray-500">Data: NASA FIRMS, OpenAQ, Open-Meteo, WRI.</p>
         <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>
       </Modal>
 
       {/* Settings modal */}
-      <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Settings">
+      <Modal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title={t('header.settings')}
+      >
         <div>
-          <p className="text-[11px] font-medium text-gray-700 mb-2">Date range</p>
+          <p className="text-[11px] font-medium text-gray-700 mb-2">{t('settings.dateRange')}</p>
           <div className="inline-flex rounded-md border border-gray-200 divide-x divide-gray-200 overflow-hidden">
             {SCRUBBER_RANGE_OPTIONS.map((opt) => (
               <button

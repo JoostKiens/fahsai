@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore, dayToDate } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
+import { dateLocale } from '../../../i18n';
 import { PlayButton } from './PlayButton';
 
 const PLAY_INTERVAL_MS = 800;
 const DEBOUNCE_MS = 300;
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-GB', {
+function formatDate(dateStr: string, locale: string): string {
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -16,8 +18,8 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatTickDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-GB', {
+function formatTickDate(dateStr: string, locale: string): string {
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',
@@ -25,6 +27,9 @@ function formatTickDate(dateStr: string): string {
 }
 
 export function Scrubber() {
+  const { t, i18n } = useTranslation();
+  const locale = dateLocale(i18n.language);
+
   const scrubberDay = useUIStore((s) => s.scrubberDay);
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
   const scrubberDays = useSettingsStore((s) => s.scrubberDays);
@@ -39,7 +44,6 @@ export function Scrubber() {
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
 
-  // Sync scrubber position → timeStore (debounced to avoid per-drag refetches).
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -50,7 +54,6 @@ export function Scrubber() {
     };
   }, [dateStr, setDate]);
 
-  // Play interval
   useEffect(() => {
     if (playing) {
       intervalRef.current = setInterval(() => {
@@ -66,7 +69,6 @@ export function Scrubber() {
     };
   }, [playing, setScrubberDay]);
 
-  // Space key toggles play
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== ' ') return;
@@ -101,7 +103,7 @@ export function Scrubber() {
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
         <span className="text-[13px] font-semibold text-gray-900 tabular-nums">
-          {formatDate(dateStr)}
+          {formatDate(dateStr, locale)}
         </span>
         <span className="text-[10px] text-gray-400 font-medium tabular-nums">UTC+7</span>
       </div>
@@ -113,7 +115,7 @@ export function Scrubber() {
         </div>
 
         <span className="hidden md:block text-xs font-medium text-gray-700 tabular-nums w-[100px] shrink-0">
-          {formatDate(dateStr)}
+          {formatDate(dateStr, locale)}
         </span>
 
         <div className="flex-1 min-w-0">
@@ -126,31 +128,32 @@ export function Scrubber() {
             onChange={handleSliderChange}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
-            aria-label="Select date"
-            aria-valuetext={formatDate(dateStr)}
+            aria-label={t('scrubber.selectDate')}
+            aria-valuetext={formatDate(dateStr, locale)}
             className="w-full touch-none"
           />
           {/* Desktop: start + middle + end ticks */}
           <div className="hidden md:flex justify-between mt-0.5">
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {formatTickDate(dayToDate(0, latestDate, scrubberDays))}
+              {formatTickDate(dayToDate(0, latestDate, scrubberDays), locale)}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
               {formatTickDate(
                 dayToDate(Math.floor((scrubberDays - 1) / 2), latestDate, scrubberDays),
+                locale,
               )}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {formatTickDate(latestDate)} · UTC+7
+              {formatTickDate(latestDate, locale)} · UTC+7
             </span>
           </div>
           {/* Mobile: start + end ticks only (UTC+7 already in row 1) */}
           <div className="flex md:hidden justify-between mt-0.5">
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {formatTickDate(dayToDate(0, latestDate, scrubberDays))}
+              {formatTickDate(dayToDate(0, latestDate, scrubberDays), locale)}
             </span>
             <span className="text-[10px] text-gray-400 tabular-nums">
-              {formatTickDate(latestDate)}
+              {formatTickDate(latestDate, locale)}
             </span>
           </div>
         </div>
