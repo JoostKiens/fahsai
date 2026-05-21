@@ -12,6 +12,7 @@ interface ExplainOptions {
 interface ExplainState {
   text: string;
   loading: boolean;
+  phase: 'fetching' | 'thinking' | null;
   error: 'quota_exceeded' | 'unavailable' | null;
   quotaExceeded: boolean;
 }
@@ -19,6 +20,7 @@ interface ExplainState {
 const INITIAL: ExplainState = {
   text: '',
   loading: false,
+  phase: null,
   error: null,
   quotaExceeded: false,
 };
@@ -27,7 +29,7 @@ export function useExplain() {
   const [state, setState] = useState<ExplainState>(INITIAL);
 
   const explain = useCallback(async ({ stationId, lat, lng, date }: ExplainOptions) => {
-    setState({ text: '', loading: true, error: null, quotaExceeded: false });
+    setState({ text: '', loading: true, phase: 'fetching', error: null, quotaExceeded: false });
 
     let res: Response;
     try {
@@ -37,24 +39,50 @@ export function useExplain() {
         body: JSON.stringify({ stationId, lat, lng, date }),
       });
     } catch {
-      setState({ text: '', loading: false, error: 'unavailable', quotaExceeded: false });
+      setState({
+        text: '',
+        loading: false,
+        phase: null,
+        error: 'unavailable',
+        quotaExceeded: false,
+      });
       return;
     }
 
     if (res.status === 429) {
-      setState({ text: '', loading: false, error: 'quota_exceeded', quotaExceeded: true });
+      setState({
+        text: '',
+        loading: false,
+        phase: null,
+        error: 'quota_exceeded',
+        quotaExceeded: true,
+      });
       return;
     }
     if (!res.ok) {
-      setState({ text: '', loading: false, error: 'unavailable', quotaExceeded: false });
+      setState({
+        text: '',
+        loading: false,
+        phase: null,
+        error: 'unavailable',
+        quotaExceeded: false,
+      });
       return;
     }
 
     const reader = res.body?.getReader();
     if (!reader) {
-      setState({ text: '', loading: false, error: 'unavailable', quotaExceeded: false });
+      setState({
+        text: '',
+        loading: false,
+        phase: null,
+        error: 'unavailable',
+        quotaExceeded: false,
+      });
       return;
     }
+
+    setState((prev) => ({ ...prev, phase: 'thinking' }));
 
     const decoder = new TextDecoder();
     let accumulated = '';
@@ -86,13 +114,14 @@ export function useExplain() {
         setState({
           text: accumulated,
           loading: !hasError,
+          phase: hasError ? null : 'thinking',
           error: hasError ? 'unavailable' : null,
           quotaExceeded: false,
         });
         if (hasError) break;
       }
     } finally {
-      setState((prev) => ({ ...prev, loading: false }));
+      setState((prev) => ({ ...prev, loading: false, phase: null }));
     }
   }, []);
 
