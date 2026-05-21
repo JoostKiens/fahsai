@@ -28,13 +28,13 @@ There's a shared daily quota of 1,400 requests per Bangkok calendar day. When it
 
 ## Data
 
-| Source                                                           | What                                        | Cadence   | License        |
-| ---------------------------------------------------------------- | ------------------------------------------- | --------- | -------------- |
-| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/SNPP) | Fire detections — location, FRP, confidence | Every 3 h | NASA open data |
-| [OpenAQ](https://openaq.org/) v3                                 | PM2.5 ground stations                       | Daily     | CC BY 4.0      |
-| [Open-Meteo](https://open-meteo.com/)                            | Wind grid + CAMS PM2.5 atmospheric model    | Daily     | CC BY 4.0      |
-| [WRI Global Power Plant Database](https://resourcewatch.org/)    | Coal, gas, oil plants                       | Static    | CC BY 4.0      |
-| [Mapbox](https://www.mapbox.com/)                                | Base map                                    | —         | Mapbox TOS     |
+| Source                                                           | What                                        | Cadence | License        |
+| ---------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/SNPP) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
+| [OpenAQ](https://openaq.org/) v3                                 | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
+| [Open-Meteo](https://open-meteo.com/)                            | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
+| [WRI Global Power Plant Database](https://resourcewatch.org/)    | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
+| [Mapbox](https://www.mapbox.com/)                                | Base map                                    | —       | Mapbox TOS     |
 
 ---
 
