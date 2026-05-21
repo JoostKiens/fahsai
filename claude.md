@@ -1,4 +1,4 @@
-# Thailand Air Quality Map — CLAUDE.md
+# Fahsai — CLAUDE.md
 
 ## Project overview
 
@@ -56,7 +56,8 @@ simplicity and correctness over premature optimization.
 │           │   ├── useAQI.ts
 │           │   ├── useWind.ts
 │           │   ├── useWindParticles.ts
-│           │   └── usePowerPlants.ts
+│           │   ├── usePowerPlants.ts
+│           │   └── useStationHistory.ts
 │           └── store/        # Zustand stores
 │               ├── layerStore.ts
 │               └── timeStore.ts
@@ -80,6 +81,9 @@ simplicity and correctness over premature optimization.
 
 - Node.js 20+ with TypeScript
 - Fastify (HTTP framework)
+- `@fastify/cors` — registered before all routes in `server.ts`; allows
+  `https://thailand-air-quality-map-frontend.vercel.app` in all environments plus
+  `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
 - Upstash Redis (hot cache with TTL)
 - Supabase (Postgres + PostGIS for persistent storage)
 
@@ -128,23 +132,42 @@ keeps API keys server-side.
 - Parameters: `pm25` only (primary pollutant for this project)
 - Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK) — fetches daily averages, so
   running more often than once per day adds no value
-- Storage: Supabase `stations` + `measurements` tables
-- Cache: Redis with 24h TTL, key `measurements:latest:{param}:{date|current}`
+- Storage: Supabase `stations` + `station_readings` tables
+- Cache: Redis with 24h TTL, key `station-readings:latest:{param}:{date|current}`
 - License: CC BY 4.0 — attribution required in UI
 - Required: free API key from https://explore.openaq.org/register
 - Note: some underlying Thai monitoring station data may have its own attribution
   requirements — check the `attribution` field in API responses and surface it in tooltips
 
-### Open-Meteo — wind vectors
+### Open-Meteo — weather grid
 
-- Source: `https://api.open-meteo.com/v1/forecast`
-- Parameters: `windspeed_10m`, `winddirection_10m` on a grid over the bounding box
+- Source: `https://api.open-meteo.com/v1/forecast` (today) / `https://archive-api.open-meteo.com/v1/archive` (past dates)
+- Parameters:
+  - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
+  - Daily aggregates: `wind_speed_10m_max`, `precipitation_sum`
 - No API key required
-- Schedule: every 6 hours
-- Storage: Redis only (no DB — fetched on demand per date)
-- Cache: Redis with 6h TTL for today, 30 days for historical dates
+- Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date;
+  matches the CAMS AQ grid resolution. Fetched in 16 batches of ≤300 with 5 s between
+  batches (~80 s total). Batch size capped at 300 — the multi-location POST endpoint
+  requires per-location arrays for timezone/start_date/end_date so payload grows
+  linearly; 500 caused 413 (confirmed May 2026). Free tier counts HTTP requests (not
+  locations): 16 calls/day is well within the 10,000/day limit. 429 backoff: 65 s for
+  minutely, 65 min for hourly, abort for daily.
+- Schedule: once daily (`0 8 * * *` UTC)
+- Storage:
+  - Supabase `weather_readings` table (persistent, 40-day retention) + Redis cache key
+    `weather:{date}` TTL 7d and `weather:wind:{date}` TTL 7d. Ingest writes to both.
+    The wind route checks Redis first; on miss reads from Supabase.
+  - Supabase `station_weather` table — pre-computed per-station per-day weather, populated
+    by `weather-ingest` immediately after the grid is stored (see station_weather section below).
+    **No Redis layer** for station_weather; queried directly from Supabase by the history endpoint.
+- Coordinate storage: ingest stores the **requested** grid lat/lng (lats[i]/lngs[i] from
+  the batch arrays), NOT the API-response coordinates (loc.latitude). The API may return
+  slightly different floats (e.g. 13.7999997 vs 13.8); using requested coords ensures
+  the stored values match the snap formula exactly.
 - License: CC BY 4.0 — attribution link required in UI footer
-- Render as: static arrow vectors (ScatterplotLayer or custom PathLayer in Deck.gl)
+- Note: wind, precipitation, and humidity are consumed by the station InfoPanel's 5-day weather table.
+- Render as: wind particles (animated PathLayer) and static arrow vectors
 
 ### Open-Meteo Air Quality — PM2.5 gridded model (CAMS)
 
@@ -153,7 +176,7 @@ keeps API keys server-side.
 - Grid: 0.4° spacing over bbox [89,1,114,30] → 63 × 73 = **4,599 points** per date; fetched in 16 batches of 300 (sequential, with 429 retry backoff)
 - No API key required
 - Schedule: every 6 hours (and on-demand for historical dates)
-- Storage: Supabase `aq_grid` table (date, lat, lng, pm25 — primary key on all three) **and** Redis cache key `aq:pm25:{YYYY-MM-DD}` TTL 48h. Route checks Redis first; on miss reads from Supabase and re-populates Redis. Ingest writes to both. Pruned after 40 days.
+- Storage: Supabase `aq_grid` table (date, lat, lng, pm25 — primary key on all three) **and** Redis cache key `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis first; on miss reads from Supabase and re-populates Redis. Ingest writes to both. Pruned after 40 days.
 - License: CC BY 4.0 — same attribution as wind (Open-Meteo footer link covers both)
 - Data source: CAMS (Copernicus Atmosphere Monitoring Service) global model, ~11km resolution
 - Render as: `BitmapLayer` — grid painted onto an offscreen canvas (630×730 px, 10 px/cell) with bilinear color interpolation between cells, then passed as a texture; clipped to land via `MaskExtension` + `SolidPolygonLayer` using Natural Earth 50m land polygons clipped to viewport (`src/data/sea-land-mask.json`); land mask regenerated via `scripts/generate-land-mask.py`
@@ -186,14 +209,12 @@ create table fire_points (
   satellite    text,             -- 'N' = Suomi-NPP, '1' = NOAA-20
   confidence   text,             -- 'low', 'nominal', 'high'
   daynight     text,             -- 'D' or 'N'
-  fire_type    int2,             -- 0=vegetation, 1=volcano, 2=static land, 3=offshore
   source       text default 'VIIRS_SNPP_NRT',
   created_at   timestamptz default now()
 );
 create index on fire_points using gist(location);
 create index on fire_points (detected_at);
 create index on fire_points (country_id);
-create index on fire_points (fire_type);
 create index on fire_points (confidence);
 
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
@@ -215,7 +236,8 @@ create index on stations using gist(location);
 create index on stations (country);
 
 -- Time-series measurements (appended on every ingestion run)
-create table measurements (
+-- Renamed from `measurements` to `station_readings` in migration 014.
+create table station_readings (
   id           bigserial primary key,
   station_id   text not null references stations(id),
   sensor_id    int4 not null,      -- OpenAQ sensors_id
@@ -225,9 +247,9 @@ create table measurements (
   measured_at  timestamptz not null,
   created_at   timestamptz default now()
 );
-create index on measurements (station_id, parameter, measured_at);
-create index on measurements (parameter, measured_at);
-create index on measurements (measured_at);
+create index on station_readings (station_id, parameter, measured_at);
+create index on station_readings (parameter, measured_at);
+create index on station_readings (measured_at);
 ```
 
 -- Power plants (WRI Global Power Plant Database, CC BY 4.0)
@@ -249,7 +271,7 @@ create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type
 ```
 
 -- CAMS PM2.5 gridded model (migration 005_aq_grid.sql)
--- Pruned after 40 days (same as fire_points and measurements). Redis (aq:pm25:{date}, TTL 48h) is the hot cache; Supabase is the persistent store.
+-- Pruned after 40 days (same as fire_points and station_readings). Redis (cams:pm25:{date}, TTL 7d) is the hot cache; Supabase is the persistent store.
 ```sql
 create table if not exists aq_grid (
   date  date    not null,
@@ -261,7 +283,44 @@ create table if not exists aq_grid (
 create index if not exists aq_grid_date_idx on aq_grid (date);
 ```
 
-Do not store wind data in Postgres — it is ephemeral and only needed for current display. AQ grid data **is** stored in Postgres (see above) because historical date browsing requires it.
+-- Weather grid (Open-Meteo forecast/archive, snapshot at 07:00 UTC = 14:00 BKK)
+-- Pruned after 40 days. Redis (weather:{date}, TTL 25h) is the hot cache; Supabase is
+-- the persistent store. Wind, precipitation, and humidity are consumed by the station
+-- InfoPanel's 5-day weather table.
+```sql
+create table if not exists weather_readings (
+  date                      date   not null,
+  lat                       float8 not null,
+  lng                       float8 not null,
+  wind_speed_kmh            float8 not null,  -- daily mean
+  wind_speed_max_kmh        float8,           -- daily maximum
+  wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
+  precipitation_sum         float8,          -- daily total mm
+  relative_humidity_2m      float8,          -- % at 07:00 UTC snapshot
+  primary key (date, lat, lng)
+);
+create index if not exists weather_readings_date_idx on weather_readings (date);
+-- (lat, lng, date) index added in migration 017 for efficient per-station lookups
+create index if not exists weather_readings_lat_lng_date_idx on weather_readings (lat, lng, date);
+```
+
+-- Pre-computed weather per station per day (migration 018_station_weather.sql)
+-- Populated by weather-ingest after the grid is stored. The history endpoint queries
+-- this table directly — no weather_readings lookup, no grid snap at request time.
+-- Station source: distinct station_ids from station_readings for that date (only stations
+-- that actually reported pm25 on a given day, matching what appears on the map).
+-- Not pruned independently — rows naturally expire as stations stop reporting.
+```sql
+create table if not exists station_weather (
+  date                  date NOT NULL,
+  station_id            text NOT NULL REFERENCES stations(id),
+  wind_speed_kmh        float8,
+  wind_direction_deg    float8,
+  precipitation_sum     float8,
+  relative_humidity_2m  float8,
+  PRIMARY KEY (station_id, date)   -- leading station_id optimises the history query
+);
+```
 
 ### OpenAQ v3 data model note
 
@@ -271,20 +330,21 @@ Station metadata and measurement ingestion are split across two separate jobs:
 
 - `stations-ingest` (weekly): upserts location metadata into `stations`, including `pm25_sensor_ids`
   (array of OpenAQ sensor IDs) and `datetime_last`. Skips locations where `datetimeLast > 30 days`.
-- `aqi-ingest` (daily, `0 4 * * *` UTC): reads `pm25_sensor_ids` directly from
+- `aqi-ingest` (two-pass daily): reads `pm25_sensor_ids` directly from
   `SELECT id, pm25_sensor_ids FROM stations WHERE pm25_sensor_ids != '{}'`. No API call
   to `/locations` is made during daily ingest. A location may have multiple pm25 sensors
   (e.g. collocated reference and low-cost instruments) — each is fetched and stored as a
-  separate `measurements` row. Only `pm25_sensor_ids[0]` is fetched per station — collocated
+  separate `station_readings` row. Only `pm25_sensor_ids[0]` is fetched per station — collocated
   sensors measure the same air and the map displays one value per location. All sensor IDs
   are retained in the array for future use. On fresh deployment, run `stations-ingest` before
   the first `aqi-ingest` run.
 
-Parameters to ingest: `pm25`, `pm10`, `no2`, `o3`, `so2`, `co`, `bc`.
-Skip `temperature` and `humidity` — meteorological context comes from Open-Meteo.
+Parameter ingested: `pm25` only. The `pm25_sensor_ids` column drives which sensors are fetched;
+no other parameters are currently ingested. The `station_readings` table schema supports additional
+parameters for future use.
 
 The `aqi_readings` table from earlier designs has been replaced by the
-`stations` + `measurements` two-table design. Do not recreate `aqi_readings`.
+`stations` + `station_readings` two-table design. Do not recreate `aqi_readings`.
 
 ---
 
@@ -296,32 +356,45 @@ needed (format: `west,south,east,north`, default: `89,1,114,30`).
 ```
 GET /api/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.
-  Supports optional query params: confidence=high,nominal  fire_type=0,2
+  Supports optional query params: confidence=high,nominal
 
 GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
   Returns fire points for a date range (used by time scrubber). Max 10 days.
 
-GET /api/measurements/latest?parameter=pm25&bbox=...&date=YYYY-MM-DD
+GET /api/station-readings/latest?parameter=pm25&bbox=...&date=YYYY-MM-DD
   Returns latest measurement per station for the given parameter.
   date is optional: when provided, queries that day's window; when absent, queries last 24h.
-  Redis first (key: measurements:latest:{param}:{date|current}), then Supabase.
+  Redis first (key: station-readings:latest:{param}:{date|current}), then Supabase.
+  Supabase query is paginated (PAGE_SIZE=1000, .range()) to bypass the server-side row cap —
+  do NOT remove the pagination or stations will silently disappear from the map.
 
-GET /api/measurements/history?station_id=...&parameter=pm25&hours=24
+GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
   Returns time series for a single station and parameter.
   Used in station tooltip chart.
+
+GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
+  Returns `days` daily rows (oldest-first) ending on `date` (BKK timezone).
+  Each row: { date, maxPm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
+  precipitationSumMm, relativeHumidity2m } | null }.
+  Single parallel DB round-trip: station_readings + station_weather.
+  No Redis caching — browser Cache-Control + TanStack Query (staleTime: Infinity) handle
+  client-side caching. Weather comes from station_weather (pre-computed at ingest time),
+  NOT from weather_readings — do not add weather_readings lookups here.
 
 GET /api/stations?bbox=...
   Returns all stations with their available parameters.
 
-GET /api/wind?date=YYYY-MM-DD&bbox=...
-  Returns wind vectors for the given date (defaults to today).
-  Redis cache key: wind:{date}. TTL: 6h for today, 30 days for historical.
-  On cache miss, fetches on demand from Open-Meteo (forecast API for today, archive API for past).
-  Today: current hour. Historical: 07:00 UTC (14:00 BKK — peak daytime convective transport).
+GET /api/weather?date=YYYY-MM-DD&bbox=...
+  Returns weather grid for the given date. date param is required (400 if absent/invalid).
+  Redis cache key: weather:{date}, TTL 7d. On miss, reads from Supabase weather_readings.
+  Does not fetch from Open-Meteo on demand — data must have been ingested by weather-ingest.
+  Returns 404 if no rows exist for the requested date.
+  Response includes all weather_readings fields; wind, precipitation, and humidity are
+  consumed by the station InfoPanel's 5-day weather table.
 
-GET /api/aq/pm25?date=YYYY-MM-DD&bbox=...
+GET /api/cams?date=YYYY-MM-DD&bbox=...
   Returns Open-Meteo CAMS gridded PM2.5 for a specific date (up to 4,599 points at 0.4° grid, bbox [89,1,114,30]).
-  Redis first (key: aq:pm25:{date}, TTL 48h); on miss fetches live from Open-Meteo.
+  Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
 
 GET /api/power-plants
   Returns WRI power plants (Coal/Gas/Oil) for THA/MMR/LAO/KHM as a GeoJSON FeatureCollection.
@@ -331,6 +404,32 @@ GET /api/power-plants
 GET /health
   Returns { status: 'ok', cache: 'connected', db: 'connected' }
 ```
+
+### Caching reference
+
+Every route that serves data follows one of three patterns. **Redis TTL** is the
+server-side cache lifetime; **HTTP Cache-Control** is what the browser/CDN sees.
+`CACHE_CONTROL_IMMUTABLE = public, max-age=604800` (7 days).
+
+| Route | Redis key | Redis TTL | On miss | HTTP Cache-Control |
+|---|---|---|---|---|
+| `GET /api/fires?date=` | `fires:date:{date}` | 7 days | Supabase `fire_points` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/fires/range` | — | — | Supabase `fire_points` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/station-readings/latest` | `station-readings:latest:{param}:{date\|current}` | 7 days | Supabase `station_readings` (paginated) | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/station-readings/history` | — | — | Supabase `station_readings` | none set |
+| `GET /api/stations/:id/history` | — | — | Supabase `station_readings` + `station_weather` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
+| `GET /api/weather/wind?date=` | `weather:wind:{date}` | 7 days | Supabase `weather_readings` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/weather?date=` | `weather:{date}` | 7 days | Supabase `weather_readings` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/cams?date=` | `cams:pm25:{date}` | 7 days | Supabase `cams_grid` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/power-plants` | `power_plants:geojson` | 7 days | Supabase `power_plants` | `CACHE_CONTROL_IMMUTABLE` |
+| `GET /api/latest-date` | `latest-complete-date` | 30 min | Supabase (counts rows in fire_points, station_readings, cams_grid) | none set |
+| `GET /api/explain` | — | — | Streams from Gemini API | none set |
+
+**Rules:**
+- Routes with a Redis key check Redis first; on miss they query Supabase, then write back to Redis (fire-and-forget for non-blocking routes).
+- `GET /api/stations/:id/history` has **no Redis layer** — the endpoint is fast enough (1 parallel DB RTT) and the hit rate is too low to justify the Redis round-trip cost. Client-side caching via TanStack Query (`staleTime: Infinity`) and browser `Cache-Control` cover repeat visits.
+- Only default-bbox requests are Redis-cached for `station-readings/latest`; custom bbox requests always go to Supabase.
+- `HISTORICAL_TTL_SECONDS = 604800` (7 days) is the standard Redis TTL for all immutable historical data.
 
 ---
 
@@ -350,7 +449,6 @@ export interface FirePoint {
   satellite: string | null; // 'N' = Suomi-NPP, '1' = NOAA-20
   confidence: string | null; // 'low' | 'nominal' | 'high'
   daynight: string | null; // 'D' | 'N'
-  fireType: number | null; // 0=vegetation, 1=volcano, 2=static land, 3=offshore
 }
 
 // station.ts
@@ -439,17 +537,41 @@ Each job is a standalone script in `packages/backend/src/jobs/`, invoked directl
 Railway cron (no job queue). Schedules are configured in Railway's cron service UI.
 
 ```
-firms-ingest       — every 3h  (0 */3 * * *)   fetches VIIRS data, upserts to Supabase, updates Redis
+firms-ingest       — daily     (0 10 * * *)     fetches VIIRS data for TODAY (UTC); last satellite pass
+                                                lands ~06:12 UTC and is in the DB by ~09:00 UTC, so
+                                                10:00 UTC guarantees a complete day before storing
 stations-ingest    — weekly    (0 0 * * 0)      fetches OpenAQ locations by bbox, upserts stations table
                                                 including pm25_sensor_ids and datetime_last;
                                                 skips locations where datetimeLast > 30 days
-aqi-ingest         — daily     (0 4 * * *)      reads pm25_sensor_ids from stations table (no fetchLocations call),
-                                                fetches daily averages via /hours/daily per sensor ID,
-                                                upserts to measurements, updates Redis
-wind-ingest        — every 6h  (0 */6 * * *)    fetches Open-Meteo wind grid, writes to Redis (no DB)
-aq-ingest          — every 6h  (0 */6 * * *)    fetches Open-Meteo CAMS PM2.5 grid, writes to Redis (no DB)
-prune              — daily     (0 2 * * *)      deletes fire_points, measurements, aq_grid rows > 40 days
+aq-ingest          — daily     (0 23 * * *)     fetches CAMS PM2.5 grid for TODAY (UTC) via
+  ingest-aq-today                               ingest-aq-today.ts; single pass only — CAMS is a
+                                                deterministic model so values don't change between
+                                                runs; makes grid visible by ~23:30 UTC (06:30 BKK)
+prune              — daily     (0 2 * * *)      deletes fire_points, station_readings, aq_grid,
+                                                weather_readings, station_weather rows > 40 days
+aqi-ingest (pass 1)— daily     (0 23 * * *)     reads pm25_sensor_ids from stations table, fetches pm25
+  ingest-aqi-today                              daily averages for TODAY via /hours/daily;
+                                                BKK day closes at 16:59 UTC — 6h processing buffer.
+                                                Makes station_readings visible by ~23:30 UTC (06:30 BKK).
+aqi-ingest (pass 2)— daily     (0 4 * * *)      fetches pm25 daily averages for YESTERDAY as safety net
+  ingest-aqi                                    and to overwrite any partial values pass 1 wrote before
+                                                all stations had reported (ignoreDuplicates: false)
+weather-ingest     — daily     (0 8 * * *)      fetches Open-Meteo weather grid for YESTERDAY at the
+  ingest-weather-today                          07:00 UTC snapshot; upserts to Supabase weather_readings
+                                                and Redis (weather:{date} + weather:wind:{date}, TTL 7d).
+                                                After storing the grid, pre-computes station_weather for
+                                                all stations that reported pm25 on that date (queried from
+                                                station_readings — aqi-ingest pass 2 at 04:00 UTC runs
+                                                before this job so yesterday's readings are present).
+                                                Uses paginated .range() queries to bypass Supabase's
+                                                1000-row cap on both station_readings and station fetches.
 ```
+
+All times are UTC (Railway runs in UTC). The UI shows the most recent date where all three
+gating sources have complete data (AQ grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1),
+served by GET /api/latest-date. The date typically becomes available at ~23:30 UTC (06:30 BKK).
+If aqi-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
+See docs/adr/0001-two-pass-ingest-schedule.md.
 
 Each script exits with code 0 on success and non-zero on failure. Retry logic is
 implemented within the script (3 attempts with exponential backoff where applicable).
@@ -565,6 +687,10 @@ pnpm --filter backend run ingest:wind
 pnpm --filter backend run ingest:aq YYYY-MM-DD   # Open-Meteo CAMS PM2.5 grid
 pnpm --filter backend run ingest:power-plants    # WRI power plants (one-off; pass local CSV path as optional arg)
 
+# One-time backfill: populates station_weather for the last 40 days.
+# Run once after deploying migration 018_station_weather.sql on a fresh deployment.
+pnpm --filter backend run backfill:station-weather
+
 # Type-check all packages
 pnpm typecheck
 
@@ -585,10 +711,19 @@ pnpm lint
 
 - Supabase free tier has 500MB storage. Monitor usage as historical fire data
   accumulates. A nightly prune job (`src/jobs/prune.ts`) deletes `fire_points`,
-  `measurements`, and `aq_grid` rows older than **40 days**. Derivation: 31 days
-  (30 scrubber days T-1→T-30, plus today T which is ingested but not yet visible)
-  + 7 days (Explain fetches a 7-day measurement history, so scrubber day 0 reaches
-  back to T-37) + 2 days buffer (UTC+7 timezone boundary + prune timing) = 40.
+  `station_readings`, `aq_grid`, `weather_readings`, and `station_weather` rows older
+  than **40 days**. Derivation: 31 days (30 scrubber days T-1→T-30, plus today T which
+  is ingested but not yet visible) + 7 days (Explain fetches a 7-day measurement history,
+  so scrubber day 0 reaches back to T-37) + 2 days buffer (UTC+7 timezone boundary +
+  prune timing) = 40. If `station_weather` is not yet pruned in the job, add it.
+
+- **Supabase 1000-row default cap** — Supabase's hosted PostgREST silently truncates
+  results at 1000 rows regardless of table size. Any query that could return more than
+  1000 rows MUST use `.range(from, to)` pagination. Affected queries in this codebase:
+  - `station-readings/latest` — paginated (PAGE_SIZE=1000 loop)
+  - `weather-ingest` station and station_readings fetches — paginated
+  - `backfill-station-weather` script — paginated
+  Setting `.limit(N)` where N > 1000 does NOT bypass the server cap; only `.range()` does.
 
 - FIRMS rate limit is 5,000 transactions per 10-minute window. A single bounding box
   request for 1 day counts as 1 transaction. With a 3h schedule this is well within
@@ -679,6 +814,33 @@ external source.
   (the "causality" killer feature — build this after core layers are stable)
 - Year-over-year comparison — requires accumulating historical data from day one
 
+## Persisted user settings
+
+User-facing settings (those exposed in the Settings modal) are stored in
+`packages/frontend/src/store/settingsStore.ts` using Zustand's `persist` middleware.
+Settings are written to `localStorage` under the key `taqm:settings` and rehydrated
+automatically on app load — no manual `useEffect` needed.
+
+**To add a new setting:**
+
+1. Add the field and its setter to `SettingsStore` in `settingsStore.ts`.
+2. Set the default value in the `create(...)` initialiser.
+3. Bump `version` in the `persist` config and add a `migrate` function that handles
+   the old shape → new shape conversion (or returns the state unchanged if the field
+   is additive).
+4. Read the value in your component with `useSettingsStore((s) => s.myField)`.
+5. Expose the control in the Settings modal inside `Header.tsx`.
+
+**What belongs here vs. `uiStore`:**
+- `settingsStore` — user preferences that should survive a page reload (e.g. date range).
+- `uiStore` — transient session state that should reset on reload (e.g. modal open/closed,
+  selected map point, playing state).
+
+**Schema version history:**
+- `version: 1` — initial: `scrubberDays` (30 | 60 | 90 | 120)
+
+---
+
 ## Code style
 
 - Prettier for formatting, ESLint for code quality
@@ -687,6 +849,14 @@ external source.
 - Run `pnpm format` before committing
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
+
+## Internationalisation (i18n)
+
+Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
+
+**Whenever you add or rename a string in either file, update both files.** The keys in
+`en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
+this and will fail CI if they diverge.
 
 ## Dev tooling
 
@@ -700,35 +870,8 @@ external source.
 - Vitest: packages/backend (node env) and packages/frontend (jsdom env)
 - .vscode/settings.json: formatOnSave, eslint fixOnSave, rulers at 100
 
-## fire_type classification
+## Fire filtering
 
-The VIIRS FIRMS API returns a `fire_type` field for each detection.
-Do not use this field to filter out sources — use it to categorize and
-visualize sources separately. All types except volcanoes are potentially
-relevant to air pollution in the region.
-
-| Value | Label              | Relevant    | Notes                                                            |
-| ----- | ------------------ | ----------- | ---------------------------------------------------------------- |
-| 0     | Vegetation fire    | ✅ yes      | Agricultural burning, forest fires — primary cross-border source |
-| 1     | Active volcano     | ❌ no       | No active volcanoes in Thailand/Myanmar/Laos/Cambodia region     |
-| 2     | Static land source | ✅ yes      | Industrial facilities, refineries, power plants                  |
-| 3     | Offshore           | ✅ possibly | Offshore gas flaring in Gulf of Thailand                         |
-
-### Visualization implications
-
-- Do not pre-filter by fire_type during ingestion — store all detections
-- Expose fire_type as a filter in the sidebar UI so users can toggle
-  categories independently
-- Consider color-coding by fire_type as an alternative or addition to
-  color-coding by country
-- The distinction between type 0 (vegetation) and type 2 (industrial) is
-  analytically important: it helps separate agricultural burning narratives
-  from industrial pollution narratives, both of which are relevant to the
-  blame-shifting context this project addresses
-
-### Filtering recommendation
-
-The `confidence` field is the more appropriate field for filtering out
-noise. Filter to `confidence IN ('nominal', 'high')` by default in the
-UI, with an option to include low-confidence detections. Do not use
-fire_type as a quality filter.
+The `confidence` field is the appropriate field for filtering out noise.
+Filter to `confidence IN ('nominal', 'high')` by default in the UI, with
+an option to include low-confidence detections.

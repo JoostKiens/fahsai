@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import type { WindVector } from '@thailand-aq/types';
 import { haversineKm, bearingDeg, compassFromDeg } from '../lib/geo.js';
 import { getRelevantUrbanSources } from '../lib/urbanSources.js';
+import type { WeatherReading } from '@thailand-aq/types';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DAILY_QUOTA_LIMIT = 1400;
@@ -39,7 +39,7 @@ function parseWindDir(directionDeg: number): WindDir {
   };
 }
 
-function nearestWind(vectors: WindVector[], lat: number, lng: number): WindVector | null {
+function nearestWind(vectors: WeatherReading[], lat: number, lng: number): WeatherReading | null {
   if (!vectors.length) return null;
   let best = vectors[0];
   let bestD = (best.lat - lat) ** 2 + (best.lng - lng) ** 2;
@@ -135,7 +135,7 @@ export function explainRoutes(app: FastifyInstance): void {
       // Gather all context in parallel
       const [stationRows, fireRows, peerRows, windCache] = await Promise.all([
         supabase
-          .from('measurements')
+          .from('station_readings')
           .select('value, measured_at, stations(id, name)')
           .eq('station_id', stationId)
           .eq('parameter', 'pm25')
@@ -145,7 +145,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
         supabase
           .from('fire_points')
-          .select('lat, lng, frp, fire_type, detected_at')
+          .select('lat, lng, frp, detected_at')
           .gte('detected_at', since48h)
           .lt('detected_at', until)
           .gte('lat', lat - BOX_FIRE)
@@ -154,14 +154,14 @@ export function explainRoutes(app: FastifyInstance): void {
           .lte('lng', lng + BOX_FIRE),
 
         supabase
-          .from('measurements')
+          .from('station_readings')
           .select('value, measured_at, station_id, stations(id, name, lat, lng)')
           .eq('parameter', 'pm25')
           .gte('measured_at', since3h)
           .neq('station_id', stationId)
           .order('measured_at', { ascending: false }),
 
-        redis.get<WindVector[]>(`wind:${selectedDate}`),
+        redis.get<WeatherReading[]>(`weather:${selectedDate}`),
       ]);
 
       if (stationRows.error) throw new Error(stationRows.error.message);
@@ -204,13 +204,13 @@ export function explainRoutes(app: FastifyInstance): void {
       // We use this to actually filter the fires shown to the model — not just as a hint —
       // so the model cannot reason about fires it shouldn't know about.
       const effectiveRadiusKm = wind
-        ? wind.speedKmh < 5
+        ? wind.wind_speed_kmh < 5
           ? 50
-          : Math.min(Math.round(wind.speedKmh * 36), FIRE_RADIUS_KM)
+          : Math.min(Math.round(wind.wind_speed_kmh * 36), FIRE_RADIUS_KM)
         : FIRE_RADIUS_KM;
 
       // --- urban emission sources ---
-      const urbanSources = getRelevantUrbanSources(lat, lng, wind?.directionDeg ?? null);
+      const urbanSources = getRelevantUrbanSources(lat, lng, wind?.wind_direction_deg ?? null);
 
       // --- fires context ---
       req.log.info(
@@ -227,7 +227,6 @@ export function explainRoutes(app: FastifyInstance): void {
         lat: number;
         lng: number;
         frp: number | null;
-        fire_type: number | null;
         detected_at: string;
       };
       const fires = ((fireRows.data as unknown as FireRow[] | null) ?? [])
@@ -246,7 +245,6 @@ export function explainRoutes(app: FastifyInstance): void {
         quadrantFrp[q] += f.frp ?? 0;
       }
       const topFires = [...fires].sort((a, b) => (b.frp ?? 0) - (a.frp ?? 0)).slice(0, 5);
-      const vegFires = fires.filter((f) => f.fire_type === 0).length;
 
       // --- peers context ---
       type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
@@ -283,17 +281,17 @@ export function explainRoutes(app: FastifyInstance): void {
         .map((d) => `  ${d.date}: ${d.avg.toFixed(1)} µg/m³ (${pm25Cat(d.avg)})`)
         .join('\n');
 
-      const windDir = wind ? parseWindDir(wind.directionDeg) : null;
+      const windDir = wind ? parseWindDir(wind.wind_direction_deg) : null;
       const windStr =
         windDir && wind
-          ? `From ${windDir.fromLabel} at ${wind.speedKmh.toFixed(1)} km/h (blowing toward ${windDir.toLabel})`
+          ? `From ${windDir.fromLabel} at ${wind.wind_speed_kmh.toFixed(1)} km/h (blowing toward ${windDir.toLabel})`
           : 'No wind data available';
 
       const fireStr =
         fires.length === 0
           ? `No fires detected within ${effectiveRadiusKm} km in the last 48 hours`
           : [
-              `${fires.length} fire detections (${vegFires} vegetation, ${fires.length - vegFires} other)`,
+              `${fires.length} fire detections nearby`,
               `Total FRP: ${fires.reduce((s, f) => s + (f.frp ?? 0), 0).toFixed(0)} MW`,
               `By quadrant — N: ${quadrantCounts.N} fires (${quadrantFrp.N.toFixed(0)} MW), E: ${quadrantCounts.E} (${quadrantFrp.E.toFixed(0)} MW), S: ${quadrantCounts.S} (${quadrantFrp.S.toFixed(0)} MW), W: ${quadrantCounts.W} (${quadrantFrp.W.toFixed(0)} MW)`,
               topFires.length

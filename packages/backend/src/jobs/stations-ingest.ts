@@ -1,21 +1,9 @@
+import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
-import { redis } from '../cache/client.js';
 import { fetchLocations, PARAMETERS, extractPm25SensorIds } from '../lib/openaq.js';
-
-export interface CachedSensor {
-  sensorId: number;
-  locationId: string;
-  parameter: string;
-  unit: string;
-}
-
-// 8 days — longer than the weekly run cadence so there is always a cached list
-export const SENSOR_CACHE_TTL = 8 * 24 * 60 * 60;
-export const SENSOR_CACHE_KEY = 'openaq:sensors';
 
 export async function runStationsIngest(): Promise<{
   stationsUpserted: number;
-  sensorsCached: number;
 }> {
   console.log('[stations-ingest] Fetching OpenAQ locations...');
   const locations = await fetchLocations();
@@ -52,24 +40,22 @@ export async function runStationsIngest(): Promise<{
       updated_at: new Date().toISOString(),
     }));
 
-  const { error } = await supabase.from('stations').upsert(stationRows, { onConflict: 'id' });
-  if (error) throw new Error(`Stations upsert failed: ${error.message}`);
+  await pRetry(
+    async () => {
+      const { error } = await supabase.from('stations').upsert(stationRows, { onConflict: 'id' });
+      if (error) throw new AbortError(`Stations upsert failed: ${error.message}`);
+    },
+    {
+      retries: 3,
+      minTimeout: 1000,
+      factor: 2,
+      onFailedAttempt: (err) =>
+        console.warn(
+          `[stations-ingest] Supabase upsert attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+        ),
+    },
+  );
   console.log(`[stations-ingest] Upserted ${stationRows.length} stations`);
 
-  // Cache the full sensor list so aqi-ingest can query all sensors without
-  // calling the locations API on every hourly run.
-  const sensors: CachedSensor[] = locations.flatMap((loc) =>
-    loc.sensors
-      .filter((s) => (PARAMETERS as readonly string[]).includes(s.parameter.name))
-      .map((s) => ({
-        sensorId: s.id,
-        locationId: String(loc.id),
-        parameter: s.parameter.name,
-        unit: s.parameter.units,
-      })),
-  );
-  await redis.set(SENSOR_CACHE_KEY, sensors, { ex: SENSOR_CACHE_TTL });
-  console.log(`[stations-ingest] Cached ${sensors.length} sensors in Redis (TTL 8 days)`);
-
-  return { stationsUpserted: stationRows.length, sensorsCached: sensors.length };
+  return { stationsUpserted: stationRows.length };
 }

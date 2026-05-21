@@ -1,43 +1,48 @@
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
+import { mapRef } from '../../../lib/mapRef';
 import { LayerGroups } from './LayerGroups';
 
 const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   return (
     <motion.aside
       role="complementary"
-      aria-label="Map layers"
+      aria-label={t('sidebar.ariaLabel')}
       initial={false}
-      animate={{ x: sidebarOpen ? 0 : -240 }}
+      animate={{ width: sidebarOpen ? 260 : 0 }}
       transition={SPRING}
-      className="absolute left-0 top-0 bottom-0 w-[240px] bg-white border-r border-gray-200 flex-col z-20 pointer-events-auto hidden md:flex"
+      onAnimationComplete={() => mapRef.current?.resize()}
+      className="hidden md:flex shrink-0 overflow-hidden z-20 pointer-events-auto"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <span className="text-sm font-semibold text-gray-700">Layers</span>
-        <button
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Collapse sidebar"
-          className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-        >
-          <ChevronLeftIcon />
-        </button>
-      </div>
+      <div className="w-[260px] flex flex-col bg-white border-r border-gray-200 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-800">{t('sidebar.layers')}</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label={t('sidebar.collapse')}
+            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          >
+            <ChevronLeftIcon />
+          </button>
+        </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        <LayerGroups />
+        <div className="flex-1 overflow-y-auto">
+          <LayerGroups />
+        </div>
       </div>
     </motion.aside>
   );
 }
 
 export function SidebarReopenButton() {
+  const { t } = useTranslation();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
@@ -47,7 +52,7 @@ export function SidebarReopenButton() {
       animate={{ x: sidebarOpen ? -40 : 0 }}
       transition={SPRING}
       onClick={() => setSidebarOpen(true)}
-      aria-label="Open sidebar"
+      aria-label={t('sidebar.open')}
       className="absolute left-0 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-6 h-12 bg-white border border-l-0 border-gray-200 rounded-r-lg z-20 pointer-events-auto text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
     >
       <ChevronRightIcon />

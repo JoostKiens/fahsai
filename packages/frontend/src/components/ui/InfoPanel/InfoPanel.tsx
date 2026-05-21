@@ -1,84 +1,72 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
+import type { StationDayHistory } from '@thailand-aq/types';
 import { useUIStore } from '../../../store/uiStore';
-import type { ClusterStation } from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
 import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
-import { pm25ToRgb, pm25ToCategory } from '../../../lib/aqiColors';
+import { pm25ToCategory } from '../../../lib/aqiColors';
 import { reverseGeocode } from '../../../lib/geocode';
+import { CountryFlag, alpha2ToIso3 } from '../../../lib/countryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../lib/ambient';
-import { useAQGrid } from '../../../hooks/useAQGrid';
+import { useCamsGrid } from '../../../hooks/useCamsGrid';
 import { useAQI } from '../../../hooks/useAQI';
 import { useWind } from '../../../hooks/useWind';
+import { useStationHistory } from '../../../hooks/useStationHistory';
+import { dateLocale } from '../../../i18n';
+import { History, ShimmerHistory } from './History';
+import { WindArrow } from './WindArrow';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const API = import.meta.env.VITE_API_BASE_URL;
-
-interface DayData {
-  date: string;
-  maxPm25: number;
-  readingCount: number;
-}
-
-type HistoryState = { status: 'idle' | 'loading' | 'success' | 'error'; data: DayData[] | null };
 
 export function InfoPanel() {
+  const { t, i18n } = useTranslation();
+  const locale = dateLocale(i18n.language);
+
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
   const selectedDate = useTimeStore((s) => s.selectedDate);
-  const { data: aqGrid } = useAQGrid();
+  const { data: aqGrid } = useCamsGrid();
   const { data: aqData, isLoading: aqLoading } = useAQI();
   const { data: wind } = useWind();
 
   const [placeName, setPlaceName] = useState<string | null>(null);
+  const [geocodeCountryIso3, setGeocodeCountryIso3] = useState<string | null>(null);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [history, setHistory] = useState<HistoryState>({ status: 'idle', data: null });
 
-  // Reverse geocode whenever coordinates change
   const coordKey = selectedPoint ? `${selectedPoint.lngLat[0]},${selectedPoint.lngLat[1]}` : null;
   useEffect(() => {
     if (!coordKey || !selectedPoint) {
       setPlaceName(null);
+      setGeocodeCountryIso3(null);
       return;
     }
     setPlaceName(null);
+    setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
     void reverseGeocode(selectedPoint.lngLat[0], selectedPoint.lngLat[1], TOKEN)
-      .then(setPlaceName)
+      .then(({ placeName: name, countryAlpha2 }) => {
+        setPlaceName(name);
+        setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
+      })
       .finally(() => setGeocodeLoading(false));
   }, [coordKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync station tooltip when the date changes: update pm25/measuredAt from fresh AQI data,
-  // or close the panel if the station has no data for the new date.
   const stationId = selectedPoint?.station?.stationId ?? null;
   useEffect(() => {
     if (!stationId || aqLoading || !aqData) return;
     if (!aqData.find((m) => m.stationId === stationId)) setSelectedPoint(null);
   }, [selectedDate, aqLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live measurement for the selected station — updates whenever AQI data refreshes.
-  // Falls back to the value baked in at click time while the new date is still loading.
+  const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
+
   const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
   const displayStation =
     selectedPoint?.station && liveAqi
       ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
       : (selectedPoint?.station ?? null);
 
-  // Fetch 7-day history when a station or the selected date changes
-  useEffect(() => {
-    if (!stationId) {
-      setHistory({ status: 'idle', data: null });
-      return;
-    }
-    setHistory({ status: 'loading', data: null });
-    fetch(`${API}/api/stations/${stationId}/history?days=7&date=${selectedDate}`)
-      .then((r) => r.json())
-      .then((body: { days: DayData[] }) => setHistory({ status: 'success', data: body.days }))
-      .catch(() => setHistory({ status: 'error', data: null }));
-  }, [stationId, selectedDate]);
-
-  // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setSelectedPoint(null);
@@ -93,9 +81,7 @@ export function InfoPanel() {
       ? 'station'
       : selectedPoint?.powerPlant
         ? 'powerPlant'
-        : selectedPoint?.cluster
-          ? 'cluster'
-          : null;
+        : null;
 
   const aqPoint =
     selectedPoint && aqGrid
@@ -106,77 +92,88 @@ export function InfoPanel() {
       ? findNearestWind(wind, selectedPoint.lngLat[0], selectedPoint.lngLat[1])
       : null;
 
+  const countryIso3 =
+    panelType === 'station'
+      ? displayStation?.country
+        ? (alpha2ToIso3(displayStation.country) ?? geocodeCountryIso3)
+        : geocodeCountryIso3
+      : panelType === 'powerPlant'
+        ? (selectedPoint?.powerPlant?.country ?? null)
+        : geocodeCountryIso3;
+
+  if (!selectedPoint) {
+    return (
+      <div
+        role="region"
+        aria-label={t('infoPanel.ariaLabel')}
+        className="hidden md:block absolute top-3 right-3 w-[260px] bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
+      >
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="flex flex-col items-center justify-center h-[100px] gap-2 text-gray-400"
+        >
+          <CursorClickIcon />
+          <span className="text-sm text-center leading-tight whitespace-pre-line">
+            {t('infoPanel.clickPrompt')}
+          </span>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div
       role="region"
-      aria-label="Point details"
-      className="absolute top-3 right-3 w-[200px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-xl z-20 pointer-events-auto"
+      aria-label={t('infoPanel.ariaLabel')}
+      className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
     >
       <AnimatePresence mode="wait">
-        {!selectedPoint ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="flex flex-col items-center justify-center h-[100px] gap-2 text-gray-400"
-          >
-            <CursorClickIcon />
-            <span className="text-sm text-center leading-tight">
-              Click a point
-              <br />
-              on the map
-            </span>
-          </motion.div>
-        ) : (
-          <motion.div
-            key={panelType}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="p-3"
-          >
-            <PanelHeader
-              panelType={panelType}
+        <motion.div
+          key={panelType}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          className="p-3"
+        >
+          <PanelHeader
+            panelType={panelType}
+            lngLat={selectedPoint.lngLat}
+            placeName={placeName}
+            geocodeLoading={geocodeLoading}
+            stationName={displayStation?.stationName ?? null}
+            plantName={selectedPoint.powerPlant?.name ?? null}
+            countryIso3={countryIso3}
+            onClose={() => setSelectedPoint(null)}
+          />
+
+          <hr className="border-gray-100 my-2" />
+
+          {displayStation && (
+            <StationPanel
+              station={displayStation}
               lngLat={selectedPoint.lngLat}
-              placeName={placeName}
-              geocodeLoading={geocodeLoading}
-              stationName={displayStation?.stationName ?? null}
-              plantName={selectedPoint.powerPlant?.name ?? null}
-              onClose={() => setSelectedPoint(null)}
+              historyDays={historyDays}
+              historyLoading={historyLoading}
+              locale={locale}
             />
-
-            {panelType !== 'cluster' && <hr className="border-gray-100 my-2" />}
-
-            {displayStation && (
-              <StationPanel
-                station={displayStation}
-                lngLat={selectedPoint.lngLat}
-                aqPoint={aqPoint}
-                windVec={windVec}
-                history={history}
-              />
-            )}
-            {selectedPoint.fire && (
-              <FirePanel fire={selectedPoint.fire} aqPoint={aqPoint} windVec={windVec} />
-            )}
-            {selectedPoint.powerPlant && (
-              <PowerPlantPanel
-                plant={selectedPoint.powerPlant}
-                aqPoint={aqPoint}
-                windVec={windVec}
-              />
-            )}
-            {selectedPoint.cluster && (
-              <ClusterList
-                stations={selectedPoint.cluster.stations}
-                lngLat={selectedPoint.lngLat}
-              />
-            )}
-          </motion.div>
-        )}
+          )}
+          {selectedPoint.fire && (
+            <FirePanel
+              fire={selectedPoint.fire}
+              aqPoint={aqPoint}
+              windVec={windVec}
+              locale={locale}
+            />
+          )}
+          {selectedPoint.powerPlant && (
+            <PowerPlantPanel plant={selectedPoint.powerPlant} aqPoint={aqPoint} windVec={windVec} />
+          )}
+        </motion.div>
       </AnimatePresence>
     </div>
   );
@@ -191,6 +188,7 @@ function PanelHeader({
   geocodeLoading,
   stationName,
   plantName,
+  countryIso3,
   onClose,
 }: {
   panelType: string | null;
@@ -199,48 +197,54 @@ function PanelHeader({
   geocodeLoading: boolean;
   stationName: string | null;
   plantName: string | null;
+  countryIso3: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
+
   const badgeLabel =
     panelType === 'station'
-      ? 'AQI Station'
+      ? t('infoPanel.aqiStation')
       : panelType === 'fire'
-        ? 'Fire Detection'
+        ? t('infoPanel.fireDetection')
         : panelType === 'powerPlant'
-          ? 'Power Plant'
-          : panelType === 'cluster'
-            ? 'Stations Nearby'
-            : '';
+          ? t('infoPanel.powerPlant')
+          : '';
 
   return (
     <div className="flex items-start justify-between">
       <div className="min-w-0 flex-1 pr-2">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-gray-400 leading-tight mb-0.5">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-gray-500 leading-tight mb-0.5">
           {badgeLabel}
         </p>
         {panelType === 'station' && stationName && (
-          <p className="text-xs font-medium text-gray-700">{stationName}</p>
+          <p className="text-xs font-medium text-gray-800">{stationName}</p>
         )}
         {panelType === 'powerPlant' && plantName && (
-          <p className="text-xs font-medium text-gray-700 truncate">{plantName}</p>
+          <p className="text-xs font-medium text-gray-800 truncate">{plantName}</p>
         )}
         {geocodeLoading ? (
-          <Shimmer className="h-3 w-24 mb-0.5 mt-0.5" />
+          <Shimmer className="h-4 w-28" />
         ) : placeName ? (
           <p
-            className={`truncate ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-400' : 'text-xs font-medium text-gray-700'}`}
+            className={`truncate flex items-center gap-1 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[11px] text-gray-500' : 'text-xs font-medium text-gray-800'}`}
           >
-            {placeName}
+            <CountryFlag iso3={countryIso3} />
+            <span className="truncate">{placeName}</span>
+          </p>
+        ) : panelType === 'fire' ? (
+          <p className="flex items-center gap-1 text-xs font-medium text-gray-800">
+            <CountryFlag iso3={countryIso3} />
           </p>
         ) : null}
-        <p className="text-[10px] font-mono text-gray-400 leading-tight">
+        <p className="text-[10px] text-gray-400 leading-tight">
           {lngLat[1].toFixed(4)}°N {lngLat[0].toFixed(4)}°E
         </p>
       </div>
       <button
         onClick={onClose}
-        aria-label="Dismiss"
-        className="text-gray-300 hover:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded shrink-0"
+        aria-label={t('infoPanel.dismiss')}
+        className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded shrink-0"
       >
         <XIcon />
       </button>
@@ -248,34 +252,56 @@ function PanelHeader({
   );
 }
 
-// --- Secondary section (ambient AQ + wind) ---
+// --- Secondary section (ambient AQ + wind) — used by Fire and PowerPlant panels ---
 
 function SecondarySection({
   aqPoint,
   windVec,
 }: {
-  aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  aqPoint?: { pm25: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
+  const { t } = useTranslation();
+
   if (!aqPoint && !windVec) return null;
 
   return (
     <>
       <hr className="border-gray-100 my-2" />
-      <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-1">Ambient</p>
+      <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+        {t('infoPanel.ambient')}
+      </p>
       {aqPoint && (
-        <div className="flex justify-between items-center text-xs py-1">
-          <span className="text-gray-500">AQ grid</span>
-          <AqiBadge value={aqPoint.pm25} category={pm25ToCategory(aqPoint.pm25).label} />
-        </div>
+        <Row>
+          <span className="text-gray-500">
+            {t('infoPanel.pm25')}{' '}
+            <span className="text-gray-400" title={t('infoPanel.modelledTitle')}>
+              {t('infoPanel.modelled')}
+            </span>
+          </span>
+          <AqiBadge
+            value={aqPoint.pm25}
+            category={t(pm25ToCategory(aqPoint.pm25).key as never)}
+            source="modelled"
+          />
+        </Row>
       )}
       {windVec && (
-        <div className="flex justify-between items-center text-xs py-1">
-          <span className="text-gray-500">Wind</span>
-          <span className="text-gray-800 font-medium">
-            from {degToCompass(windVec.directionDeg)} · {windVec.speedKmh.toFixed(1)} km/h
+        <Row>
+          <span className="text-gray-500">{t('infoPanel.wind')}</span>
+          <span className="text-[11px] text-gray-700 font-medium inline-flex items-center gap-1 whitespace-nowrap">
+            <WindArrow
+              dirDeg={windVec.wind_direction_deg}
+              size={11}
+              color="#374151"
+              strokeWidth={1.6}
+            />
+            {t('infoPanel.windFrom', {
+              direction: degToCompass(windVec.wind_direction_deg),
+              speed: windVec.wind_speed_kmh.toFixed(1),
+            })}
           </span>
-        </div>
+        </Row>
       )}
     </>
   );
@@ -286,57 +312,49 @@ function SecondarySection({
 function StationPanel({
   station,
   lngLat,
-  aqPoint,
-  windVec,
-  history,
+  historyDays,
+  historyLoading,
+  locale,
 }: {
   station: {
     stationId: string;
     stationName: string;
+    country: string | null;
     pm25: number;
     unit: string;
     measuredAt: string;
   };
   lngLat: [number, number];
-  aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
-  history: HistoryState;
+  historyDays: StationDayHistory[] | undefined;
+  historyLoading: boolean;
+  locale: string;
 }) {
+  const { t } = useTranslation();
   const cat = pm25ToCategory(station.pm25);
   const explainQuotaExceeded = useUIStore((s) => s.explainQuotaExceeded);
   const setExplainQuotaExceeded = useUIStore((s) => s.setExplainQuotaExceeded);
+
   return (
     <>
-      <Row index={0}>
-        <span className="text-gray-500">PM2.5</span>
-        <AqiBadge value={station.pm25} category={cat.label} />
+      <Row>
+        <span className="text-gray-500">{t('infoPanel.pm25')}</span>
+        <AqiBadge value={station.pm25} category={t(cat.key as never)} />
       </Row>
       {station.measuredAt && (
-        <Row index={1}>
+        <Row>
           <span className="text-[11px] text-gray-400">
-            {new Date(station.measuredAt).toLocaleString('en-GB', {
-              day: 'numeric',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Asia/Bangkok',
+            {t('infoPanel.measuredAt', {
+              datetime: new Date(station.measuredAt).toLocaleString(locale, {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Bangkok',
+              }),
             })}
           </span>
         </Row>
       )}
-      <SecondarySection aqPoint={aqPoint} windVec={windVec} />
-      {history.status !== 'idle' && history.status !== 'error' && (
-        <>
-          <hr className="border-gray-100 my-2" />
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-2">Last 7 days</p>
-          {history.status === 'loading' || !history.data ? (
-            <ShimmerBars />
-          ) : (
-            <HistoryChart days={history.data} />
-          )}
-        </>
-      )}
-      <hr className="border-gray-100 my-2" />
       <ExplainButton
         key={station.stationId}
         stationId={station.stationId}
@@ -344,7 +362,18 @@ function StationPanel({
         lng={lngLat[0]}
         globalQuotaExceeded={explainQuotaExceeded}
         onQuotaExceeded={() => setExplainQuotaExceeded(true)}
+        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors shadow-sm"
       />
+      {(historyLoading || historyDays) && (
+        <>
+          <hr className="border-gray-100 my-2" />
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            {t('infoPanel.last5days')}{' '}
+            <span className="normal-case tracking-normal text-gray-400">µg/m³</span>
+          </p>
+          {historyLoading || !historyDays ? <ShimmerHistory /> : <History days={historyDays} />}
+        </>
+      )}
     </>
   );
 }
@@ -355,42 +384,54 @@ function FirePanel({
   fire,
   aqPoint,
   windVec,
+  locale,
 }: {
-  fire: { frp: number | null; confidence: string | null; detectedAt: string };
+  fire: {
+    frp: number | null;
+    confidence: string | null;
+    detectedAt: string;
+    daynight: string | null;
+  };
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
+  locale: string;
 }) {
+  const { t } = useTranslation();
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
+  const dnKey = daynightKey(fire.daynight);
 
   return (
     <>
-      <Row index={0}>
-        <span className="text-gray-500">Intensity</span>
-        <div className="text-right">
-          <div className="text-gray-800 font-medium text-xs">{intensity.label}</div>
-          {intensity.raw && <div className="text-[10px] text-gray-400">{intensity.raw}</div>}
-        </div>
+      <Row>
+        <span className="text-gray-500">{t('infoPanel.intensity')}</span>
+        <span className="text-right">
+          <span className="text-gray-700 font-medium">{t(intensity.labelKey as never)}</span>
+          {intensity.raw && <span className="text-gray-400 ml-1">{intensity.raw}</span>}
+        </span>
       </Row>
-      <Row index={1}>
-        <span className="text-gray-500">Confidence</span>
-        <span className="flex items-center gap-1 text-gray-800 font-medium">
+      <Row>
+        <span className="text-gray-500">{t('infoPanel.confidence')}</span>
+        <span className="flex items-center gap-1 text-gray-700 font-medium">
           <span
             className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
             style={{ backgroundColor: conf.color }}
           />
-          {conf.label}
+          {t(conf.labelKey as never)}
         </span>
       </Row>
-      <Row index={2}>
+      <Row>
         <span className="text-[11px] text-gray-400">
-          {new Date(fire.detectedAt).toLocaleString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Asia/Bangkok',
+          {t('infoPanel.detectedAt', {
+            datetime: new Date(fire.detectedAt).toLocaleString(locale, {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Asia/Bangkok',
+            }),
           })}
+          {dnKey && <> · {t(dnKey as never)}</>}
         </span>
       </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
@@ -413,170 +454,57 @@ function PowerPlantPanel({
     country: string;
   };
   aqPoint: { pm25: number } | null;
-  windVec: { speedKmh: number; directionDeg: number } | null;
+  windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
 }) {
+  const { t } = useTranslation();
+
   return (
     <>
-      <Row index={0}>
-        <span className="text-gray-500">Fuel</span>
-        <span className="text-gray-800 font-medium">{plant.fuelType}</span>
+      <Row>
+        <span className="text-gray-500">{t('infoPanel.fuel')}</span>
+        <span className="text-[11px] text-gray-700 font-medium">{plant.fuelType}</span>
       </Row>
       {plant.capacityMw !== null && (
-        <Row index={1}>
-          <span className="text-gray-500">Capacity</span>
-          <span className="text-gray-800 font-medium">
+        <Row>
+          <span className="text-gray-500">{t('infoPanel.capacity')}</span>
+          <span className="text-[11px] text-gray-700 font-medium tabular-nums">
             {Math.round(plant.capacityMw).toLocaleString('en-US')} MW
           </span>
         </Row>
       )}
       {plant.owner && (
-        <Row index={2}>
-          <span className="text-gray-500">Owner</span>
-          <span className="text-gray-800 font-medium truncate max-w-[100px]">{plant.owner}</span>
+        <Row align="start">
+          <span className="text-gray-500 shrink-0">{t('infoPanel.owner')}</span>
+          <span className="text-[11px] text-gray-700 font-medium text-right text-balance leading-snug max-w-[170px]">
+            {plant.owner}
+          </span>
         </Row>
       )}
       {plant.commissionedYear !== null && (
-        <Row index={3}>
-          <span className="text-gray-500">Built</span>
-          <span className="text-gray-800 font-medium">{plant.commissionedYear}</span>
+        <Row>
+          <span className="text-gray-500">{t('infoPanel.built')}</span>
+          <span className="text-[11px] text-gray-700 font-medium tabular-nums">
+            {plant.commissionedYear}
+          </span>
         </Row>
       )}
-      <Row index={4}>
-        <span className="text-gray-500">Country</span>
-        <span className="text-gray-800 font-medium">{plant.country}</span>
-      </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
     </>
   );
 }
 
-// --- History chart ---
-
-function HistoryChart({ days }: { days: DayData[] }) {
-  const MAX_BAR_H = 48;
-  const DAY_LABEL_H = 16;
-  const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
-
-  return (
-    <div className="flex items-stretch gap-1">
-      {/* Y-axis: max label at top, 0 label flush with bar baseline */}
-      <div
-        className="flex flex-col justify-between text-[9px] text-gray-400 text-right shrink-0"
-        style={{ paddingBottom: `${DAY_LABEL_H}px` }}
-      >
-        <span>{Math.round(maxPm25)}</span>
-        <span>0</span>
-      </div>
-
-      {/* Bars */}
-      <div
-        className="flex items-end gap-[2px] flex-1"
-        style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
-      >
-        {days.map(({ date, maxPm25: val, readingCount }) => {
-          const barH = readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
-          const [r, g, b] = pm25ToRgb(val);
-          const weekday = new Date(date + 'T00:00:00Z').toLocaleDateString('en', {
-            weekday: 'short',
-            timeZone: 'UTC',
-          });
-          return (
-            <div key={date} className="flex flex-col items-center flex-1">
-              <div
-                className="w-full rounded-t-sm"
-                style={{
-                  height: `${barH}px`,
-                  backgroundColor: readingCount > 0 ? `rgb(${r},${g},${b})` : 'transparent',
-                  marginTop: `${MAX_BAR_H - barH}px`,
-                }}
-              />
-              <span
-                className={`text-[9px] mt-0.5 ${readingCount > 0 ? 'text-gray-400' : 'text-gray-200'}`}
-              >
-                {weekday.slice(0, 3)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function ShimmerBars() {
-  return (
-    <div className="flex items-end gap-[2px] h-[64px]">
-      {Array.from({ length: 7 }, (_, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-t-sm animate-pulse bg-gray-100"
-          style={{ height: `${24 + (i % 3) * 12}px` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// --- Cluster list ---
-
-function ClusterList({
-  stations,
-  lngLat,
-}: {
-  stations: ClusterStation[];
-  lngLat: [number, number];
-}) {
-  const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
-  const sorted = [...stations].sort((a, b) => b.pm25 - a.pm25);
-  return (
-    <div className="space-y-1">
-      {sorted.map((s, i) => {
-        const [r, g, b] = pm25ToRgb(s.pm25);
-        return (
-          <motion.button
-            key={s.stationId}
-            initial={{ opacity: 0, x: -4 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03, duration: 0.15, ease: 'easeOut' }}
-            onClick={() =>
-              setSelectedPoint({
-                lngLat,
-                station: {
-                  stationId: s.stationId,
-                  stationName: s.stationName,
-                  pm25: s.pm25,
-                  unit: 'µg/m³',
-                  measuredAt: '',
-                },
-              })
-            }
-            className="w-full flex items-center gap-1.5 text-left hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
-          >
-            <span
-              className="shrink-0 w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: `rgb(${r},${g},${b})` }}
-            />
-            <span className="text-[11px] font-medium text-gray-700 w-8 shrink-0">
-              {Math.round(s.pm25)}
-            </span>
-            <span className="text-[11px] text-gray-500 truncate">{s.stationName}</span>
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-}
-
 // --- Shared primitives ---
 
-function Row({ children, index }: { children: React.ReactNode; index: number }) {
+function Row({
+  children,
+  align = 'center',
+}: {
+  children: React.ReactNode;
+  align?: 'center' | 'start';
+}) {
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, x: -4 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03, duration: 0.15, ease: 'easeOut' }}
-      className="flex justify-between items-center text-xs py-1"
+      className={`flex justify-between gap-3 text-[11px] py-1 ${align === 'start' ? 'items-start' : 'items-center'}`}
     >
       {children}
     </motion.div>
@@ -587,23 +515,34 @@ function Shimmer({ className }: { className?: string }) {
   return <div className={`animate-pulse bg-gray-100 rounded ${className ?? ''}`} />;
 }
 
-// --- Helpers ---
+// --- Helpers — return translation keys, never display strings ---
 
-function frpToIntensity(frp: number | null): { label: string; raw: string | null } {
-  if (frp === null) return { label: 'Unknown intensity', raw: null };
-  if (frp < 10) return { label: 'Small fire', raw: `(${frp.toFixed(0)} MW)` };
-  if (frp < 50) return { label: 'Moderate fire', raw: `(${frp.toFixed(0)} MW)` };
-  if (frp < 200) return { label: 'Large fire', raw: `(${frp.toFixed(0)} MW)` };
-  return { label: 'Extreme fire', raw: `(${frp.toFixed(0)} MW)` };
+function frpToIntensity(frp: number | null): { labelKey: string; raw: string | null } {
+  if (frp === null) return { labelKey: 'fire.intensity.unknown', raw: null };
+  if (frp < 10) return { labelKey: 'fire.intensity.small', raw: `(${frp.toFixed(0)} MW)` };
+  if (frp < 50) return { labelKey: 'fire.intensity.moderate', raw: `(${frp.toFixed(0)} MW)` };
+  if (frp < 200) return { labelKey: 'fire.intensity.large', raw: `(${frp.toFixed(0)} MW)` };
+  return { labelKey: 'fire.intensity.extreme', raw: `(${frp.toFixed(0)} MW)` };
 }
 
-function mapConfidence(raw: string | null): { label: string; color: string } {
-  if (!raw) return { label: 'Unknown', color: '#9ca3af' };
+function daynightKey(dn: string | null | undefined): string | null {
+  if (!dn) return null;
+  const u = dn.toUpperCase();
+  if (u === 'D') return 'fire.daynight.day';
+  if (u === 'N') return 'fire.daynight.night';
+  return null;
+}
+
+function mapConfidence(raw: string | null): { labelKey: string; color: string } {
+  if (!raw) return { labelKey: 'fire.confidence.unknown', color: '#9ca3af' };
   const lower = raw.toLowerCase();
-  if (lower === 'low' || lower === 'l') return { label: 'Low', color: '#f59e0b' };
-  if (lower === 'nominal' || lower === 'n') return { label: 'Nominal', color: '#22c55e' };
-  if (lower === 'high' || lower === 'h') return { label: 'High', color: '#22c55e' };
-  return { label: 'Unknown', color: '#9ca3af' };
+  if (lower === 'low' || lower === 'l')
+    return { labelKey: 'fire.confidence.low', color: '#f59e0b' };
+  if (lower === 'nominal' || lower === 'n')
+    return { labelKey: 'fire.confidence.nominal', color: '#22c55e' };
+  if (lower === 'high' || lower === 'h')
+    return { labelKey: 'fire.confidence.high', color: '#22c55e' };
+  return { labelKey: 'fire.confidence.unknown', color: '#9ca3af' };
 }
 
 // --- Icons ---
