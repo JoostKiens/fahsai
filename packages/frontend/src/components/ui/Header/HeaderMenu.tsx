@@ -53,7 +53,7 @@ export function HeaderMenu() {
           About
         </button>
         <a
-          href="https://github.com/JoostKiens/thailand-air-quality-map"
+          href="https://github.com/JoostKiens/fahsai"
           target="_blank"
           rel="noopener noreferrer"
           className={MENU_ITEM_CLS}
