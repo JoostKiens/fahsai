@@ -23,7 +23,7 @@ export function ExplainButton({
   className,
 }: Props) {
   const { t } = useTranslation();
-  const { text, loading, error, quotaExceeded, explain, reset } = useExplain();
+  const { text, loading, phase, error, quotaExceeded, explain, reset } = useExplain();
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
   useEffect(() => {
@@ -33,11 +33,13 @@ export function ExplainButton({
   const isDisabled = globalQuotaExceeded || loading;
   const label = globalQuotaExceeded
     ? t('explain.buttonUnavailable')
-    : loading
-      ? t('explain.thinking')
-      : text
-        ? t('explain.refresh')
-        : t('explain.button');
+    : phase === 'fetching'
+      ? t('explain.fetching')
+      : phase === 'thinking'
+        ? t('explain.thinking')
+        : text
+          ? t('explain.refresh')
+          : t('explain.button');
 
   function handleClick() {
     if (text && !loading) {

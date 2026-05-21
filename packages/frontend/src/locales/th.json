@@ -84,6 +84,7 @@
 
   "explain.button": "อธิบายสิ่งนี้",
   "explain.buttonUnavailable": "อธิบายสิ่งนี้ (ไม่พร้อมใช้งาน)",
+  "explain.fetching": "กำลังดึงข้อมูล…",
   "explain.thinking": "กำลังคิด…",
   "explain.refresh": "รีเฟรช",
   "explain.quotaReached": "ถึงขีดจำกัดรายวันแล้ว — ลองใหม่พรุ่งนี้",

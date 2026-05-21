@@ -84,6 +84,7 @@
 
   "explain.button": "Explain this",
   "explain.buttonUnavailable": "Explain this (unavailable)",
+  "explain.fetching": "Fetching data…",
   "explain.thinking": "Thinking…",
   "explain.refresh": "Refresh",
   "explain.quotaReached": "Daily limit reached — try again tomorrow.",
