@@ -51,9 +51,16 @@ export function LanguagePill() {
   }, [open]);
 
   function select(lang: Language) {
+    if (lang === (i18n.language as Language)) {
+      setOpen(false);
+      return;
+    }
     setLanguage(lang);
-    void i18n.changeLanguage(lang);
-    setOpen(false);
+    const path = lang === 'th' ? '/th/' : '/';
+    const params = new URLSearchParams(window.location.search);
+    params.delete('lang');
+    const qs = params.toString();
+    window.location.href = path + (qs ? '?' + qs : '');
   }
 
   return (
