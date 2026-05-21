@@ -11,9 +11,16 @@ declare module 'i18next' {
   }
 }
 
+const urlParam = new URLSearchParams(window.location.search).get('lang') as Language | null;
+const urlLang: Language | null = urlParam === 'en' || urlParam === 'th' ? urlParam : null;
+
 const storedLang = useSettingsStore.getState().language;
 const browserLang: Language = navigator.language.startsWith('th') ? 'th' : 'en';
-const initialLang: Language = storedLang ?? browserLang;
+const initialLang: Language = urlLang ?? storedLang ?? browserLang;
+
+if (urlLang) {
+  useSettingsStore.getState().setLanguage(urlLang);
+}
 
 void i18n.use(initReactI18next).init({
   resources: {
