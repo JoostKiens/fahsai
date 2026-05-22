@@ -631,14 +631,21 @@ export function explainRoutes(app: FastifyInstance): void {
               })
               .join('\n');
 
+      // Filter obvious sensor faults (> 5× median) before listing, provided at least 5
+      // non-outlier peers remain. Summary stats use the full list so count/range are honest.
+      const nonOutlierPeers =
+        peerMedian > 0 && peerList.filter((p) => p.pm25 <= peerMedian * 5).length >= 5
+          ? peerList.filter((p) => p.pm25 <= peerMedian * 5)
+          : peerList;
+
       const peerStr =
         peerList.length === 0
           ? 'No peer station data available within 75 km'
           : [
               `${peerList.length} stations — median ${peerMedian.toFixed(1)} µg/m³, range ${peerMin?.toFixed(1)}–${peerMax?.toFixed(1)} µg/m³`,
-              peerList
-                .sort((a, b) => b.pm25 - a.pm25)
-                .slice(0, 5)
+              nonOutlierPeers
+                .sort((a, b) => a.distKm - b.distKm)
+                .slice(0, 10)
                 .map((p) => `  ${p.name}: ${p.pm25.toFixed(1)} µg/m³ (${p.distKm.toFixed(0)} km)`)
                 .join('\n'),
             ].join('\n');
