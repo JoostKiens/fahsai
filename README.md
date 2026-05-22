@@ -16,13 +16,13 @@ NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and
 
 ## How the AI explanation works
 
-Click any monitoring station and hit "Explain this." The backend assembles a spatial context snapshot and streams an explanation from Gemini 2.5 Flash Lite.
+Click any monitoring station and hit "Explain this." The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.1 Flash Lite.
 
 The model sees more than just the PM2.5 number. It gets the 7-day daily trend, current wind speed and direction, and every active fire within a dynamic radius — calm conditions: 50 km; when it's windy: wind speed × 36 hours, capped at 300 km — with each fire's quadrant, distance, and fire radiative power. It also gets the median reading from all peer stations within 75 km that have reported in the last 3 hours.
 
 The spatial reasoning is the interesting part. If the station is reading 2× higher than its neighbors, the model treats it as a local anomaly and won't spin a cross-border fire narrative. If the upwind quadrant is full of high-FRP fires and the regional median confirms it, that's what the explanation leads with.
 
-There's a shared daily quota of 1,400 requests per Bangkok calendar day. When it runs out, the button is disabled.
+There's a shared daily quota of 500 requests per Bangkok calendar day. When it runs out, the button is disabled.
 
 ---
 
