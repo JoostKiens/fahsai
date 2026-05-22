@@ -13,6 +13,16 @@ simplicity and correctness over premature optimization.
 
 ---
 
+## Reference docs
+
+- Data sources, ingestion, API routes: `docs/claude/architecture.md`
+- Database schema: `docs/claude/database.md`
+- Frontend layers, AQI scale, map config: `docs/claude/frontend.md`
+- Shared TypeScript types: `docs/claude/types.md`
+- Conventions, gotchas, wind direction: `docs/claude/conventions.md`
+
+---
+
 ## Monorepo structure
 
 ```
@@ -69,562 +79,28 @@ simplicity and correctness over premature optimization.
 
 ### Frontend
 
-- React 18 with TypeScript
-- Vite (build tool + dev server)
-- Mapbox GL JS (base map, dark custom style)
-- Deck.gl (data layers rendered on top of Mapbox)
-- Zustand (UI state: layer visibility, opacity, time range)
-- TanStack Query v5 (data fetching + caching from our own backend)
-- Turf.js (geospatial utilities if needed client-side)
+- React 18 + TypeScript, Vite
+- Mapbox GL JS (base map, dark style)
+- Deck.gl (data layers)
+- Zustand (UI state), TanStack Query v5 (data fetching), Turf.js (geo utils)
 
 ### Backend
 
-- Node.js 20+ with TypeScript
-- Fastify (HTTP framework)
-- `@fastify/cors` — registered before all routes in `server.ts`; allows
+- Node.js 20+ + TypeScript, Fastify
+- `@fastify/cors` — registered before all routes; allows
   `https://thailand-air-quality-map-frontend.vercel.app` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
-- Upstash Redis (hot cache with TTL)
-- Supabase (Postgres + PostGIS for persistent storage)
+- Upstash Redis (hot cache), Supabase (Postgres + PostGIS)
 
 ### Shared
 
 - `packages/types` — TypeScript interfaces shared between frontend and backend
-- pnpm workspaces (monorepo)
-- ESLint + shared tsconfig
+- pnpm workspaces, ESLint + shared tsconfig
 
 ### Deployment
 
-- Frontend → Vercel (Hobby plan, non-commercial)
-- Backend + cron jobs → Railway (Hobby plan, ~$5/month)
-- Database → Supabase (free tier)
-- Redis → Upstash (free tier)
-
----
-
-## Data sources and ingestion
-
-### Architecture principle
-
-**The frontend never calls third-party APIs directly.** All external data is fetched
-by backend scheduled jobs, stored in Supabase and/or cached in Redis, and served to
-the frontend through our own Fastify API. This decouples the UI from rate limits and
-keeps API keys server-side.
-
-### NASA FIRMS — active fire points (VIIRS)
-
-- Source: `https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/{bbox}/1/{date}`
-- Bounding box: `89,1,114,30` — matches viewport MAX_BOUNDS (covers Myanmar, Thailand, Laos, Cambodia, Vietnam, Malaysia, and partial India/China/Bangladesh)
-- Schedule: every 3 hours (satellite pass cadence)
-- Storage: Supabase `fire_points` table (PostGIS point geometry)
-- Cache: Redis with 3h TTL for latest 24h slice
-- License: NASA open data, no redistribution restrictions
-- Required: free MAP_KEY from https://firms.modaps.eosdis.nasa.gov/api/map_key/
-- Key field: `frp` (Fire Radiative Power in MW) — use this to scale point size in the UI
-- Country attribution: use `country_id` field to color-code fires by country (Myanmar, Laos, Thailand)
-
-### OpenAQ — PM2.5 / AQI station readings
-
-- Source: OpenAQ v3 API `https://api.openaq.org/v3/`
-- Endpoints: `/v3/locations` (weekly station sync — populates `pm25_sensor_ids` and `datetime_last`) +
-             `/v3/sensors/{id}/hours/daily` (daily averages per sensor; `/days` is confirmed broken
-             — ignores date filters; `/hours/daily` requires local timezone offset in datetime params)
-- Parameters: `pm25` only (primary pollutant for this project)
-- Schedule: once daily (`0 4 * * *` UTC = 11:00 BKK) — fetches daily averages, so
-  running more often than once per day adds no value
-- Storage: Supabase `stations` + `station_readings` tables
-- Cache: Redis with 24h TTL, key `station-readings:latest:{param}:{date|current}`
-- License: CC BY 4.0 — attribution required in UI
-- Required: free API key from https://explore.openaq.org/register
-- Note: some underlying Thai monitoring station data may have its own attribution
-  requirements — check the `attribution` field in API responses and surface it in tooltips
-
-### Open-Meteo — weather grid
-
-- Source: `https://api.open-meteo.com/v1/forecast` (today) / `https://archive-api.open-meteo.com/v1/archive` (past dates)
-- Parameters:
-  - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
-  - Daily aggregates: `wind_speed_10m_max`, `precipitation_sum`
-- No API key required
-- Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date;
-  matches the CAMS AQ grid resolution. Fetched in 16 batches of ≤300 with 5 s between
-  batches (~80 s total). Batch size capped at 300 — the multi-location POST endpoint
-  requires per-location arrays for timezone/start_date/end_date so payload grows
-  linearly; 500 caused 413 (confirmed May 2026). Free tier counts HTTP requests (not
-  locations): 16 calls/day is well within the 10,000/day limit. 429 backoff: 65 s for
-  minutely, 65 min for hourly, abort for daily.
-- Schedule: once daily (`0 8 * * *` UTC)
-- Storage:
-  - Supabase `weather_readings` table (persistent, 40-day retention) + Redis cache key
-    `weather:{date}` TTL 7d and `weather:wind:{date}` TTL 7d. Ingest writes to both.
-    The wind route checks Redis first; on miss reads from Supabase.
-  - Supabase `station_weather` table — pre-computed per-station per-day weather, populated
-    by `weather-ingest` immediately after the grid is stored (see station_weather section below).
-    **No Redis layer** for station_weather; queried directly from Supabase by the history endpoint.
-- Coordinate storage: ingest stores the **requested** grid lat/lng (lats[i]/lngs[i] from
-  the batch arrays), NOT the API-response coordinates (loc.latitude). The API may return
-  slightly different floats (e.g. 13.7999997 vs 13.8); using requested coords ensures
-  the stored values match the snap formula exactly.
-- License: CC BY 4.0 — attribution link required in UI footer
-- Note: wind, precipitation, and humidity are consumed by the station InfoPanel's 5-day weather table.
-- Render as: wind particles (animated PathLayer) and static arrow vectors
-
-### Open-Meteo Air Quality — PM2.5 gridded model (CAMS)
-
-- Source: `https://air-quality-api.open-meteo.com/v1/air-quality`
-- Parameters: `pm2_5` (hourly), daily mean computed per grid point
-- Grid: 0.4° spacing over bbox [89,1,114,30] → 63 × 73 = **4,599 points** per date; fetched in 16 batches of 300 (sequential, with 429 retry backoff)
-- No API key required
-- Schedule: every 6 hours (and on-demand for historical dates)
-- Storage: Supabase `aq_grid` table (date, lat, lng, pm25 — primary key on all three) **and** Redis cache key `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis first; on miss reads from Supabase and re-populates Redis. Ingest writes to both. Pruned after 40 days.
-- License: CC BY 4.0 — same attribution as wind (Open-Meteo footer link covers both)
-- Data source: CAMS (Copernicus Atmosphere Monitoring Service) global model, ~11km resolution
-- Render as: `BitmapLayer` — grid painted onto an offscreen canvas (630×730 px, 10 px/cell) with bilinear color interpolation between cells, then passed as a texture; clipped to land via `MaskExtension` + `SolidPolygonLayer` using Natural Earth 50m land polygons clipped to viewport (`src/data/sea-land-mask.json`); land mask regenerated via `scripts/generate-land-mask.py`
-- Script: `pnpm --filter backend run ingest:aq YYYY-MM-DD`
-
-### Burn scars (future layer)
-
-- Source: Sentinel-2 via Copernicus Browser or Google Earth Engine
-- Not in initial scope — add after core layers are working
-
----
-
-## Database schema (Supabase / PostGIS)
-
-```sql
--- Enable PostGIS
-create extension if not exists postgis;
-
--- Fire detections from VIIRS
-create table fire_points (
-  id           bigserial primary key,
-  detected_at  timestamptz not null,
-  location     geography(Point, 4326) not null,
-  lat          float8 not null,
-  lng          float8 not null,
-  frp          float8,           -- fire radiative power (MW)
-  bright_ti4   float8,           -- brightness temperature band I-4 (~4µm, fire detection)
-  bright_ti5   float8,           -- brightness temperature band I-5 (~11µm, background)
-  country_id   text,             -- 'MMR', 'LAO', 'THA', 'KHM', etc.
-  satellite    text,             -- 'N' = Suomi-NPP, '1' = NOAA-20
-  confidence   text,             -- 'low', 'nominal', 'high'
-  daynight     text,             -- 'D' or 'N'
-  source       text default 'VIIRS_SNPP_NRT',
-  created_at   timestamptz default now()
-);
-create index on fire_points using gist(location);
-create index on fire_points (detected_at);
-create index on fire_points (country_id);
-create index on fire_points (confidence);
-
--- Monitoring station metadata (upserted on ingestion, rarely changes)
-create table stations (
-  id               text primary key,   -- OpenAQ locations_id as text
-  name             text not null,
-  location         geography(Point, 4326),
-  country          text,               -- 'TH', 'MM', 'LA', 'KH'
-  provider         text,               -- e.g. 'PCD Thailand'
-  is_mobile        boolean default false,
-  is_monitor       boolean,            -- true = reference grade, false = low-cost sensor
-  parameters       text[],             -- array of parameters this station measures
-  pm25_sensor_ids  int4[]      default '{}',  -- OpenAQ sensor IDs for pm25; populated by stations-ingest; array because a location may have multiple pm25 sensors
-  datetime_last    timestamptz,               -- when this station last reported data; used to skip stale stations (> 30 days)
-  created_at       timestamptz default now(),
-  updated_at       timestamptz default now()
-);
-create index on stations using gist(location);
-create index on stations (country);
-
--- Time-series measurements (appended on every ingestion run)
--- Renamed from `measurements` to `station_readings` in migration 014.
-create table station_readings (
-  id           bigserial primary key,
-  station_id   text not null references stations(id),
-  sensor_id    int4 not null,      -- OpenAQ sensors_id
-  parameter    text not null,      -- 'pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'
-  value        float8 not null,
-  unit         text not null,      -- 'µg/m³', 'ppm', etc.
-  measured_at  timestamptz not null,
-  created_at   timestamptz default now()
-);
-create index on station_readings (station_id, parameter, measured_at);
-create index on station_readings (parameter, measured_at);
-create index on station_readings (measured_at);
-```
-
--- Power plants (WRI Global Power Plant Database, CC BY 4.0)
--- Populated via: pnpm --filter backend run ingest:power-plants
-create table if not exists power_plants (
-  id                serial primary key,
-  name              text not null,
-  country           char(3) not null,
-  fuel_type         text not null check (fuel_type in ('Coal', 'Gas', 'Oil')),
-  capacity_mw       numeric(8, 2),
-  owner             text,
-  commissioned_year integer,
-  lat               float8 not null,
-  lng               float8 not null,
-  location          geography(Point, 4326) not null
-);
-create index if not exists power_plants_location_idx on power_plants using gist(location);
-create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
-```
-
--- CAMS PM2.5 gridded model (migration 005_aq_grid.sql)
--- Pruned after 40 days (same as fire_points and station_readings). Redis (cams:pm25:{date}, TTL 7d) is the hot cache; Supabase is the persistent store.
-```sql
-create table if not exists aq_grid (
-  date  date    not null,
-  lat   float8  not null,
-  lng   float8  not null,
-  pm25  float8  not null,
-  primary key (date, lat, lng)
-);
-create index if not exists aq_grid_date_idx on aq_grid (date);
-```
-
--- Weather grid (Open-Meteo forecast/archive, snapshot at 07:00 UTC = 14:00 BKK)
--- Pruned after 40 days. Redis (weather:{date}, TTL 25h) is the hot cache; Supabase is
--- the persistent store. Wind, precipitation, and humidity are consumed by the station
--- InfoPanel's 5-day weather table.
-```sql
-create table if not exists weather_readings (
-  date                      date   not null,
-  lat                       float8 not null,
-  lng                       float8 not null,
-  wind_speed_kmh            float8 not null,  -- daily mean
-  wind_speed_max_kmh        float8,           -- daily maximum
-  wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
-  precipitation_sum         float8,          -- daily total mm
-  relative_humidity_2m      float8,          -- % at 07:00 UTC snapshot
-  primary key (date, lat, lng)
-);
-create index if not exists weather_readings_date_idx on weather_readings (date);
--- (lat, lng, date) index added in migration 017 for efficient per-station lookups
-create index if not exists weather_readings_lat_lng_date_idx on weather_readings (lat, lng, date);
-```
-
--- Pre-computed weather per station per day (migration 018_station_weather.sql)
--- Populated by weather-ingest after the grid is stored. The history endpoint queries
--- this table directly — no weather_readings lookup, no grid snap at request time.
--- Station source: distinct station_ids from station_readings for that date (only stations
--- that actually reported pm25 on a given day, matching what appears on the map).
--- Not pruned independently — rows naturally expire as stations stop reporting.
-```sql
-create table if not exists station_weather (
-  date                  date NOT NULL,
-  station_id            text NOT NULL REFERENCES stations(id),
-  wind_speed_kmh        float8,
-  wind_direction_deg    float8,
-  precipitation_sum     float8,
-  relative_humidity_2m  float8,
-  PRIMARY KEY (station_id, date)   -- leading station_id optimises the history query
-);
-```
-
-### OpenAQ v3 data model note
-
-OpenAQ v3 uses a hierarchy: **Location → Sensors → Measurements**. Each location
-(station) contains multiple sensors, and each sensor tracks exactly one parameter.
-Station metadata and measurement ingestion are split across two separate jobs:
-
-- `stations-ingest` (weekly): upserts location metadata into `stations`, including `pm25_sensor_ids`
-  (array of OpenAQ sensor IDs) and `datetime_last`. Skips locations where `datetimeLast > 30 days`.
-- `aqi-ingest` (two-pass daily): reads `pm25_sensor_ids` directly from
-  `SELECT id, pm25_sensor_ids FROM stations WHERE pm25_sensor_ids != '{}'`. No API call
-  to `/locations` is made during daily ingest. A location may have multiple pm25 sensors
-  (e.g. collocated reference and low-cost instruments) — each is fetched and stored as a
-  separate `station_readings` row. Only `pm25_sensor_ids[0]` is fetched per station — collocated
-  sensors measure the same air and the map displays one value per location. All sensor IDs
-  are retained in the array for future use. On fresh deployment, run `stations-ingest` before
-  the first `aqi-ingest` run.
-
-Parameter ingested: `pm25` only. The `pm25_sensor_ids` column drives which sensors are fetched;
-no other parameters are currently ingested. The `station_readings` table schema supports additional
-parameters for future use.
-
-The `aqi_readings` table from earlier designs has been replaced by the
-`stations` + `station_readings` two-table design. Do not recreate `aqi_readings`.
-
----
-
-## API routes (Fastify backend)
-
-All routes return JSON. All accept a `bbox` query param where spatial filtering is
-needed (format: `west,south,east,north`, default: `89,1,114,30`).
-
-```
-GET /api/fires?date=YYYY-MM-DD&bbox=...
-  Returns fire points for a given date. Checks Redis first, falls back to Supabase.
-  Supports optional query params: confidence=high,nominal
-
-GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
-  Returns fire points for a date range (used by time scrubber). Max 10 days.
-
-GET /api/station-readings/latest?parameter=pm25&bbox=...&date=YYYY-MM-DD
-  Returns latest measurement per station for the given parameter.
-  date is optional: when provided, queries that day's window; when absent, queries last 24h.
-  Redis first (key: station-readings:latest:{param}:{date|current}), then Supabase.
-  Supabase query is paginated (PAGE_SIZE=1000, .range()) to bypass the server-side row cap —
-  do NOT remove the pagination or stations will silently disappear from the map.
-
-GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
-  Returns time series for a single station and parameter.
-  Used in station tooltip chart.
-
-GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
-  Returns `days` daily rows (oldest-first) ending on `date` (BKK timezone).
-  Each row: { date, maxPm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
-  precipitationSumMm, relativeHumidity2m } | null }.
-  Single parallel DB round-trip: station_readings + station_weather.
-  No Redis caching — browser Cache-Control + TanStack Query (staleTime: Infinity) handle
-  client-side caching. Weather comes from station_weather (pre-computed at ingest time),
-  NOT from weather_readings — do not add weather_readings lookups here.
-
-GET /api/stations?bbox=...
-  Returns all stations with their available parameters.
-
-GET /api/weather?date=YYYY-MM-DD&bbox=...
-  Returns weather grid for the given date. date param is required (400 if absent/invalid).
-  Redis cache key: weather:{date}, TTL 7d. On miss, reads from Supabase weather_readings.
-  Does not fetch from Open-Meteo on demand — data must have been ingested by weather-ingest.
-  Returns 404 if no rows exist for the requested date.
-  Response includes all weather_readings fields; wind, precipitation, and humidity are
-  consumed by the station InfoPanel's 5-day weather table.
-
-GET /api/cams?date=YYYY-MM-DD&bbox=...
-  Returns Open-Meteo CAMS gridded PM2.5 for a specific date (up to 4,599 points at 0.4° grid, bbox [89,1,114,30]).
-  Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
-
-GET /api/power-plants
-  Returns WRI power plants (Coal/Gas/Oil) for THA/MMR/LAO/KHM as a GeoJSON FeatureCollection.
-  Redis cache key: power_plants:geojson, TTL 24h. Data source: WRI Global Power Plant Database.
-  Populate via: pnpm --filter backend run ingest:power-plants
-
-GET /health
-  Returns { status: 'ok', cache: 'connected', db: 'connected' }
-```
-
-### Caching reference
-
-Every route that serves data follows one of three patterns. **Redis TTL** is the
-server-side cache lifetime; **HTTP Cache-Control** is what the browser/CDN sees.
-`CACHE_CONTROL_IMMUTABLE = public, max-age=604800` (7 days).
-
-| Route | Redis key | Redis TTL | On miss | HTTP Cache-Control |
-|---|---|---|---|---|
-| `GET /api/fires?date=` | `fires:date:{date}` | 7 days | Supabase `fire_points` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/fires/range` | — | — | Supabase `fire_points` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/station-readings/latest` | `station-readings:latest:{param}:{date\|current}` | 7 days | Supabase `station_readings` (paginated) | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/station-readings/history` | — | — | Supabase `station_readings` | none set |
-| `GET /api/stations/:id/history` | — | — | Supabase `station_readings` + `station_weather` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
-| `GET /api/weather/wind?date=` | `weather:wind:{date}` | 7 days | Supabase `weather_readings` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/weather?date=` | `weather:{date}` | 7 days | Supabase `weather_readings` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/cams?date=` | `cams:pm25:{date}` | 7 days | Supabase `cams_grid` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/power-plants` | `power_plants:geojson` | 7 days | Supabase `power_plants` | `CACHE_CONTROL_IMMUTABLE` |
-| `GET /api/latest-date` | `latest-complete-date` | 30 min | Supabase (counts rows in fire_points, station_readings, cams_grid) | none set |
-| `GET /api/explain` | — | — | Streams from Gemini API | none set |
-
-**Rules:**
-- Routes with a Redis key check Redis first; on miss they query Supabase, then write back to Redis (fire-and-forget for non-blocking routes).
-- `GET /api/stations/:id/history` has **no Redis layer** — the endpoint is fast enough (1 parallel DB RTT) and the hit rate is too low to justify the Redis round-trip cost. Client-side caching via TanStack Query (`staleTime: Infinity`) and browser `Cache-Control` cover repeat visits.
-- Only default-bbox requests are Redis-cached for `station-readings/latest`; custom bbox requests always go to Supabase.
-- `HISTORICAL_TTL_SECONDS = 604800` (7 days) is the standard Redis TTL for all immutable historical data.
-
----
-
-## Shared TypeScript types (packages/types)
-
-```typescript
-// fire.ts
-export interface FirePoint {
-  id: number;
-  detectedAt: string; // ISO 8601
-  lat: number;
-  lng: number;
-  frp: number | null; // fire radiative power MW
-  brightTi4: number | null; // brightness temperature band I-4
-  brightTi5: number | null; // brightness temperature band I-5
-  countryId: string; // ISO 3166-1 alpha-3
-  satellite: string | null; // 'N' = Suomi-NPP, '1' = NOAA-20
-  confidence: string | null; // 'low' | 'nominal' | 'high'
-  daynight: string | null; // 'D' | 'N'
-}
-
-// station.ts
-export interface Station {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  country: string;
-  provider: string | null;
-  isMobile: boolean;
-  isMonitor: boolean | null;
-  parameters: string[];
-}
-
-// measurement.ts
-export interface Measurement {
-  stationId: string;
-  sensorId: number;
-  parameter: string; // 'pm25' | 'pm10' | 'no2' | 'o3' | 'so2' | 'co' | 'bc'
-  value: number;
-  unit: string;
-  measuredAt: string; // ISO 8601
-}
-
-export interface AQICategory {
-  label: string;
-  color: string;
-  min: number;
-  max: number;
-}
-
-// wind.ts
-export interface WindVector {
-  lat: number;
-  lng: number;
-  speedKmh: number;
-  directionDeg: number; // meteorological: 0=N, 90=E, 180=S, 270=W
-}
-
-// aq.ts
-export interface PM25GridPoint {
-  lat: number;
-  lng: number;
-  pm25: number; // daily mean µg/m³ from CAMS model via Open-Meteo
-}
-```
-
-Note: `AQIReading` (earlier design) is gone. The current model is `Station` + `Measurement`.
-Types live in `packages/types/src/measurement.ts` and `packages/types/src/station.ts`.
-
----
-
-## Frontend state (Zustand)
-
-```typescript
-// layerStore.ts
-interface LayerStore {
-  layers: {
-    pm25: { visible: boolean; opacity: number };
-    fires: { visible: boolean; opacity: number };
-    wind: { visible: boolean; opacity: number };
-    burnScars: { visible: boolean; opacity: number };
-    powerPlants: { visible: boolean; opacity: number }; // default off
-  };
-  toggleLayer: (id: LayerId) => void;
-  setOpacity: (id: LayerId, opacity: number) => void;
-}
-
-// timeStore.ts
-interface TimeStore {
-  selectedDate: string; // YYYY-MM-DD, default: today
-  rangeMode: boolean; // false = single day, true = range
-  rangeStart: string;
-  rangeEnd: string;
-  setDate: (date: string) => void;
-  setRange: (start: string, end: string) => void;
-}
-```
-
----
-
-## Scheduled ingestion jobs (Railway cron)
-
-Each job is a standalone script in `packages/backend/src/jobs/`, invoked directly by
-Railway cron (no job queue). Schedules are configured in Railway's cron service UI.
-
-```
-firms-ingest       — daily     (0 10 * * *)     fetches VIIRS data for TODAY (UTC); last satellite pass
-                                                lands ~06:12 UTC and is in the DB by ~09:00 UTC, so
-                                                10:00 UTC guarantees a complete day before storing
-stations-ingest    — weekly    (0 0 * * 0)      fetches OpenAQ locations by bbox, upserts stations table
-                                                including pm25_sensor_ids and datetime_last;
-                                                skips locations where datetimeLast > 30 days
-aq-ingest          — daily     (0 23 * * *)     fetches CAMS PM2.5 grid for TODAY (UTC) via
-  ingest-aq-today                               ingest-aq-today.ts; single pass only — CAMS is a
-                                                deterministic model so values don't change between
-                                                runs; makes grid visible by ~23:30 UTC (06:30 BKK)
-prune              — daily     (0 2 * * *)      deletes fire_points, station_readings, aq_grid,
-                                                weather_readings, station_weather rows > 40 days
-aqi-ingest (pass 1)— daily     (0 23 * * *)     reads pm25_sensor_ids from stations table, fetches pm25
-  ingest-aqi-today                              daily averages for TODAY via /hours/daily;
-                                                BKK day closes at 16:59 UTC — 6h processing buffer.
-                                                Makes station_readings visible by ~23:30 UTC (06:30 BKK).
-aqi-ingest (pass 2)— daily     (0 4 * * *)      fetches pm25 daily averages for YESTERDAY as safety net
-  ingest-aqi                                    and to overwrite any partial values pass 1 wrote before
-                                                all stations had reported (ignoreDuplicates: false)
-weather-ingest     — daily     (0 8 * * *)      fetches Open-Meteo weather grid for YESTERDAY at the
-  ingest-weather-today                          07:00 UTC snapshot; upserts to Supabase weather_readings
-                                                and Redis (weather:{date} + weather:wind:{date}, TTL 7d).
-                                                After storing the grid, pre-computes station_weather for
-                                                all stations that reported pm25 on that date (queried from
-                                                station_readings — aqi-ingest pass 2 at 04:00 UTC runs
-                                                before this job so yesterday's readings are present).
-                                                Uses paginated .range() queries to bypass Supabase's
-                                                1000-row cap on both station_readings and station fetches.
-```
-
-All times are UTC (Railway runs in UTC). The UI shows the most recent date where all three
-gating sources have complete data (AQ grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1),
-served by GET /api/latest-date. The date typically becomes available at ~23:30 UTC (06:30 BKK).
-If aqi-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
-See docs/adr/0001-two-pass-ingest-schedule.md.
-
-Each script exits with code 0 on success and non-zero on failure. Retry logic is
-implemented within the script (3 attempts with exponential backoff where applicable).
-
----
-
-## Deck.gl layers
-
-| Layer         | Deck.gl type                     | Key props                                             |
-| ------------- | -------------------------------- | ----------------------------------------------------- |
-| PM2.5 heatmap | `BitmapLayer` + `MaskExtension` | Open-Meteo CAMS grid, 0.4° cells, bilinearly interpolated onto 630×730 px canvas, clipped to land via `SolidPolygonLayer` mask (`sea-land-mask.json`) |
-| PM2.5 stations| `ScatterplotLayer`               | OpenAQ ground stations, colored by `aqiColor(d.value)`, 5px radius |
-| Fire points   | 3× `ScatterplotLayer` (additive blend) | Outer glow / mid halo / inner core rings; pixel radius scales with zoom (1–3 px base); intensity from `brightTi4`; low-confidence at 50% opacity |
-| Wind particles | Animated `PathLayer` (non-interleaved overlay) | 1500 particles, bilinear interpolation, TRAIL_LENGTH=10, rAF loop |
-| Power plants  | `IconLayer`                      | Canvas atlas (96×32 diamond icons), Coal/Gas/Oil fuel types, 24px fixed size, hover tooltip |
-
-Fire point color: `#f97316` (orange) — uniform for all detections. The FIRMS area API does
-not return `country_id`, so per-country coloring is not available.
-
-AQI color scale (US EPA official) — thresholds are raw **PM2.5 µg/m³**, not AQI index values.
-Colors are defined once in `packages/frontend/src/lib/aqiColors.ts` and shared by both
-the heatmap (`BitmapLayer`) and station dots (`ScatterplotLayer`).
-
-| Category | PM2.5 µg/m³ | Hex | RGB |
-|---|---|---|---|
-| Good | 0–12.0 | `#00e400` | `[0, 228, 0]` |
-| Moderate | 12.1–35.4 | `#ffff00` | `[255, 255, 0]` |
-| Unhealthy (sensitive) | 35.5–55.4 | `#ff7e00` | `[255, 126, 0]` |
-| Unhealthy | 55.5–150.4 | `#ff0000` | `[255, 0, 0]` |
-| Very unhealthy | 150.5–250.4 | `#8f3f97` | `[143, 63, 151]` |
-| Hazardous | 250.5+ | `#7e0023` | `[126, 0, 35]` |
-
----
-
-## Map configuration
-
-- Default center: `[101.0, 15.5]` (Thailand center)
-- Default zoom: `5.5`
-- Mapbox style: dark custom style (use `mapbox://styles/mapbox/dark-v11` as base)
-- Bounding box for data: `[89, 1, 114, 30]` (west, south, east, north) — all layers and DEFAULT_BBOX align to this
-- Countries to label: Thailand, Myanmar, Laos, Cambodia, Vietnam (contextual only)
-
----
-
-## License and attribution requirements
-
-The following attributions must appear in the UI footer or an "About" panel:
-
-- Fire data: "Fire data courtesy NASA FIRMS (firms.modaps.eosdis.nasa.gov)"
-- AQI data: "Air quality data from OpenAQ (openaq.org)"
-- Weather data: `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>` (required by CC BY 4.0)
-- Power plant data: "Power plant data from WRI Global Power Plant Database (resourcewatch.org)" (CC BY 4.0)
-- Map tiles: Mapbox attribution (rendered automatically by Mapbox GL JS)
+- Frontend → Vercel (Hobby), Backend + cron → Railway (Hobby ~$5/mo)
+- Database → Supabase (free tier), Redis → Upstash (free tier)
 
 ---
 
@@ -635,31 +111,24 @@ The following attributions must appear in the UI footer or an "About" panel:
 ```
 NODE_ENV=development
 PORT=3001
-
-# Supabase
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=    # use service role for backend writes
-
-# Upstash Redis
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-
-# NASA FIRMS
 FIRMS_MAP_KEY=
-
-# OpenAQ
 OPENAQ_API_KEY=
+GEMINI_API_KEY=
 ```
 
 ### Frontend (`packages/frontend/.env`)
 
 ```
-VITE_API_BASE_URL=http://localhost:3001    # backend URL
-VITE_MAPBOX_TOKEN=                         # public token, pk.* prefix
+VITE_API_BASE_URL=http://localhost:3001
+VITE_MAPBOX_TOKEN=            # public token, pk.* prefix
 ```
 
-Never commit `.env` files. Provide `.env.example` files with all keys listed but
-no values. Never expose `SUPABASE_SERVICE_ROLE_KEY` or `FIRMS_MAP_KEY` to the frontend.
+Never commit `.env` files. Provide `.env.example` files with all keys listed but no values.
+Never expose `SUPABASE_SERVICE_ROLE_KEY` or `FIRMS_MAP_KEY` to the frontend.
 
 **Claude must never read any `.env` file in this project, except `.env.example` files.**
 
@@ -668,187 +137,47 @@ no values. Never expose `SUPABASE_SERVICE_ROLE_KEY` or `FIRMS_MAP_KEY` to the fr
 ## Development workflow
 
 ```bash
-# Install all dependencies from repo root
-pnpm install
+pnpm install                                      # install all deps from repo root
+pnpm dev                                          # start frontend + backend concurrently
+pnpm --filter backend dev                         # backend only
+pnpm --filter frontend dev                        # frontend only
 
-# Start all packages in dev mode (runs frontend + backend concurrently)
-pnpm dev
-
-# Start only backend
-pnpm --filter backend dev
-
-# Start only frontend
-pnpm --filter frontend dev
-
-# Run a one-off ingestion job manually (useful for testing)
+# One-off ingestion (manual testing)
 pnpm --filter backend run ingest:firms
 pnpm --filter backend run ingest:aqi
 pnpm --filter backend run ingest:wind
-pnpm --filter backend run ingest:aq YYYY-MM-DD   # Open-Meteo CAMS PM2.5 grid
-pnpm --filter backend run ingest:power-plants    # WRI power plants (one-off; pass local CSV path as optional arg)
+pnpm --filter backend run ingest:aq YYYY-MM-DD    # CAMS PM2.5 grid
+pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV path as optional arg)
 
-# One-time backfill: populates station_weather for the last 40 days.
-# Run once after deploying migration 018_station_weather.sql on a fresh deployment.
+# One-time backfill after deploying migration 018_station_weather.sql
 pnpm --filter backend run backfill:station-weather
 
-# Type-check all packages
-pnpm typecheck
-
-# Lint all packages
-pnpm lint
+pnpm typecheck                                    # type-check all packages
+pnpm lint                                         # lint all packages
 ```
-
----
-
-## Key constraints and gotchas
-
-- Ingestion scripts run as Railway cron jobs — each invocation is a short-lived
-  Node process that exits when done. Do not deploy ingestion scripts to Vercel.
-
-- Supabase free tier pauses projects after 1 week of inactivity. During development,
-  make sure the ingestion jobs keep the project active, or manually unpause via the
-  Supabase dashboard.
-
-- Supabase free tier has 500MB storage. Monitor usage as historical fire data
-  accumulates. A nightly prune job (`src/jobs/prune.ts`) deletes `fire_points`,
-  `station_readings`, `aq_grid`, `weather_readings`, and `station_weather` rows older
-  than **40 days**. Derivation: 31 days (30 scrubber days T-1→T-30, plus today T which
-  is ingested but not yet visible) + 7 days (Explain fetches a 7-day measurement history,
-  so scrubber day 0 reaches back to T-37) + 2 days buffer (UTC+7 timezone boundary +
-  prune timing) = 40. If `station_weather` is not yet pruned in the job, add it.
-
-- **Supabase 1000-row default cap** — Supabase's hosted PostgREST silently truncates
-  results at 1000 rows regardless of table size. Any query that could return more than
-  1000 rows MUST use `.range(from, to)` pagination. Affected queries in this codebase:
-  - `station-readings/latest` — paginated (PAGE_SIZE=1000 loop)
-  - `weather-ingest` station and station_readings fetches — paginated
-  - `backfill-station-weather` script — paginated
-  Setting `.limit(N)` where N > 1000 does NOT bypass the server cap; only `.range()` does.
-
-- FIRMS rate limit is 5,000 transactions per 10-minute window. A single bounding box
-  request for 1 day counts as 1 transaction. With a 3h schedule this is well within
-  limits, but do not trigger ingestion from the frontend or run it manually in rapid
-  succession.
-
-- OpenAQ v1 and v2 are retired (January 2025). Use v3 only. Check the `attribution`
-  field in API responses — some Thai monitoring stations may require their own attribution.
-
-- Mapbox GL JS requires the attribution control to remain visible. Do not hide it.
-
-- **Wind direction convention — read this before touching any wind direction code:**
-
-  `WindVector.directionDeg` (and Open-Meteo's `winddirection_10m`) is always the
-  direction the wind is coming **FROM**, in meteorological convention (0° = from North,
-  90° = from East, 180° = from South, 270° = from West).
-
-  | Use case | Result | Example (directionDeg = 45, i.e. wind from NE) |
-  |---|---|---|
-  | **Display label** (InfoPanel, any UI text) | `windDir.fromLabel` | "from NE" |
-  | **Particle / arrow travel direction** | `windDir.toLabel` | "toward SW" |
-  | **Upwind quadrant** (which fires affect the station) | `windDir.fromQuadrant` | `'N'` |
-  | **Downwind quadrant** (where smoke goes) | `windDir.toQuadrant` | `'S'` |
-
-  **Never apply `+ 180` to a display label.** A label reading "NE" means "wind from
-  the NE" — this is how every weather app and meteorologist expresses it. Applying
-  `+ 180` to a label produces the TO direction (SW), which looks correct visually
-  next to particles flowing SW but is non-standard and confusing.
-
-  **Fires that affect a station are in the FROM quadrant** (upwind). A fire to the
-  NE with wind from the NE will have its smoke carried toward the station. A fire to
-  the SW (downwind) will have its smoke blown away from the station.
-
-  **In `explain.ts`** use `parseWindDir(wind.directionDeg)` which returns
-  `{ fromLabel, toLabel, fromQuadrant, toQuadrant }`. Never call `compassFromDeg`
-  or `quadrant` with a manually computed `+ 180` at the call site — put it inside
-  `parseWindDir` if a new use case arises.
-
-  **In the frontend** (`InfoPanel.tsx`) use `degToCompass(windVec.directionDeg)`
-  (no `+ 180`) and prefix the label with "from" in the UI string.
-
-- The PM2.5 grid uses `BitmapLayer` (not `HeatmapLayer`) because `HeatmapLayer` normalizes
-  weights relative to the viewport — the min value always maps to the first color regardless
-  of absolute µg/m³, producing incorrect AQI colors. The BitmapLayer approach paints each
-  grid cell directly with EPA-threshold colors and bilinearly interpolates between neighbors,
-  giving smooth gradients while preserving absolute color accuracy. Filter data server-side;
-  only send the selected date's grid.
-
-- Use `geography(Point, 4326)` not `geometry` in PostGIS for distance calculations
-  in meters without projection math.
-
-- Urban pollution source upwind detection uses the bearing FROM the station TO the source
-  compared against `windDirectionDeg` (wind coming FROM that direction). Consistent with the
-  wind direction convention. Implementation: `packages/backend/src/lib/urbanSources.ts`.
-
----
-
-## Urban pollution sources
-
-A static list of major cities and industrial areas in mainland Southeast Asia is maintained in
-`packages/backend/src/data/urbanSources.ts`. It is used by the `/api/explain` endpoint to
-identify upwind urban emission sources when building the Gemini prompt context. No API calls
-— purely static data at runtime.
-
-**Influence score** = `population / distanceKm²`. Sources below a minimum threshold (default 50)
-are excluded from the prompt.
-
-**Upwind detection**: a source is upwind if the bearing FROM the station TO the source aligns
-within ±60° of `windDirectionDeg`. Follows the same meteorological convention as
-`WindVector.directionDeg` — see the wind direction convention section above.
-
-Files:
-- `packages/backend/src/data/urbanSources.ts` — static data array
-- `packages/backend/src/lib/geo.ts` — shared geo helpers (haversine, bearing, compass); used by both `explain.ts` and `urbanSources.ts`
-- `packages/backend/src/lib/urbanSources.ts` — `getRelevantUrbanSources()` helper
-
-The list is intentionally small and manually maintained. Do not fetch or sync city data from an
-external source.
-
----
-
-## Future layers (not in initial scope)
-
-- Burn scars — Sentinel-2 NDVI differencing via Copernicus
-- Population density overlay — to show human exposure
-- Land use / farmland classification — contextualizes agricultural burning
-- Trajectory lines — animated paths from fire clusters to cities using wind vectors
-  (the "causality" killer feature — build this after core layers are stable)
-- Year-over-year comparison — requires accumulating historical data from day one
-
-## Persisted user settings
-
-User-facing settings (those exposed in the Settings modal) are stored in
-`packages/frontend/src/store/settingsStore.ts` using Zustand's `persist` middleware.
-Settings are written to `localStorage` under the key `taqm:settings` and rehydrated
-automatically on app load — no manual `useEffect` needed.
-
-**To add a new setting:**
-
-1. Add the field and its setter to `SettingsStore` in `settingsStore.ts`.
-2. Set the default value in the `create(...)` initialiser.
-3. Bump `version` in the `persist` config and add a `migrate` function that handles
-   the old shape → new shape conversion (or returns the state unchanged if the field
-   is additive).
-4. Read the value in your component with `useSettingsStore((s) => s.myField)`.
-5. Expose the control in the Settings modal inside `Header.tsx`.
-
-**What belongs here vs. `uiStore`:**
-- `settingsStore` — user preferences that should survive a page reload (e.g. date range).
-- `uiStore` — transient session state that should reset on reload (e.g. modal open/closed,
-  selected map point, playing state).
-
-**Schema version history:**
-- `version: 1` — initial: `scrubberDays` (30 | 60 | 90 | 120)
 
 ---
 
 ## Code style
 
 - Prettier for formatting, ESLint for code quality
-- Config in prettier.config.js at repo root
+- Config in `prettier.config.js` at repo root
 - Single quotes, semicolons, trailing commas, 100 char print width
 - Run `pnpm format` before committing
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
+
+## Dev tooling
+
+- ESLint 9 flat config (`eslint.config.js` at root)
+  - `@typescript-eslint` recommended-type-checked for all packages
+  - `eslint-plugin-react-hooks` for `packages/frontend` only
+  - `eslint-config-prettier` applied last
+- Prettier: single quotes, semicolons, trailing commas, 100 char width
+- Husky + lint-staged: formats and lints staged files on pre-commit
+- Commitlint: conventional commits enforced on commit-msg hook
+- Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env)
+- `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
 ## Internationalisation (i18n)
 
@@ -858,83 +187,14 @@ Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
 `en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
 this and will fail CI if they diverge.
 
-## Dev tooling
-
-- ESLint 9 flat config (eslint.config.js at root)
-  - @typescript-eslint recommended-type-checked for all packages
-  - eslint-plugin-react-hooks for packages/frontend only
-  - eslint-config-prettier applied last
-- Prettier: single quotes, semicolons, trailing commas, 100 char width
-- Husky + lint-staged: formats and lints staged files on pre-commit
-- Commitlint: conventional commits enforced on commit-msg hook
-- Vitest: packages/backend (node env) and packages/frontend (jsdom env)
-- .vscode/settings.json: formatOnSave, eslint fixOnSave, rulers at 100
-
-## Fire filtering
-
-The `confidence` field is the appropriate field for filtering out noise.
-Filter to `confidence IN ('nominal', 'high')` by default in the UI, with
-an option to include low-confidence detections.
-
 ---
 
-## Back-trajectory ensemble (explain endpoint)
+## License and attribution requirements
 
-The `/api/explain` endpoint uses a 5-member backward trajectory ensemble to
-identify the 72-hour transport footprint of air arriving at a station.
+The following attributions must appear in the UI footer or an "About" panel:
 
-### How it works
-
-- 5 trajectories are traced from the station position (center + 4 cardinal
-  offsets of 0.4°) using daily wind grids stored in `weather_readings`.
-- Each trajectory steps backward in 6-hour increments for up to 72 hours,
-  using the nearest grid point's wind vector at each step.
-- The ensemble footprint (bounding box of all waypoints + corridor padding)
-  is used to query fires, CAMS PM2.5, and urban/industrial/power-plant sources.
-- A **cumulative fire pressure score** (0–100) weights fires by FRP, recency,
-  and proximity to the trajectory path.
-- When a station is a **strong outlier** (≥2× or ≤0.4× peer median), the
-  trajectory, CAMS, and fire sections are omitted — regional transport data is
-  not relevant for hyperlocal anomalies.
-
-### Implementation
-
-- Pure trajectory computation in `packages/backend/src/utils/trajectory.ts` — no I/O.
-- Wind grids are fetched for 3 dates (`d0`, `d1`, `d2`) in parallel, Redis-first
-  (`weather:{date}`, TTL 7d) with Supabase `weather_readings` fallback.
-- `getWindGrid` returns `WeatherReading[]` (from `@thailand-aq/types`), which is a
-  structural superset of `WindGridPoint` and includes `precipitation_sum` and
-  `relative_humidity_2m` used for the `WEATHER CONTEXT` prompt section.
-- CAMS data uses Redis key `cams:pm25:{date}` (TTL 7d), falling back to `cams_grid`.
-- A dynamic seasonal context string is selected based on the selected date's month:
-  peak burning (Feb–Apr), early/late dry (Oct–Jan), or monsoon (May–Sep).
-
-### Wind direction convention
-
-Wind direction follows meteorological convention: the value is the direction
-the wind is coming FROM, not blowing toward.
-- Wind direction = 270° → wind from West → air moves East
-- A source is upwind if the bearing FROM the station TO the source aligns
-  with the wind direction value (within ±60°).
-
-### Helper function signatures
-
-`nearestGridPoint(lat, lng, grid)` — lat first, consistent with all other geo
-functions in the codebase (`haversineKm`, `bearingDeg`). Do not reverse the
-argument order.
-
-### Urban sources and power plants
-
-`packages/backend/src/data/urbanSources.ts` includes cities, industrial zones,
-and power plants. Power plants use `emissionProxy` (MW capacity) for influence
-scoring rather than population. Industrial zones use `emissionProxy` on a 1–10
-scale. Influence is computed relative to proximity along the trajectory path
-(minimum distance to any center-trajectory waypoint), not straight-line distance
-from the station.
-
-Influence formula:
-```
-populationScore = source.population / effectiveDist²
-emissionScore   = (source.emissionProxy × 10_000) / effectiveDist²
-influenceScore  = populationScore + emissionScore
-```
+- Fire data: "Fire data courtesy NASA FIRMS (firms.modaps.eosdis.nasa.gov)"
+- AQI data: "Air quality data from OpenAQ (openaq.org)"
+- Weather/AQ model: `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>` (CC BY 4.0)
+- Power plant data: "Power plant data from WRI Global Power Plant Database (resourcewatch.org)" (CC BY 4.0)
+- Map tiles: Mapbox attribution (rendered automatically by Mapbox GL JS — do not hide it)
