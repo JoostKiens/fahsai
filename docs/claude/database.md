@@ -132,7 +132,7 @@ OpenAQ v3 hierarchy: **Location → Sensors → Measurements**. Each location (s
 multiple sensors; each sensor tracks exactly one parameter. Station metadata and measurement
 ingestion are split across two separate jobs:
 
-- `stations-ingest` (weekly): upserts location metadata into `stations`, including
+- `stations-ingest` (monthly): upserts location metadata into `stations`, including
   `pm25_sensor_ids` and `datetime_last`. Skips locations where `datetimeLast > 30 days`.
 - `aqi-ingest` (two-pass daily): reads `pm25_sensor_ids` directly from
   `SELECT id, pm25_sensor_ids FROM stations WHERE pm25_sensor_ids != '{}'`. No API call

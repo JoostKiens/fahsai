@@ -89,7 +89,7 @@ firms-ingest          — daily     (0 10 * * *)   fetches VIIRS data for TODAY;
   ingest-firms-today                              ~06:12 UTC, in DB by ~09:00, so 10:00 guarantees
                                                   a complete day before storing
 
-stations-ingest       — weekly    (0 0 * * 0)    fetches OpenAQ locations by bbox, upserts stations
+stations-ingest       — weekly    (0 22 4 * *)    fetches OpenAQ locations by bbox, upserts stations
                                                   including pm25_sensor_ids and datetime_last;
                                                   skips locations where datetimeLast > 30 days
 
