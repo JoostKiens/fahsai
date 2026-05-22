@@ -8,8 +8,8 @@ import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 
-const GEMINI_MODEL = 'gemini-2.5-flash-lite';
-const DAILY_QUOTA_LIMIT = 1400;
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const DAILY_QUOTA_LIMIT = 500;
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
 
