@@ -1,10 +1,8 @@
 import 'dotenv/config';
 import { runWeatherIngest } from '../jobs/weather-ingest.js';
 
-const today = new Date().toISOString().slice(0, 10);
-
 try {
-  const result = await runWeatherIngest(today);
+  const result = await runWeatherIngest();
   console.log('[weather-ingest] done', result);
   process.exit(0);
 } catch (err) {
