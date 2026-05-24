@@ -59,7 +59,7 @@ if (isNaN(DAYS) || DAYS < 1) {
   process.exit(1);
 }
 
-// Generate dates for the last N days (weather_readings retention window is 130 days).
+// Generate dates for the last N days (weather_readings retention window is 100 days).
 const dates: string[] = [];
 for (let i = DAYS - 1; i >= 0; i--) {
   const d = new Date();

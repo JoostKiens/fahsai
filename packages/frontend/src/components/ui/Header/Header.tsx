@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore } from '../../../store/uiStore';
 
-const SCRUBBER_RANGE_OPTIONS = [30, 60, 90, 120] as const;
+const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
