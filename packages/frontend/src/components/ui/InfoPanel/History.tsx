@@ -245,7 +245,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   className={`text-center tabular-nums ${w.precipitationSumMm === 0 ? 'text-gray-400' : 'text-sky-600 font-medium'}`}
                 >
                   {w.precipitationSumMm === 0
-                    ? '—'
+                    ? '0'
                     : String(Math.round(w.precipitationSumMm * 10) / 10)}
                 </span>
               ) : (
