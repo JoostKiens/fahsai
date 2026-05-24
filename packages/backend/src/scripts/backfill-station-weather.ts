@@ -52,14 +52,21 @@ const allStations = await fetchAllPages<{ id: string; lat: number; lng: number }
 const stationMap = new Map(allStations.map((s) => [s.id, s]));
 console.log(`[backfill] ${stationMap.size} stations with coordinates loaded`);
 
-// Generate dates for the last 40 days (full weather_readings retention window).
+const rawArg = process.argv.find((a) => /^\d+$/.test(a));
+const DAYS = rawArg ? parseInt(rawArg, 10) : 40;
+if (isNaN(DAYS) || DAYS < 1) {
+  console.error('[backfill] Invalid days argument — must be a positive integer');
+  process.exit(1);
+}
+
+// Generate dates for the last N days (weather_readings retention window is 130 days).
 const dates: string[] = [];
-for (let i = 39; i >= 0; i--) {
+for (let i = DAYS - 1; i >= 0; i--) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - i);
   dates.push(d.toISOString().slice(0, 10));
 }
-console.log(`[backfill] Will attempt ${dates.length} dates (last 40 days)`);
+console.log(`[backfill] Will attempt ${dates.length} dates (last ${DAYS} days)`);
 
 let totalRows = 0;
 for (const date of dates) {
