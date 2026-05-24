@@ -11,6 +11,7 @@ export interface SelectedPoint {
     countryId: string;
     detectedAt: string;
     daynight: string | null;
+    satellite: string | null;
   };
   station?: {
     stationId: string;

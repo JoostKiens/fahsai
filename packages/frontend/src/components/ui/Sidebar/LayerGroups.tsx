@@ -143,6 +143,9 @@ function FiresGroup() {
             </div>
           ))}
           <p className="text-[11px] text-gray-500 leading-tight mt-2">{t('layers.fireFrpNote')}</p>
+          <p className="text-[11px] text-gray-500 leading-tight mt-1">
+            {t('layers.fireSourceNote')}
+          </p>
         </div>
       )}
     </article>

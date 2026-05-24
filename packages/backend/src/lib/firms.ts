@@ -19,7 +19,7 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
 
   const url =
     `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${mapKey}` +
-    `/VIIRS_SNPP_NRT/${DEFAULT_BBOX}/1/${date}`;
+    `/VIIRS_NOAA21_NRT/${DEFAULT_BBOX}/1/${date}`;
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -38,10 +38,10 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
   return parseFirmsCsv(text);
 }
 
-// Actual VIIRS SNPP NRT area API columns (confirmed from live response):
+// Actual VIIRS NOAA-21 NRT area API columns (confirmed from live response):
 // latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,
 // instrument,confidence,version,bright_ti5,frp,daynight
-// Note: 'country_id' is NOT included in area API responses.
+// satellite code: 'N21' = NOAA-21. Note: 'country_id' is NOT included in area API responses.
 function parseFirmsCsv(csv: string): FirmsRow[] {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return []; // header only or empty
