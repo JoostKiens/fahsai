@@ -26,6 +26,7 @@
   "layers.fires": "Fires",
   "layers.toggleFires": "Toggle fires",
   "layers.fireFrpNote": "Fire radiative power (FRP) is a proxy for smoke and PM2.5 emissions",
+  "layers.fireSourceNote": "Data from NASA VIIRS (NOAA-21)",
   "layers.wind": "Wind",
   "layers.toggleWind": "Toggle wind",
   "layers.windParticleNote": "Particle speed reflects wind strength",
@@ -63,6 +64,7 @@
   "infoPanel.last5days": "Last 5 days · PM2.5",
   "infoPanel.intensity": "Intensity",
   "infoPanel.confidence": "Confidence",
+  "infoPanel.satellite": "Satellite",
   "infoPanel.fuel": "Fuel",
   "infoPanel.capacity": "Capacity",
   "infoPanel.owner": "Owner",
@@ -81,6 +83,11 @@
 
   "fire.daynight.day": "Daytime",
   "fire.daynight.night": "Nighttime",
+
+  "fire.satellite.suomiNpp": "Suomi NPP",
+  "fire.satellite.noaa20": "NOAA-20",
+  "fire.satellite.noaa21": "NOAA-21",
+  "fire.satellite.unknown": "Unknown",
 
   "explain.button": "Explain this",
   "explain.buttonUnavailable": "Explain this (unavailable)",

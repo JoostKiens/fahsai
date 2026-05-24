@@ -26,6 +26,7 @@
   "layers.fires": "ไฟ",
   "layers.toggleFires": "เปิด/ปิดไฟ",
   "layers.fireFrpNote": "กำลังการแผ่รังสีความร้อนของไฟ (FRP) เป็นตัวบ่งชี้ควันและการปล่อย PM2.5",
+  "layers.fireSourceNote": "ข้อมูลจาก NASA VIIRS (NOAA-21)",
   "layers.wind": "ลม",
   "layers.toggleWind": "เปิด/ปิดลม",
   "layers.windParticleNote": "ความเร็วอนุภาคสะท้อนถึงความแรงของลม",
@@ -63,6 +64,7 @@
   "infoPanel.last5days": "5 วันล่าสุด · PM2.5",
   "infoPanel.intensity": "ความเข้มข้น",
   "infoPanel.confidence": "ความเชื่อมั่น",
+  "infoPanel.satellite": "ดาวเทียม",
   "infoPanel.fuel": "เชื้อเพลิง",
   "infoPanel.capacity": "กำลังการผลิต",
   "infoPanel.owner": "เจ้าของ",
@@ -81,6 +83,11 @@
 
   "fire.daynight.day": "กลางวัน",
   "fire.daynight.night": "กลางคืน",
+
+  "fire.satellite.suomiNpp": "Suomi NPP",
+  "fire.satellite.noaa20": "NOAA-20",
+  "fire.satellite.noaa21": "NOAA-21",
+  "fire.satellite.unknown": "ไม่ทราบ",
 
   "explain.button": "อธิบายสิ่งนี้",
   "explain.buttonUnavailable": "อธิบายสิ่งนี้ (ไม่พร้อมใช้งาน)",

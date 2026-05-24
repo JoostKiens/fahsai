@@ -242,6 +242,7 @@ export function MapView() {
           countryId: d.countryId,
           detectedAt: d.detectedAt,
           daynight: d.daynight,
+          satellite: d.satellite,
         },
       });
     };

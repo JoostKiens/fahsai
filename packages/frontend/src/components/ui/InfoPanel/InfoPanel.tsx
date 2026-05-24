@@ -391,6 +391,7 @@ function FirePanel({
     confidence: string | null;
     detectedAt: string;
     daynight: string | null;
+    satellite: string | null;
   };
   aqPoint: { pm25: number } | null;
   windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
@@ -400,6 +401,7 @@ function FirePanel({
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
   const dnKey = daynightKey(fire.daynight);
+  const satKey = `fire.satellite.${mapSatelliteCode(fire.satellite)}`;
 
   return (
     <>
@@ -433,6 +435,10 @@ function FirePanel({
           })}
           {dnKey && <> · {t(dnKey as never)}</>}
         </span>
+      </Row>
+      <Row>
+        <span className="text-gray-500">{t('infoPanel.satellite')}</span>
+        <span className="text-gray-700 font-medium">{t(satKey as never)}</span>
       </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
     </>
@@ -543,6 +549,15 @@ function mapConfidence(raw: string | null): { labelKey: string; color: string } 
   if (lower === 'high' || lower === 'h')
     return { labelKey: 'fire.confidence.high', color: '#22c55e' };
   return { labelKey: 'fire.confidence.unknown', color: '#9ca3af' };
+}
+
+function mapSatelliteCode(code: string | null): string {
+  if (!code) return 'unknown';
+  const c = code.toUpperCase();
+  if (c === 'N') return 'suomiNpp';
+  if (c === '1' || c === 'N20') return 'noaa20';
+  if (c === 'N21') return 'noaa21';
+  return 'unknown';
 }
 
 // --- Icons ---
