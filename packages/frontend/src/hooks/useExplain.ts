@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -27,8 +27,19 @@ const INITIAL: ExplainState = {
 
 export function useExplain() {
   const [state, setState] = useState<ExplainState>(INITIAL);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const reset = useCallback(() => {
+    controllerRef.current?.abort();
+    setState(INITIAL);
+  }, []);
 
   const explain = useCallback(async ({ stationId, lat, lng, date }: ExplainOptions) => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const { signal } = controller;
+
     setState({ text: '', loading: true, phase: 'fetching', error: null, quotaExceeded: false });
 
     let res: Response;
@@ -37,8 +48,10 @@ export function useExplain() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stationId, lat, lng, date }),
+        signal,
       });
     } catch {
+      if (signal.aborted) return;
       setState({
         text: '',
         loading: false,
@@ -90,6 +103,7 @@ export function useExplain() {
 
     try {
       while (true) {
+        if (signal.aborted) break;
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
@@ -121,11 +135,11 @@ export function useExplain() {
         if (hasError) break;
       }
     } finally {
-      setState((prev) => ({ ...prev, loading: false, phase: null }));
+      if (!signal.aborted) {
+        setState((prev) => ({ ...prev, loading: false, phase: null }));
+      }
     }
   }, []);
-
-  const reset = useCallback(() => setState(INITIAL), []);
 
   return { ...state, explain, reset };
 }
