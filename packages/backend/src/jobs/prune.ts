@@ -1,17 +1,9 @@
 import { supabase } from '../db/client.js';
 
-// Retention policy (all dates in BKK / ICT, UTC+7):
-//
-//   31 days — scrubber shows T-1 (yesterday) through T-30 (30 days back),
-//             plus T+0 (today) which is ingested by cron but not yet visible
-//   +7 days — Explain fetches a 7-day measurement history anchored to the
-//             selected date; on scrubber day 0 (T-30) that reaches back to T-37
-//   +2 days — buffer for UTC+7 timezone boundary and prune job timing
-//   = 40 days
-// Increased to 130 to back a planned 120-day scrubber window (120 days + 7-day Explain
-// history buffer + 2-day UTC/prune timing buffer). Also preserves the full fire season
-// (Feb–April) for the Explain feature. ~260 MB on Supabase free tier (500 MB limit).
-const RETENTION_DAYS = 130;
+// Retention policy: 90-day max scrubber window + 7-day Explain history buffer
+// + 3-day UTC/prune timing buffer = 100 days. Reduced from 130 to stay within
+// Supabase free-tier storage limits.
+const RETENTION_DAYS = 100;
 
 export async function runPrune(): Promise<{
   firePointsDeleted: number;

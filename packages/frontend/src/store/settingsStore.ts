@@ -20,12 +20,17 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'taqm:settings',
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
-        if (version === 1) {
-          return { ...(persistedState as object), language: null };
+        let state = persistedState as Partial<SettingsStore>;
+        if (version < 2) {
+          state = { ...state, language: null };
         }
-        return persistedState as SettingsStore;
+        if (version < 3) {
+          // Max scrubber window reduced from 120 to 90 days.
+          if ((state.scrubberDays ?? 0) > 90) state = { ...state, scrubberDays: 90 };
+        }
+        return state as SettingsStore;
       },
     },
   ),
