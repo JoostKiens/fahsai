@@ -276,7 +276,11 @@ export function explainRoutes(app: FastifyInstance): void {
 
       // Trend: latest day vs median of all prior days (needs ≥ 2 days).
       // dailyAvgs is sorted ascending so the newest entry is at the end.
+      // Suppressed when current PM2.5 is in the Good range (< 12 µg/m³) — ratio-based
+      // trends are misleading noise at low absolute values (e.g. 0.5 → 3.4 reads as
+      // "rising sharply" but is meaningless in practice).
       const trend = (() => {
+        if (latestPm25 < 12) return 'not significant — current level is well within Good range';
         if (dailyAvgs.length < 2) return 'insufficient data';
         const latest = dailyAvgs[dailyAvgs.length - 1].avg;
         const baseline = medianOf(dailyAvgs.slice(0, -1).map((d) => d.avg));
@@ -721,6 +725,7 @@ Lead with what is most interesting: where the air came from and what drove it.
 - Recent rain can wash out PM2.5 — mention it only if precipitation is significant (> 5 mm total). If rainfall is negligible, do not mention it. High humidity (≥ 85%) may cause optical sensors to over-read.
 - ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good.'}
 - Do not describe the week trend — the user already sees the 5-day chart.
+${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
 - Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours"). Use natural language instead ("recently", "over the past few days", "in the last day or so").
 - Do not speculate beyond what the data shows.
 ${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}`;
