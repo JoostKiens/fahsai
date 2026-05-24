@@ -30,6 +30,10 @@ export function ExplainButton({
     if (quotaExceeded) onQuotaExceeded();
   }, [quotaExceeded, onQuotaExceeded]);
 
+  useEffect(() => {
+    reset();
+  }, [selectedDate, reset]);
+
   const isDisabled = globalQuotaExceeded || loading;
   const label = globalQuotaExceeded
     ? t('explain.buttonUnavailable')
