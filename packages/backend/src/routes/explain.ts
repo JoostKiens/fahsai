@@ -204,7 +204,6 @@ export function explainRoutes(app: FastifyInstance): void {
           .from('station_readings')
           .select('value, measured_at, stations(id, name)')
           .eq('station_id', stationId)
-          .eq('parameter', 'pm25')
           .gte('measured_at', since7d)
           .lt('measured_at', until)
           .order('measured_at', { ascending: false })
@@ -213,7 +212,6 @@ export function explainRoutes(app: FastifyInstance): void {
         supabase
           .from('station_readings')
           .select('value, measured_at, station_id, stations(id, name, lat, lng)')
-          .eq('parameter', 'pm25')
           .gte('measured_at', since24h)
           .lt('measured_at', until)
           .neq('station_id', stationId)

@@ -77,7 +77,6 @@ for (const date of dates) {
       supabase
         .from('station_readings')
         .select('station_id')
-        .eq('parameter', 'pm25')
         .gte('measured_at', `${date}T00:00:00Z`)
         .lte('measured_at', `${date}T23:59:59Z`)
         .range(from, to),

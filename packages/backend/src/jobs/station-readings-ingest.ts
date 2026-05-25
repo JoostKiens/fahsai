@@ -51,10 +51,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   // --- fetch daily average per sensor with header-driven adaptive delay ---
   const measurementRows: {
     station_id: string;
-    sensor_id: number;
-    parameter: string;
     value: number;
-    unit: string;
     measured_at: string;
   }[] = [];
 
@@ -112,10 +109,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
       if (r.value === null || r.value === undefined) continue;
       measurementRows.push({
         station_id: station.id as string,
-        sensor_id: sensorId,
-        parameter: 'pm25',
         value: r.value,
-        unit: 'µg/m³',
         measured_at: r.dateUtc,
       });
     }
@@ -133,7 +127,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
       async () => {
         const { error } = await supabase
           .from('station_readings')
-          .upsert(batch, { onConflict: 'sensor_id,measured_at', ignoreDuplicates: false });
+          .upsert(batch, { onConflict: 'station_id,measured_at', ignoreDuplicates: false });
         if (error)
           throw new AbortError(
             `[station-readings-ingest] Measurements upsert failed (batch ${batchNum}): ${error.message}`,

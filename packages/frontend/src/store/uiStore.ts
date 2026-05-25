@@ -16,7 +16,6 @@ export interface SelectedPoint {
     stationName: string;
     country: string | null;
     pm25: number;
-    unit: string;
     measuredAt: string;
   };
   powerPlant?: {

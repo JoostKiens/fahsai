@@ -4,7 +4,6 @@ import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../lib/bbox.js';
 
-const VALID_PARAMETERS = ['pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'] as const;
 const MAX_HISTORY_HOURS = 168; // 7 days
 const BKK_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
 const CURRENT_DATE_TTL_SECONDS = 3600;
@@ -29,30 +28,21 @@ interface LatestMeasurement {
   lat: number;
   lng: number;
   country: string | null;
-  parameter: string;
   value: number;
-  unit: string;
   measuredAt: string;
 }
 
 export function stationReadingsRoutes(app: FastifyInstance): void {
-  // GET /api/station-readings/latest?parameter=pm25&bbox=...&date=YYYY-MM-DD
-  app.get<{ Querystring: { parameter?: string; bbox?: string; date?: string } }>(
+  // GET /api/station-readings/latest?bbox=...&date=YYYY-MM-DD
+  app.get<{ Querystring: { bbox?: string; date?: string } }>(
     '/api/station-readings/latest',
     async (req, reply) => {
-      const parameter = req.query.parameter ?? 'pm25';
       const rawBbox = req.query.bbox;
       const date = req.query.date; // optional; when absent, returns last 24h
 
-      if (!(VALID_PARAMETERS as readonly string[]).includes(parameter)) {
-        return reply.status(400).send({
-          error: `Unknown parameter "${parameter}". Valid: ${VALID_PARAMETERS.join(', ')}`,
-        });
-      }
-
       const bbox = parseBbox(rawBbox);
       const isDefaultBbox = !rawBbox || rawBbox === DEFAULT_BBOX;
-      const cacheKey = `station-readings:latest:${parameter}:${date ?? 'current'}`;
+      const cacheKey = `station-readings:latest:pm25:${date ?? 'current'}`;
 
       if (isDefaultBbox) {
         const cached = await redis.get<LatestMeasurement[]>(cacheKey);
@@ -68,10 +58,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       let query = supabase
         .from('station_readings')
-        .select(
-          'station_id, sensor_id, parameter, value, unit, measured_at, stations(id, name, lat, lng, country)',
-        )
-        .eq('parameter', parameter)
+        .select('station_id, value, measured_at, stations(id, name, lat, lng, country)')
         .gte('measured_at', since);
 
       if (until !== undefined) {
@@ -118,9 +105,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
             lat: station.lat,
             lng: station.lng,
             country: station.country,
-            parameter: row.parameter as string,
             value: row.value as number,
-            unit: row.unit as string,
             measuredAt: row.measured_at as string,
           });
         }
@@ -137,21 +122,14 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
-  app.get<{ Querystring: { station_id?: string; parameter?: string; hours?: string } }>(
+  // GET /api/station-readings/history?station_id=...&hours=24
+  app.get<{ Querystring: { station_id?: string; hours?: string } }>(
     '/api/station-readings/history',
     async (req, reply) => {
       const { station_id: stationId, hours: rawHours } = req.query;
-      const parameter = req.query.parameter ?? 'pm25';
 
       if (!stationId)
         return reply.status(400).send({ error: 'Missing required param: station_id' });
-
-      if (!(VALID_PARAMETERS as readonly string[]).includes(parameter)) {
-        return reply.status(400).send({
-          error: `Unknown parameter "${parameter}". Valid: ${VALID_PARAMETERS.join(', ')}`,
-        });
-      }
 
       const hours = rawHours !== undefined ? Number(rawHours) : 24;
       if (isNaN(hours) || hours <= 0) {
@@ -167,9 +145,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const { data, error } = await supabase
         .from('station_readings')
-        .select('station_id, sensor_id, parameter, value, unit, measured_at')
+        .select('station_id, value, measured_at')
         .eq('station_id', stationId)
-        .eq('parameter', parameter)
         .gte('measured_at', since)
         .order('measured_at', { ascending: true });
 
@@ -177,10 +154,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const measurements: Measurement[] = (data ?? []).map((row) => ({
         stationId: row.station_id as string,
-        sensorId: row.sensor_id as number,
-        parameter: row.parameter as string,
         value: row.value as number,
-        unit: row.unit as string,
         measuredAt: row.measured_at as string,
       }));
 
