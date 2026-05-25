@@ -75,9 +75,7 @@ async function queryFires(
   while (true) {
     const { data, error } = await supabase
       .from('fire_points')
-      .select(
-        'id, detected_at, lat, lng, frp, bright_ti4, bright_ti5, satellite, confidence, daynight, country_id',
-      )
+      .select('id, detected_at, lat, lng, frp, confidence, daynight')
       .gte('detected_at', `${start}T00:00:00Z`)
       .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
       .gte('lat', bbox.south)
@@ -96,10 +94,6 @@ async function queryFires(
         lat: row.lat as number,
         lng: row.lng as number,
         frp: row.frp as number | null,
-        brightTi4: row.bright_ti4 as number | null,
-        brightTi5: row.bright_ti5 as number | null,
-        countryId: (row.country_id as string | null) ?? '',
-        satellite: row.satellite as string | null,
         confidence: row.confidence as string | null,
         daynight: row.daynight as string | null,
       });

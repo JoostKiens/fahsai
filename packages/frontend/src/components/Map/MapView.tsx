@@ -239,10 +239,8 @@ export function MapView() {
         fire: {
           frp: d.frp,
           confidence: d.confidence,
-          countryId: d.countryId,
           detectedAt: d.detectedAt,
           daynight: d.daynight,
-          satellite: d.satellite,
         },
       });
     };

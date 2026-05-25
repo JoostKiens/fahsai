@@ -8,10 +8,8 @@ export interface SelectedPoint {
   fire?: {
     frp: number | null;
     confidence: string | null;
-    countryId: string;
     detectedAt: string;
     daynight: string | null;
-    satellite: string | null;
   };
   station?: {
     stationId: string;
