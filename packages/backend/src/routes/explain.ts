@@ -660,7 +660,10 @@ export function explainRoutes(app: FastifyInstance): void {
               nonOutlierPeers
                 .sort((a, b) => a.distKm - b.distKm)
                 .slice(0, 10)
-                .map((p) => `  ${p.name}: ${p.pm25.toFixed(1)} µg/m³ (${p.distKm.toFixed(0)} km)`)
+                .map(
+                  (p) =>
+                    `  ${p.name}: ${p.pm25.toFixed(1)} µg/m³ — ${pm25Cat(p.pm25)} (${p.distKm.toFixed(0)} km)`,
+                )
                 .join('\n'),
             ].join('\n');
 
