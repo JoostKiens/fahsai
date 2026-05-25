@@ -197,7 +197,10 @@ export function Header() {
       {/* About modal */}
       <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
         <p className="text-[13px] text-gray-700 leading-relaxed">{t('about.body')}</p>
-        <p className="mt-3 text-[12px] text-gray-500">Data: NASA FIRMS, OpenAQ, Open-Meteo, WRI.</p>
+        <p className="mt-3 text-[12px] text-gray-500">
+          Data: NASA FIRMS (VIIRS/NOAA-21, near real-time), OpenAQ, Copernicus CAMS via Open-Meteo,
+          WRI.
+        </p>
         <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>
       </Modal>
 
