@@ -417,7 +417,6 @@ try {
       lat: r.lat,
       lng: r.lng,
       wind_speed_kmh: r.wind_speed_kmh,
-      wind_speed_max_kmh: null,
       wind_direction_deg: r.wind_direction_deg,
       relative_humidity_2m: r.relative_humidity_2m,
       precipitation_sum: r.precipitation_sum,

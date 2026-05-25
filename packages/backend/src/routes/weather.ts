@@ -16,7 +16,7 @@ async function fetchWeatherFromDb(date: string): Promise<WeatherReading[]> {
     const { data, error } = await supabase
       .from('weather_readings')
       .select(
-        'lat, lng, wind_speed_kmh, wind_speed_max_kmh, wind_direction_deg, relative_humidity_2m, precipitation_sum',
+        'lat, lng, wind_speed_kmh, wind_direction_deg, relative_humidity_2m, precipitation_sum',
       )
       .eq('date', date)
       .range(offset, offset + PAGE_SIZE - 1);

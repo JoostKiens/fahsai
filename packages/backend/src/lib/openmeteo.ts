@@ -43,7 +43,6 @@ interface OpenMeteoWeatherResult {
   };
   daily: {
     time: string[];
-    wind_speed_10m_max: (number | null)[];
     precipitation_sum: (number | null)[];
   };
 }
@@ -69,7 +68,7 @@ async function fetchWeatherBatch(
     latitude: lats,
     longitude: lngs,
     hourly: ['wind_speed_10m', 'wind_direction_10m', 'relative_humidity_2m'],
-    daily: ['wind_speed_10m_max', 'precipitation_sum'],
+    daily: ['precipitation_sum'],
     start_date: lats.map(() => date),
     end_date: lats.map(() => date),
     timezone: lats.map(() => 'UTC'),
@@ -143,7 +142,6 @@ async function fetchWeatherBatch(
       lat: lats[i],
       lng: lngs[i],
       wind_speed_kmh: loc.hourly.wind_speed_10m[idx] ?? 0,
-      wind_speed_max_kmh: loc.daily.wind_speed_10m_max[0] ?? null,
       wind_direction_deg: loc.hourly.wind_direction_10m[idx] ?? 0,
       relative_humidity_2m: loc.hourly.relative_humidity_2m[idx] ?? null,
       precipitation_sum: loc.daily.precipitation_sum[0] ?? null,
