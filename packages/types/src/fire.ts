@@ -4,10 +4,6 @@ export interface FirePoint {
   lat: number;
   lng: number;
   frp: number | null; // fire radiative power MW
-  brightTi4: number | null; // brightness temperature band I-4
-  brightTi5: number | null; // brightness temperature band I-5
-  countryId: string; // ISO 3166-1 alpha-3
-  satellite: string | null; // 'N' = Suomi-NPP, '1' = NOAA-20, 'N21' = NOAA-21
   confidence: string | null; // 'low' | 'nominal' | 'high'
   daynight: string | null; // 'D' | 'N'
 }
