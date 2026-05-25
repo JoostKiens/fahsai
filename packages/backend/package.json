@@ -25,6 +25,8 @@
     "backfill:station-readings": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-openaq-s3.ts",
     "backfill:fires-noaa21": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-fires-json.ts",
     "backfill:weather": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-weather.ts",
+    "ingest:fire-pressure": "node --env-file=.env.local --import=tsx/esm src/scripts/ingest-fire-pressure.ts",
+    "backfill:fire-pressure": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-fire-pressure.ts",
     "railway:ingest:fires": "node --import=tsx/esm src/scripts/ingest-fires.ts",
     "railway:ingest:station-readings": "node --import=tsx/esm src/scripts/ingest-station-readings.ts",
     "railway:ingest:station-readings:today": "node --import=tsx/esm src/scripts/ingest-station-readings-today.ts",
@@ -33,6 +35,7 @@
     "railway:ingest:weather:today:fallback": "node --import=tsx/esm src/scripts/ingest-weather-today-fallback.ts",
     "railway:ingest:cams:today": "node --import=tsx/esm src/scripts/ingest-cams-today.ts",
     "railway:ingest:cams:today:fallback": "node --import=tsx/esm src/scripts/ingest-cams-today-fallback.ts",
+    "railway:ingest:fire-pressure": "node --import=tsx/esm src/scripts/ingest-fire-pressure.ts",
     "railway:prune": "node --import=tsx/esm src/scripts/prune.ts"
   },
   "dependencies": {
