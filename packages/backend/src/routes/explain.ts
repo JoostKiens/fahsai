@@ -763,7 +763,7 @@ Write 1–3 short paragraphs in plain English. No markdown, no bullet points —
 The reader already sees the station name, PM2.5 value, and AQI category — do not repeat these verbatim.
 Lead with what is most interesting: where the air came from and what drove it.
 - Use neutral third person for location references ("this area", "this station", "conditions here") — do not use "we", "our", or "our community".
-- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin.
+- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin. When describing the transport corridor, name the direction and the regions or countries the air traveled through (e.g., "arriving from the west, tracking back through central Myanmar") — readers cannot see the full multi-day trajectory on the map, so make it geographically concrete.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
 - The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all.
 ${slowWindBuildup}
