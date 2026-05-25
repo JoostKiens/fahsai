@@ -84,7 +84,6 @@ export async function runWeatherIngest(
     lat: r.lat,
     lng: r.lng,
     wind_speed_kmh: r.wind_speed_kmh,
-    wind_speed_max_kmh: r.wind_speed_max_kmh,
     wind_direction_deg: r.wind_direction_deg,
     relative_humidity_2m: r.relative_humidity_2m,
     precipitation_sum: r.precipitation_sum,
