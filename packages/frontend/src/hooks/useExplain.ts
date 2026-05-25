@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import i18next from 'i18next';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -47,7 +48,7 @@ export function useExplain() {
       res = await fetch(`${API}/api/explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stationId, lat, lng, date }),
+        body: JSON.stringify({ stationId, lat, lng, date, lang: i18next.language }),
         signal,
       });
     } catch {

@@ -115,7 +115,7 @@ function sampleCams(
 // --- route ---
 
 export function explainRoutes(app: FastifyInstance): void {
-  app.post<{ Body: { stationId: string; lat: number; lng: number; date?: string } }>(
+  app.post<{ Body: { stationId: string; lat: number; lng: number; date?: string; lang?: string } }>(
     '/api/explain',
     async (req, reply) => {
       const apiKey = process.env.GEMINI_API_KEY;
@@ -123,7 +123,7 @@ export function explainRoutes(app: FastifyInstance): void {
         return reply.status(503).send({ error: 'AI explanation not configured' });
       }
 
-      const { stationId, lat, lng } = req.body ?? {};
+      const { stationId, lat, lng, lang } = req.body ?? {};
       if (!stationId || lat === undefined || lng === undefined) {
         return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
       }
@@ -752,7 +752,7 @@ Lead with what is most interesting: where the air came from and what drove it.
 ${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
 - Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours"). Use natural language instead ("recently", "over the past few days", "in the last day or so").
 - Do not speculate beyond what the data shows.
-${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}`;
+${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
 
       // Start streaming — hijack Fastify response so we control the raw socket
       reply.hijack();

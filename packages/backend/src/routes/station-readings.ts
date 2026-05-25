@@ -206,7 +206,6 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           .from('station_readings')
           .select('value, measured_at')
           .eq('station_id', stationId)
-          .eq('parameter', 'pm25')
           .gte('measured_at', since)
           .lt('measured_at', until),
         supabase
