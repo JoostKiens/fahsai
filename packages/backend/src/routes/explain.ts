@@ -12,6 +12,8 @@ const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 500;
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
+const AREA_PRESSURE_HIGH_THRESHOLD = 40; // "High" label cutoff — score at which buildup warrants emphasis
+const SLOW_WIND_THRESHOLD_KMH = 10; // below this, stagnation narrative takes priority over transport
 
 function medianOf(arr: number[]): number {
   if (!arr.length) return 0;
@@ -691,10 +693,27 @@ export function explainRoutes(app: FastifyInstance): void {
         fire_count: number;
         total_frp: number;
       } | null;
+      const pressureInterpretation =
+        !isStrongOutlier &&
+        pressureData?.score != null &&
+        pressureData.score >= AREA_PRESSURE_HIGH_THRESHOLD
+          ? `Interpretation: Fire activity has been sustained at ${firePressureLabel(pressureData.score).toLowerCase()} levels across this area for weeks or longer — this reflects persistent regional smoke buildup, not a one-off event.`
+          : null;
       const pressureScoreStr =
         pressureData?.score != null
-          ? `Score: ${pressureData.score.toFixed(1)}/100 — ${firePressureLabel(pressureData.score)} (${pressureData.fire_count} detections, total FRP ${pressureData.total_frp.toFixed(0)} MW over 14 days)`
+          ? [
+              `Score: ${pressureData.score.toFixed(1)}/100 — ${firePressureLabel(pressureData.score)} (${pressureData.fire_count} detections, total FRP ${pressureData.total_frp.toFixed(0)} MW over 14 days)`,
+              ...(pressureInterpretation ? [pressureInterpretation] : []),
+            ].join('\n')
           : 'No data — location outside fire detection grid or no activity in past 14 days';
+
+      const slowWindBuildup =
+        !isStrongOutlier &&
+        pressureData?.score != null &&
+        pressureData.score >= AREA_PRESSURE_HIGH_THRESHOLD &&
+        meanWindSpeedKmh <= SLOW_WIND_THRESHOLD_KMH
+          ? '- Area fire pressure is High or Very High and winds have been slow — emphasize that stagnant air has allowed long-running regional fire smoke to accumulate at this location. This is a buildup story, not just a transport story.'
+          : '';
 
       // --- trajectory / fire / CAMS section — omitted for strong outliers ---
       const transportSection = isStrongOutlier
@@ -746,6 +765,7 @@ Lead with what is most interesting: where the air came from and what drove it.
 - Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
 - The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all.
+${slowWindBuildup}
 - If fire pressure is 0 and no fires were detected, do not mention fires at all.
 - If power plants or industrial zones are along the trajectory, mention them only if fire pressure is low or moderate (they explain background pollution, not acute spikes). If they are far away (> 200 km) and air quality along the trajectory is good, skip them.
 - Compare against peer stations. If this station is a strong outlier, lead with that.
@@ -753,7 +773,7 @@ Lead with what is most interesting: where the air came from and what drove it.
 - ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good.'}
 - Do not describe the week trend — the user already sees the 5-day chart.
 ${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
-- Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours"). Use natural language instead ("recently", "over the past few days", "in the last day or so").
+- Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours", "14 days", "two weeks"). Use natural language instead ("recently", "over the past few days", "for weeks"). Treat all time windows as minimum durations — the underlying conditions may have persisted longer than what the data captures.
 - Do not speculate beyond what the data shows.
 ${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
 
