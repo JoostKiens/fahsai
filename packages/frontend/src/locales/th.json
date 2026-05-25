@@ -113,5 +113,10 @@
   "fuelType.coal": "ถ่านหิน",
   "fuelType.gas": "ก๊าซ",
   "fuelType.oil": "น้ำมัน",
-  "fuelType.diesel": "ดีเซล"
+  "fuelType.diesel": "ดีเซล",
+
+  "toast.noFires": "ไม่พบการตรวจจับไฟในวันนี้",
+  "toast.noStationReadings": "ไม่มีค่าวัดจากสถานีสำหรับวันนี้",
+  "toast.noWind": "ไม่มีข้อมูลลมสำหรับวันนี้",
+  "toast.noCams": "ไม่มีข้อมูลแบบจำลอง PM2.5 บรรยากาศสำหรับวันนี้"
 }
