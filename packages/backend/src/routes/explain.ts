@@ -676,7 +676,7 @@ export function explainRoutes(app: FastifyInstance): void {
           ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
           : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a sensor malfunction, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
         : isElevatedOutlier
-          ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³) — noticeably above its neighbours. Mention this discrepancy and consider whether a localised source or measurement uncertainty may be contributing.`
+          ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³) — somewhat above its neighbours. You may briefly note this if it adds useful context, but focus the explanation on the regional air quality drivers.`
           : '';
 
       // Dynamic seasonal context based on selected date's month
@@ -776,7 +776,7 @@ ${slowWindBuildup}
 ${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
 - Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours", "14 days", "two weeks"). Use natural language instead ("recently", "over the past few days", "for weeks"). Treat all time windows as minimum durations — the underlying conditions may have persisted longer than what the data captures.
 - Do not speculate beyond what the data shows.
-${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
+${isStrongOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
 
       // Start streaming — hijack Fastify response so we control the raw socket
       reply.hijack();
