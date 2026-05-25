@@ -152,6 +152,10 @@ pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV p
 # One-time backfill after deploying migration 018_station_weather.sql
 pnpm --filter backend run backfill:station-weather
 
+# Fire pressure scores (14-day rolling window, 120-day retention)
+pnpm --filter backend run ingest:fire-pressure [YYYY-MM-DD]   # defaults to yesterday
+pnpm --filter backend run backfill:fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
+
 pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
 ```

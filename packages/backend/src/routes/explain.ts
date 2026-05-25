@@ -185,6 +185,9 @@ export function explainRoutes(app: FastifyInstance): void {
       }
 
       // Gather all context in parallel
+      const snapLat = Math.round(Math.round(lat / 0.4) * 0.4 * 1000) / 1000;
+      const snapLng = Math.round(Math.round(lng / 0.4) * 0.4 * 1000) / 1000;
+
       const [
         stationRows,
         peerRows,
@@ -195,6 +198,7 @@ export function explainRoutes(app: FastifyInstance): void {
         camsD0,
         camsD1,
         camsD2,
+        pressureResult,
       ] = await Promise.all([
         supabase
           .from('station_readings')
@@ -234,6 +238,14 @@ export function explainRoutes(app: FastifyInstance): void {
         getCamsGrid(d0),
         getCamsGrid(d1),
         getCamsGrid(d2),
+
+        supabase
+          .from('fire_pressure_scores')
+          .select('score, fire_count, total_frp')
+          .eq('date', d0)
+          .eq('lat', snapLat)
+          .eq('lng', snapLng)
+          .maybeSingle(),
       ]);
 
       // Each trajectory waypoint has a date (d0, d1, or d2). Sample CAMS from the
@@ -673,6 +685,16 @@ export function explainRoutes(app: FastifyInstance): void {
             ? 'Early or late dry season in mainland Southeast Asia (Oct–Jan). Agricultural burning is beginning or winding down; fire activity is lower than peak.'
             : 'Monsoon season in mainland Southeast Asia (May–Sep). Fire activity is low; elevated PM2.5 is more likely from urban/industrial sources or stagnant air pockets.';
 
+      const pressureData = pressureResult.data as {
+        score: number;
+        fire_count: number;
+        total_frp: number;
+      } | null;
+      const pressureScoreStr =
+        pressureData?.score != null
+          ? `Score: ${pressureData.score.toFixed(1)}/100 — ${firePressureLabel(pressureData.score)} (${pressureData.fire_count} detections, total FRP ${pressureData.total_frp.toFixed(0)} MW over 14 days)`
+          : 'No data — location outside fire detection grid or no activity in past 14 days';
+
       // --- trajectory / fire / CAMS section — omitted for strong outliers ---
       const transportSection = isStrongOutlier
         ? `FIRES / TRAJECTORY / CAMS: Omitted — reading is a strong outlier vs peer stations (${outlierRatio.toFixed(1)}× median, station is ${isHighOutlier ? 'far above' : 'far below'} neighbours). Regional transport data is not relevant.`
@@ -705,6 +727,9 @@ ${weatherContextStr}
 
 ${transportSection}
 
+AREA FIRE PRESSURE (14-day precomputed score at this location)
+${pressureScoreStr}
+
 UPWIND EMISSION SOURCES (cities, industrial zones, power plants along trajectory)
 ${sourcesStr}
 
@@ -719,6 +744,7 @@ The reader already sees the station name, PM2.5 value, and AQI category — do n
 Lead with what is most interesting: where the air came from and what drove it.
 - Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
+- The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all.
 - If fire pressure is 0 and no fires were detected, do not mention fires at all.
 - If power plants or industrial zones are along the trajectory, mention them only if fire pressure is low or moderate (they explain background pollution, not acute spikes). If they are far away (> 200 km) and air quality along the trajectory is good, skip them.
 - Compare against peer stations. If this station is a strong outlier, lead with that.
