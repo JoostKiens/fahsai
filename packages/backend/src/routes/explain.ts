@@ -51,6 +51,39 @@ function angleDiff(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180);
 }
 
+// --- geographic region lookup for trajectory annotation ---
+
+const GEO_REGIONS: ReadonlyArray<{
+  label: string;
+  latMin: number;
+  latMax: number;
+  lngMin: number;
+  lngMax: number;
+}> = [
+  // Water bodies first — prevents land bounding-box false matches over open sea
+  { label: 'Gulf of Thailand', latMin: 6, latMax: 13.5, lngMin: 99.5, lngMax: 104.5 },
+  { label: 'Andaman Sea', latMin: 5, latMax: 16, lngMin: 92, lngMax: 99.5 },
+  { label: 'South China Sea', latMin: 1, latMax: 25, lngMin: 104.5, lngMax: 122 },
+  // Land — Myanmar split at 21°N to avoid overlap with Thailand in the border zone
+  { label: 'China', latMin: 21.5, latMax: 55, lngMin: 97, lngMax: 135 },
+  { label: 'Bangladesh', latMin: 20.5, latMax: 26.7, lngMin: 88, lngMax: 92.7 },
+  { label: 'Myanmar', latMin: 21, latMax: 28.5, lngMin: 92, lngMax: 101.5 },
+  { label: 'Myanmar', latMin: 9.5, latMax: 21, lngMin: 92, lngMax: 99.5 },
+  { label: 'Laos', latMin: 13.9, latMax: 22.5, lngMin: 100.5, lngMax: 107.7 },
+  { label: 'Cambodia', latMin: 9.9, latMax: 14.7, lngMin: 102.5, lngMax: 107.7 },
+  { label: 'Vietnam', latMin: 8.4, latMax: 23.4, lngMin: 104.5, lngMax: 109.5 },
+  { label: 'Thailand', latMin: 5.5, latMax: 20.5, lngMin: 97.5, lngMax: 106 },
+  { label: 'Malaysia', latMin: 1, latMax: 6.7, lngMin: 99.5, lngMax: 104.7 },
+  { label: 'India', latMin: 6, latMax: 36, lngMin: 68, lngMax: 92 },
+];
+
+function geoRegion(lat: number, lng: number): string {
+  for (const r of GEO_REGIONS) {
+    if (lat >= r.latMin && lat <= r.latMax && lng >= r.lngMin && lng <= r.lngMax) return r.label;
+  }
+  return '';
+}
+
 // --- fire pressure ---
 
 function firePressureLabel(score: number): string {
@@ -575,16 +608,36 @@ export function explainRoutes(app: FastifyInstance): void {
       const trajectoryStr =
         centerTrajectory.length < 2
           ? 'Insufficient wind data — trajectory unavailable'
-          : [
-              `Traced ${(centerTrajectory.length - 1) * 6}h back using 5-member ensemble`,
-              `Origin region: ${originWaypoint.lat.toFixed(2)}°N, ${originWaypoint.lng.toFixed(2)}°E (${originWaypoint.date})`,
-              `Corridor width: ${corridorKm.toFixed(0)} km (based on mean wind ${meanWindSpeedKmh.toFixed(1)} km/h)`,
-              `Path (station → origin): ` +
-                centerTrajectory
-                  .filter((_, i) => i % 4 === 0 || i === centerTrajectory.length - 1)
-                  .map((w) => `${w.lat.toFixed(1)}°N ${w.lng.toFixed(1)}°E`)
-                  .join(' ← '),
-            ].join('\n');
+          : (() => {
+              const pathWaypoints = centerTrajectory.filter(
+                (_, i) => i % 4 === 0 || i === centerTrajectory.length - 1,
+              );
+              let prevRegion = '';
+              const pathStr = pathWaypoints
+                .map((w, idx) => {
+                  const coord = `${w.lat.toFixed(1)}°N ${w.lng.toFixed(1)}°E`;
+                  if (idx === 0) return coord; // station itself — no region annotation
+                  const region = geoRegion(w.lat, w.lng);
+                  if (!region || region === prevRegion) {
+                    prevRegion = region;
+                    return coord;
+                  }
+                  prevRegion = region;
+                  return `${coord} (${region})`;
+                })
+                .join(' ← ');
+              const originRegion = geoRegion(originWaypoint.lat, originWaypoint.lng);
+              const originLabel =
+                `Origin region: ${originWaypoint.lat.toFixed(2)}°N, ${originWaypoint.lng.toFixed(2)}°E` +
+                (originRegion ? ` — ${originRegion}` : '') +
+                ` (${originWaypoint.date})`;
+              return [
+                `Traced ${(centerTrajectory.length - 1) * 6}h back using 5-member ensemble`,
+                originLabel,
+                `Corridor width: ${corridorKm.toFixed(0)} km (based on mean wind ${meanWindSpeedKmh.toFixed(1)} km/h)`,
+                `Path (station → origin): ${pathStr}`,
+              ].join('\n');
+            })();
 
       // CAMS string
       const camsStr = camsSamples.length
