@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { useFires } from './useFires';
 import { useAQI } from './useAQI';
 import { useWind } from './useWind';
@@ -9,6 +10,7 @@ import { useTimeStore, selectIsSettled } from '../store/timeStore';
 type ToastId = string | number;
 
 export function useDataNotifications() {
+  const { t } = useTranslation();
   const isSettled = useTimeStore(selectIsSettled);
   const fires = useFires();
   const aqi = useAQI();
@@ -45,28 +47,28 @@ export function useDataNotifications() {
   useEffect(() => {
     if (!isSettled || !fires.isSuccess || firesId.current !== null) return;
     if (fires.data.length === 0) {
-      firesId.current = toast('No fire detections for this date', { duration: Infinity });
+      firesId.current = toast(t('toast.noFires'), { duration: Infinity });
     }
-  }, [isSettled, fires.isSuccess, fires.data]);
+  }, [isSettled, fires.isSuccess, fires.data, t]);
 
   useEffect(() => {
     if (!isSettled || !aqi.isSuccess || stationId.current !== null) return;
     if (aqi.data.length === 0) {
-      stationId.current = toast('No station readings for this date', { duration: Infinity });
+      stationId.current = toast(t('toast.noStationReadings'), { duration: Infinity });
     }
-  }, [isSettled, aqi.isSuccess, aqi.data]);
+  }, [isSettled, aqi.isSuccess, aqi.data, t]);
 
   useEffect(() => {
     if (!isSettled || !wind.isSuccess || windId.current !== null) return;
     if (wind.data.length === 0) {
-      windId.current = toast('No wind data for this date', { duration: Infinity });
+      windId.current = toast(t('toast.noWind'), { duration: Infinity });
     }
-  }, [isSettled, wind.isSuccess, wind.data]);
+  }, [isSettled, wind.isSuccess, wind.data, t]);
 
   useEffect(() => {
     if (!isSettled || !cams.isSuccess || camsId.current !== null) return;
     if (cams.data.length === 0) {
-      camsId.current = toast('No PM2.5 model data for this date', { duration: Infinity });
+      camsId.current = toast(t('toast.noCams'), { duration: Infinity });
     }
-  }, [isSettled, cams.isSuccess, cams.data]);
+  }, [isSettled, cams.isSuccess, cams.data, t]);
 }
