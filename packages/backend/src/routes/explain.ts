@@ -443,14 +443,30 @@ export function explainRoutes(app: FastifyInstance): void {
       }
       const peerList = [...peerMap.values()];
       const peerValues = peerList.map((p) => p.pm25);
-      const peerMedian = medianOf(peerValues);
+      const peerMedian = medianOf(peerValues); // used only for sensor-fault filter (nonOutlierPeers)
       const peerMin = peerValues.length ? Math.min(...peerValues) : null;
       const peerMax = peerValues.length ? Math.max(...peerValues) : null;
-      const outlierRatio = peerMedian > 0 ? latestPm25 / peerMedian : null;
+
+      // Distance-weighted mean: weight = 1/distKm so a 2 km station gets 30× more weight
+      // than a 60 km one. This prevents distant stations in different micro-climates from
+      // dominating the reference value used for outlier detection.
+      const peerWeightedMean = (() => {
+        if (!peerList.length) return 0;
+        let totalW = 0;
+        let sum = 0;
+        for (const p of peerList) {
+          const w = 1 / Math.max(p.distKm, 1);
+          totalW += w;
+          sum += p.pm25 * w;
+        }
+        return totalW > 0 ? sum / totalW : 0;
+      })();
+
+      const outlierRatio = peerWeightedMean > 0 ? latestPm25 / peerWeightedMean : null;
 
       // Outlier thresholds:
-      //   strong — reading is ≥2× or ≤0.4× peer median → likely sensor issue or hyperlocal anomaly
-      //   elevated — reading is ≥1.4× peer median → noticeably above neighbours, worth flagging
+      //   strong — reading is ≥2× or ≤0.4× weighted peer mean → likely sensor issue or hyperlocal anomaly
+      //   elevated — reading is ≥1.4× weighted peer mean → noticeably above neighbours, worth flagging
       const isStrongOutlier = outlierRatio !== null && (outlierRatio >= 2.0 || outlierRatio <= 0.4);
       const isElevatedOutlier = outlierRatio !== null && outlierRatio >= 1.4 && !isStrongOutlier;
 
@@ -711,7 +727,7 @@ export function explainRoutes(app: FastifyInstance): void {
         peerList.length === 0
           ? 'No peer station data available within 75 km'
           : [
-              `${peerList.length} stations — median ${peerMedian.toFixed(1)} µg/m³, range ${peerMin?.toFixed(1)}–${peerMax?.toFixed(1)} µg/m³`,
+              `${peerList.length} stations — distance-weighted mean ${peerWeightedMean.toFixed(1)} µg/m³ (unweighted median ${peerMedian.toFixed(1)} µg/m³), range ${peerMin?.toFixed(1)}–${peerMax?.toFixed(1)} µg/m³`,
               nonOutlierPeers
                 .sort((a, b) => a.distKm - b.distKm)
                 .slice(0, 10)
@@ -726,10 +742,10 @@ export function explainRoutes(app: FastifyInstance): void {
       const isHighOutlier = outlierRatio !== null && outlierRatio >= 2.0;
       const outlierNote = isStrongOutlier
         ? isHighOutlier
-          ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
-          : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a sensor malfunction, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
+          ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
+          : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a sensor malfunction, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
         : isElevatedOutlier
-          ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the peer median (${peerMedian.toFixed(1)} µg/m³) — somewhat above its neighbours. You may briefly note this if it adds useful context, but focus the explanation on the regional air quality drivers.`
+          ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³) — somewhat above its neighbours. You may briefly note this if it adds useful context, but focus the explanation on the regional air quality drivers.`
           : '';
 
       // Dynamic seasonal context based on selected date's month
