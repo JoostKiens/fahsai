@@ -53,7 +53,9 @@ keeps API keys server-side.
 - Storage:
   - Supabase `weather_readings` (persistent, 130-day retention) + Redis `weather:{date}` TTL 7d
     and `weather:wind:{date}` TTL 7d. Ingest writes to both. Wind route checks Redis first;
-    on miss reads from Supabase.
+    on miss reads from Supabase. ERA5 reanalysis (CDS API) is used to backfill dates prior to
+    the weather-ingest cron start date — all data (Open-Meteo + ERA5) is stored at 0.4°
+    resolution. Run: `pnpm --filter backend run backfill:weather -- --start=YYYY-MM-DD --end=YYYY-MM-DD`
   - Supabase `station_weather` — pre-computed per-station per-day weather, populated by
     `weather-ingest` after the grid is stored. **No Redis layer** — queried directly from
     Supabase by the history endpoint.
@@ -118,6 +120,14 @@ weather-ingest        — daily     (0 8 * * *)    fetches Open-Meteo weather gr
 
 prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, aq_grid,
                                                   weather_readings, station_weather rows > 40 days
+
+backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for weather_readings.
+  backfill:weather                                Single CDS API request for full date range → one
+                                                  NetCDF → Python parse (era5-parse.py) → resample
+                                                  0.25°→0.4° → upsert + station_weather pre-computation.
+                                                  Skip dates with ≥ 4,000 existing rows. No Redis writes.
+                                                  Run: pnpm --filter backend run backfill:weather \
+                                                       -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 ```
 
 The UI shows the most recent date where all three gating sources have complete data

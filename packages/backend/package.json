@@ -24,6 +24,7 @@
     "backfill:station-weather": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-station-weather.ts",
     "backfill:station-readings": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-openaq-s3.ts",
     "backfill:fires-noaa21": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-fires-json.ts",
+    "backfill:weather": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-weather.ts",
     "railway:ingest:fires": "node --import=tsx/esm src/scripts/ingest-fires.ts",
     "railway:ingest:station-readings": "node --import=tsx/esm src/scripts/ingest-station-readings.ts",
     "railway:ingest:station-readings:today": "node --import=tsx/esm src/scripts/ingest-station-readings-today.ts",
