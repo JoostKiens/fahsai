@@ -1,6 +1,6 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
-import { fetchLocations, PARAMETERS, extractPm25SensorIds } from '../lib/openaq.js';
+import { fetchLocations, extractPm25SensorIds } from '../lib/openaq.js';
 
 export async function runStationsIngest(): Promise<{
   stationsUpserted: number;
@@ -25,19 +25,10 @@ export async function runStationsIngest(): Promise<{
     .map((loc) => ({
       id: String(loc.id),
       name: loc.name,
-      location: `POINT(${loc.coordinates!.longitude} ${loc.coordinates!.latitude})`,
       lat: loc.coordinates!.latitude,
       lng: loc.coordinates!.longitude,
       country: loc.country?.code ?? null,
-      provider: loc.providers?.[0]?.name ?? null,
-      is_mobile: loc.isMobile,
-      is_monitor: loc.isMonitor ?? null,
-      parameters: loc.sensors
-        .map((s) => s.parameter.name)
-        .filter((p): p is string => (PARAMETERS as readonly string[]).includes(p)),
       pm25_sensor_ids: extractPm25SensorIds(loc),
-      datetime_last: loc.datetimeLast?.utc ?? null,
-      updated_at: new Date().toISOString(),
     }));
 
   await pRetry(

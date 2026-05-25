@@ -10,7 +10,7 @@ export function stationsRoutes(app: FastifyInstance): void {
 
     const { data, error } = await supabase
       .from('stations')
-      .select('id, name, lat, lng, country, provider, is_mobile, is_monitor, parameters')
+      .select('id, name, lat, lng, country')
       .gte('lat', bbox.south)
       .lte('lat', bbox.north)
       .gte('lng', bbox.west)
@@ -24,10 +24,6 @@ export function stationsRoutes(app: FastifyInstance): void {
       lat: row.lat as number,
       lng: row.lng as number,
       country: (row.country as string | null) ?? '',
-      provider: row.provider as string | null,
-      isMobile: row.is_mobile as boolean,
-      isMonitor: row.is_monitor as boolean | null,
-      parameters: (row.parameters as string[] | null) ?? [],
     }));
 
     return reply.send({ data: stations });

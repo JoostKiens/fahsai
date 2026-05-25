@@ -4,10 +4,6 @@ export interface Station {
   lat: number;
   lng: number;
   country: string;
-  provider: string | null;
-  isMobile: boolean;
-  isMonitor: boolean | null;
-  parameters: string[];
 }
 
 export interface StationDayHistory {
