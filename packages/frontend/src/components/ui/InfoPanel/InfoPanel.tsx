@@ -321,7 +321,6 @@ function StationPanel({
     stationName: string;
     country: string | null;
     pm25: number;
-    unit: string;
     measuredAt: string;
   };
   lngLat: [number, number];

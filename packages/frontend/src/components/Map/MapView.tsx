@@ -256,7 +256,6 @@ export function MapView() {
           stationName: d.stationName,
           country: d.country,
           pm25: d.value,
-          unit: d.unit,
           measuredAt: d.measuredAt,
         },
       });

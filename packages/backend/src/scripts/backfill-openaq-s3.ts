@@ -70,10 +70,7 @@ console.log(`[backfill-s3] ${stations.length} stations with pm25 sensors`);
 type Station = { id: string; pm25_sensor_ids: number[] };
 type MeasurementRow = {
   station_id: string;
-  sensor_id: number;
-  parameter: string;
   value: number;
-  unit: string;
   measured_at: string;
 };
 
@@ -122,10 +119,7 @@ async function processItem(item: { station: Station; date: string }): Promise<vo
 
   measurementRows.push({
     station_id: station.id,
-    sensor_id: result.sensorId,
-    parameter: 'pm25',
     value: result.value,
-    unit: 'µg/m³',
     measured_at: `${date}T00:00:00Z`,
   });
 }
@@ -172,7 +166,7 @@ for (let i = 0; i < measurementRows.length; i += BATCH_SIZE) {
     async () => {
       const { error } = await supabase
         .from('station_readings')
-        .upsert(batch, { onConflict: 'sensor_id,measured_at', ignoreDuplicates: false });
+        .upsert(batch, { onConflict: 'station_id,measured_at', ignoreDuplicates: false });
       if (error) throw new AbortError(`Upsert failed (batch ${batchNum}): ${error.message}`);
     },
     {

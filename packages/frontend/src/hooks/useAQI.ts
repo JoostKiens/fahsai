@@ -9,9 +9,7 @@ export interface LatestMeasurement {
   lat: number;
   lng: number;
   country: string | null;
-  parameter: string;
   value: number;
-  unit: string;
   measuredAt: string;
 }
 
@@ -20,9 +18,7 @@ export function useAQI() {
   return useQuery({
     queryKey: ['aqi-latest', 'pm25', selectedDate],
     queryFn: async () => {
-      const res = await fetch(
-        `${API}/api/station-readings/latest?parameter=pm25&date=${selectedDate}`,
-      );
+      const res = await fetch(`${API}/api/station-readings/latest?date=${selectedDate}`);
       if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
       return ((await res.json()) as { data: LatestMeasurement[] }).data;
     },
