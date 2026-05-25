@@ -419,7 +419,7 @@ export function explainRoutes(app: FastifyInstance): void {
       const firePressureScore = fires.reduce((sum, f) => {
         const ageHours = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
         const recencyWeight = 1 / (1 + ageHours / 24); // 24 h half-life inverse decay
-        const transportWeight = 1 / (1 + f.distKm / corridorKm);
+        const transportWeight = 1 / (1 + f.distKm / corridorKm) ** 2; // inverse-square: edge-of-corridor fires get 25% weight (vs 50% with linear)
         return sum + (f.frp ?? 10) * recencyWeight * transportWeight;
       }, 0);
       const firePressureNorm = Math.min(100, Math.round(firePressureScore / 10));
@@ -655,6 +655,8 @@ export function explainRoutes(app: FastifyInstance): void {
               ].join('\n');
             })();
 
+      const camsMaxPm25 = camsSamples.length ? Math.max(...camsSamples.map((s) => s.pm25)) : null;
+
       // CAMS string
       const camsStr = camsSamples.length
         ? camsSamples
@@ -833,7 +835,7 @@ The reader already sees the station name, PM2.5 value, and AQI category — do n
 Lead with what is most interesting: where the air came from and what drove it.
 - Use neutral third person for location references ("this area", "this station", "conditions here") — do not use "we", "our", or "our community".
 - Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin. When describing the transport corridor, name the direction and the regions or countries the air traveled through (e.g., "arriving from the west, tracking back through central Myanmar") — readers cannot see the full multi-day trajectory on the map, so make it geographically concrete.
-- The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.
+- The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.${camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40 ? ' However, the CAMS model shows consistently low PM2.5 along the trajectory despite a high fire pressure score — fires are on the flanks of the corridor, not in the core air mass that reached this station. Do not mention fires at all: they are not contributing to current conditions and referencing them adds confusion rather than clarity.' : ''}
 - The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all.
 ${slowWindBuildup}
 - If fire pressure is 0 and no fires were detected, do not mention fires at all.
