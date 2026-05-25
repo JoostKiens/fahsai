@@ -741,7 +741,9 @@ ${isStrongOutlier || isElevatedOutlier ? '- Suggest the most likely explanations
       });
 
       try {
-        reply.raw.write('__PROMPT__' + JSON.stringify(prompt) + '\n');
+        if (process.env.NODE_ENV !== 'production') {
+          reply.raw.write('__PROMPT__' + JSON.stringify(prompt) + '\n');
+        }
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const result = await model.generateContentStream(prompt);
