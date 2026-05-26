@@ -59,7 +59,7 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
 // Actual VIIRS NOAA-21 NRT area API columns (confirmed from live response):
 // latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,
 // instrument,confidence,version,bright_ti5,frp,daynight
-function parseFirmsCsv(csv: string): FirmsRow[] {
+export function parseFirmsCsv(csv: string): FirmsRow[] {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return []; // header only or empty
 
