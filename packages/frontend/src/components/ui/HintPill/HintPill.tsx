@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
+import { TWEEN_ENTER, TWEEN_EXIT } from '../../../lib/animation';
 
 const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;
@@ -38,9 +39,8 @@ export function HintPill() {
           type="button"
           onClick={dismissHint}
           initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 4 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+          exit={{ opacity: 0, y: 4, transition: TWEEN_EXIT }}
           aria-label={t('hint.dismiss')}
           className="md:hidden absolute bottom-[60px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full shadow-sm pointer-events-auto z-20"
         >

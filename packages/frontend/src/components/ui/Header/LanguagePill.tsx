@@ -70,7 +70,7 @@ export function LanguagePill() {
         aria-label={t('header.selectLanguage')}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[11px] font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[11px] font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
       >
         {current.pill}
         <ChevronDownIcon />
@@ -88,7 +88,7 @@ export function LanguagePill() {
               role="option"
               aria-selected={lang.code === currentCode}
               onClick={() => select(lang.code)}
-              className={`w-full text-left px-3 py-2 text-[12px] transition-colors hover:bg-gray-50 ${
+              className={`w-full text-left px-3 py-2 text-[12px] transition-colors ease-out hover:duration-[175ms] hover:bg-gray-50 ${
                 lang.code === currentCode ? 'text-teal-700 font-medium' : 'text-gray-700'
               }`}
             >

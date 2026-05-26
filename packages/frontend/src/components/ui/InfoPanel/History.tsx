@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
+import { TWEEN_ENTER } from '../../../lib/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToSoftRgb } from '../../../lib/aqiColors';
@@ -69,7 +70,7 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 4 }}
-        transition={{ duration: 0.12, ease: 'easeOut' }}
+        transition={TWEEN_ENTER}
         className="bg-gray-900 text-white text-[11px] font-semibold tabular-nums px-2 py-1 rounded shadow-lg whitespace-nowrap"
       >
         {Math.round(value)} <span className="font-normal opacity-60">µg/m³</span>

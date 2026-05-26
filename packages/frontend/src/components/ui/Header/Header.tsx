@@ -54,7 +54,7 @@ function Logo({ size }: { size: number }) {
 }
 
 const ICON_BTN_CLS =
-  'inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors';
+  'inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]';
 
 function IconBtn({
   ariaLabel,
@@ -118,7 +118,7 @@ function Modal({
           <button
             onClick={onClose}
             aria-label={t('header.close')}
-            className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
           >
             <XIcon />
           </button>
@@ -223,7 +223,7 @@ export function Header() {
                   setScrubberDays(opt);
                   setScrubberDay(opt - 1);
                 }}
-                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-[175ms] ${
                   scrubberDays === opt
                     ? 'bg-teal-700 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-50'
