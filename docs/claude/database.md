@@ -6,26 +6,19 @@ All schema changes use new Supabase migration files. Never modify existing migra
 -- Enable PostGIS
 create extension if not exists postgis;
 
--- Fire detections from VIIRS
+-- Fire detections from VIIRS NOAA-21 NRT
+-- Columns dropped in migrations 016, 019, 020: fire_type, location, brightness,
+-- bright_ti4, bright_ti5, country_id, satellite, source, created_at.
 create table fire_points (
   id           bigserial primary key,
   detected_at  timestamptz not null,
-  location     geography(Point, 4326) not null,
   lat          float8 not null,
   lng          float8 not null,
   frp          float8,           -- fire radiative power (MW)
-  bright_ti4   float8,           -- brightness temperature band I-4 (~4µm, fire detection)
-  bright_ti5   float8,           -- brightness temperature band I-5 (~11µm, background)
-  country_id   text,             -- 'MMR', 'LAO', 'THA', 'KHM', etc.
-  satellite    text,             -- 'N' = Suomi-NPP, '1' = NOAA-20
   confidence   text,             -- 'low', 'nominal', 'high'
-  daynight     text,             -- 'D' or 'N'
-  source       text default 'VIIRS_SNPP_NRT',
-  created_at   timestamptz default now()
+  daynight     text              -- 'D' or 'N'
 );
-create index on fire_points using gist(location);
 create index on fire_points (detected_at);
-create index on fire_points (country_id);
 create index on fire_points (confidence);
 
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
