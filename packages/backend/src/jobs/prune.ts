@@ -20,7 +20,7 @@ export async function runPrune(): Promise<{
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_DAYS);
   const cutoffIso = cutoff.toISOString();
-  const cutoffDate = cutoff.toISOString().slice(0, 10); // aq_grid.date is type `date`
+  const cutoffDate = cutoff.toISOString().slice(0, 10); // cams_grid.date is type `date`
 
   const { count: firePointsDeleted, error: fireError } = await supabase
     .from('fire_points')

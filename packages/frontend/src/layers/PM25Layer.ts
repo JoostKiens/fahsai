@@ -2,7 +2,7 @@ import { BitmapLayer, SolidPolygonLayer, ScatterplotLayer, TextLayer, IconLayer 
 import type { Layer, PickingInfo, Position, SolidPolygonLayerProps } from 'deck.gl';
 import { MaskExtension } from '@deck.gl/extensions';
 import Supercluster from 'supercluster';
-import type { LatestMeasurement } from '../hooks/useAQI';
+import type { LatestMeasurement } from '../hooks/useStationReadings';
 import seaCountries from '../data/sea-land-mask.json';
 import {
   pm25ToRgba,

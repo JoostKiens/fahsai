@@ -3,7 +3,7 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from 'deck.gl';
 import type { Layer, PickingInfo } from 'deck.gl';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
-import type { LatestMeasurement } from '../../hooks/useAQI';
+import type { LatestMeasurement } from '../../hooks/useStationReadings';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createOverlay, type OverlayInstance } from '../../lib/deck-overlay';
@@ -11,9 +11,9 @@ import { mapRef as globalMapRef } from '../../lib/mapRef';
 import { useLayerStore } from '../../store/layerStore';
 import { useUIStore } from '../../store/uiStore';
 import { useFires } from '../../hooks/useFires';
-import { useAQI } from '../../hooks/useAQI';
+import { useStationReadings } from '../../hooks/useStationReadings';
 import { useCamsGrid } from '../../hooks/useCamsGrid';
-import { usePM25Bitmap } from '../../hooks/usePM25Bitmap';
+import { useCamsBitmap } from '../../hooks/useCamsBitmap';
 import { VIEWPORT_BBOX } from '../../lib/bbox';
 import { createFiresLayer, baseRadiusForZoom } from '../../layers/FiresLayer';
 import { useWind } from '../../hooks/useWind';
@@ -80,9 +80,9 @@ export function MapView() {
   const [compactAttribution, setCompactAttribution] = useState(false);
 
   const { data: fires } = useFires();
-  const { data: aqi } = useAQI();
+  const { data: aqi } = useStationReadings();
   const { data: aqGrid } = useCamsGrid();
-  const pm25Bitmap = usePM25Bitmap(aqGrid);
+  const pm25Bitmap = useCamsBitmap(aqGrid);
   const { data: wind } = useWind();
 
   const aqGridConfig = useLayerStore((s) => s.layers.aqGrid);

@@ -73,16 +73,16 @@ create table if not exists power_plants (
 create index if not exists power_plants_location_idx on power_plants using gist(location);
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
--- CAMS PM2.5 gridded model (migration 005_aq_grid.sql)
+-- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)
 -- Pruned after 130 days. Redis (cams:pm25:{date}, TTL 7d) is the hot cache.
-create table if not exists aq_grid (
+create table if not exists cams_grid (
   date  date    not null,
   lat   float8  not null,
   lng   float8  not null,
   pm25  float8  not null,
   primary key (date, lat, lng)
 );
-create index if not exists aq_grid_date_idx on aq_grid (date);
+create index if not exists cams_grid_date_idx on cams_grid (date);
 
 -- Weather grid (Open-Meteo, snapshot at 07:00 UTC = 14:00 BKK)
 -- Pruned after 40 days. Redis (weather:{date}, TTL 7d) is the hot cache.
@@ -127,12 +127,12 @@ ingestion are split across two separate jobs:
 
 - `stations-ingest` (monthly): upserts location metadata into `stations`, including
   `pm25_sensor_ids` and `datetime_last`. Skips locations where `datetimeLast > 30 days`.
-- `aqi-ingest` (two-pass daily): reads `pm25_sensor_ids` directly from
+- `ingest:station-readings` (two-pass daily): reads `pm25_sensor_ids` directly from
   `SELECT id, pm25_sensor_ids FROM stations WHERE pm25_sensor_ids != '{}'`. No API call
   to `/locations` during daily ingest. Only `pm25_sensor_ids[0]` is fetched per station —
   collocated sensors measure the same air; the map shows one value per location. All IDs
-  are retained in the array for future use. On fresh deployment, run `stations-ingest`
-  before the first `aqi-ingest`.
+  are retained in the array for future use. On fresh deployment, run `ingest:stations`
+  before the first `ingest:station-readings`.
 
 Parameter ingested: `pm25` only. The `station_readings` schema supports additional parameters
 for future use.
@@ -145,7 +145,7 @@ for future use.
 ## 130-day retention derivation
 
 The prune job deletes rows older than **130 days** from `fire_points`, `station_readings`,
-`aq_grid`, `weather_readings`, and `station_weather`. Derivation:
+`cams_grid`, `weather_readings`, and `station_weather`. Derivation:
 31 days (30 scrubber days T-1→T-30, plus today T not yet visible)
 
 - 7 days (Explain fetches 7-day measurement history, so scrubber day 0 reaches back to T-37)
