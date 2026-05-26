@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '../store/timeStore';
 import type { PM25GridPoint } from '@thailand-aq/types';
+import { staleTimeForArray } from '../lib/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -14,6 +15,6 @@ export function useCamsGrid() {
       if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
       return ((await res.json()) as { data: PM25GridPoint[] }).data;
     },
-    staleTime: Infinity, // historical dates are immutable after ingestion
+    staleTime: staleTimeForArray,
   });
 }

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { WindReading } from '@thailand-aq/types';
 import { useTimeStore } from '../store/timeStore';
+import { staleTimeForArray } from '../lib/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -14,6 +15,6 @@ export function useWind() {
       if (!res.ok) throw new Error(`wind fetch failed: ${res.status}`);
       return ((await res.json()) as { data: WindReading[] }).data;
     },
-    staleTime: Infinity,
+    staleTime: staleTimeForArray,
   });
 }

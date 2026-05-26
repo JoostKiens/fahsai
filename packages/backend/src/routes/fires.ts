@@ -21,11 +21,15 @@ export function firesRoutes(app: FastifyInstance): void {
     // Redis cache — only for default bbox requests
     if (isDefaultBbox) {
       const cached = await redis.get<FirePoint[]>(`fires:date:${date}`);
-      if (cached !== null)
+      if (cached !== null && cached.length > 0)
         return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
     }
 
     const data = await queryFires(date, date, bbox);
+
+    if (data.length === 0) {
+      return reply.status(404).send({ error: 'No fire data for this date.' });
+    }
 
     if (isDefaultBbox) {
       await redis.set(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
@@ -56,6 +60,9 @@ export function firesRoutes(app: FastifyInstance): void {
 
       const bbox = parseBbox(rawBbox);
       const data = await queryFires(start, end, bbox);
+      if (data.length === 0) {
+        return reply.status(404).send({ error: 'No fire data for this date range.' });
+      }
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
     },
   );

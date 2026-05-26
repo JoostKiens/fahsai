@@ -46,7 +46,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       if (isDefaultBbox) {
         const cached = await redis.get<LatestMeasurement[]>(cacheKey);
-        if (cached !== null)
+        if (cached !== null && cached.length > 0)
           return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
       }
 
@@ -112,6 +112,10 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
         if (!rows?.length || rows.length < PAGE_SIZE) break;
         from += PAGE_SIZE;
+      }
+
+      if (latest.length === 0) {
+        return reply.status(404).send({ error: 'No station readings for this date.' });
       }
 
       if (isDefaultBbox) {

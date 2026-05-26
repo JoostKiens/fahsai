@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '../store/timeStore';
+import { staleTimeForArray } from '../lib/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -19,9 +20,10 @@ export function useStationReadings() {
     queryKey: ['aqi-latest', 'pm25', selectedDate],
     queryFn: async () => {
       const res = await fetch(`${API}/api/station-readings/latest?date=${selectedDate}`);
+      if (res.status === 404) return [];
       if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
       return ((await res.json()) as { data: LatestMeasurement[] }).data;
     },
-    staleTime: Infinity, // historical dates are immutable after ingestion
+    staleTime: staleTimeForArray,
   });
 }
