@@ -27,6 +27,14 @@ describe('degToCompass', () => {
   it('handles negative degrees: −90° → W', () => {
     expect(degToCompass(-90)).toBe('W');
   });
+
+  it('returns NE for 45° (intercardinal)', () => {
+    expect(degToCompass(45)).toBe('NE');
+  });
+
+  it('wraps 382.5° to NNE', () => {
+    expect(degToCompass(382.5)).toBe('NNE');
+  });
 });
 
 describe('findNearestAQPoint', () => {
