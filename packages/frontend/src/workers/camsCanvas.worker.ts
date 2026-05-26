@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import type { PM25GridPoint } from '@thailand-aq/types';
-import { pm25ToRgba } from '../lib/aqiColors';
+import { pm25ToRgba } from '../utils/aqiColors';
 
 type RGBA = [number, number, number, number];
 

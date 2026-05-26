@@ -27,7 +27,7 @@ import {
   WEATHER_LAT_COUNT,
   WEATHER_LNG_COUNT,
   WEATHER_STEP,
-} from '../lib/computeStationWeather.js';
+} from '../utils/computeStationWeather.js';
 
 const LOG = '[backfill-weather]';
 const DB_BATCH_SIZE = 500;

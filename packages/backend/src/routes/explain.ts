@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { haversineKm, bearingDeg, compassFromDeg } from '../lib/geo.js';
+import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { URBAN_SOURCES } from '../data/urbanSources.js';
 import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';

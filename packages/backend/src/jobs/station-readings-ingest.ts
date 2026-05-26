@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { fetchSensorDailyAverage } from '../lib/openaq.js';
+import { fetchSensorDailyAverage } from '../utils/openaq.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit

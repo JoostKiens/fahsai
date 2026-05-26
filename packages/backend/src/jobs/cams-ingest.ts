@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { fetchAirQualityGrid, OpenMeteoHttpError } from '../lib/openmeteo.js';
+import { fetchAirQualityGrid, OpenMeteoHttpError } from '../utils/openmeteo.js';
 
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.

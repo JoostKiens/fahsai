@@ -1,11 +1,11 @@
 import { Fragment, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { TWEEN_ENTER } from '../../../lib/animation';
+import { TWEEN_ENTER } from '../../../utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { pm25ToSoftRgb } from '../../../lib/aqiColors';
-import { degToCompass } from '../../../lib/ambient';
+import { pm25ToSoftRgb } from '../../../utils/aqiColors';
+import { degToCompass } from '../../../utils/ambient';
 import { dateLocale } from '../../../i18n';
 import { WindArrow } from './WindArrow';
 

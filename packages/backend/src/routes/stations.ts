@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Station } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
-import { parseBbox } from '../lib/bbox.js';
+import { parseBbox } from '../utils/bbox.js';
 
 export function stationsRoutes(app: FastifyInstance): void {
   // GET /api/stations?bbox=west,south,east,north

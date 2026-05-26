@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { WeatherReading, WindReading } from '@thailand-aq/types';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { parseBbox } from '../lib/bbox.js';
+import { parseBbox } from '../utils/bbox.js';
 import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

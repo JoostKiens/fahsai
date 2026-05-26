@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
-import { TWEEN_ENTER, TWEEN_EXIT } from '../../../lib/animation';
+import { TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
 
 const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '../store/timeStore';
-import { staleTimeForArray } from '../lib/queryHelpers';
+import { staleTimeForArray } from '../utils/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 

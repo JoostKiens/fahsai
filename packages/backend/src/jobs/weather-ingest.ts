@@ -1,8 +1,8 @@
 import pRetry, { AbortError } from 'p-retry';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../lib/openmeteo.js';
-import { precomputeStationWeather } from '../lib/computeStationWeather.js';
+import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
+import { precomputeStationWeather } from '../utils/computeStationWeather.js';
 
 const DB_BATCH_SIZE = 500;
 // Full weather grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.

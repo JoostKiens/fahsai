@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { pm25ToSoftRgb, pm25ToSoftTextRgb } from '../../../lib/aqiColors';
+import { pm25ToSoftRgb, pm25ToSoftTextRgb } from '../../../utils/aqiColors';
 
 interface Props {
   value: number;

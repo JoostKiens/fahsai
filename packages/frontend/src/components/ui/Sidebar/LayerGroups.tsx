@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useLayerStore } from '../../../store/layerStore';
-import { AQI_CATEGORIES } from '../../../lib/aqiColors';
+import { AQI_CATEGORIES } from '../../../utils/aqiColors';
 import { FUEL_COLORS } from '../../../layers/PowerPlantsLayer';
 import { Toggle } from './Toggle';
 

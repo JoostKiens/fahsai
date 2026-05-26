@@ -1,5 +1,5 @@
 import { motion, LayoutGroup } from 'motion/react';
-import { SPRING } from '../../../lib/animation';
+import { SPRING } from '../../../utils/animation';
 
 interface Props {
   checked: boolean;

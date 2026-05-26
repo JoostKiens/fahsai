@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { PM25GridPoint } from '@thailand-aq/types';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { parseBbox } from '../lib/bbox.js';
+import { parseBbox } from '../utils/bbox.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;

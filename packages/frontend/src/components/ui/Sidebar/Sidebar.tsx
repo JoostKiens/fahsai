@@ -1,8 +1,8 @@
 import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
-import { mapRef } from '../../../lib/mapRef';
-import { SPRING } from '../../../lib/animation';
+import { mapRef } from '../../../utils/mapRef';
+import { SPRING } from '../../../utils/animation';
 import { LayerGroups } from './LayerGroups';
 
 export function Sidebar() {
