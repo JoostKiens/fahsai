@@ -133,10 +133,11 @@ async function fetchWeatherBatch(
   }
 
   if (!res || !res.ok) {
+    const status = res?.status ?? 0;
     const body = res ? await res.text().catch(() => '(unreadable)') : '(no response)';
-    const msg = `Open-Meteo weather API error: ${res?.status ?? 'none'} — ${body.slice(0, 500)}`;
-    console.error(`[openmeteo] weather batch failed: ${msg}`);
-    throw new Error(msg);
+    const detail = body.slice(0, 500);
+    console.error(`[openmeteo] weather batch HTTP ${status}: ${detail}`);
+    throw new OpenMeteoHttpError(status, detail || (res?.statusText ?? ''));
   }
 
   const raw = (await res.json()) as OpenMeteoWeatherResult | OpenMeteoWeatherResult[];
@@ -191,6 +192,7 @@ export async function fetchWeatherGridForDate(
   const results: WeatherReading[] = [];
   for (let i = 0; i < batches.length; i++) {
     const b = batches[i];
+    console.log(`[openmeteo] weather batch ${i + 1}/${batches.length} (${b.lats.length} points)`);
     const readings = await fetchWeatherBatch(b.lats, b.lngs, date, isToday);
     results.push(...readings);
     if (i < batches.length - 1) await new Promise((r) => setTimeout(r, WEATHER_BATCH_PAUSE_MS));
