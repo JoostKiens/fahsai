@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { fetchFirms } from '../lib/firms.js';
+import { fetchFirms, FirmsHttpError } from '../lib/firms.js';
 
 export async function runFiresIngest(date?: string): Promise<{ inserted: number }> {
   const targetDate = date ?? new Date().toISOString().slice(0, 10);
@@ -12,7 +12,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       try {
         return await fetchFirms(targetDate);
       } catch (err) {
-        if (err instanceof Error && /\b4\d\d\b/.test(err.message))
+        if (err instanceof FirmsHttpError && err.status >= 400 && err.status < 500)
           throw new AbortError(err.message);
         throw err;
       }
@@ -21,10 +21,12 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       retries: 3,
       minTimeout: 2000,
       factor: 2,
-      onFailedAttempt: (err) =>
+      onFailedAttempt: (err) => {
+        const cause = err.cause instanceof Error ? ` → ${err.cause.message}` : '';
         console.warn(
-          `[fires-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
-        ),
+          `[fires-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause}`,
+        );
+      },
     },
   );
   console.log(`[fires-ingest] Fetched ${rows.length} rows`);

@@ -1,5 +1,15 @@
 import { DEFAULT_BBOX } from './bbox.js';
 
+export class FirmsHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    statusText: string,
+  ) {
+    super(`FIRMS API error: ${status} ${statusText}`);
+    this.name = 'FirmsHttpError';
+  }
+}
+
 export interface FirmsRow {
   detectedAt: string; // ISO 8601 UTC
   lat: number;
@@ -17,9 +27,21 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
     `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${mapKey}` +
     `/VIIRS_NOAA21_NRT/${DEFAULT_BBOX}/1/${date}`;
 
-  const res = await fetch(url);
+  const safeUrl = url.replace(mapKey, '[REDACTED]');
+  console.log(`[firms] fetching ${safeUrl}`);
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    const cause = err instanceof Error ? (err.cause ?? err) : err;
+    const causeMsg = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`FIRMS network error: ${causeMsg}`, {
+      cause: cause instanceof Error ? cause : undefined,
+    });
+  }
   if (!res.ok) {
-    throw new Error(`FIRMS API error: ${res.status} ${res.statusText}`);
+    throw new FirmsHttpError(res.status, res.statusText);
   }
 
   const text = await res.text();
