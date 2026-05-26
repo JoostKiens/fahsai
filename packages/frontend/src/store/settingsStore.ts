@@ -13,7 +13,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
-      scrubberDays: 30,
+      scrubberDays: 60,
       setScrubberDays: (days) => set({ scrubberDays: days }),
       language: null,
       setLanguage: (lang) => set({ language: lang }),
