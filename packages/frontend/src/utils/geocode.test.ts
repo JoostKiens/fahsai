@@ -17,12 +17,13 @@ function mockFetch(body: unknown, ok = true) {
   );
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
 describe('reverseGeocode', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('returns placeName and countryAlpha2 from Mapbox response', async () => {
+    // locality takes priority over place for slot 0; region fills slot 1
     mockFetch(
       makeMapboxResponse([
         { id: 'locality.1', text: 'Chiang Mai' },
@@ -37,7 +38,7 @@ describe('reverseGeocode', () => {
   });
 
   it('deduplicates identical place and region labels', async () => {
-    // locality and place are both "Bangkok" → only one in output
+    // slot-0 picks locality="Bangkok", slot-1 picks place="Bangkok" → dedup collapses to one
     mockFetch(
       makeMapboxResponse([
         { id: 'locality.1', text: 'Bangkok' },
@@ -62,6 +63,14 @@ describe('reverseGeocode', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
     const result = await reverseGeocode(1.0, 1.0, 'pk.test');
+    expect(result.placeName).toBeNull();
+    expect(result.countryAlpha2).toBeNull();
+  });
+
+  it('returns null fields when response is not ok', async () => {
+    mockFetch({}, false);
+
+    const result = await reverseGeocode(2.0, 2.0, 'pk.test');
     expect(result.placeName).toBeNull();
     expect(result.countryAlpha2).toBeNull();
   });
