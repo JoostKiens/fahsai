@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { fetchWeatherGridForDate } from '../lib/openmeteo.js';
+import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../lib/openmeteo.js';
 import { precomputeStationWeather } from '../lib/computeStationWeather.js';
 
 const DB_BATCH_SIZE = 500;
@@ -44,11 +44,16 @@ export async function runWeatherIngest(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[weather-ingest] fetch error: ${msg}`);
-        // Abort only on permanent client errors (400/401/403/404/422).
+        // Abort only on permanent client errors (400–499, excluding 429).
         // 429 is handled with retries inside fetchWeatherBatch; let it propagate
         // to pRetry's exponential backoff if the internal retries are exhausted.
-        if (err instanceof Error && /\b(400|401|403|404|414|422)\b/.test(msg))
-          throw new AbortError(msg);
+        if (
+          err instanceof OpenMeteoHttpError &&
+          err.status >= 400 &&
+          err.status < 500 &&
+          err.status !== 429
+        )
+          throw new AbortError(err);
         throw err;
       }
     },
