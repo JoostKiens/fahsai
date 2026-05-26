@@ -1,5 +1,15 @@
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 
+export class OpenMeteoHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    detail: string,
+  ) {
+    super(`Open-Meteo Air Quality API error: ${status} — ${detail}`);
+    this.name = 'OpenMeteoHttpError';
+  }
+}
+
 // ─── Weather grid ─────────────────────────────────────────────────────────────
 //
 // 0.4° grid over bbox [89,1,114,30] — matches the CAMS AQ grid resolution.
@@ -275,11 +285,11 @@ async function fetchAQBatch(
   }
 
   if (!res?.ok) {
-    const status = res?.status ?? 'none';
+    const status = res?.status ?? 0;
     const body = res ? await res.text().catch(() => '') : '';
     const detail = body.slice(0, 300);
     console.error(`[openmeteo] AQ batch HTTP ${status}: ${detail}`);
-    throw new Error(`Open-Meteo Air Quality API error: ${status} — ${detail || res?.statusText}`);
+    throw new OpenMeteoHttpError(status, detail || (res?.statusText ?? ''));
   }
 
   // API returns a single object when one location is requested, array for multiple.
@@ -331,6 +341,9 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
   for (let i = 0; i < batches.length; i += AQ_BATCH_CONCURRENCY) {
     if (i > 0) await new Promise((r) => setTimeout(r, AQ_BATCH_PAUSE_MS));
     const chunk = batches.slice(i, i + AQ_BATCH_CONCURRENCY);
+    console.log(
+      `[openmeteo] AQ batch ${i + 1}/${batches.length} (${chunk.reduce((n, b) => n + b.lats.length, 0)} points)`,
+    );
 
     const chunkResults = await Promise.all(
       chunk.map(async (b) => {
