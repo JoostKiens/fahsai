@@ -28,9 +28,13 @@ describe('snapToGrid', () => {
   });
 
   it('result has at most 2 decimal places (no float drift)', () => {
-    // 13.756 (Bangkok lat) should produce a clean decimal, not 13.800000000001
-    const result = snapToGrid(13.756, SNAP_LAT_MIN);
-    expect(result.toString()).toMatch(/^\d+\.\d{1,2}$/);
+    // 13.756 (Bangkok lat) snaps to 13.8 — not 13.800000000001
+    expect(snapToGrid(13.756, SNAP_LAT_MIN)).toBe(13.8);
+  });
+
+  it('snaps the exact midpoint downward (Math.round half-up behaviour)', () => {
+    // Midpoint between 1.0 and 1.4 is 1.20. Math.round(0.5)=1 → snaps down to 1.0.
+    expect(snapToGrid(1.2, SNAP_LAT_MIN)).toBe(1.0);
   });
 
   it('works for longitude with SNAP_LNG_MIN', () => {
