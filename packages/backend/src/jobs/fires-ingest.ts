@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { fetchFirms, FirmsHttpError } from '../lib/firms.js';
+import { fetchFirms, FirmsHttpError } from '../utils/firms.js';
 
 export async function runFiresIngest(date?: string): Promise<{ inserted: number }> {
   const targetDate = date ?? new Date().toISOString().slice(0, 10);

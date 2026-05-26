@@ -16,7 +16,7 @@ import 'dotenv/config';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
-import { buildS3Url, downloadS3File, computeDailyMean } from '../lib/openaq-s3.js';
+import { buildS3Url, downloadS3File, computeDailyMean } from '../utils/openaq-s3.js';
 
 const BATCH_SIZE = 500;
 const CONCURRENCY = 20;

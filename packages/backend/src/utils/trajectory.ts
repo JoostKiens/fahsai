@@ -1,4 +1,4 @@
-import { haversineKm, bearingDeg } from '../lib/geo.js';
+import { haversineKm, bearingDeg } from '../utils/geo.js';
 
 export interface WindGridPoint {
   lat: number;

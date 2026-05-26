@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { traceEnsemble, offsetDate, nearestGridPoint } from './trajectory.js';
-import { haversineKm, bearingDeg } from '../lib/geo.js';
+import { haversineKm, bearingDeg } from '../utils/geo.js';
 import type { WindGridPoint } from './trajectory.js';
 
 // Minimal single-point wind grid

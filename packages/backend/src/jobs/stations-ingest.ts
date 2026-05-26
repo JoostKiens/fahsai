@@ -1,6 +1,6 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
-import { fetchLocations, extractPm25SensorIds } from '../lib/openaq.js';
+import { fetchLocations, extractPm25SensorIds } from '../utils/openaq.js';
 
 export async function runStationsIngest(): Promise<{
   stationsUpserted: number;

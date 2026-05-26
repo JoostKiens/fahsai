@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { FirePoint } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
-import { parseBbox, DEFAULT_BBOX } from '../lib/bbox.js';
+import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

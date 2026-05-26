@@ -10,7 +10,7 @@ import {
   contrastColor,
   AQI_CATEGORIES,
   pm25ToCategory,
-} from '../lib/aqiColors';
+} from '../utils/aqiColors';
 
 export { AQI_CATEGORIES };
 

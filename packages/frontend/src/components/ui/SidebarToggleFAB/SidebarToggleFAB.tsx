@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { LayerGroups } from '../Sidebar/LayerGroups';
-import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '../../../lib/animation';
+import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
 
 export function SidebarToggleFAB() {
   const [drawerOpen, setDrawerOpen] = useState(false);

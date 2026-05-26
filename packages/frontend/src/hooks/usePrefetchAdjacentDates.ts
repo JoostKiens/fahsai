@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { FirePoint, WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { useTimeStore } from '../store/timeStore';
 import type { LatestMeasurement } from './useStationReadings';
-import { staleTimeForArray } from '../lib/queryHelpers';
+import { staleTimeForArray } from '../utils/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
