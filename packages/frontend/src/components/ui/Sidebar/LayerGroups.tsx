@@ -11,6 +11,23 @@ const FIRE_TIERS = [
   { labelKey: 'fireTier.extreme' as const, range: '> 200', r: 8 },
 ];
 
+function LayerNote({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] text-gray-500 leading-tight">{children}</p>;
+}
+
+function LayerAttribution({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[11px] text-gray-500 underline-offset-2 hover:underline leading-tight"
+    >
+      {children}
+    </a>
+  );
+}
+
 function GroupHeader({
   label,
   checked,
@@ -74,6 +91,7 @@ function AirQualityGroup() {
         onToggle={() => toggleLayer('aqStations')}
         toggleLabel={t('layers.toggleStationReadings')}
       />
+      <LayerAttribution href="https://openaq.org/">{t('layers.viaOpenAQ')}</LayerAttribution>
       <SubRow
         label={t('layers.ambient')}
         description={t('layers.ambientDesc')}
@@ -81,6 +99,9 @@ function AirQualityGroup() {
         onToggle={() => toggleLayer('aqGrid')}
         toggleLabel={t('layers.toggleAmbient')}
       />
+      <LayerAttribution href="https://open-meteo.com/">
+        {t('layers.viaCamsOpenMeteo')}
+      </LayerAttribution>
 
       {(aqGrid || aqStations) && (
         <div className="mt-2.5 space-y-1">
@@ -142,10 +163,12 @@ function FiresGroup() {
               <span className="text-[11px] text-gray-400 tabular-nums">{tier.range}</span>
             </div>
           ))}
-          <p className="text-[11px] text-gray-500 leading-tight mt-2">{t('layers.fireFrpNote')}</p>
-          <p className="text-[11px] text-gray-500 leading-tight mt-1">
-            {t('layers.fireSourceNote')}
-          </p>
+          <div className="mt-2 space-y-0.5">
+            <LayerNote>{t('layers.fireFrpNote')}</LayerNote>
+            <LayerAttribution href="https://firms.modaps.eosdis.nasa.gov/">
+              {t('layers.fireSourceNote')}
+            </LayerAttribution>
+          </div>
         </div>
       )}
     </article>
@@ -167,8 +190,11 @@ function WindGroup() {
       />
       {visible && (
         <div className="mt-1 space-y-0.5">
-          <p className="text-[11px] text-gray-500 leading-tight">{t('layers.windParticleNote')}</p>
-          <p className="text-[11px] text-gray-500 leading-tight">{t('layers.windSnapshotNote')}</p>
+          <LayerNote>{t('layers.windParticleNote')}</LayerNote>
+          <LayerNote>{t('layers.windSnapshotNote')}</LayerNote>
+          <LayerAttribution href="https://open-meteo.com/">
+            {t('layers.viaOpenMeteo')}
+          </LayerAttribution>
         </div>
       )}
     </article>
@@ -198,6 +224,9 @@ function PowerPlantsGroup() {
               </span>
             </div>
           ))}
+          <LayerAttribution href="https://resourcewatch.org/">
+            {t('layers.viaWRI')}
+          </LayerAttribution>
         </div>
       )}
     </article>
