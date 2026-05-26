@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
-import { fetchAirQualityGrid } from '../lib/openmeteo.js';
+import { fetchAirQualityGrid, OpenMeteoHttpError } from '../lib/openmeteo.js';
 
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
@@ -29,7 +29,8 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
         // Pass the Error object (not just err.message) so p-retry preserves the original
         // stack. new AbortError(string) captures its own stack before name/message are set,
         // making the logged error appear message-less.
-        if (err instanceof Error && /\b4\d\d\b/.test(err.message)) throw new AbortError(err);
+        if (err instanceof OpenMeteoHttpError && err.status >= 400 && err.status < 500)
+          throw new AbortError(err);
         throw err;
       }
     },
