@@ -6,6 +6,9 @@ try {
   console.log('[fires-ingest] done', result);
   process.exit(0);
 } catch (err) {
-  console.error('[fires-ingest] failed', err);
+  const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  console.error(`[fires-ingest] failed: ${message}`);
+  if (stack) console.error(stack);
   process.exit(1);
 }

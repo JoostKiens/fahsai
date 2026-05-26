@@ -4,13 +4,9 @@ export interface FirmsRow {
   detectedAt: string; // ISO 8601 UTC
   lat: number;
   lng: number;
-  brightTi4: number | null;
-  brightTi5: number | null;
   frp: number | null;
-  satellite: string;
   confidence: string;
   daynight: string;
-  countryId: string | null; // not present in FIRMS area API response — always null
 }
 
 export async function fetchFirms(date: string): Promise<FirmsRow[]> {
@@ -41,7 +37,6 @@ export async function fetchFirms(date: string): Promise<FirmsRow[]> {
 // Actual VIIRS NOAA-21 NRT area API columns (confirmed from live response):
 // latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,
 // instrument,confidence,version,bright_ti5,frp,daynight
-// satellite code: 'N21' = NOAA-21. Note: 'country_id' is NOT included in area API responses.
 function parseFirmsCsv(csv: string): FirmsRow[] {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return []; // header only or empty
@@ -51,12 +46,9 @@ function parseFirmsCsv(csv: string): FirmsRow[] {
 
   const iLat = idx('latitude');
   const iLng = idx('longitude');
-  const iBrightTi4 = idx('bright_ti4');
-  const iBrightTi5 = idx('bright_ti5');
   const iFrp = idx('frp');
   const iAcqDate = idx('acq_date');
   const iAcqTime = idx('acq_time');
-  const iSatellite = idx('satellite');
   const iConfidence = idx('confidence');
   const iDaynight = idx('daynight');
 
@@ -75,13 +67,9 @@ function parseFirmsCsv(csv: string): FirmsRow[] {
       detectedAt,
       lat: parseFloat(cols[iLat]),
       lng: parseFloat(cols[iLng]),
-      brightTi4: parseNullableFloat(cols[iBrightTi4]),
-      brightTi5: parseNullableFloat(cols[iBrightTi5]),
       frp: parseNullableFloat(cols[iFrp]),
-      satellite: cols[iSatellite]?.trim() ?? '',
       confidence: cols[iConfidence]?.trim() ?? '',
       daynight: cols[iDaynight]?.trim() ?? '',
-      countryId: null,
     });
   }
 

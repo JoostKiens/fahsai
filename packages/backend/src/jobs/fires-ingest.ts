@@ -36,17 +36,11 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
 
   const records = rows.map((row) => ({
     detected_at: row.detectedAt,
-    location: `POINT(${row.lng} ${row.lat})`,
     lat: row.lat,
     lng: row.lng,
     frp: row.frp,
-    bright_ti4: row.brightTi4,
-    bright_ti5: row.brightTi5,
-    country_id: row.countryId,
-    satellite: row.satellite,
     confidence: row.confidence,
     daynight: row.daynight,
-    source: 'VIIRS_NOAA21_NRT',
   }));
 
   await pRetry(
@@ -54,7 +48,18 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       const { error } = await supabase
         .from('fire_points')
         .upsert(records, { onConflict: 'detected_at,lat,lng', ignoreDuplicates: true });
-      if (error) throw new AbortError(`[fires-ingest] Supabase upsert failed: ${error.message}`);
+      if (error) {
+        const detail = `code=${error.code ?? '?'} message="${error.message}" details="${error.details ?? '-'}" hint="${error.hint ?? '-'}"`;
+        console.error(`[fires-ingest] Supabase upsert error: ${detail}`);
+        // Abort immediately on definitive schema/constraint errors; retry on transient failures.
+        const isClientError =
+          error.code?.startsWith('22') || // data exception
+          error.code?.startsWith('23') || // integrity constraint
+          error.code?.startsWith('42'); // syntax/schema
+        if (isClientError)
+          throw new AbortError(`Supabase upsert failed (${error.code}): ${error.message}`);
+        throw new Error(`Supabase upsert failed (${error.code}): ${error.message}`);
+      }
     },
     {
       retries: 3,
