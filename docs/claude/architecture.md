@@ -73,11 +73,11 @@ keeps API keys server-side.
   (sequential, with 429 retry backoff)
 - No API key required
 - Schedule: daily (0 23 \* \* \* UTC)
-- Storage: Supabase `aq_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
+- Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
   first; on miss reads from Supabase. Ingest writes to both. Pruned after 130 days.
 - License: CC BY 4.0 (same Open-Meteo footer attribution covers both weather and AQ)
 - Data source: CAMS (Copernicus Atmosphere Monitoring Service), ~11 km resolution
-- Script: `pnpm --filter backend run ingest:aq YYYY-MM-DD`
+- Script: `pnpm --filter backend run ingest:cams YYYY-MM-DD`
 
 ---
 
@@ -95,20 +95,20 @@ stations-ingest       — weekly    (0 22 4 * *)    fetches OpenAQ locations by 
                                                   including pm25_sensor_ids and datetime_last;
                                                   skips locations where datetimeLast > 30 days
 
-aq-ingest             — daily     (0 23 * * *)   fetches CAMS PM2.5 grid for TODAY via
-  ingest-aq-today                                 ingest-aq-today.ts; single pass — CAMS is
+cams-ingest           — daily     (0 23 * * *)   fetches CAMS PM2.5 grid for TODAY via
+  ingest-cams-today                               ingest-cams-today.ts; single pass — CAMS is
                                                   deterministic so values don't change between runs;
                                                   grid visible by ~23:30 UTC (06:30 BKK)
 
-aqi-ingest (pass 1)   — daily     (0 23 * * *)   reads pm25_sensor_ids from stations, fetches pm25
-  ingest-aqi-today                                daily averages for TODAY via /hours/daily;
-                                                  BKK day closes 16:59 UTC — 6h processing buffer;
-                                                  station_readings visible by ~23:30 UTC (06:30 BKK)
+station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
+  ingest-station-readings-today                         daily averages for TODAY via /hours/daily;
+                                                        BKK day closes 16:59 UTC — 6h processing buffer;
+                                                        station_readings visible by ~23:30 UTC (06:30 BKK)
 
-aqi-ingest (pass 2)   — daily     (0 4 * * *)    fetches pm25 daily averages for YESTERDAY as safety
-  ingest-aqi                                      net; overwrites any partial values pass 1 wrote
-                                                  before all stations had reported
-                                                  (ignoreDuplicates: false)
+station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily averages for YESTERDAY as safety
+  ingest-station-readings                               net; overwrites any partial values pass 1 wrote
+                                                        before all stations had reported
+                                                        (ignoreDuplicates: false)
 
 weather-ingest        — daily     (0 8 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
   ingest-weather-today                            07:00 UTC snapshot; upserts to Supabase
@@ -118,7 +118,7 @@ weather-ingest        — daily     (0 8 * * *)    fetches Open-Meteo weather gr
                                                   that reported pm25 that date. Uses paginated
                                                   .range() queries to bypass Supabase 1000-row cap.
 
-prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, aq_grid,
+prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, cams_grid,
                                                   weather_readings, station_weather rows > 40 days
 
 backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for weather_readings.
@@ -133,7 +133,7 @@ backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for
 The UI shows the most recent date where all three gating sources have complete data
 (AQ grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1), served by `GET /api/latest-date`.
 The date typically becomes available at ~23:30 UTC (06:30 BKK).
-If aqi-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
+If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
 
 Each script exits with code 0 on success and non-zero on failure. Retry logic is implemented
@@ -187,7 +187,7 @@ GET /api/weather?date=YYYY-MM-DD&bbox=...
 
 GET /api/cams?date=YYYY-MM-DD&bbox=...
   Returns CAMS gridded PM2.5 for a specific date (up to 4,599 points).
-  Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase aq_grid.
+  Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
 
 GET /api/power-plants
   Returns WRI power plants (Coal/Gas/Oil) for THA/MMR/LAO/KHM as GeoJSON FeatureCollection.
@@ -222,7 +222,7 @@ GET /health
 | `GET /api/stations/:id/history`     | —                                                 | —         | Supabase `station_readings` + `station_weather` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
 | `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `aq_grid`                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                       | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                    | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                        | none set                                                        |
 | `GET /api/explain`                  | —                                                 | —         | Streams from Gemini API                                    | none set                                                        |

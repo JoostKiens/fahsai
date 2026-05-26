@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useFires } from './useFires';
-import { useAQI } from './useAQI';
+import { useStationReadings } from './useStationReadings';
 import { useWind } from './useWind';
 import { useCamsGrid } from './useCamsGrid';
 import { useTimeStore, selectIsSettled } from '../store/timeStore';
@@ -13,7 +13,7 @@ export function useDataNotifications() {
   const { t } = useTranslation();
   const isSettled = useTimeStore(selectIsSettled);
   const fires = useFires();
-  const aqi = useAQI();
+  const aqi = useStationReadings();
   const wind = useWind();
   const cams = useCamsGrid();
 

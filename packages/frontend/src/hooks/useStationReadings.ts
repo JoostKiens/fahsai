@@ -13,7 +13,7 @@ export interface LatestMeasurement {
   measuredAt: string;
 }
 
-export function useAQI() {
+export function useStationReadings() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   return useQuery({
     queryKey: ['aqi-latest', 'pm25', selectedDate],

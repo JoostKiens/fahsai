@@ -11,7 +11,7 @@ import { reverseGeocode } from '../../../lib/geocode';
 import { CountryFlag, alpha2ToIso3 } from '../../../lib/countryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../lib/ambient';
 import { useCamsGrid } from '../../../hooks/useCamsGrid';
-import { useAQI } from '../../../hooks/useAQI';
+import { useStationReadings } from '../../../hooks/useStationReadings';
 import { useWind } from '../../../hooks/useWind';
 import { useStationHistory } from '../../../hooks/useStationHistory';
 import { dateLocale } from '../../../i18n';
@@ -28,7 +28,7 @@ export function InfoPanel() {
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const { data: aqGrid } = useCamsGrid();
-  const { data: aqData, isLoading: aqLoading } = useAQI();
+  const { data: aqData, isLoading: aqLoading } = useStationReadings();
   const { data: wind } = useWind();
 
   const [placeName, setPlaceName] = useState<string | null>(null);

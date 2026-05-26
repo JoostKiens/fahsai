@@ -63,7 +63,7 @@ simplicity and correctness over premature optimization.
 │           │   └── PowerPlantsLayer.ts
 │           ├── hooks/        # TanStack Query hooks, one per data type
 │           │   ├── useFires.ts
-│           │   ├── useAQI.ts
+│           │   ├── useStationReadings.ts
 │           │   ├── useWind.ts
 │           │   ├── useWindParticles.ts
 │           │   ├── usePowerPlants.ts
@@ -144,9 +144,9 @@ pnpm --filter frontend dev                        # frontend only
 
 # One-off ingestion (manual testing)
 pnpm --filter backend run ingest:firms
-pnpm --filter backend run ingest:aqi
+pnpm --filter backend run ingest:station-readings
 pnpm --filter backend run ingest:wind
-pnpm --filter backend run ingest:aq YYYY-MM-DD    # CAMS PM2.5 grid
+pnpm --filter backend run ingest:cams YYYY-MM-DD   # CAMS PM2.5 grid
 pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV path as optional arg)
 
 # One-time backfill after deploying migration 018_station_weather.sql
