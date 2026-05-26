@@ -441,5 +441,5 @@ export function MapView() {
     };
   }, [setSelectedPoint, setMapZoom, setMapCenter]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  return <div ref={containerRef} className="w-full h-full" />;
 }
