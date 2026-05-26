@@ -2,9 +2,8 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../../store/uiStore';
 import { mapRef } from '../../../lib/mapRef';
+import { SPRING } from '../../../lib/animation';
 import { LayerGroups } from './LayerGroups';
-
-const SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
 
 export function Sidebar() {
   const { t } = useTranslation();

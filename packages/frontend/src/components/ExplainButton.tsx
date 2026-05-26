@@ -54,7 +54,7 @@ export function ExplainButton({
   }
 
   const defaultButtonClass = [
-    'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors',
+    'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors ease-out hover:duration-[175ms]',
     isDisabled
       ? 'border-gray-200 text-gray-300 bg-white cursor-not-allowed'
       : 'border-teal-200 text-teal-600 bg-teal-50 hover:bg-teal-100',

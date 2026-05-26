@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { TWEEN_ENTER, TWEEN_EXIT } from '../../../lib/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { useUIStore } from '../../../store/uiStore';
@@ -113,7 +114,7 @@ export function InfoPanel() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={TWEEN_ENTER}
           className="flex flex-col items-center justify-center h-[100px] gap-2 text-gray-400"
         >
           <CursorClickIcon />
@@ -135,9 +136,8 @@ export function InfoPanel() {
         <motion.div
           key={panelType}
           initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
+          animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+          exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
           className="p-3"
         >
           <PanelHeader
@@ -361,7 +361,7 @@ function StationPanel({
         lng={lngLat[0]}
         globalQuotaExceeded={explainQuotaExceeded}
         onQuotaExceeded={() => setExplainQuotaExceeded(true)}
-        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors shadow-sm"
+        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors ease-out hover:duration-[175ms] shadow-sm"
       />
       {(historyLoading || historyDays) && (
         <>

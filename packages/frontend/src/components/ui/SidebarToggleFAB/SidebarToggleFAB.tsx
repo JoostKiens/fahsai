@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { LayerGroups } from '../Sidebar/LayerGroups';
-
-const DRAWER_SPRING = { type: 'spring' as const, stiffness: 400, damping: 40 };
+import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '../../../lib/animation';
 
 export function SidebarToggleFAB() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -35,9 +34,8 @@ export function SidebarToggleFAB() {
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              animate={{ opacity: 1, transition: TWEEN_ENTER }}
+              exit={{ opacity: 0, transition: TWEEN_EXIT }}
               onClick={() => setDrawerOpen(false)}
               className="fixed inset-0 bg-black/30 z-40 pointer-events-auto md:hidden"
             />
@@ -48,7 +46,7 @@ export function SidebarToggleFAB() {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={DRAWER_SPRING}
+              transition={SPRING}
               drag="y"
               dragControls={dragControls}
               dragListener={false}
