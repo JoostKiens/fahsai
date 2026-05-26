@@ -13,7 +13,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
         return await fetchFirms(targetDate);
       } catch (err) {
         if (err instanceof FirmsHttpError && err.status >= 400 && err.status < 500)
-          throw new AbortError(err.message);
+          throw new AbortError(err);
         throw err;
       }
     },
@@ -22,9 +22,12 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       minTimeout: 2000,
       factor: 2,
       onFailedAttempt: (err) => {
-        const cause = err.cause instanceof Error ? ` → ${err.cause.message}` : '';
+        const cause =
+          err.cause instanceof Error
+            ? ((err.cause as { code?: string }).code ?? err.cause.name ?? err.cause.message)
+            : undefined;
         console.warn(
-          `[fires-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause}`,
+          `[fires-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause ? ` (${cause})` : ''}`,
         );
       },
     },
