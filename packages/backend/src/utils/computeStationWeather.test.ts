@@ -32,8 +32,9 @@ describe('snapToGrid', () => {
     expect(snapToGrid(13.756, SNAP_LAT_MIN)).toBe(13.8);
   });
 
-  it('snaps the exact midpoint downward (Math.round half-up behaviour)', () => {
-    // Midpoint between 1.0 and 1.4 is 1.20. Math.round(0.5)=1 → snaps down to 1.0.
+  it('snaps the exact midpoint downward due to float drift', () => {
+    // The true midpoint between 1.0 and 1.4 is 1.2, but IEEE 754 makes
+    // 1.2 - 1.0 = 0.1999..., so 0.1999.../0.4 = 0.4999... → Math.round rounds DOWN → 1.0.
     expect(snapToGrid(1.2, SNAP_LAT_MIN)).toBe(1.0);
   });
 
