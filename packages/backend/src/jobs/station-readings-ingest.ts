@@ -69,6 +69,9 @@ export async function runStationReadingsIngest(date?: string): Promise<{
     await sleep(nextDelayMs);
     nextDelayMs = DEFAULT_DELAY_MS;
     sensorsQueried++;
+    console.log(
+      `[station-readings-ingest] fetching sensor ${sensorId} (${sensorsQueried}/${stationRows.length})`,
+    );
 
     const { readings, rateLimitRemaining, rateLimitResetMs } = await fetchSensorDailyAverage(
       apiKey,

@@ -80,11 +80,6 @@ function parseRateLimitHeaders(
     rateLimitResetMs = isTimestamp
       ? reset * 1000 // Unix timestamp → convert to ms
       : Date.now() + reset * 1000; // duration → absolute ms from now
-    const secsUntilReset = Math.round((rateLimitResetMs - Date.now()) / 1000);
-    console.debug(
-      `[openaq] rate limit: remaining=${Number.isFinite(remaining) ? remaining : 'n/a'}` +
-        ` reset=${reset} (${isTimestamp ? 'unix-ts' : 'duration'}) → resets in ${secsUntilReset}s`,
-    );
   }
 
   return {
