@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { FirePoint, WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { useTimeStore } from '../store/timeStore';
 import type { LatestMeasurement } from './useStationReadings';
+import { staleTimeForArray } from '../lib/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -26,20 +27,22 @@ export function usePrefetchAdjacentDates() {
         queryKey: ['fires', date],
         queryFn: async () => {
           const res = await fetch(`${API}/api/fires?date=${date}`);
+          if (res.status === 404) return [];
           if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
           return ((await res.json()) as { data: FirePoint[] }).data;
         },
-        staleTime: Infinity,
+        staleTime: staleTimeForArray,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['aqi-latest', 'pm25', date],
         queryFn: async () => {
           const res = await fetch(`${API}/api/station-readings/latest?date=${date}`);
+          if (res.status === 404) return [];
           if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
           return ((await res.json()) as { data: LatestMeasurement[] }).data;
         },
-        staleTime: Infinity,
+        staleTime: staleTimeForArray,
       });
 
       void queryClient.prefetchQuery({

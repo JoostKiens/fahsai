@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '../store/timeStore';
 import type { FirePoint } from '@thailand-aq/types';
+import { staleTimeForArray } from '../lib/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -10,9 +11,10 @@ export function useFires() {
     queryKey: ['fires', selectedDate],
     queryFn: async () => {
       const res = await fetch(`${API}/api/fires?date=${selectedDate}`);
+      if (res.status === 404) return [];
       if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
       return ((await res.json()) as { data: FirePoint[] }).data;
     },
-    staleTime: Infinity, // historical dates are immutable after ingestion
+    staleTime: staleTimeForArray,
   });
 }
