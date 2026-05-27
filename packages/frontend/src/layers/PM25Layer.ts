@@ -113,14 +113,20 @@ function pm25OfFeature(d: AnyStationFeature): number {
     : d.properties.value;
 }
 
-// Module-level Supercluster cache — index is rebuilt only when the data reference changes,
-// not on every zoom change. getClusters() on an existing index is fast.
+// Module-level Supercluster cache — index is rebuilt only when the data reference or selected
+// station changes, not on every zoom change. getClusters() on an existing index is fast.
 let _scIndex: Supercluster<LatestMeasurement, { sumPm25: number }> | null = null;
 let _scData: LatestMeasurement[] | null = null;
+let _scSelectedId: string | null | undefined = undefined;
 
-function getStationIndex(data: LatestMeasurement[]) {
-  if (data === _scData && _scIndex !== null) return _scIndex;
+function getStationIndex(data: LatestMeasurement[], selectedStationId?: string | null) {
+  if (data === _scData && _scIndex !== null && selectedStationId === _scSelectedId) return _scIndex;
   _scData = data;
+  _scSelectedId = selectedStationId;
+  // Exclude the selected station so it is never absorbed into a cluster.
+  const filteredData = selectedStationId
+    ? data.filter((d) => d.stationId !== selectedStationId)
+    : data;
   _scIndex = new Supercluster<LatestMeasurement, { sumPm25: number }>({
     radius: CLUSTER_RADIUS,
     maxZoom: CLUSTER_MAX_ZOOM,
@@ -130,7 +136,7 @@ function getStationIndex(data: LatestMeasurement[]) {
     },
   });
   _scIndex.load(
-    data.map((d) => ({
+    filteredData.map((d) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [d.lng, d.lat] },
       properties: d,
@@ -248,14 +254,29 @@ export function createPM25StationsLayers(
     expansionZoom: number,
     leaves: LatestMeasurement[],
   ) => void,
+  selectedStationId?: string | null,
 ): Layer[] {
-  const sc = getStationIndex(data);
+  const sc = getStationIndex(data, selectedStationId);
 
   const clusters = sc.getClusters([-180, -90, 180, 90], Math.floor(zoom)) as AnyStationFeature[];
   const clusterFeatures = clusters.filter(
     (d): d is StationClusterFeature => !!d.properties.cluster,
   );
-  const singleFeatures = clusters.filter((d): d is StationPointFeature => !d.properties.cluster);
+  let singleFeatures = clusters.filter((d): d is StationPointFeature => !d.properties.cluster);
+
+  // Always render the selected station as an individual point regardless of zoom level.
+  if (selectedStationId) {
+    const sel = data.find((d) => d.stationId === selectedStationId);
+    if (sel) {
+      const pinnedFeature: StationPointFeature = {
+        geometry: { coordinates: [sel.lng, sel.lat] },
+        properties: { ...sel, cluster: false as const },
+      };
+      singleFeatures = [pinnedFeature, ...singleFeatures];
+    }
+  }
+
+  const allFeatures: AnyStationFeature[] = [...clusterFeatures, ...singleFeatures];
 
   const getPosition = (d: AnyStationFeature) => d.geometry.coordinates as [number, number];
   const layerParams = { depthCompare: 'always' as const, depthWriteEnabled: false };
@@ -309,7 +330,7 @@ export function createPM25StationsLayers(
   // Two-line block: value (12px) + count (10px), centres at -6 and +6 from anchor.
   const valueText = new TextLayer<AnyStationFeature>({
     id: 'pm25-stations-labels',
-    data: clusters,
+    data: allFeatures,
     getPosition,
     getText: (d) =>
       d.properties.cluster
