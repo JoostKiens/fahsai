@@ -361,7 +361,7 @@ function StationPanel({
         lng={lngLat[0]}
         globalQuotaExceeded={explainQuotaExceeded}
         onQuotaExceeded={() => setExplainQuotaExceeded(true)}
-        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors ease-out hover:duration-[175ms] shadow-sm"
+        className="block w-full text-center text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md py-1.5 mt-1.5 transition-colors ease-out hover:duration-175 shadow-sm"
       />
       {(historyLoading || historyDays) && (
         <>
