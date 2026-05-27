@@ -36,7 +36,9 @@
     "railway:ingest:cams:today": "node --import=tsx/esm src/scripts/ingest-cams-today.ts",
     "railway:ingest:cams:today:fallback": "node --import=tsx/esm src/scripts/ingest-cams-today-fallback.ts",
     "railway:ingest:fire-pressure": "node --import=tsx/esm src/scripts/ingest-fire-pressure.ts",
-    "railway:prune": "node --import=tsx/esm src/scripts/prune.ts"
+    "railway:prune": "node --import=tsx/esm src/scripts/prune.ts",
+    "check-data-ranges": "node --env-file=.env.local --import=tsx/esm src/scripts/check-data-ranges.ts",
+    "check-date-gaps": "node --env-file=.env.local --import=tsx/esm src/scripts/check-date-gaps.ts"
   },
   "dependencies": {
     "@fastify/compress": "^8.3.1",
