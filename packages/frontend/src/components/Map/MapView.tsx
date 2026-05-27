@@ -275,7 +275,15 @@ export function MapView() {
     }
 
     if (aqStationsConfig.visible && aqi) {
-      layers.push(...createPM25StationsLayers(aqi, zoom, onStationClick, onClusterClick));
+      layers.push(
+        ...createPM25StationsLayers(
+          aqi,
+          zoom,
+          onStationClick,
+          onClusterClick,
+          selectedPoint?.station?.stationId ?? null,
+        ),
+      );
     }
 
     const selectionParams = { depthCompare: 'always' as const, depthWriteEnabled: false };
