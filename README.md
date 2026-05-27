@@ -42,7 +42,7 @@ There's a shared daily quota of 500 requests per Bangkok calendar day. When it r
 
 **Frontend:** React 18 · TypeScript · Vite · Mapbox GL JS · Deck.gl · Zustand · TanStack Query v5
 
-**Backend:** Node.js 20 · Fastify · Supabase (PostgreSQL + PostGIS) · Upstash Redis · Google Gemini API
+**Backend:** Node.js 20 · Fastify · Supabase (PostgreSQL) · Upstash Redis · Google Gemini API
 
 **Deployment:** Vercel (frontend) · Railway (backend + cron jobs)
 
