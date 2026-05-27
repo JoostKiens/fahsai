@@ -90,7 +90,7 @@ simplicity and correctness over premature optimization.
 - `@fastify/cors` — registered before all routes; allows
   `https://thailand-air-quality-map-frontend.vercel.app` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
-- Upstash Redis (hot cache), Supabase (Postgres + PostGIS)
+- Upstash Redis (hot cache), Supabase (Postgres)
 
 ### Shared
 
