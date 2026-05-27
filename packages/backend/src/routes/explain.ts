@@ -439,13 +439,12 @@ export function explainRoutes(app: FastifyInstance): void {
         if (!s) continue;
         const distKm = haversineKm(lat, lng, s.lat, s.lng);
         if (distKm > 75) continue;
+        if (distKm < 0.5) continue; // exclude co-located sensors / same station
         peerMap.set(sid, { name: s.name, pm25: row.value, distKm });
       }
       const peerList = [...peerMap.values()];
       const peerValues = peerList.map((p) => p.pm25);
       const peerMedian = medianOf(peerValues); // used only for sensor-fault filter (nonOutlierPeers)
-      const peerMin = peerValues.length ? Math.min(...peerValues) : null;
-      const peerMax = peerValues.length ? Math.max(...peerValues) : null;
 
       // Distance-weighted mean: weight = 1/distKm so a 2 km station gets 30× more weight
       // than a 60 km one. This prevents distant stations in different micro-climates from
@@ -594,7 +593,7 @@ export function explainRoutes(app: FastifyInstance): void {
           wx.relative_humidity_2m !== null ? ` RH ${wx.relative_humidity_2m.toFixed(0)}%` : '';
         const humidWarn =
           (wx.relative_humidity_2m ?? 0) >= 85
-            ? ' ⚠ high humidity — optical sensors may over-read PM2.5'
+            ? ' ⚠ high humidity — readings may over-read PM2.5'
             : '';
         return `  ${date}: ${precip} mm rain,${rh}${humidWarn}`;
       });
@@ -718,18 +717,25 @@ export function explainRoutes(app: FastifyInstance): void {
               })
               .join('\n');
 
-      // Filter obvious sensor faults (> 5× median) before listing, provided at least 5
-      // non-outlier peers remain. Summary stats use the full list so count/range are honest.
+      // Filter peer outliers using the same ≥2× / ≤0.4× thresholds as the main outlier detector,
+      // so a station that would be flagged as a strong outlier on its own page is excluded here too.
+      // Require ≥ 3 non-outlier peers before applying the filter; fall back to the full list when
+      // too few peers remain (e.g. rural stations with only 1–2 neighbours).
       const nonOutlierPeers =
-        peerMedian > 0 && peerList.filter((p) => p.pm25 <= peerMedian * 5).length >= 5
-          ? peerList.filter((p) => p.pm25 <= peerMedian * 5)
+        peerMedian > 0 &&
+        peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4).length >= 3
+          ? peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4)
           : peerList;
+
+      const filteredPeerValues = nonOutlierPeers.map((p) => p.pm25);
+      const filteredPeerMin = filteredPeerValues.length ? Math.min(...filteredPeerValues) : null;
+      const filteredPeerMax = filteredPeerValues.length ? Math.max(...filteredPeerValues) : null;
 
       const peerStr =
         peerList.length === 0
           ? 'No peer station data available within 75 km'
           : [
-              `${peerList.length} stations — distance-weighted mean ${peerWeightedMean.toFixed(1)} µg/m³ (unweighted median ${peerMedian.toFixed(1)} µg/m³), range ${peerMin?.toFixed(1)}–${peerMax?.toFixed(1)} µg/m³`,
+              `${peerList.length} stations — distance-weighted mean ${peerWeightedMean.toFixed(1)} µg/m³ (unweighted median ${peerMedian.toFixed(1)} µg/m³), range ${filteredPeerMin?.toFixed(1)}–${filteredPeerMax?.toFixed(1)} µg/m³`,
               nonOutlierPeers
                 .sort((a, b) => a.distKm - b.distKm)
                 .slice(0, 10)
@@ -744,8 +750,8 @@ export function explainRoutes(app: FastifyInstance): void {
       const isHighOutlier = outlierRatio !== null && outlierRatio >= 2.0;
       const outlierNote = isStrongOutlier
         ? isHighOutlier
-          ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a sensor malfunction, a very localised source directly at the station, or a data reporting error.`
-          : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a sensor malfunction, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
+          ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a faulty reading, a very localised source directly at the station, or a data reporting error.`
+          : `⚠ STRONG OUTLIER (LOW): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much higher. This station is reading far below the regional level — the most likely explanations are a faulty reading, local shielding or washing of particles, or a data reporting error. Do NOT present this as good air quality — it is likely a measurement anomaly.`
         : isElevatedOutlier
           ? `NOTE: This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³) — somewhat above its neighbours. You may briefly note this if it adds useful context, but focus the explanation on the regional air quality drivers.`
           : '';
@@ -788,15 +794,15 @@ export function explainRoutes(app: FastifyInstance): void {
 
       // --- trajectory / fire / CAMS section — omitted for strong outliers ---
       const transportSection = isStrongOutlier
-        ? `FIRES / TRAJECTORY / CAMS: Omitted — reading is a strong outlier vs peer stations (${outlierRatio.toFixed(1)}× median, station is ${isHighOutlier ? 'far above' : 'far below'} neighbours). Regional transport data is not relevant.`
-        : `3-DAY BACK-TRAJECTORY (5-member ensemble, surface-level approximation)
+        ? `FIRES / WIND PATH / CAMS: Omitted — reading is a strong outlier vs peer stations (${outlierRatio.toFixed(1)}× median, station is ${isHighOutlier ? 'far above' : 'far below'} neighbours). Regional transport data is not relevant.`
+        : `3-DAY WIND PATH (5-member ensemble, surface-level approximation)
 ${trajectoryStr}
 NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin region as indicative, not precise.
 
-AIR QUALITY ALONG TRAJECTORY (CAMS model PM2.5)
+AIR QUALITY ALONG WIND PATH (CAMS model PM2.5)
 ${camsStr}
 
-CUMULATIVE FIRE PRESSURE (fires within transport corridor, last 72 h)
+CUMULATIVE FIRE PRESSURE (fires within wind path, last 72 h)
 Score: ${firePressureNorm}/100 — ${firePressureLabel(firePressureNorm)}
 Total fires along path: ${fires.length}
 ${fireStr}`;
@@ -805,7 +811,6 @@ ${fireStr}`;
 
 STATION: ${stationName} (${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E)
 CURRENT PM2.5: ${latestPm25.toFixed(1)} µg/m³ — ${pm25Cat(latestPm25)}
-RECENT TREND: ${trend}
 
 7-DAY DAILY AVERAGES
 ${dailyLines || '  No historical data'}
@@ -824,6 +829,9 @@ ${pressureScoreStr}
 UPWIND EMISSION SOURCES (cities, industrial zones, power plants along trajectory)
 ${sourcesStr}
 
+RECENT TREND (context only — do not narrate this in your response)
+${trend}
+
 PEER STATIONS WITHIN 75 KM (last 24 h)
 ${peerStr}
 ${outlierNote ? `\n${outlierNote}` : ''}
@@ -833,20 +841,26 @@ CONTEXT: ${seasonContext}
 Write 1–3 short paragraphs in plain English. No markdown, no bullet points — flowing prose only.
 The reader already sees the station name, PM2.5 value, and AQI category — do not repeat these verbatim.
 Lead with what is most interesting: where the air came from and what drove it.
+- Write for a general audience, not a scientist. Prefer short, direct sentences. Avoid nominalisations ("the accumulation of", "the presence of", "contributions from") — use verbs instead ("smoke accumulated", "fires are burning", "Bangkok adds"). Never use the words "trajectory", "corridor", "transport", "particulate matter", "concentration", or "sensors" — find plain equivalents ("stations" for sensors, "path the wind took" for trajectory, etc.).
+- When cumulative fire pressure is ≥ 70, fires are the primary driver of the acute reading — establish this first before mentioning geography or industrial sources. Industrial and urban sources are secondary context in that case.
+- Use only as many paragraphs as you have distinct things to say. One strong paragraph is better than two where the second repeats the first. Never add a paragraph just to reach a minimum length. Each paragraph must add new information not covered in the previous one. Where individual instructions below require a specific sentence (e.g. the imported pollution contrast, a wind-direction note, a marine-origin note), insert that sentence as the final sentence of the most relevant existing paragraph — do not create a new paragraph solely to house it.
 - Use neutral third person for location references ("this area", "this station", "conditions here") — do not use "we", "our", or "our community".
-- Use the trajectory and CAMS values to reason about transport over time, not just current wind direction. If wind direction changed significantly over the period shown, note what that means for the pollution origin. When describing the transport corridor, name the direction and the regions or countries the air traveled through (e.g., "arriving from the west, tracking back through central Myanmar") — readers cannot see the full multi-day trajectory on the map, so make it geographically concrete.
+- Use the CAMS values to trace how pollution changed along the wind path. Only describe it as an accumulation story when the endpoint is meaningfully higher than the origin — defined as a difference of ≥ 15 µg/m³ OR a crossing of an AQI category boundary (whichever threshold is met first). When either condition is met, you MUST cite the actual start and end values in µg/m³ — a sentence like "air quality worsened as it moved inland" without numbers is not acceptable; write "air that read 6.8 µg/m³ over the Gulf reached 29.2 µg/m³ by the time it arrived." If neither condition is met — all values stay within the same AQI band and are close in magnitude — skip the gradient entirely; it is noise, not a story. When CAMS values decrease along the path (the air got cleaner in transit), do not describe this as accumulation — either skip the gradient or note that the arriving air was cleaner than the source region, then consider whether local sources near the station better explain the gap between the arriving air quality and the station reading. CAMS values are atmospheric model estimates, not ground readings — do not describe them as "sensor readings" or imply they were measured by instruments along the path. If wind direction changed significantly over the period shown, add this as the final sentence of the relevant paragraph. When describing the wind path, name specific countries, regions, or cities the air mass traveled through — "from the south" or "from the coast" are not sufficient. Readers cannot see the full multi-day path on the map, so be geographically concrete. When the origin is over water (ocean, gulf, large lake), note that the cleaner marine air then traveled through a continental corridor — name the land regions or countries the air passed through after leaving the water, not just the water body of origin.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.${camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40 ? ' However, the CAMS model shows consistently low PM2.5 along the trajectory despite a high fire pressure score — fires are on the flanks of the corridor, not in the core air mass that reached this station. Do not mention fires at all: they are not contributing to current conditions and referencing them adds confusion rather than clarity.' : ''}
-- The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all.
+- The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all. When area fire pressure is high or very high, lead with the sustained local burning story — fires have been burning at or near this location for an extended period, not just today. When the station reading is substantially higher (> 20 µg/m³) than the highest CAMS value along the path, note that fires burning close to the station are pushing readings well above what the regional model shows — this gap is itself a finding.
+- When area fire pressure is low (< 20) but cumulative trajectory fire pressure is high (≥ 70), include this contrast as the final sentence of the most relevant paragraph rather than creating a new paragraph for it: this location itself has seen little local fire activity, yet the air arriving here carries heavy smoke from fires burning further upwind. This is the imported pollution story — make it explicit, not buried. Do NOT apply this contrast when: (a) area fire pressure is itself high or very high, OR (b) fires are listed in the current fire data within 30 km of the path — in either case, fires are burning near the station right now and the "little local activity" framing is factually wrong. The contrast only applies when fires are exclusively along the distant path and none are near the station.
 ${slowWindBuildup}
 - If fire pressure is 0 and no fires were detected, do not mention fires at all.
-- If power plants or industrial zones are along the trajectory, mention them only if fire pressure is low or moderate (they explain background pollution, not acute spikes). If they are far away (> 200 km) and air quality along the trajectory is good, skip them.
-- Compare against peer stations. If this station is a strong outlier, lead with that.
-- Recent rain can wash out PM2.5 — mention it only if precipitation is significant (> 5 mm total). If rainfall is negligible, do not mention it. High humidity (≥ 85%) may cause optical sensors to over-read.
-- ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good.'}
+- If cumulative fire pressure is below 40 and CAMS values along the trajectory are all below 20 µg/m³, treat fires as not contributing to current conditions and do not mention them.
+- The path the air took and the upwind emission sources are two different things. The path shows where the air mass came from geographically. Upwind sources are cities or industrial areas whose emissions are carried to the station by the wind — they may or may not lie on the path itself. Do not describe upwind sources as places the air "passed through", "passed near", "passes nearby", or "moved through on the way" — these imply the source is a waypoint, not an emitter. Frame them as sources adding pollution to the air arriving at the station.
+- Order sources using these tiers, resolved in sequence: (1) sources marked [currently upwind] and within 150 km — order these by proximity to the station, closest first; (2) sources NOT marked [currently upwind] but within 20 km — these are effectively local; the station sits in their air shed regardless of wind direction, so mention them as local urban context after any upwind sources; (3) everything else — omit. Exception: when cumulative fire pressure is ≥ 70 and fires are burning within 30 km of the station, industrial and urban sources further than 50 km away are background noise — skip them entirely and keep the focus on fires. Within tier 1, proximity governs order regardless of capacity or population: a 1,878 MW plant 18 km away ranks above a 2,400 MW plant 114 km away. Do not substitute capacity or population for proximity when deciding what to mention first. When multiple sources of the same type are relevant, group them rather than listing individually (e.g., "three coal-fired power plants including BLCP and Gheco One" rather than naming all three separately). When describing an upwind source, frame it as adding pollution to the arriving air — do not use "contribute to air quality" (ambiguous) and do not describe it as "being dispersed" or imply its pollution is blowing away from the station. Use the source type given in the data: a city is a city (reference its population for scale), an industrial zone is an industrial zone, a power plant is a power plant — do not mix up the categories.
+- Compare against peer stations. If this station is a strong outlier, lead with that. When peer stations confirm the reading is regionally representative, summarize them in a single sentence with values inline (e.g., "nearby stations read 19, 18, and 25 µg/m³, confirming the pattern is regional") — do not list each as a separate sentence. When naming a station, you MUST include its specific numerical value to one decimal place (e.g., 19.4, not 19). Use active phrasing only: "read" or "recorded X µg/m³" — never "reported" or "measured". When citing any PM2.5 value inline, always include the unit: µg/m³ (e.g., "nearby stations read 19.4, 25.2, and 17.5 µg/m³"). Before describing this station's reading relative to a peer, check the direction: is this station higher or lower than the peer value? State only what the numbers show — do not assume the station is the higher one. When a peer station reads higher than this station, do not use it as evidence that local conditions are elevated — it shows the opposite. Either note the difference ("a nearby station read 34.4 µg/m³, somewhat higher than here") or omit the peer comparison if it adds no useful information. If this station reads noticeably higher than peers (but below the strong outlier threshold), note the gap briefly rather than describing conditions as "consistent across the region" — consistency is only accurate when values are close. When peer stations show a wide spread (e.g., one reads Good and another reads Moderate or higher), note the spread rather than averaging over it — "nearby stations ranged from 11.7 to 34.4 µg/m³" is more honest than implying consistency.
+- Recent rain can wash out PM2.5 — mention it only if precipitation is significant (> 5 mm total). If rainfall is negligible, do not mention it. When rain and moderate conditions co-occur, describe them as two independent facts: "over 20 mm of rain has fallen recently" and "conditions are moderate." Do not connect them causally unless stating the physical mechanism directly (rain washes particles from the air) — and even then, state what happened, not what was avoided. High humidity (≥ 85%) may cause optical sensors to over-read.
+- ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good: identify the positive explanation — clean marine or oceanic air origin, recent rainfall, or genuinely low regional fire activity. If all active drivers are absent, the honest explanation is clean air origin combined with recent washout — say that directly.'}
 - Do not describe the week trend — the user already sees the 5-day chart.
 ${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
-- Do not reference specific time windows from the underlying data (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours", "14 days", "two weeks"). Use natural language instead ("recently", "over the past few days", "for weeks"). Treat all time windows as minimum durations — the underlying conditions may have persisted longer than what the data captures.
-- Do not speculate beyond what the data shows.
+- Do not reference specific time windows from the underlying data in your prose (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours", "14 days", "two weeks"). Specific durations appear in the data context above for your reference only — do not quote them verbatim in the response. Use natural language instead ("recently", "over the past few days", "for weeks"). Treat all time windows as minimum durations — the underlying conditions may have persisted longer than what the data captures.
+- Describe what is happening, not what was avoided. Do not explain why conditions are not worse, do not name factors as primary or secondary without clear data support, and do not mention what is absent as an explanation. Every sentence should state a positive fact: where the air came from, what it picked up, what the numbers show. Do not end with a summary that contrasts the actual cause against an absent cause (e.g., "driven by X rather than Y", "due to Z, not fires"). End on a concrete fact — a number, a location, a peer comparison — not a process of elimination. Exception: for a strong low outlier, the absence of a local source or regional smoke pathway is itself the finding — state directly what is absent and why the reading is likely anomalous. The existing outlier note above already identifies the candidate explanations (faulty reading, local shielding, reporting error); use those as your positive claims.
 ${isStrongOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
 
       // Start streaming — hijack Fastify response so we control the raw socket
