@@ -88,8 +88,13 @@ simplicity and correctness over premature optimization.
 
 - Node.js 20+ + TypeScript, Fastify
 - `@fastify/cors` — registered before all routes; allows
-  `https://thailand-air-quality-map-frontend.vercel.app` in all environments plus
+  `https://fahsai.fyi` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
+- `trustProxy: true` set on the Fastify instance — required for correct `request.ip`
+  behind the Railway proxy (reads `x-forwarded-for` instead of the raw socket IP)
+- `POST /api/explain` has per-IP rate limiting via `@upstash/ratelimit` (sliding
+  window, 10 req/hour, prefix `ratelimit:explain`); Upstash errors fail open so
+  legitimate users are never blocked by infrastructure issues
 - Upstash Redis (hot cache), Supabase (Postgres)
 
 ### Shared

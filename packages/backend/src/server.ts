@@ -12,7 +12,7 @@ import { powerPlantsRoutes } from './routes/power-plants';
 import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, trustProxy: true });
 
 await app.register(compress);
 const allowedOrigins = ['https://fahsai.fyi'];
