@@ -1,11 +1,8 @@
 import { supabase } from '../db/client.js';
 
 // Retention policy: 90-day max scrubber window + 7-day Explain history buffer
-// + 3-day UTC/prune timing buffer = 100 days. Reduced from 130 to stay within
-// Supabase free-tier storage limits.
+// + 3-day UTC/prune timing buffer = 100 days.
 const RETENTION_DAYS = 100;
-
-const FIRE_PRESSURE_RETENTION_DAYS = 120;
 
 export async function runPrune(): Promise<{
   firePointsDeleted: number;
@@ -68,7 +65,7 @@ export async function runPrune(): Promise<{
   }
 
   const fpCutoff = new Date();
-  fpCutoff.setUTCDate(fpCutoff.getUTCDate() - FIRE_PRESSURE_RETENTION_DAYS);
+  fpCutoff.setUTCDate(fpCutoff.getUTCDate() - RETENTION_DAYS);
   const fpCutoffDate = fpCutoff.toISOString().slice(0, 10);
 
   const { count: firePressureScoresDeleted, error: firePressureError } = await supabase
