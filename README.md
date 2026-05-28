@@ -10,7 +10,7 @@
 
 Thailand's dry season air quality is severe and its causes are genuinely complex — fires, agriculture, industry, transport, geography, wind. This map puts the available data in one place so you can look at it yourself.
 
-NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A 30-day time scrubber lets you move through a smoke event day by day. Free, no login.
+NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A time scrubber lets you step back through up to 90 days of historical data. Free, no login.
 
 ---
 
@@ -18,9 +18,9 @@ NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and
 
 Click any monitoring station and hit "Explain this." The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.1 Flash Lite.
 
-The model sees more than just the PM2.5 number. It gets the 7-day daily trend, current wind speed and direction, and every active fire within a dynamic radius — calm conditions: 50 km; when it's windy: wind speed × 36 hours, capped at 300 km — with each fire's quadrant, distance, and fire radiative power. It also gets the median reading from all peer stations within 75 km that have reported in the last 3 hours.
+The model sees more than just the PM2.5 number. It gets the 5-day daily trend, current wind speed and direction, and fires discovered via a 72-hour backward trajectory: the backend traces where the air mass came from using ensemble wind paths, identifies fires within the resulting corridor, and weights each by transport distance and fire radiative power. It also gets the distance-weighted mean PM2.5 from all peer stations within 75 km that have reported in the last 24 hours.
 
-The spatial reasoning is the interesting part. If the station is reading 2× higher than its neighbors, the model treats it as a local anomaly and won't spin a cross-border fire narrative. If the upwind quadrant is full of high-FRP fires and the regional median confirms it, that's what the explanation leads with.
+The spatial reasoning is the interesting part. If the station is reading 2× higher than its neighbors, the model treats it as a local anomaly and won't spin a cross-border fire narrative. If the upwind trajectory is loaded with high-FRP fires and the regional mean confirms it, that's what the explanation leads with.
 
 There's a shared daily quota of 500 requests per Bangkok calendar day. When it runs out, the button is disabled.
 
