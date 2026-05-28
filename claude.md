@@ -170,6 +170,10 @@ pnpm lint                                         # lint all packages
 - Run `pnpm format` before committing
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
+- `// eslint-disable-line react-hooks/exhaustive-deps` may be used sparingly. It must
+  always be preceded by a comment on the same line or the line above explaining exactly
+  which deps are omitted and why (e.g. stable module-level refs, intentional stale
+  closure). Prefer structural fixes (derive values from deps, refs) over suppressions.
 
 ## Dev tooling
 
