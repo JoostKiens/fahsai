@@ -46,6 +46,10 @@ const SPAWN_LNG_MAX = 114;
 const SPAWN_LAT_MIN = 1;
 const SPAWN_LAT_MAX = 30;
 
+// Reference area (full wind grid) used to normalise N_PARTICLES to viewport size,
+// keeping visual density constant across different screen widths and zoom levels.
+const REFERENCE_AREA = (SPAWN_LNG_MAX - SPAWN_LNG_MIN) * (SPAWN_LAT_MAX - SPAWN_LAT_MIN);
+
 // Buffer around the visible viewport used as the spawn/OOB area.
 // Gives particles time to enter the screen before being counted, and avoids
 // hard pop-in at the edges when panning.
@@ -209,13 +213,20 @@ function spawnParticle(
   };
 }
 
+function viewportParticleCount(viewport: Viewport): number {
+  const [west, south, east, north] = viewport;
+  const area = (east - west) * (north - south);
+  return Math.max(30, Math.min(N_PARTICLES, Math.round((N_PARTICLES * area) / REFERENCE_AREA)));
+}
+
 function initParticles(
   viewport: Viewport,
   grid: WindGrid | null,
   gridMap: Map<string, number> | null,
 ): Particle[] {
+  const count = viewportParticleCount(viewport);
   // scatterAge=true distributes initial ages so they don't all fade out simultaneously
-  return Array.from({ length: N_PARTICLES }, () => spawnParticle(viewport, grid, gridMap, true));
+  return Array.from({ length: count }, () => spawnParticle(viewport, grid, gridMap, true));
 }
 
 function stepParticles(
@@ -299,7 +310,18 @@ export function useWindParticles(
     stateRef.current.viewport = mapViewport(map);
     const onMove = () => {
       stateRef.current.zoom = map.getZoom();
-      stateRef.current.viewport = mapViewport(map);
+      const viewport = mapViewport(map);
+      stateRef.current.viewport = viewport;
+
+      const { particles, grid, gridMap } = stateRef.current;
+      const target = viewportParticleCount(viewport);
+      if (particles.length < target) {
+        for (let i = particles.length; i < target; i++) {
+          particles.push(spawnParticle(viewport, grid, gridMap, true));
+        }
+      } else if (particles.length > target) {
+        particles.length = target;
+      }
     };
     map.on('zoom', onMove);
     map.on('move', onMove);
