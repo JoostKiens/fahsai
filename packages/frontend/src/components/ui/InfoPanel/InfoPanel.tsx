@@ -4,7 +4,6 @@ import { TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { useUIStore } from '../../../store/uiStore';
-import { useTimeStore } from '../../../store/timeStore';
 import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
 import { pm25ToCategory } from '../../../utils/aqiColors';
@@ -27,9 +26,8 @@ export function InfoPanel() {
 
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
-  const selectedDate = useTimeStore((s) => s.selectedDate);
   const { data: aqGrid } = useCamsGrid();
-  const { data: aqData, isLoading: aqLoading } = useStationReadings();
+  const { data: aqData } = useStationReadings();
   const { data: wind } = useWind();
 
   const [placeName, setPlaceName] = useState<string | null>(null);
@@ -38,27 +36,28 @@ export function InfoPanel() {
 
   const coordKey = selectedPoint ? `${selectedPoint.lngLat[0]},${selectedPoint.lngLat[1]}` : null;
   useEffect(() => {
-    if (!coordKey || !selectedPoint) {
+    if (!coordKey) {
       setPlaceName(null);
       setGeocodeCountryIso3(null);
       return;
     }
+    const [lng, lat] = coordKey.split(',').map(Number);
     setPlaceName(null);
     setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
-    void reverseGeocode(selectedPoint.lngLat[0], selectedPoint.lngLat[1], TOKEN)
+    void reverseGeocode(lng, lat, TOKEN)
       .then(({ placeName: name, countryAlpha2 }) => {
         setPlaceName(name);
         setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
       })
       .finally(() => setGeocodeLoading(false));
-  }, [coordKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coordKey]);
 
   const stationId = selectedPoint?.station?.stationId ?? null;
   useEffect(() => {
-    if (!stationId || aqLoading || !aqData) return;
+    if (!stationId || !aqData) return;
     if (!aqData.find((m) => m.stationId === stationId)) setSelectedPoint(null);
-  }, [selectedDate, aqLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stationId, aqData, setSelectedPoint]);
 
   const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
 
