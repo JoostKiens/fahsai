@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { useUIStore } from '../../../store/uiStore';
+import { useTimeStore } from '../../../store/timeStore';
 import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
 import { pm25ToCategory } from '../../../utils/aqiColors';
@@ -58,6 +59,13 @@ export function InfoPanel() {
     if (!stationId || !aqData) return;
     if (!aqData.find((m) => m.stationId === stationId)) setSelectedPoint(null);
   }, [stationId, aqData, setSelectedPoint]);
+
+  const selectedDate = useTimeStore((s) => s.selectedDate);
+  const selectedPointRef = useRef(selectedPoint);
+  selectedPointRef.current = selectedPoint;
+  useEffect(() => {
+    if (selectedPointRef.current?.fire) setSelectedPoint(null);
+  }, [selectedDate, setSelectedPoint]);
 
   const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
 
