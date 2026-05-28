@@ -16,13 +16,13 @@ NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and
 
 ## Map layers
 
-| Layer | What it shows |
-| --- | --- |
-| PM2.5 heatmap | CAMS atmospheric model at 0.4° resolution, bilinearly interpolated and rendered via a Web Worker |
-| PM2.5 stations | OpenAQ ground measurements, colored by US EPA AQI thresholds |
-| Fire detections | NASA VIIRS active fire points, sized by Fire Radiative Power (FRP) |
-| Wind particles | Animated flow field from Open-Meteo |
-| Power plants | WRI coal, gas, and oil plants across Thailand, Myanmar, Laos, and Cambodia |
+| Layer           | What it shows                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| PM2.5 heatmap   | CAMS atmospheric model at 0.4° resolution, bilinearly interpolated and rendered via a Web Worker |
+| PM2.5 stations  | OpenAQ ground measurements, colored by US EPA AQI thresholds                                     |
+| Fire detections | NASA VIIRS active fire points, sized by Fire Radiative Power (FRP)                               |
+| Wind particles  | Animated flow field from Open-Meteo                                                              |
+| Power plants    | WRI coal, gas, and oil plants across Thailand, Myanmar, Laos, and Cambodia                       |
 
 Click any element on the map to open the info panel:
 
@@ -46,7 +46,7 @@ Map position, zoom, and selected date are reflected in the URL, so any view is f
 
 ## How the AI explanation works
 
-Click any monitoring station and hit "Explain this." The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.1 Flash Lite.
+Click any monitoring station and hit "What is causing this?" The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.1 Flash Lite.
 
 The model sees more than just the PM2.5 number. It gets the 5-day daily trend, current wind speed and direction, and fires discovered via a 72-hour backward trajectory: the backend runs a 5-member backward trajectory ensemble — tracing the air mass from the station and four cardinal offsets, stepping back in 6-hour increments over 72 hours using stored wind grids. Fires within the combined footprint of all five paths are then scored by FRP, recency, and proximity to the trajectory corridor. A pre-computed daily grid of 14-day cumulative fire pressure (fire count and total FRP per 0.4° cell) is used to quantify fire influence along the transport path, so recent high-intensity clusters near the trajectory carry more weight than distant or weak fires. Major cities, industrial zones, and power plants near the trajectory footprint are also evaluated as upwind emission sources — each scored by population or emission proxy and proximity to the center path, and filtered to those whose bearing from the station aligns with the current wind direction. It also gets the distance-weighted mean PM2.5 from all peer stations within 75 km that have reported in the last 24 hours.
 
