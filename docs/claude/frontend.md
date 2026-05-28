@@ -96,6 +96,15 @@ rehydrated automatically on app load — no manual `useEffect` needed.
 - `uiStore` — transient session state that resets on reload (e.g. modal open/closed,
   selected map point, playing state)
 
+**Session scrubber expansion (`sessionScrubberDays`):**
+`uiStore` holds a `sessionScrubberDays: number | null` field (never persisted). When the
+app loads with a `?date=` URL param that falls outside the user's stored `scrubberDays`
+window but within 90 days, `LatestDateProvider` sets `sessionScrubberDays = 90` so the
+linked date is reachable. Dates beyond 90 days still clamp with a toast. The user's stored
+preference is never modified. Use `useEffectiveScrubberDays()` (hook) or
+`getEffectiveScrubberDays()` (non-hook) from `uiStore.ts` wherever the active window size
+is needed — do not read `settingsStore.scrubberDays` directly in scrubber-related code.
+
 **Schema version history:**
 - `version: 1` — initial: `scrubberDays` (30 | 60 | 90 | 120)
 
