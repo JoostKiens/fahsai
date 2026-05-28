@@ -3,10 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore } from '../../../store/uiStore';
 
-const ALL_SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
-const SCRUBBER_RANGE_OPTIONS = ALL_SCRUBBER_RANGE_OPTIONS.filter(
-  (opt) => opt !== 90 || import.meta.env.VITE_FEATURE_90D === 'true',
-);
+const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';

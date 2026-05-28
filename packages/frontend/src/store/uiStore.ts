@@ -38,6 +38,8 @@ interface UIStore {
   dismissHint: () => void;
   scrubberDay: number; // 0 = oldest day in range, scrubberDays-1 = latestDate
   setScrubberDay: (day: number) => void;
+  sessionScrubberDays: number | null; // session-only override for scrubberDays (not persisted)
+  setSessionScrubberDays: (days: number | null) => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
   mapCenter: [number, number]; // [lng, lat]
@@ -77,6 +79,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   dismissHint: () => set({ hintDismissed: true }),
   scrubberDay: initialScrubberDayFromUrl(),
   setScrubberDay: (day) => set({ scrubberDay: day }),
+  sessionScrubberDays: null,
+  setSessionScrubberDays: (days) => set({ sessionScrubberDays: days }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
   mapCenter: [101.0, 15.5],
@@ -97,4 +101,16 @@ export const useUIStore = create<UIStore>((set, get) => ({
 export function dayToDate(day: number, latestDate: string, days = 30): string {
   const anchorMs = new Date(latestDate + 'T00:00:00Z').getTime();
   return new Date(anchorMs - (days - 1 - day) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Returns the session override if set, otherwise the persisted user preference. */
+export function useEffectiveScrubberDays(): number {
+  const session = useUIStore((s) => s.sessionScrubberDays);
+  const stored = useSettingsStore((s) => s.scrubberDays);
+  return session ?? stored;
+}
+
+/** Non-hook version for use inside callbacks and intervals. */
+export function getEffectiveScrubberDays(): number {
+  return useUIStore.getState().sessionScrubberDays ?? useSettingsStore.getState().scrubberDays;
 }

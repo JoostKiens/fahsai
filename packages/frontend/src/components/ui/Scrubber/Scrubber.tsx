@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore } from '../../../store/settingsStore';
-import { useUIStore, dayToDate } from '../../../store/uiStore';
+import {
+  useUIStore,
+  dayToDate,
+  useEffectiveScrubberDays,
+  getEffectiveScrubberDays,
+} from '../../../store/uiStore';
 import { useTimeStore } from '../../../store/timeStore';
 import { dateLocale } from '../../../i18n';
 import { PlayButton } from './PlayButton';
@@ -32,7 +36,7 @@ export function Scrubber() {
 
   const scrubberDay = useUIStore((s) => s.scrubberDay);
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
-  const scrubberDays = useSettingsStore((s) => s.scrubberDays);
+  const scrubberDays = useEffectiveScrubberDays();
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
@@ -58,7 +62,7 @@ export function Scrubber() {
     if (playing) {
       intervalRef.current = setInterval(() => {
         const current = useUIStore.getState().scrubberDay;
-        const days = useSettingsStore.getState().scrubberDays;
+        const days = getEffectiveScrubberDays();
         setScrubberDay(current >= days - 1 ? 0 : current + 1);
       }, PLAY_INTERVAL_MS);
     } else {
