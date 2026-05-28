@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
+import { explainRatelimit } from '../cache/ratelimit.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { URBAN_SOURCES } from '../data/urbanSources.js';
 import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
@@ -161,6 +162,16 @@ export function explainRoutes(app: FastifyInstance): void {
       const { stationId, lat, lng, lang } = req.body ?? {};
       if (!stationId || lat === undefined || lng === undefined) {
         return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
+      }
+
+      // Per-IP rate limit — fail open on Upstash errors so legitimate users aren't blocked
+      try {
+        const { success } = await explainRatelimit.limit(req.ip);
+        if (!success) {
+          return reply.status(429).send({ error: 'Rate limit exceeded. Try again later.' });
+        }
+      } catch (err) {
+        req.log.error({ err }, 'explainRatelimit: Upstash error — failing open');
       }
 
       // Quota check — keyed to Bangkok calendar day
