@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Slider } from '@base-ui-components/react/slider';
 import {
   useUIStore,
   dayToDate,
@@ -44,7 +45,6 @@ export function Scrubber() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDraggingRef = useRef(false);
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
 
@@ -85,17 +85,9 @@ export function Scrubber() {
     return () => document.removeEventListener('keydown', onKey);
   }, [playing, setPlaying]);
 
-  function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setScrubberDay(Number(e.target.value));
-  }
-
-  function handlePointerDown() {
-    isDraggingRef.current = true;
+  function handleValueChange(value: number) {
+    setScrubberDay(value);
     if (playing) setPlaying(false);
-  }
-
-  function handlePointerUp() {
-    isDraggingRef.current = false;
   }
 
   return (
@@ -123,19 +115,26 @@ export function Scrubber() {
         </span>
 
         <div className="flex-1 min-w-0">
-          <input
-            type="range"
+          <Slider.Root
+            value={scrubberDay}
+            onValueChange={handleValueChange}
             min={0}
             max={scrubberDays - 1}
             step={1}
-            value={scrubberDay}
-            onChange={handleSliderChange}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            aria-label={t('scrubber.selectDate')}
-            aria-valuetext={formatDate(dateStr, locale)}
-            className="w-full touch-none"
-          />
+            className="w-full md:mt-4"
+          >
+            <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
+              <Slider.Track className="relative h-1 w-full rounded-full bg-gray-200">
+                <Slider.Thumb
+                  className="size-4 rounded-full bg-teal-600 ring-2 ring-white shadow-sm outline-none cursor-grab data-[dragging]:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,white_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
+                  getAriaLabel={() => t('scrubber.selectDate')}
+                  getAriaValueText={(_, value) =>
+                    formatDate(dayToDate(value, latestDate, scrubberDays), locale)
+                  }
+                />
+              </Slider.Track>
+            </Slider.Control>
+          </Slider.Root>
           {/* Desktop: start + middle + end ticks */}
           <div className="hidden md:flex justify-between mt-0.5">
             <span className="text-[10px] text-gray-400 tabular-nums">
