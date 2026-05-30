@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Slider } from '@base-ui-components/react/slider';
+import { Slider, type SliderRootChangeEventDetails } from '@base-ui-components/react/slider';
+import { Tooltip } from '@base-ui-components/react/tooltip';
 import {
   useUIStore,
   dayToDate,
@@ -43,8 +44,11 @@ export function Scrubber() {
   const setDate = useTimeStore((s) => s.setDate);
   const latestDate = useTimeStore((s) => s.latestDate);
 
+  const [isDragging, setIsDragging] = useState(false);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
 
@@ -85,9 +89,14 @@ export function Scrubber() {
     return () => document.removeEventListener('keydown', onKey);
   }, [playing, setPlaying]);
 
-  function handleValueChange(value: number) {
+  function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
     setScrubberDay(value);
     if (playing) setPlaying(false);
+    if (eventDetails.reason === 'drag') setIsDragging(true);
+  }
+
+  function handleValueCommitted() {
+    setIsDragging(false);
   }
 
   return (
@@ -118,6 +127,7 @@ export function Scrubber() {
           <Slider.Root
             value={scrubberDay}
             onValueChange={handleValueChange}
+            onValueCommitted={handleValueCommitted}
             min={0}
             max={scrubberDays - 1}
             step={1}
@@ -126,6 +136,7 @@ export function Scrubber() {
             <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
               <Slider.Track className="relative h-1 w-full rounded-full bg-gray-200">
                 <Slider.Thumb
+                  ref={thumbRef}
                   className="size-4 rounded-full bg-teal-600 ring-2 ring-white shadow-sm outline-none cursor-grab data-[dragging]:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,white_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
                   getAriaLabel={() => t('scrubber.selectDate')}
                   getAriaValueText={(_, value) =>
@@ -135,6 +146,15 @@ export function Scrubber() {
               </Slider.Track>
             </Slider.Control>
           </Slider.Root>
+          <Tooltip.Root open={isDragging}>
+            <Tooltip.Portal>
+              <Tooltip.Positioner side="top" sideOffset={8} anchor={thumbRef} className="z-50">
+                <Tooltip.Popup className="rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-md">
+                  {formatDate(dateStr, locale)}
+                </Tooltip.Popup>
+              </Tooltip.Positioner>
+            </Tooltip.Portal>
+          </Tooltip.Root>
           {/* Desktop: start + middle + end ticks */}
           <div className="hidden md:flex justify-between mt-0.5">
             <span className="text-[10px] text-gray-400 tabular-nums">
