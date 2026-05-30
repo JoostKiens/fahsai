@@ -258,7 +258,7 @@ function PanelHeader({
       <button
         onClick={onClose}
         aria-label={t('infoPanel.dismiss')}
-        className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded shrink-0"
+        className="inline-flex items-center justify-center w-[38px] h-[38px] shrink-0 -mr-2 -mt-2 rounded text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
       >
         <XIcon />
       </button>
