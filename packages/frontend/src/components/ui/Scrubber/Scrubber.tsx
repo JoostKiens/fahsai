@@ -137,7 +137,7 @@ export function Scrubber() {
               <Slider.Track className="relative h-1 w-full rounded-full bg-gray-200">
                 <Slider.Thumb
                   ref={thumbRef}
-                  className="size-4 rounded-full bg-teal-600 ring-2 ring-white shadow-sm outline-none cursor-grab data-[dragging]:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,white_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
+                  className="size-4 rounded-full bg-teal-600 ring-2 ring-white shadow-sm outline-none cursor-grab data-dragging:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,white_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
                   getAriaLabel={() => t('scrubber.selectDate')}
                   getAriaValueText={(_, value) =>
                     formatDate(dayToDate(value, latestDate, scrubberDays), locale)
