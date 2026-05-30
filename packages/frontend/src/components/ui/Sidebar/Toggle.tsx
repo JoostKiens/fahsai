@@ -1,5 +1,4 @@
-import { motion, LayoutGroup } from 'motion/react';
-import { SPRING } from '../../../utils/animation';
+import { Switch } from '@base-ui-components/react/switch';
 
 interface Props {
   checked: boolean;
@@ -9,26 +8,13 @@ interface Props {
 
 export function Toggle({ checked, onChange, label }: Props) {
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
+    <Switch.Root
+      checked={checked}
+      onCheckedChange={onChange}
       aria-label={label}
-      onClick={onChange}
-      className={`
-        relative flex items-center w-8 h-[18px] rounded-full cursor-pointer
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1
-        transition-colors duration-150 ease-out hover:duration-[175ms]
-        ${checked ? 'bg-teal-600' : 'bg-gray-200'}
-      `}
+      className="relative flex items-center w-8 h-[18px] rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 transition-colors duration-150 ease-out bg-gray-200 data-checked:bg-teal-600"
     >
-      <LayoutGroup>
-        <motion.span
-          layout
-          transition={SPRING}
-          className="absolute w-[14px] h-[14px] rounded-full bg-white shadow-sm"
-          style={{ left: checked ? 'calc(100% - 16px)' : '2px' }}
-        />
-      </LayoutGroup>
-    </button>
+      <Switch.Thumb className="absolute w-[14px] h-[14px] rounded-full bg-white shadow-sm left-[2px] transition-transform duration-150 ease-out data-checked:translate-x-[14px]" />
+    </Switch.Root>
   );
 }
