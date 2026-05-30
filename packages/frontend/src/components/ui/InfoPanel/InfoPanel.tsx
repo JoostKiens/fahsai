@@ -138,9 +138,9 @@ export function InfoPanel() {
     <div
       role="region"
       aria-label={t('infoPanel.ariaLabel')}
-      className="absolute top-3 right-3 w-[260px] bg-white border border-gray-200 rounded-md z-20 pointer-events-auto overflow-hidden"
+      className="absolute top-3 right-3 w-[260px] bg-white border border-gray-200 rounded-md z-20 pointer-events-auto overflow-hidden max-h-[calc(100%-1.5rem)]"
     >
-      <AppScrollArea viewportClassName="max-h-[80vh]">
+      <AppScrollArea viewportClassName="max-h-[80svh]">
         <AnimatePresence mode="wait">
           <motion.div
             key={panelType}
