@@ -4,6 +4,7 @@ import { useUIStore } from '../../../store/uiStore';
 import { mapRef } from '../../../utils/mapRef';
 import { SPRING } from '../../../utils/animation';
 import { LayerGroups } from './LayerGroups';
+import { AppScrollArea } from '../AppScrollArea';
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -32,9 +33,9 @@ export function Sidebar() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <AppScrollArea className="flex-1 min-h-0">
           <LayerGroups />
-        </div>
+        </AppScrollArea>
       </div>
     </motion.aside>
   );

@@ -9,6 +9,7 @@ import { ExplainButton } from '../../ExplainButton';
 import { AqiBadge } from './AqiBadge';
 import { pm25ToCategory } from '../../../utils/aqiColors';
 import { reverseGeocode } from '../../../utils/geocode';
+import { AppScrollArea } from '../AppScrollArea';
 import { CountryFlag, alpha2ToIso3 } from '../../../utils/countryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from '../../../utils/ambient';
 import { useCamsGrid } from '../../../hooks/useCamsGrid';
@@ -137,51 +138,57 @@ export function InfoPanel() {
     <div
       role="region"
       aria-label={t('infoPanel.ariaLabel')}
-      className="absolute top-3 right-3 w-[260px] max-h-[80vh] overflow-y-auto bg-white border border-gray-200 rounded-md z-20 pointer-events-auto"
+      className="absolute top-3 right-3 w-[260px] bg-white border border-gray-200 rounded-md z-20 pointer-events-auto overflow-hidden"
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={panelType}
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
-          exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
-          className="p-3"
-        >
-          <PanelHeader
-            panelType={panelType}
-            lngLat={selectedPoint.lngLat}
-            placeName={placeName}
-            geocodeLoading={geocodeLoading}
-            stationName={displayStation?.stationName ?? null}
-            plantName={selectedPoint.powerPlant?.name ?? null}
-            countryIso3={countryIso3}
-            onClose={() => setSelectedPoint(null)}
-          />
-
-          <hr className="border-gray-100 my-2" />
-
-          {displayStation && (
-            <StationPanel
-              station={displayStation}
+      <AppScrollArea viewportClassName="max-h-[80vh]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={panelType}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+            exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+            className="p-3"
+          >
+            <PanelHeader
+              panelType={panelType}
               lngLat={selectedPoint.lngLat}
-              historyDays={historyDays}
-              historyLoading={historyLoading}
-              locale={locale}
+              placeName={placeName}
+              geocodeLoading={geocodeLoading}
+              stationName={displayStation?.stationName ?? null}
+              plantName={selectedPoint.powerPlant?.name ?? null}
+              countryIso3={countryIso3}
+              onClose={() => setSelectedPoint(null)}
             />
-          )}
-          {selectedPoint.fire && (
-            <FirePanel
-              fire={selectedPoint.fire}
-              aqPoint={aqPoint}
-              windVec={windVec}
-              locale={locale}
-            />
-          )}
-          {selectedPoint.powerPlant && (
-            <PowerPlantPanel plant={selectedPoint.powerPlant} aqPoint={aqPoint} windVec={windVec} />
-          )}
-        </motion.div>
-      </AnimatePresence>
+
+            <hr className="border-gray-100 my-2" />
+
+            {displayStation && (
+              <StationPanel
+                station={displayStation}
+                lngLat={selectedPoint.lngLat}
+                historyDays={historyDays}
+                historyLoading={historyLoading}
+                locale={locale}
+              />
+            )}
+            {selectedPoint.fire && (
+              <FirePanel
+                fire={selectedPoint.fire}
+                aqPoint={aqPoint}
+                windVec={windVec}
+                locale={locale}
+              />
+            )}
+            {selectedPoint.powerPlant && (
+              <PowerPlantPanel
+                plant={selectedPoint.powerPlant}
+                aqPoint={aqPoint}
+                windVec={windVec}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </AppScrollArea>
     </div>
   );
 }
