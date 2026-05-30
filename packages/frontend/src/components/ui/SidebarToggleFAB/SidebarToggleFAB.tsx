@@ -57,18 +57,15 @@ export function SidebarToggleFAB() {
                   setDrawerOpen(false);
                 }
               }}
-              className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-white rounded-t-2xl z-50 overflow-y-auto pointer-events-auto md:hidden"
+              className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-white rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden"
             >
-              {/* Drag handle — touch-none prevents scroll hijack; initiates drawer drag */}
+              {/* Header: drag handle (centered) + close button (right) — touch-none prevents scroll hijack */}
               <div
-                className="flex justify-center pt-3 pb-1 touch-none cursor-grab active:cursor-grabbing"
+                className="flex items-center justify-between px-4 pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing shrink-0"
                 onPointerDown={(e) => dragControls.start(e)}
               >
+                <div className="w-6" />
                 <div className="w-10 h-1 rounded-full bg-gray-300" />
-              </div>
-
-              {/* Close button */}
-              <div className="flex justify-end px-4 pb-1">
                 <button
                   onClick={() => setDrawerOpen(false)}
                   aria-label="Close layer controls"
@@ -78,8 +75,10 @@ export function SidebarToggleFAB() {
                 </button>
               </div>
 
-              <LayerGroups />
-              <div className="h-4" />
+              <div className="overflow-y-auto">
+                <LayerGroups />
+                <div className="h-4" />
+              </div>
             </motion.div>
           </>
         )}
