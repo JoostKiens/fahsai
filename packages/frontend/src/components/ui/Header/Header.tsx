@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Dialog } from '@base-ui-components/react/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/settingsStore';
 import { useUIStore } from '../../../store/uiStore';
@@ -7,16 +7,6 @@ const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
-
-function MoreIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="5" cy="12" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="19" cy="12" r="1.8" />
-    </svg>
-  );
-}
 
 function XIcon() {
   return (
@@ -82,7 +72,7 @@ function IconBtn({
   );
 }
 
-function Modal({
+function AppDialog({
   open,
   onClose,
   title,
@@ -94,42 +84,34 @@ function Modal({
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-[14px] font-semibold text-gray-800">{title}</h2>
-          <button
-            onClick={onClose}
-            aria-label={t('header.close')}
-            className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
-          >
-            <XIcon />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Popup className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-md bg-white rounded-xl shadow-xl p-6">
+          <div className="flex items-start justify-between mb-4">
+            <Dialog.Title className="text-[14px] font-semibold text-gray-800">{title}</Dialog.Title>
+            <Dialog.Close
+              aria-label={t('header.close')}
+              className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
+            >
+              <XIcon />
+            </Dialog.Close>
+          </div>
+          {children}
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
 export function Header() {
   const { t } = useTranslation();
-  const headerMenuOpen = useUIStore((s) => s.headerMenuOpen);
-  const setHeaderMenuOpen = useUIStore((s) => s.setHeaderMenuOpen);
   const aboutOpen = useUIStore((s) => s.aboutOpen);
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
@@ -182,30 +164,22 @@ export function Header() {
         {/* Mobile right cluster */}
         <div className="flex md:hidden items-center gap-1 shrink-0">
           <LanguagePill />
-          <div className="relative">
-            <IconBtn
-              ariaLabel={t('header.moreOptions')}
-              onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
-            >
-              <MoreIcon />
-            </IconBtn>
-            <HeaderMenu />
-          </div>
+          <HeaderMenu />
         </div>
       </header>
 
-      {/* About modal */}
-      <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
+      {/* About dialog */}
+      <AppDialog open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
         <p className="text-[13px] text-gray-700 leading-relaxed">{t('about.body')}</p>
         <p className="mt-3 text-[12px] text-gray-500">
           Data: NASA FIRMS (VIIRS/NOAA-21, near real-time), OpenAQ, Copernicus CAMS via Open-Meteo,
           WRI.
         </p>
         <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>
-      </Modal>
+      </AppDialog>
 
-      {/* Settings modal */}
-      <Modal
+      {/* Settings dialog */}
+      <AppDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         title={t('header.settings')}
@@ -231,7 +205,7 @@ export function Header() {
             ))}
           </div>
         </div>
-      </Modal>
+      </AppDialog>
     </>
   );
 }

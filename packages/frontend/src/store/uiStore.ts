@@ -48,8 +48,6 @@ interface UIStore {
   setMapZoom: (zoom: number) => void;
   explainQuotaExceeded: boolean;
   setExplainQuotaExceeded: (v: boolean) => void;
-  headerMenuOpen: boolean;
-  setHeaderMenuOpen: (v: boolean) => void;
   aboutOpen: boolean;
   setAboutOpen: (v: boolean) => void;
   settingsOpen: boolean;
@@ -89,8 +87,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setMapZoom: (zoom) => set({ mapZoom: zoom }),
   explainQuotaExceeded: false,
   setExplainQuotaExceeded: (v) => set({ explainQuotaExceeded: v }),
-  headerMenuOpen: false,
-  setHeaderMenuOpen: (v) => set({ headerMenuOpen: v }),
   aboutOpen: false,
   setAboutOpen: (v) => set({ aboutOpen: v }),
   settingsOpen: false,
