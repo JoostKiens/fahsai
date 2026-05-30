@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { LayerGroups } from '../Sidebar/LayerGroups';
-import { AppScrollArea } from '../AppScrollArea';
 import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
 
 export function SidebarToggleFAB() {
@@ -76,10 +75,10 @@ export function SidebarToggleFAB() {
                 </button>
               </div>
 
-              <AppScrollArea className="flex-1 min-h-0">
+              <div className="overflow-y-auto flex-1 min-h-0">
                 <LayerGroups />
                 <div className="h-4" />
-              </AppScrollArea>
+              </div>
             </motion.div>
           </>
         )}
