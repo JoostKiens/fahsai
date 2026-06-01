@@ -12,7 +12,7 @@ const FIRE_TIERS = [
 ];
 
 function LayerNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] text-gray-500 leading-tight">{children}</p>;
+  return <p className="text-[11px] text-zinc-400 leading-tight">{children}</p>;
 }
 
 function LayerAttribution({ href, children }: { href: string; children: React.ReactNode }) {
@@ -21,7 +21,7 @@ function LayerAttribution({ href, children }: { href: string; children: React.Re
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-[11px] text-gray-500 underline-offset-2 hover:underline leading-tight"
+      className="text-[11px] text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline leading-tight transition-colors"
     >
       {children}
     </a>
@@ -41,7 +41,7 @@ function GroupHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <p className="text-sm uppercase tracking-wide text-gray-500 font-medium mb-2">{label}</p>
+      <p className="text-[12px] font-medium text-zinc-300 mb-2">{label}</p>
       {onToggle && toggleLabel && checked !== undefined && (
         <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
       )}
@@ -65,9 +65,9 @@ function SubRow({
   return (
     <div className="flex items-start gap-2 py-1">
       <div className="flex-1">
-        <span className="text-sm text-gray-700 font-medium">{label}</span>
+        <span className="text-[13px] text-zinc-100 font-medium">{label}</span>
         {description && (
-          <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{description}</p>
+          <p className="text-[11px] text-zinc-400 leading-tight mt-0.5">{description}</p>
         )}
       </div>
       <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
@@ -105,8 +105,9 @@ function AirQualityGroup() {
 
       {(aqGrid || aqStations) && (
         <div className="mt-2.5 space-y-1">
+          {/* Unit label right-aligned above the range values */}
           <div className="flex justify-end mb-0.5">
-            <span className="text-[10px] text-gray-400">µg/m³</span>
+            <span className="text-[11px] text-zinc-400 font-mono">µg/m³</span>
           </div>
           {AQI_CATEGORIES.map((cat) => (
             <div key={cat.key} className="flex items-center gap-2">
@@ -114,10 +115,10 @@ function AirQualityGroup() {
                 className="shrink-0 w-2.5 h-2.5 rounded-full"
                 style={{ backgroundColor: `rgb(${cat.rgb[0]},${cat.rgb[1]},${cat.rgb[2]})` }}
               />
-              <span className="flex-1 text-[11px] text-gray-500 leading-tight">
+              <span className="flex-1 text-[11px] text-zinc-300 leading-tight">
                 {t(cat.key as never)}
               </span>
-              <span className="text-[11px] text-gray-400 tabular-nums">{cat.range}</span>
+              <span className="text-[11px] text-zinc-400 font-mono tabular-nums">{cat.range}</span>
             </div>
           ))}
         </div>
@@ -141,12 +142,13 @@ function FiresGroup() {
       />
       {visible && (
         <div className="mt-2.5 space-y-1">
+          {/* Unit label right-aligned above the range values */}
           <div className="flex justify-end mb-0.5">
-            <span className="text-[10px] text-gray-400">MW</span>
+            <span className="text-[11px] text-zinc-400 font-mono">MW</span>
           </div>
           {FIRE_TIERS.map((tier) => (
             <div key={tier.labelKey} className="flex items-center gap-2">
-              <span className="shrink-0 w-6 flex items-center justify-center">
+              <span className="shrink-0 w-5 flex items-center justify-center">
                 <svg width={tier.r * 2} height={tier.r * 2} className="shrink-0">
                   <circle
                     cx={tier.r}
@@ -157,10 +159,10 @@ function FiresGroup() {
                   />
                 </svg>
               </span>
-              <span className="flex-1 text-[11px] text-gray-500 leading-tight">
+              <span className="flex-1 text-[11px] text-zinc-300 leading-tight">
                 {t(tier.labelKey)}
               </span>
-              <span className="text-[11px] text-gray-400 tabular-nums">{tier.range}</span>
+              <span className="text-[11px] text-zinc-400 font-mono tabular-nums">{tier.range}</span>
             </div>
           ))}
           <div className="mt-2 space-y-0.5">
@@ -219,7 +221,7 @@ function PowerPlantsGroup() {
           {Object.entries(FUEL_COLORS).map(([fuel, color]) => (
             <div key={fuel} className="flex items-center gap-2">
               <DiamondSwatch color={color} />
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-zinc-300">
                 {t(`fuelType.${fuel.toLowerCase()}` as never, { defaultValue: fuel })}
               </span>
             </div>
@@ -251,11 +253,11 @@ export function LayerGroups() {
   return (
     <>
       <AirQualityGroup />
-      <div className="mx-4 border-t border-gray-100" />
+      <div className="mx-4 border-t border-zinc-800" />
       <FiresGroup />
-      <div className="mx-4 border-t border-gray-100" />
+      <div className="mx-4 border-t border-zinc-800" />
       <WindGroup />
-      <div className="mx-4 border-t border-gray-100" />
+      <div className="mx-4 border-t border-zinc-800" />
       <PowerPlantsGroup />
     </>
   );

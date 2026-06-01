@@ -42,10 +42,10 @@ export function HintPill() {
           animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
           exit={{ opacity: 0, y: 4, transition: TWEEN_EXIT }}
           aria-label={t('hint.dismiss')}
-          className="md:hidden absolute bottom-[60px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-full shadow-sm pointer-events-auto z-20"
+          className="md:hidden absolute bottom-[60px] left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/95 backdrop-blur-sm border border-zinc-700 rounded-full shadow-sm pointer-events-auto z-20"
         >
           <CursorClickIcon />
-          <span className="text-[11px] text-gray-700 font-medium whitespace-nowrap">
+          <span className="text-[12px] text-zinc-200 font-medium whitespace-nowrap">
             {t('hint.tapForDetails')}
           </span>
         </motion.button>
@@ -65,7 +65,7 @@ function CursorClickIcon() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-gray-500"
+      className="text-zinc-400"
     >
       <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" />
       <circle cx="12" cy="12" r="1.5" fill="currentColor" />

@@ -21,13 +21,15 @@ export function Sidebar() {
       onAnimationComplete={() => mapRef.current?.resize()}
       className="hidden md:flex shrink-0 overflow-hidden z-20 pointer-events-auto"
     >
-      <div className="w-[260px] flex flex-col bg-white border-r border-gray-200 shrink-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <span className="text-sm font-semibold text-gray-800">{t('sidebar.layers')}</span>
+      <div className="w-[260px] flex flex-col bg-zinc-900 border-r border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <span className="text-[11px] font-semibold text-zinc-200 uppercase tracking-wider">
+            {t('sidebar.layers')}
+          </span>
           <button
             onClick={() => setSidebarOpen(false)}
             aria-label={t('sidebar.collapse')}
-            className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             <ChevronLeftIcon />
           </button>
@@ -53,7 +55,7 @@ export function SidebarReopenButton() {
       transition={SPRING}
       onClick={() => setSidebarOpen(true)}
       aria-label={t('sidebar.open')}
-      className="absolute left-0 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-6 h-12 bg-white border border-l-0 border-gray-200 rounded-r-lg z-20 pointer-events-auto text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+      className="absolute left-0 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-6 h-12 bg-zinc-900 border border-l-0 border-zinc-700 rounded-r-md z-20 pointer-events-auto text-zinc-400 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
     >
       <ChevronRightIcon />
     </motion.button>

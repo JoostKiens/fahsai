@@ -56,8 +56,8 @@ export function ExplainButton({
   const defaultButtonClass = [
     'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors ease-out hover:duration-[175ms]',
     isDisabled
-      ? 'border-gray-200 text-gray-300 bg-white cursor-not-allowed'
-      : 'border-teal-200 text-teal-600 bg-teal-50 hover:bg-teal-100',
+      ? 'border-zinc-700 text-zinc-600 bg-transparent cursor-not-allowed'
+      : 'border-teal-800 text-teal-400 bg-teal-950 hover:bg-teal-900',
   ].join(' ');
 
   return (
@@ -71,7 +71,7 @@ export function ExplainButton({
       </button>
 
       {text && (
-        <div className="mt-2 text-[11px] text-gray-600 leading-relaxed whitespace-pre-line">
+        <div className="mt-2 text-[11px] text-zinc-300 leading-relaxed whitespace-pre-line">
           {parseBoldSegments(sanitizeExplanation(text)).map((seg, i) =>
             seg.bold ? <strong key={i}>{seg.text}</strong> : <span key={i}>{seg.text}</span>,
           )}
@@ -79,7 +79,7 @@ export function ExplainButton({
       )}
 
       {error === 'quota_exceeded' && !globalQuotaExceeded && (
-        <p className="mt-1 text-[10px] text-amber-600">{t('explain.quotaReached')}</p>
+        <p className="mt-1 text-[10px] text-amber-400">{t('explain.quotaReached')}</p>
       )}
       {error === 'unavailable' && (
         <p className="mt-1 text-[10px] text-red-400">{t('explain.unavailable')}</p>

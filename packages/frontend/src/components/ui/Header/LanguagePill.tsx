@@ -46,7 +46,7 @@ export function LanguagePill() {
     <Select.Root value={currentCode} onValueChange={(v) => select(v as Language)}>
       <Select.Trigger
         aria-label={t('header.selectLanguage')}
-        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[11px] font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
+        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[12px] font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]"
       >
         {current.pill}
         <Select.Icon>
@@ -55,13 +55,13 @@ export function LanguagePill() {
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner sideOffset={4} align="end" className="z-50">
-          <Select.Popup className="w-32 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <Select.Popup className="w-32 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
             <Select.List>
               {LANGUAGES.map((lang) => (
                 <Select.Item
                   key={lang.code}
                   value={lang.code}
-                  className="w-full text-left px-3 py-2 text-[12px] cursor-default transition-colors ease-out hover:duration-[175ms] data-highlighted:bg-gray-50 data-selected:text-teal-700 data-selected:font-medium text-gray-700"
+                  className="w-full text-left px-3 py-2 text-[12px] cursor-default transition-colors ease-out hover:duration-[175ms] data-highlighted:bg-zinc-800 data-selected:text-teal-400 data-selected:font-medium text-zinc-200"
                 >
                   <Select.ItemText>{lang.native}</Select.ItemText>
                 </Select.Item>
