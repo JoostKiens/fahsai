@@ -49,7 +49,7 @@ keeps API keys server-side.
   Batch size capped at 300 — payload grows linearly; 500 caused 413 errors (confirmed May 2026).
   Free tier counts HTTP requests (not locations): 16 calls/day is well within the 10,000/day limit.
   429 backoff: 65 s for minutely, 65 min for hourly, abort with exit code 1 for daily.
-- Schedule: daily (0 8 \* \* \* UTC)
+- Schedule: daily (0 2 \* \* \* UTC)
 - Storage:
   - Supabase `weather_readings` (persistent, 130-day retention) + Redis `weather:{date}` TTL 7d
     and `weather:wind:{date}` TTL 7d. Ingest writes to both. Wind route checks Redis first;
@@ -97,8 +97,11 @@ stations-ingest       — weekly    (0 22 4 * *)    fetches OpenAQ locations by 
 
 cams-ingest           — daily     (0 23 * * *)   fetches CAMS PM2.5 grid for TODAY via
   ingest-cams-today                               ingest-cams-today.ts; single pass — CAMS is
-                                                  deterministic so values don't change between runs;
-                                                  grid visible by ~23:30 UTC (06:30 BKK)
+  ingest-cams-today-fallback                      deterministic so values don't change between runs;
+                                                  grid visible by ~23:30 UTC (06:30 BKK).
+                                                  Fallback runs at (0 1 * * *): targets yesterday
+                                                  (already next calendar day); re-ingests if
+                                                  cams_grid has < 4,000 rows for that date.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings-today                         daily averages for TODAY via /hours/daily;
@@ -110,13 +113,17 @@ station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily aver
                                                         before all stations had reported
                                                         (ignoreDuplicates: false)
 
-weather-ingest        — daily     (0 8 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
-  ingest-weather-today                            07:00 UTC snapshot; upserts to Supabase
+weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
+  ingest-weather-today                            07:00 UTC snapshot via forecast API (NWP model
+  ingest-weather-today-fallback                   data, not ERA5 reanalysis); upserts to Supabase
                                                   weather_readings and Redis (weather:{date} +
                                                   weather:wind:{date}, TTL 7d). After storing the
                                                   grid, pre-computes station_weather for all stations
                                                   that reported pm25 that date. Uses paginated
                                                   .range() queries to bypass Supabase 1000-row cap.
+                                                  Data visible by ~02:10 UTC (09:10 BKK).
+                                                  Fallback runs at (0 4 * * *): checks row count
+                                                  for yesterday; re-ingests if < 4,000 rows.
 
 prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, cams_grid,
                                                   weather_readings, station_weather rows > 40 days

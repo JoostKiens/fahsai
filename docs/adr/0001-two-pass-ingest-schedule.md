@@ -41,5 +41,5 @@ Unlike CAMS, OpenAQ daily averages are computed from station readings that trick
 - `ingest-cams-today.ts` and `ingest-station-readings-today.ts` wrapper scripts added to `src/scripts/`.
 - Railway: old `cams-ingest` cron (`0 1 * * *`) replaced by single `0 23 * * *` entry.
 - Railway: `station-readings-ingest` gets a new `0 23 * * *` pass 1 entry; existing `0 4 * * *` becomes pass 2.
-- Weather-ingest moved to `0 8 * * *` fetching today — see CLAUDE.md for rationale.
+- Weather-ingest runs at `0 2 * * *` fetching yesterday; fallback at `0 5 * * *`. Moved from `0 8 * * *` so data is available by ~09:10 BKK instead of ~15:10 BKK. ERA5 archive API has a 5-day lag so data is from Open-Meteo's forecast API (NWP model, initialized from real observations) — never re-fetched with ERA5.
 - CLAUDE.md cron table must stay in sync with the actual Railway schedule.
