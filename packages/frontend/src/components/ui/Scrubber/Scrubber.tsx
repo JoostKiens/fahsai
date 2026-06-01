@@ -101,16 +101,16 @@ export function Scrubber() {
 
   return (
     <div
-      className="bg-white border-t border-gray-200 pointer-events-auto px-4
+      className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
                  flex flex-col gap-1 py-1.5
                  md:h-[52px] md:flex-row md:items-center md:gap-3 md:py-0"
     >
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
-        <span className="text-[13px] font-semibold text-gray-900 tabular-nums">
+        <span className="text-[13px] font-semibold text-zinc-100 tabular-nums">
           {formatDate(dateStr, locale)}
         </span>
-        <span className="text-[10px] text-gray-400 font-medium tabular-nums">UTC+7</span>
+        <span className="text-[11px] text-zinc-400 font-mono tabular-nums">UTC+7</span>
       </div>
 
       {/* Row 2 — slider (+ play button and date on desktop) */}
@@ -119,7 +119,7 @@ export function Scrubber() {
           <PlayButton playing={playing} onToggle={() => setPlaying(!playing)} />
         </div>
 
-        <span className="hidden md:block text-xs font-medium text-gray-700 tabular-nums w-[100px] shrink-0">
+        <span className="hidden md:block text-[13px] font-medium text-zinc-200 tabular-nums w-[100px] shrink-0">
           {formatDate(dateStr, locale)}
         </span>
 
@@ -134,10 +134,10 @@ export function Scrubber() {
             className="w-full md:mt-4"
           >
             <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
-              <Slider.Track className="relative h-1 w-full rounded-full bg-gray-200">
+              <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                 <Slider.Thumb
                   ref={thumbRef}
-                  className="size-4 rounded-full bg-teal-600 ring-2 ring-white shadow-sm outline-none cursor-grab data-dragging:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,white_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
+                  className="size-4 rounded-full bg-teal-600 ring-2 ring-zinc-900 shadow-sm outline-none cursor-grab data-dragging:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,#18181b_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
                   getAriaLabel={() => t('scrubber.selectDate')}
                   getAriaValueText={(_, value) =>
                     formatDate(dayToDate(value, latestDate, scrubberDays), locale)
@@ -149,7 +149,7 @@ export function Scrubber() {
           <Tooltip.Root open={isDragging}>
             <Tooltip.Portal>
               <Tooltip.Positioner side="top" sideOffset={8} anchor={thumbRef} className="z-50">
-                <Tooltip.Popup className="rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-md">
+                <Tooltip.Popup className="rounded bg-zinc-950 border border-zinc-800 px-2 py-1 text-xs text-zinc-100 shadow-md">
                   {formatDate(dateStr, locale)}
                 </Tooltip.Popup>
               </Tooltip.Positioner>
@@ -157,25 +157,25 @@ export function Scrubber() {
           </Tooltip.Root>
           {/* Desktop: start + middle + end ticks */}
           <div className="hidden md:flex justify-between mt-0.5">
-            <span className="text-[10px] text-gray-400 tabular-nums">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
               {formatTickDate(dayToDate(0, latestDate, scrubberDays), locale)}
             </span>
-            <span className="text-[10px] text-gray-400 tabular-nums">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
               {formatTickDate(
                 dayToDate(Math.floor((scrubberDays - 1) / 2), latestDate, scrubberDays),
                 locale,
               )}
             </span>
-            <span className="text-[10px] text-gray-400 tabular-nums">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
               {formatTickDate(latestDate, locale)} · UTC+7
             </span>
           </div>
           {/* Mobile: start + end ticks only (UTC+7 already in row 1) */}
           <div className="flex md:hidden justify-between mt-0.5">
-            <span className="text-[10px] text-gray-400 tabular-nums">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
               {formatTickDate(dayToDate(0, latestDate, scrubberDays), locale)}
             </span>
-            <span className="text-[10px] text-gray-400 tabular-nums">
+            <span className="text-[11px] text-zinc-400 font-mono tabular-nums">
               {formatTickDate(latestDate, locale)}
             </span>
           </div>

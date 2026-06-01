@@ -41,7 +41,7 @@ function Logo({ size }: { size: number }) {
 }
 
 const ICON_BTN_CLS =
-  'inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]';
+  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]';
 
 function IconBtn({
   ariaLabel,
@@ -92,13 +92,13 @@ function AppDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Popup className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-md bg-white rounded-xl shadow-xl p-6">
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Popup className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-md bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-6">
           <div className="flex items-start justify-between mb-4">
-            <Dialog.Title className="text-[14px] font-semibold text-gray-800">{title}</Dialog.Title>
+            <Dialog.Title className="text-[14px] font-semibold text-zinc-100">{title}</Dialog.Title>
             <Dialog.Close
               aria-label={t('header.close')}
-              className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]"
+              className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]"
             >
               <XIcon />
             </Dialog.Close>
@@ -122,20 +122,20 @@ export function Header() {
 
   return (
     <>
-      <header className="h-12 flex items-center px-3 md:px-4 gap-2 md:gap-4 border-b border-gray-200 bg-white shrink-0 z-20">
+      <header className="h-12 flex items-center px-3 md:px-4 gap-2 md:gap-4 border-b border-zinc-800 bg-zinc-900 shrink-0 z-20">
         {/* Desktop brand */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <Logo size={26} />
           <div className="leading-tight">
-            <p className="text-[13px] font-semibold text-gray-800">Fahsai</p>
-            <p className="text-[10px] text-gray-500">{t('header.subtitle')}</p>
+            <p className="text-[13px] font-semibold text-zinc-100">Fahsai</p>
+            <p className="text-[11px] text-zinc-400">{t('header.subtitle')}</p>
           </div>
         </div>
 
         {/* Mobile brand */}
         <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
           <Logo size={22} />
-          <span className="text-[12px] font-semibold text-gray-800 truncate">Fahsai</span>
+          <span className="text-[12px] font-semibold text-zinc-100 truncate">Fahsai</span>
         </div>
 
         {/* Desktop spacer */}
@@ -144,7 +144,7 @@ export function Header() {
         {/* Desktop right cluster */}
         <div className="hidden md:flex items-center gap-1 shrink-0">
           <LanguagePill />
-          <span className="w-px h-5 bg-gray-200 mx-1" aria-hidden />
+          <span className="w-px h-5 bg-zinc-700 mx-1" aria-hidden />
           <IconBtn ariaLabel={t('header.about')} onClick={() => setAboutOpen(true)}>
             <InfoIcon />
           </IconBtn>
@@ -170,12 +170,12 @@ export function Header() {
 
       {/* About dialog */}
       <AppDialog open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
-        <p className="text-[13px] text-gray-700 leading-relaxed">{t('about.body')}</p>
-        <p className="mt-3 text-[12px] text-gray-500">
+        <p className="text-[13px] text-zinc-300 leading-relaxed">{t('about.body')}</p>
+        <p className="mt-3 text-[12px] text-zinc-400">
           Data: NASA FIRMS (VIIRS/NOAA-21, near real-time), OpenAQ, Copernicus CAMS via Open-Meteo,
           WRI.
         </p>
-        <p className="mt-3 text-[12px] text-gray-500">By Joost Kiens.</p>
+        <p className="mt-3 text-[12px] text-zinc-400">By Joost Kiens.</p>
       </AppDialog>
 
       {/* Settings dialog */}
@@ -185,8 +185,8 @@ export function Header() {
         title={t('header.settings')}
       >
         <div>
-          <p className="text-[11px] font-medium text-gray-700 mb-2">{t('settings.dateRange')}</p>
-          <div className="inline-flex rounded-md border border-gray-200 divide-x divide-gray-200 overflow-hidden">
+          <p className="text-[11px] font-medium text-zinc-300 mb-2">{t('settings.dateRange')}</p>
+          <div className="inline-flex rounded-md border border-zinc-700 divide-x divide-zinc-700 overflow-hidden">
             {SCRUBBER_RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt}
@@ -197,7 +197,7 @@ export function Header() {
                 className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-[175ms] ${
                   scrubberDays === opt
                     ? 'bg-teal-700 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                 }`}
               >
                 {opt}d

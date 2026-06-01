@@ -22,7 +22,7 @@ export function SidebarToggleFAB() {
       <button
         onClick={() => setDrawerOpen(true)}
         aria-label="Open layer controls"
-        className="absolute bottom-4 left-4 md:hidden w-11 h-11 rounded-full bg-white border border-gray-200 shadow-md z-30 pointer-events-auto flex items-center justify-center text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+        className="absolute bottom-4 left-4 md:hidden w-11 h-11 rounded-full bg-zinc-900 border border-zinc-700 shadow-lg z-30 pointer-events-auto flex items-center justify-center text-zinc-300 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
       >
         <LayersIcon />
       </button>
@@ -57,7 +57,7 @@ export function SidebarToggleFAB() {
                   setDrawerOpen(false);
                 }
               }}
-              className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-white rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden"
+              className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-zinc-900 border-t border-zinc-800 rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden"
             >
               {/* Header: drag handle (centered) + close button (right) — touch-none prevents scroll hijack */}
               <div
@@ -65,11 +65,11 @@ export function SidebarToggleFAB() {
                 onPointerDown={(e) => dragControls.start(e)}
               >
                 <div className="w-6" />
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
+                <div className="w-10 h-1 rounded-full bg-zinc-700" />
                 <button
                   onClick={() => setDrawerOpen(false)}
                   aria-label="Close layer controls"
-                  className="text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded"
+                  className="text-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded"
                 >
                   <XIcon />
                 </button>

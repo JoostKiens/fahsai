@@ -9,8 +9,6 @@ import { degToCompass } from '../../../utils/ambient';
 import { dateLocale } from '../../../i18n';
 import { WindArrow } from './WindArrow';
 
-// Widths for the four weather-table columns (date / wind / rain / humid).
-// Vary per row so adjacent rows don't look like a solid block.
 const SHIMMER_ROWS: [string, string, string, string][] = [
   ['w-8', 'w-14', 'w-5', 'w-5'],
   ['w-9', 'w-12', 'w-4', 'w-6'],
@@ -22,28 +20,26 @@ const SHIMMER_ROWS: [string, string, string, string][] = [
 export function ShimmerHistory() {
   return (
     <>
-      {/* Bar chart ghost — same height as the real chart (48px bars + 16px labels) */}
       <div className="flex items-end gap-[2px] h-[64px]">
         {Array.from({ length: 5 }, (_, i) => (
           <div
             key={i}
-            className="flex-1 rounded-t-sm animate-pulse bg-gray-100"
+            className="flex-1 rounded-t-sm animate-pulse bg-zinc-700"
             style={{ height: `${24 + (i % 3) * 12}px` }}
           />
         ))}
       </div>
 
-      {/* Weather section ghost — mirrors the "Weather" header + 6-row grid */}
       <div className="mt-3">
-        <div className="h-[15px] w-12 rounded animate-pulse bg-gray-100 mb-1" />
+        <div className="h-[15px] w-12 rounded animate-pulse bg-zinc-700 mb-1" />
         <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
           {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
-            <div key={j} className={`h-[15px] rounded animate-pulse bg-gray-100 ${w}`} />
+            <div key={j} className={`h-[15px] rounded animate-pulse bg-zinc-700 ${w}`} />
           ))}
           {SHIMMER_ROWS.map((cols, i) => (
             <Fragment key={i}>
               {cols.map((w, j) => (
-                <div key={j} className={`h-[15px] rounded animate-pulse bg-gray-100 ${w}`} />
+                <div key={j} className={`h-[15px] rounded animate-pulse bg-zinc-700 ${w}`} />
               ))}
             </Fragment>
           ))}
@@ -71,7 +67,7 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 4 }}
         transition={TWEEN_ENTER}
-        className="bg-gray-900 text-white text-[11px] font-semibold tabular-nums px-2 py-1 rounded shadow-lg whitespace-nowrap"
+        className="bg-zinc-950 border border-zinc-800 text-zinc-100 text-[11px] font-semibold tabular-nums px-2 py-1 rounded shadow-lg whitespace-nowrap"
       >
         {Math.round(value)} <span className="font-normal opacity-60">µg/m³</span>
       </motion.div>
@@ -125,7 +121,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
       {/* PM2.5 bar chart */}
       <div className="flex items-stretch gap-1">
         <div
-          className="flex flex-col justify-between text-[10px] text-gray-400 text-right shrink-0"
+          className="flex flex-col justify-between text-[10px] text-zinc-500 font-mono text-right shrink-0"
           style={{ paddingBottom: `${DAY_LABEL_H}px` }}
         >
           <span>{Math.round(maxPm25)}</span>
@@ -186,7 +182,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   }}
                 />
                 <span
-                  className={`text-[10px] whitespace-nowrap mt-1 ${readingCount > 0 ? 'text-gray-400' : 'text-gray-200'}`}
+                  className={`text-[10px] whitespace-nowrap mt-1 ${readingCount > 0 ? 'text-zinc-400' : 'text-zinc-700'}`}
                 >
                   {formatDateLabel(date)}
                 </span>
@@ -197,22 +193,21 @@ export function History({ days }: { days: StationDayHistory[] }) {
       </div>
 
       {/* Weather table */}
-      <p className="text-[10px] uppercase tracking-widest text-gray-500 mt-3 mb-1">
-        {t('history.weather')}
-      </p>
-      <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[10px] items-center">
+      <p className="text-[11px] text-zinc-400 mt-3 mb-1">{t('history.weather')}</p>
+      <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[11px] items-center">
         {/* Column headers */}
         <span />
-        <span className="text-gray-500 uppercase tracking-wider">
+        <span className="text-zinc-500 uppercase tracking-wider text-[10px]">
           {t('history.wind')}{' '}
-          <span className="normal-case tracking-normal text-gray-400">km/h</span>
+          <span className="normal-case tracking-normal text-zinc-400 font-mono">km/h</span>
         </span>
-        <span className="text-center text-gray-500 uppercase tracking-wider">
-          {t('history.rain')} <span className="normal-case tracking-normal text-gray-400">mm</span>
+        <span className="text-center text-zinc-500 uppercase tracking-wider text-[10px]">
+          {t('history.rain')}{' '}
+          <span className="normal-case tracking-normal text-zinc-400 font-mono">mm</span>
         </span>
-        <span className="text-center text-gray-500 uppercase tracking-wider">
+        <span className="text-center text-zinc-500 uppercase tracking-wider text-[10px]">
           {t('history.humidity')}{' '}
-          <span className="normal-case tracking-normal text-gray-400">%</span>
+          <span className="normal-case tracking-normal text-zinc-400 font-mono">%</span>
         </span>
 
         {/* Data rows */}
@@ -220,45 +215,43 @@ export function History({ days }: { days: StationDayHistory[] }) {
           const w = d.weather;
           return (
             <Fragment key={d.date}>
-              <span className="text-gray-500 font-medium whitespace-nowrap">
+              <span className="text-zinc-400 font-medium whitespace-nowrap">
                 {formatDateLabel(d.date)}
               </span>
 
               {w?.windDirectionDeg !== null && w?.windDirectionDeg !== undefined ? (
-                <span className="inline-flex items-center gap-1 text-gray-700">
+                <span className="inline-flex items-center gap-1 text-zinc-300">
                   <WindArrow
                     dirDeg={w.windDirectionDeg}
                     size={10}
-                    color="#6b7280"
+                    color="#a1a1aa"
                     strokeWidth={1.5}
                   />
-                  <span className="text-gray-500">{compass2(w.windDirectionDeg)}</span>
-                  <span className="font-medium tabular-nums">
-                    {w.windSpeedKmh !== null ? Math.round(w.windSpeedKmh) : '—'}
+                  <span className="text-zinc-400">{compass2(w.windDirectionDeg)}</span>
+                  <span className="tabular-nums">
+                    {w.windSpeedKmh !== null ? Math.round(w.windSpeedKmh) : '-'}
                   </span>
                 </span>
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-zinc-600">-</span>
               )}
 
               {w?.precipitationSumMm !== null && w?.precipitationSumMm !== undefined ? (
-                <span
-                  className={`text-center tabular-nums ${w.precipitationSumMm === 0 ? 'text-gray-400' : 'text-sky-600 font-medium'}`}
-                >
+                <span className="text-center tabular-nums text-zinc-300">
                   {w.precipitationSumMm === 0
                     ? '0'
                     : String(Math.round(w.precipitationSumMm * 10) / 10)}
                 </span>
               ) : (
-                <span className="text-gray-400 text-center">—</span>
+                <span className="text-zinc-600 text-center">-</span>
               )}
 
               {w?.relativeHumidity2m !== null && w?.relativeHumidity2m !== undefined ? (
-                <span className="text-gray-500 tabular-nums text-center">
+                <span className="text-zinc-300 tabular-nums text-center">
                   {Math.round(w.relativeHumidity2m)}
                 </span>
               ) : (
-                <span className="text-gray-400 text-center">—</span>
+                <span className="text-zinc-600 text-center">-</span>
               )}
             </Fragment>
           );

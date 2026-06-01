@@ -27,7 +27,7 @@ export function LayerRow({ id }: Props) {
   return (
     <div className="flex items-center gap-2 py-1.5">
       <Swatch color={meta.color} shape={meta.shape} />
-      <span className="flex-1 text-sm text-gray-700">{meta.label}</span>
+      <span className="flex-1 text-[13px] text-zinc-100">{meta.label}</span>
       <Toggle checked={visible} onChange={() => toggleLayer(id)} label={`Toggle ${meta.label}`} />
     </div>
   );

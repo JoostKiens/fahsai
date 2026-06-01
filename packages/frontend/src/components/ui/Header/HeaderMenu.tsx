@@ -4,10 +4,10 @@ import { useUIStore } from '../../../store/uiStore';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 
 const TRIGGER_CLS =
-  'inline-flex items-center justify-center w-8 h-8 rounded text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors ease-out hover:duration-[175ms]';
+  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]';
 
 const ITEM_CLS =
-  'w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-gray-700 cursor-default data-highlighted:bg-gray-50 text-left';
+  'w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-zinc-200 cursor-default data-highlighted:bg-zinc-800 text-left';
 
 function MoreIcon() {
   return (
@@ -31,15 +31,15 @@ export function HeaderMenu() {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={4} align="end" className="z-40">
-          <Menu.Popup className="w-40 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden py-1">
+          <Menu.Popup className="w-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden py-1">
             <Menu.Item className={ITEM_CLS} onClick={() => setSettingsOpen(true)}>
-              <span className="text-gray-400">
+              <span className="text-zinc-500">
                 <GearIcon size={14} />
               </span>
               {t('menu.settings')}
             </Menu.Item>
             <Menu.Item className={ITEM_CLS} onClick={() => setAboutOpen(true)}>
-              <span className="text-gray-400">
+              <span className="text-zinc-500">
                 <InfoIcon size={14} />
               </span>
               {t('menu.about')}
@@ -54,7 +54,7 @@ export function HeaderMenu() {
                 />
               }
             >
-              <span className="text-gray-400">
+              <span className="text-zinc-500">
                 <GithubIcon size={14} />
               </span>
               {t('header.github')}
