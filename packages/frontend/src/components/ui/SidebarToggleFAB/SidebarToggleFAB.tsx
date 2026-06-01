@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { LayerGroups } from '../Sidebar/LayerGroups';
 import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '../../../utils/animation';
@@ -16,13 +17,13 @@ export function SidebarToggleFAB() {
     return () => document.removeEventListener('keydown', onKey);
   }, [drawerOpen]);
 
-  return (
+  return createPortal(
     <>
-      {/* FAB button */}
+      {/* FAB button — fixed so it sits above the Scrubber regardless of stacking context */}
       <button
         onClick={() => setDrawerOpen(true)}
         aria-label="Open layer controls"
-        className="absolute bottom-4 left-4 md:hidden w-11 h-11 rounded-full bg-zinc-900 border border-zinc-700 shadow-lg z-30 pointer-events-auto flex items-center justify-center text-zinc-300 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+        className="fixed bottom-18 left-4 md:hidden w-11 h-11 rounded-full bg-zinc-900 border border-zinc-700 shadow-lg z-30 pointer-events-auto flex items-center justify-center text-zinc-300 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
       >
         <LayersIcon />
       </button>
@@ -83,7 +84,8 @@ export function SidebarToggleFAB() {
           </>
         )}
       </AnimatePresence>
-    </>
+    </>,
+    document.body,
   );
 }
 
