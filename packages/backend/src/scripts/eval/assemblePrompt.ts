@@ -1,5 +1,10 @@
 import type { ExplainFixtureInput, FixtureUpwindSource } from './types.js';
 import { compassFromDeg } from '../../utils/geo.js';
+// classifyCase is imported from a shared utility rather than duplicated here.
+// Unlike formatting helpers (pm25Cat, firePressureLabel) which are intentionally
+// decoupled snapshots, classifyCase is a decision function that must stay identical
+// between the route and the eval — divergence would produce a wrong CASE: line.
+import { classifyCase } from '../../utils/classify.js';
 
 // ----------------------------------------------------------------
 // Helpers — copied from route handler to stay decoupled
@@ -99,6 +104,20 @@ export function assemblePrompt(input: ExplainFixtureInput, lang?: string): strin
     : null;
 
   const meanWindSpeedKmh = trajectory?.meanWindSpeedKmh ?? 0;
+
+  // --- case classifier ---
+  const explainCase = classifyCase({
+    isStrongOutlier,
+    isHighOutlier,
+    firePressureNorm,
+    camsMaxPm25,
+    latestPm25: currentPm25,
+    trajectoryPrecipTotal: weather.trajectoryPrecipitationMm ?? 0,
+    relevantSources: (upwindSources ?? []).map((s) => ({
+      isUpwind: s.currentlyUpwind,
+      distKm: s.distanceKm,
+    })),
+  });
 
   // --- seasonal context ---
   const seasonContext = {
@@ -339,6 +358,8 @@ ${fireStr}`;
 
 STATION: ${station.name} (${station.lat.toFixed(3)}°N, ${station.lng.toFixed(3)}°E)
 CURRENT PM2.5: ${currentPm25.toFixed(1)} µg/m³ — ${pm25Cat(currentPm25)}
+CASE: ${explainCase}
+DATE: ${input.date} (UTC+7)
 
 7-DAY DAILY AVERAGES
 ${dailyLines || '  No historical data'}

@@ -1,10 +1,10 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '08-plausible-unclear-usu-13-05-2026',
-  case: 'PLAUSIBLE_UNCLEAR',
+  id: '08-plausible-clean-usu-13-05-2026',
+  case: 'PLAUSIBLE_CLEAN',
   description:
-    'Low Moderate reading with no identifiable cause. CAMS flat and Good along entire path, fire pressure negligible, no upwind sources, no peer stations. Air originated over Indonesia/Strait of Malacca after heavy rainfall. Sensor over-reading possible — RH hit 86% on May 10. The canonical PLAUSIBLE_UNCLEAR case.',
+    'Moderate reading explained by heavy rainfall along the wind path (88 mm). Air originated over Indonesia via the Strait of Malacca. No fires, no upwind sources. Classified PLAUSIBLE_CLEAN by rain-washout branch (trajectoryPrecipitationMm 88 > 40, pm25 14.4 <= 25).',
   input: {
     station: {
       name: 'USU',
