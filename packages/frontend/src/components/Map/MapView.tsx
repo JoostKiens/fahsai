@@ -172,6 +172,7 @@ export function MapView() {
       setSelectedPoint({
         lngLat: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]],
         powerPlant: {
+          id: p.id,
           name: p.name,
           fuelType: p.fuel_type,
           capacityMw: p.capacity_mw,
@@ -237,6 +238,7 @@ export function MapView() {
       setSelectedPoint({
         lngLat: [d.lng, d.lat],
         fire: {
+          id: d.id,
           frp: d.frp,
           confidence: d.confidence,
           detectedAt: d.detectedAt,

@@ -1,13 +1,20 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../store/uiStore';
 import { useTimeStore } from '../store/timeStore';
+import { selParamFromPending, selParamFromSelection } from '../utils/selectionUrl';
 
 export function useUrlSync() {
   const mapCenter = useUIStore((s) => s.mapCenter);
   const mapZoom = useUIStore((s) => s.mapZoom);
   const selectedDate = useTimeStore((s) => s.selectedDate);
+  const selectedPoint = useUIStore((s) => s.selectedPoint);
+  const pendingSelection = useUIStore((s) => s.pendingSelection);
 
-  // Reflect current map state + selected date in the URL (debounced 500 ms).
+  // Selection param: prefer the resolved point; otherwise echo the still-hydrating
+  // URL value so a copy mid-hydration keeps the link shareable.
+  const selParam = selParamFromSelection(selectedPoint) ?? selParamFromPending(pendingSelection);
+
+  // Reflect current map state + selected date + selection in the URL (debounced 500 ms).
   // Language is expressed by the path (/th/ vs /), not a query param.
   useEffect(() => {
     const t = setTimeout(() => {
@@ -16,8 +23,9 @@ export function useUrlSync() {
       p.set('lng', mapCenter[0].toFixed(4));
       p.set('zoom', mapZoom.toFixed(2));
       p.set('date', selectedDate);
+      if (selParam) p.set('sel', selParam);
       history.replaceState(null, '', window.location.pathname + '?' + p.toString());
     }, 500);
     return () => clearTimeout(t);
-  }, [mapCenter, mapZoom, selectedDate]);
+  }, [mapCenter, mapZoom, selectedDate, selParam]);
 }
