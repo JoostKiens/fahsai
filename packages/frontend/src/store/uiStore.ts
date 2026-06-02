@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { useSettingsStore } from './settingsStore';
+import { parsePendingSelectionFromSearch } from '../utils/selectionUrl';
 
 const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 — Bangkok / ICT
 
 export interface SelectedPoint {
   lngLat: [number, number];
   fire?: {
+    id: number;
     frp: number | null;
     confidence: string | null;
     detectedAt: string;
@@ -19,6 +21,7 @@ export interface SelectedPoint {
     measuredAt: string;
   };
   powerPlant?: {
+    id: number;
     name: string;
     fuelType: string;
     capacityMw: number | null;
@@ -28,12 +31,21 @@ export interface SelectedPoint {
   };
 }
 
+export type PendingSelectionKind = 'station' | 'fire' | 'plant';
+
+export interface PendingSelection {
+  kind: PendingSelectionKind;
+  id: string;
+}
+
 interface UIStore {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   selectedPoint: SelectedPoint | null;
   setSelectedPoint: (point: SelectedPoint | null) => void;
+  pendingSelection: PendingSelection | null;
+  setPendingSelection: (p: PendingSelection | null) => void;
   hintDismissed: boolean;
   dismissHint: () => void;
   scrubberDay: number; // 0 = oldest day in range, scrubberDays-1 = latestDate
@@ -72,7 +84,15 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   selectedPoint: null,
-  setSelectedPoint: (p) => set({ selectedPoint: p, hintDismissed: p ? true : get().hintDismissed }),
+  // Any explicit selection (or dismissal) supersedes a not-yet-resolved URL hydration.
+  setSelectedPoint: (p) =>
+    set({
+      selectedPoint: p,
+      pendingSelection: null,
+      hintDismissed: p ? true : get().hintDismissed,
+    }),
+  pendingSelection: parsePendingSelectionFromSearch(window.location.search),
+  setPendingSelection: (p) => set({ pendingSelection: p }),
   hintDismissed: false,
   dismissHint: () => set({ hintDismissed: true }),
   scrubberDay: initialScrubberDayFromUrl(),
