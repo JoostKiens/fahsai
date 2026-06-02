@@ -1,9 +1,12 @@
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point } from '@turf/helpers';
 import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { explainRatelimit } from '../cache/ratelimit.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
+import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
 import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';
@@ -15,6 +18,14 @@ const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
 const AREA_PRESSURE_HIGH_THRESHOLD = 40; // "High" label cutoff — score at which buildup warrants emphasis
 const SLOW_WIND_THRESHOLD_KMH = 10; // below this, stagnation narrative takes priority over transport
+
+export type ExplainCase =
+  | 'OUTLIER_HIGH'
+  | 'OUTLIER_LOW'
+  | 'PLAUSIBLE_FIRE_TRANSPORT'
+  | 'PLAUSIBLE_URBAN_INDUSTRIAL'
+  | 'PLAUSIBLE_CLEAN'
+  | 'PLAUSIBLE_UNCLEAR';
 
 function medianOf(arr: number[]): number {
   if (!arr.length) return 0;
@@ -44,43 +55,14 @@ function pm25Cat(pm25: number): string {
 
 // --- trend ---
 
-// --- upwind helpers ---
-
-const UPWIND_TOLERANCE_DEG = 60;
-
-function angleDiff(a: number, b: number): number {
-  return Math.abs(((a - b + 540) % 360) - 180);
-}
-
-// --- geographic region lookup for trajectory annotation ---
-
-const GEO_REGIONS: ReadonlyArray<{
-  label: string;
-  latMin: number;
-  latMax: number;
-  lngMin: number;
-  lngMax: number;
-}> = [
-  // Water bodies first — prevents land bounding-box false matches over open sea
-  { label: 'Gulf of Thailand', latMin: 6, latMax: 13.5, lngMin: 99.5, lngMax: 104.5 },
-  { label: 'Andaman Sea', latMin: 5, latMax: 16, lngMin: 92, lngMax: 99.5 },
-  { label: 'South China Sea', latMin: 1, latMax: 25, lngMin: 104.5, lngMax: 122 },
-  // Land — Myanmar split at 21°N to avoid overlap with Thailand in the border zone
-  { label: 'China', latMin: 21.5, latMax: 55, lngMin: 97, lngMax: 135 },
-  { label: 'Bangladesh', latMin: 20.5, latMax: 26.7, lngMin: 88, lngMax: 92.7 },
-  { label: 'Myanmar', latMin: 21, latMax: 28.5, lngMin: 92, lngMax: 101.5 },
-  { label: 'Myanmar', latMin: 9.5, latMax: 21, lngMin: 92, lngMax: 99.5 },
-  { label: 'Laos', latMin: 13.9, latMax: 22.5, lngMin: 100.5, lngMax: 107.7 },
-  { label: 'Cambodia', latMin: 9.9, latMax: 14.7, lngMin: 102.5, lngMax: 107.7 },
-  { label: 'Vietnam', latMin: 8.4, latMax: 23.4, lngMin: 104.5, lngMax: 109.5 },
-  { label: 'Thailand', latMin: 5.5, latMax: 20.5, lngMin: 97.5, lngMax: 106 },
-  { label: 'Malaysia', latMin: 1, latMax: 6.7, lngMin: 99.5, lngMax: 104.7 },
-  { label: 'India', latMin: 6, latMax: 36, lngMin: 68, lngMax: 92 },
-];
-
 function geoRegion(lat: number, lng: number): string {
-  for (const r of GEO_REGIONS) {
-    if (lat >= r.latMin && lat <= r.latMax && lng >= r.lngMin && lng <= r.lngMax) return r.label;
+  const pt = point([lng, lat]);
+  for (const feature of regions.features) {
+    if (
+      booleanPointInPolygon(pt, feature as unknown as Parameters<typeof booleanPointInPolygon>[1])
+    ) {
+      return feature.properties.name;
+    }
   }
   return '';
 }
@@ -91,7 +73,7 @@ function firePressureLabel(score: number): string {
   if (score === 0) return 'None';
   if (score < 15) return 'Low';
   if (score < 40) return 'Moderate';
-  if (score < 70) return 'High';
+  if (score < 60) return 'High';
   return 'Very high';
 }
 
@@ -361,6 +343,49 @@ export function explainRoutes(app: FastifyInstance): void {
       const centerTrajectory = members[0];
       const originWaypoint = centerTrajectory[centerTrajectory.length - 1];
 
+      req.log.info(
+        {
+          selectedDate,
+          stationLat: lat,
+          stationLng: lng,
+          centerTrajectoryWaypoints: centerTrajectory.map((w) => ({
+            lat: w.lat,
+            lng: w.lng,
+            date: w.date,
+          })),
+          originWaypoint: {
+            lat: originWaypoint.lat,
+            lng: originWaypoint.lng,
+            date: originWaypoint.date,
+          },
+          corridorKm,
+          meanWindSpeedKmh,
+        },
+        'explain: trajectory debug',
+      );
+
+      // Cumulative precipitation along the center trajectory — deduplicates by
+      // (date, snapped lat, snapped lng) so multiple waypoints in the same daily
+      // grid cell are only counted once. This answers whether the air mass traveled
+      // through rain on its way here, which drives particle washout more directly
+      // than a single origin-point reading.
+      const trajectoryPrecipTotal = (() => {
+        const seen = new Set<string>();
+        let total = 0;
+        for (const wp of centerTrajectory) {
+          const grid = windGridsByDate.get(wp.date) ?? [];
+          if (!grid.length) continue;
+          const nearest = nearestGridPoint(wp.lat, wp.lng, grid) as WeatherReading;
+          const snapLat = Math.round(Math.round(nearest.lat / 0.4) * 0.4 * 1000) / 1000;
+          const snapLng = Math.round(Math.round(nearest.lng / 0.4) * 0.4 * 1000) / 1000;
+          const key = `${wp.date}:${snapLat}:${snapLng}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          total += nearest.precipitation_sum ?? 0;
+        }
+        return total;
+      })();
+
       // --- fire query using footprint bbox ---
       // Use UTC day end as the upper bound so the VIIRS PM pass (~18:30 UTC) is included.
       // The fires route uses the same UTC-day convention; BKK midnight (anchorEndMs) is 7h
@@ -433,7 +458,19 @@ export function explainRoutes(app: FastifyInstance): void {
         const transportWeight = 1 / (1 + f.distKm / corridorKm) ** 2; // inverse-square: edge-of-corridor fires get 25% weight (vs 50% with linear)
         return sum + (f.frp ?? 10) * recencyWeight * transportWeight;
       }, 0);
-      const firePressureNorm = Math.min(100, Math.round(firePressureScore / 10));
+      // Two-segment normalization — linear below 100 (preserves near-zero sensitivity),
+      // log scale above 100 (spreads the high-fire range across 15–100).
+      // Calibrated against real fire events:
+      //   raw 69    (Le Thai, low monsoon)      → ~10  Low
+      //   raw 1,163 (Ratchapracha, significant) → ~49  High
+      //   raw 2,859 (Chaloem, severe)           → ~62  Very high
+      //   raw 35,669 (Wiang Nuea, catastrophic) → ~97  Very high
+      const firePressureNorm = (() => {
+        if (firePressureScore < 100) {
+          return Math.round((firePressureScore / 100) * 15);
+        }
+        return Math.min(100, Math.round(15 + (Math.log10(firePressureScore) - 2) * 32));
+      })();
 
       // --- peers context ---
       type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
@@ -482,16 +519,12 @@ export function explainRoutes(app: FastifyInstance): void {
 
       // --- urban / industrial / power plant sources ---
       const relevantSources = URBAN_SOURCES.map((source) => {
-        const distFromOrigin = haversineKm(
-          originWaypoint.lat,
-          originWaypoint.lng,
-          source.lat,
-          source.lng,
-        );
+        const distFromStation = haversineKm(lat, lng, source.lat, source.lng);
         const minDistToPath = Math.min(
-          ...centerTrajectory.map((w) => haversineKm(w.lat, w.lng, source.lat, source.lng)),
+          ...allWaypoints.map((w) => haversineKm(w.lat, w.lng, source.lat, source.lng)),
         );
-        const effectiveDist = Math.max(1, Math.min(distFromOrigin, minDistToPath));
+
+        const effectiveDist = Math.max(1, minDistToPath);
         if (effectiveDist > 800) return null;
 
         const populationScore = source.population / effectiveDist ** 2;
@@ -499,17 +532,9 @@ export function explainRoutes(app: FastifyInstance): void {
         const influenceScore = populationScore + emissionScore;
         if (influenceScore < 50) return null;
 
-        const nearestW = wind0.length
-          ? (nearestGridPoint(lat, lng, wind0 as WindGridPoint[]) as {
-              wind_direction_deg: number;
-            })
-          : null;
-        const bearing = bearingDeg(lat, lng, source.lat, source.lng);
-        const isUpwind = nearestW
-          ? angleDiff(bearing, nearestW.wind_direction_deg) <= UPWIND_TOLERANCE_DEG
-          : false;
+        const isUpwind = minDistToPath <= corridorKm;
 
-        return { ...source, distKm: effectiveDist, influenceScore, isUpwind };
+        return { ...source, distKm: distFromStation, minDistToPath, influenceScore, isUpwind };
       })
         .filter((s): s is NonNullable<typeof s> => s !== null)
         .sort((a, b) => b.influenceScore - a.influenceScore)
@@ -536,15 +561,15 @@ export function explainRoutes(app: FastifyInstance): void {
       // --- weather context (precipitation + humidity) ---
       // Use station_weather for the station's own dates — it's pre-computed from the full
       // grid at ingest time and is immune to the Supabase 1000-row cap on weather_readings.
-      type StationWeatherRow = {
+      type StationWeatherRecord = {
         date: string;
         wind_speed_kmh: number | null;
         wind_direction_deg: number | null;
         precipitation_sum: number | null;
         relative_humidity_2m: number | null;
       };
-      const stationWeatherByDate = new Map<string, StationWeatherRow>();
-      for (const row of (stationWeatherRows.data ?? []) as StationWeatherRow[]) {
+      const stationWeatherByDate = new Map<string, StationWeatherRecord>();
+      for (const row of (stationWeatherRows.data ?? []) as StationWeatherRecord[]) {
         stationWeatherByDate.set(row.date, row);
       }
       const wx0 = stationWeatherByDate.get(d0) ?? null;
@@ -553,21 +578,50 @@ export function explainRoutes(app: FastifyInstance): void {
       const wx3 = stationWeatherByDate.get(d3) ?? null;
       const wx4 = stationWeatherByDate.get(d4) ?? null;
 
-      // For the trajectory origin (an arbitrary grid location) we still need to snap
-      // against the wind grid, since station_weather only covers known stations.
-      function nearestWeather(
-        grid: WeatherReading[],
-        wLat: number,
-        wLng: number,
-      ): WeatherReading | null {
-        if (!grid.length) return null;
-        return nearestGridPoint(wLat, wLng, grid as WindGridPoint[]) as WeatherReading;
-      }
-      const wxOriginGrid = (windGridsByDate.get(originWaypoint.date) ?? []) as WeatherReading[];
-      const wxOrigin =
-        originWaypoint !== centerTrajectory[0] && wxOriginGrid.length
-          ? nearestWeather(wxOriginGrid, originWaypoint.lat, originWaypoint.lng)
-          : null;
+      // Persistent wind direction — if the last 5 days of wind at the station are
+      // consistently from the same general quadrant (all within ±45° of the mean),
+      // surface this as context so the model can reference sources beyond the
+      // trajectory window that lie in that direction.
+      const persistentWind = (() => {
+        const wxDays = [wx0, wx1, wx2, wx3, wx4].filter(
+          (wx): wx is NonNullable<typeof wx> => wx !== null && wx.wind_direction_deg !== null,
+        );
+        if (wxDays.length < 3) return null;
+
+        const sinSum = wxDays.reduce(
+          (s, wx) => s + Math.sin((wx.wind_direction_deg! * Math.PI) / 180),
+          0,
+        );
+        const cosSum = wxDays.reduce(
+          (s, wx) => s + Math.cos((wx.wind_direction_deg! * Math.PI) / 180),
+          0,
+        );
+        const meanDeg = ((Math.atan2(sinSum, cosSum) * 180) / Math.PI + 360) % 360;
+
+        const allConsistent = wxDays.every((wx) => {
+          const diff = Math.abs(((wx.wind_direction_deg! - meanDeg + 540) % 360) - 180);
+          return diff <= 45;
+        });
+        if (!allConsistent) return null;
+
+        return {
+          directionDeg: Math.round(meanDeg),
+          label: compassFromDeg(meanDeg),
+          dayCount: wxDays.length,
+        };
+      })();
+
+      // Sources that lie in the persistent wind direction but beyond the trajectory
+      // window — i.e. sources whose distKm (from station) exceeds corridorKm.
+      const persistentWindSources =
+        persistentWind !== null
+          ? relevantSources.filter((s) => {
+              if (s.distKm <= corridorKm) return false;
+              const bearing = bearingDeg(lat, lng, s.lat, s.lng);
+              const diff = Math.abs(((bearing - persistentWind.directionDeg + 540) % 360) - 180);
+              return diff <= 45;
+            })
+          : [];
 
       // --- build prompt strings ---
 
@@ -581,6 +635,7 @@ export function explainRoutes(app: FastifyInstance): void {
           const grid = windGridsByDate.get(date)!;
           if (!grid.length) return `  ${date}: no data`;
           const nearest = nearestGridPoint(lat, lng, grid);
+          if (nearest.wind_speed_kmh === null) return `  ${date}: no data`;
           return (
             `  ${date}: from ${compassFromDeg(nearest.wind_direction_deg)} ` +
             `at ${nearest.wind_speed_kmh.toFixed(1)} km/h`
@@ -589,7 +644,7 @@ export function explainRoutes(app: FastifyInstance): void {
         .join('\n');
 
       // Weather context — 5-day precipitation + humidity at station
-      const stationDays: Array<{ date: string; wx: StationWeatherRow | null }> = [
+      const stationDays: Array<{ date: string; wx: StationWeatherRecord | null }> = [
         { date: d0, wx: wx0 },
         { date: d1, wx: wx1 },
         { date: d2, wx: wx2 },
@@ -623,9 +678,11 @@ export function explainRoutes(app: FastifyInstance): void {
         );
       }
 
-      if (wxOrigin !== null) {
+      if (centerTrajectory.length >= 2) {
         precipRows.push(
-          `  Trajectory origin (${originWaypoint.date}): ${(wxOrigin.precipitation_sum ?? 0).toFixed(1)} mm rain`,
+          trajectoryPrecipTotal === 0
+            ? `  Precipitation along wind path (3-day cumulative): 0.0 mm — no rainfall along trajectory.`
+            : `  Precipitation along wind path (3-day cumulative): ${trajectoryPrecipTotal.toFixed(1)} mm`,
         );
       }
       const weatherContextStr = precipRows.join('\n');
@@ -717,7 +774,7 @@ export function explainRoutes(app: FastifyInstance): void {
           ? '  None identified within footprint'
           : relevantSources
               .map((s) => {
-                const upwindTag = s.isUpwind ? ' [currently upwind]' : '';
+                const upwindTag = s.isUpwind ? ' [along wind path]' : '';
                 const detail =
                   s.type === 'power_plant'
                     ? `${s.emissionProxy} MW coal plant`
@@ -815,6 +872,27 @@ export function explainRoutes(app: FastifyInstance): void {
           ? '- Area fire pressure is High or Very High and winds have been slow — emphasize that stagnant air has allowed long-running regional fire smoke to accumulate at this location. This is a buildup story, not just a transport story.'
           : '';
 
+      const persistentWindStr =
+        persistentWind === null
+          ? null
+          : persistentWindSources.length === 0
+            ? `Wind has been consistently from the ${persistentWind.label} for ${persistentWind.dayCount}+ days. No major emission sources identified in that direction beyond the wind path window.`
+            : [
+                `Wind has been consistently from the ${persistentWind.label} for ${persistentWind.dayCount}+ days.`,
+                `Sources in that direction beyond the wind path window:`,
+                ...persistentWindSources
+                  .sort((a, b) => a.distKm - b.distKm)
+                  .map((s) => {
+                    const detail =
+                      s.type === 'power_plant'
+                        ? `${s.emissionProxy} MW coal plant`
+                        : s.type === 'industrial'
+                          ? 'industrial zone'
+                          : `pop. ${(s.population / 1e6).toFixed(1)}M`;
+                    return `  ${s.name}, ${s.country} — ${s.distKm.toFixed(0)} km — ${detail}`;
+                  }),
+              ].join('\n');
+
       // --- trajectory / fire / CAMS section — omitted for strong outliers ---
       const transportSection = isStrongOutlier
         ? `FIRES / WIND PATH / CAMS: Omitted — reading is a strong outlier vs peer stations (${outlierRatio.toFixed(1)}× median, station is ${isHighOutlier ? 'far above' : 'far below'} neighbours). Regional transport data is not relevant.`
@@ -843,7 +921,7 @@ ${windSummary}
 
 WEATHER CONTEXT (precipitation and humidity at station)
 ${weatherContextStr}
-
+${persistentWindStr ? `\nPERSISTENT WIND DIRECTION (station weather, last ${persistentWind!.dayCount} days)\n${persistentWindStr}\n` : ''}
 ${transportSection}
 
 AREA FIRE PRESSURE (14-day precomputed score at this location)
@@ -870,6 +948,7 @@ Lead with what is most interesting: where the air came from and what drove it. O
 - Use neutral third person for location references ("this area", "this station", "conditions here") — do not use "we", "our", or "our community".
 - Use the CAMS values to trace how pollution changed along the wind path. Only describe it as an accumulation story when the endpoint is meaningfully higher than the origin — defined as a difference of ≥ 15 µg/m³ OR a crossing of an AQI category boundary (whichever threshold is met first). When either condition is met, you MUST cite the actual start and end values in µg/m³ — a sentence like "air quality worsened as it moved inland" without numbers is not acceptable; write "air that read 6.8 µg/m³ over the Gulf reached 29.2 µg/m³ by the time it arrived." Immediately after narrating the gradient, check whether the station's current PM2.5 reading is more than 20 µg/m³ above the highest CAMS value anywhere along the path (not just the nearest-to-station value — scan all three samples and use the maximum). If so, you MUST add a follow-on sentence in the same paragraph explaining in your own words why the station reads so much higher than the model: the CAMS model captures regional background smoke, but ground readings here are far above even the peak modelled value along the path, which means fire activity close to the station is contributing smoke the model doesn't fully resolve. Cite the actual station reading and the peak CAMS value (the highest of the three samples) so the gap is concrete. Do not quote or closely paraphrase the wording of this instruction. These two sentences belong together and must both appear when both conditions are met: the gradient explains what the smoke looked like in transit; the gap explains why the station reads higher than the arriving air. Never narrate the gradient without also checking and reporting the gap. If neither gradient condition is met — all values stay within the same AQI band and are close in magnitude — skip the gradient entirely; it is noise, not a story. Still check the station-vs-CAMS gap independently: if the station reading exceeds the highest CAMS value anywhere along the path (the maximum of all three samples) by more than 20 µg/m³ even when the gradient is skipped, explain in your own words why the station reads so much higher than the regional model — the CAMS model captures background smoke across a wide area, but intense fire activity close to the station can produce readings far above what that model resolves. Cite the actual numbers (station reading and peak CAMS value) so the gap is concrete. Do not quote or closely paraphrase the wording of this instruction. When CAMS values decrease along the path (the air got cleaner in transit), do not describe this as accumulation — either skip the gradient or note that the arriving air was cleaner than the source region, then consider whether local sources near the station better explain the gap. CAMS values are atmospheric model estimates, not ground readings — do not describe them as "sensor readings" or imply they were measured by instruments along the path. If wind direction changed significantly over the period shown, add this as the final sentence of the relevant paragraph. When describing the wind path, name specific countries, regions, or cities the air mass traveled through — "from the south" or "from the coast" are not sufficient. Readers cannot see the full multi-day path on the map, so be geographically concrete. When the origin is over water (ocean, gulf, large lake), note that the cleaner marine air then traveled through a continental corridor — name the land regions or countries the air passed through after leaving the water, not just the water body of origin.
 - The WIND section above shows the local wind direction and speed at the station for each of the last 3 days — it describes conditions at the station, not the full geographic origin of the air mass. The 3-DAY WIND PATH section is the authoritative source for where the air came from geographically. Do not describe today's local wind direction as a "shift" or as the endpoint of the trajectory — the trajectory is traced backward from the station across multiple days and will often show a very different origin direction than today's local wind reading.
+- The PERSISTENT WIND DIRECTION section (when present) shows that wind has been blowing consistently from one direction for several days — longer than the 3-day wind path captures. Sources listed there are plausible contributors to the air mass even though they fall outside the wind path window. You may reference them as background sources the air likely passed over before the wind path begins, but frame them with appropriate uncertainty: "the persistent southerly flow suggests the air may have passed over Bangkok before arriving" — not "Bangkok caused this reading." Only reference persistent wind sources when they add meaningful context to the explanation; do not mention them for Good readings unless they help explain an otherwise unclear pattern.
 - When the CAMS gradient is skipped (values too close to narrate), and trajectory fire pressure is ≥ 70, the fire data is the primary story — describe it with specificity: the total fire count, how close the nearest fires are to the wind path (use the km distances in the data), and the geographic corridor where they are burning (derive this from the path coordinates and region labels in the wind path section — name specific countries and sub-regions, not just "the region" or "upwind areas"). The absence of a CAMS gradient does not mean pollution origins are unclear; it means the fire numbers carry the explanation alone.
 - The cumulative fire pressure score summarises fire activity along the actual transport path — weight it accordingly.${camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40 ? ' However, the CAMS model shows consistently low PM2.5 along the trajectory despite a high fire pressure score — fires are on the flanks of the corridor, not in the core air mass that reached this station. Do not mention fires at all: they are not contributing to current conditions and referencing them adds confusion rather than clarity.' : ''}
 - The area fire pressure score shows 14-day accumulated fire activity at this specific location — use it to give context about longer-term fire buildup beyond the recent trajectory window. If both scores are low and no fires are detected, do not mention fires at all. When area fire pressure is high or very high, lead with the sustained local burning story — fires have been burning at or near this location for an extended period, not just today.
@@ -879,7 +958,7 @@ ${slowWindBuildup}
 - If fire pressure is 0 and no fires were detected, do not mention fires at all.
 - If cumulative fire pressure is below 40 and CAMS values along the trajectory are all below 20 µg/m³, treat fires as not contributing to current conditions and do not mention them.
 - The path the air took and the upwind emission sources are two different things. The path shows where the air mass came from geographically. Upwind sources are cities or industrial areas whose emissions are carried to the station by the wind — they may or may not lie on the path itself. Do not describe upwind sources as places the air "passed through", "passed near", "passes nearby", or "moved through on the way" — these imply the source is a waypoint, not an emitter. Frame them as sources adding pollution to the air arriving at the station.
-- Order sources using these tiers, resolved in sequence: (1) sources marked [currently upwind] and within 150 km — order these by proximity to the station, closest first; (2) sources NOT marked [currently upwind] but within 20 km — the station permanently sits in their air shed regardless of wind direction. Any source within 20 km MUST be mentioned as local urban context after any upwind sources — this is not optional. Integrate it into an existing paragraph rather than appending a standalone closing sentence: the peer comparison paragraph (local urban emissions add to what neighbours are measuring) or the fire paragraph (local urban background sits beneath arriving smoke) are the natural homes. A dangling sentence about a city at the end of the response reads as an afterthought; (3) everything else — omit. A source that is neither marked [currently upwind] NOR within 20 km of the station must be omitted regardless of its size, population, or capacity — do not include it as a closing sentence, as secondary context, or in any other form. Example: Yangon at 72 km marked [currently upwind] is tier 1 and must be mentioned. Chiang Mai at 87 km not marked [currently upwind] and not within 20 km is tier 3 — omit it entirely. Distance alone does not qualify a source; the [currently upwind] tag or the 20 km threshold must be met. Exception: when cumulative fire pressure is ≥ 70 AND area fire pressure is < 20 (fires are only along the distant upwind path, not local to this area), industrial and urban sources further than 50 km away are background noise — skip them entirely and keep the focus on the imported fire story. This exception does NOT apply when area fire pressure is ≥ 20 — in that case fires are burning in or near this area and upwind urban sources remain relevant context alongside the fire story. Within tier 1, proximity governs order regardless of capacity or population: a 1,878 MW plant 18 km away ranks above a 2,400 MW plant 114 km away. Do not substitute capacity or population for proximity when deciding what to mention first. When multiple sources of the same type are relevant, group them rather than listing individually (e.g., "three coal-fired power plants including BLCP and Gheco One" rather than naming all three separately). When describing an upwind source, frame it as adding pollution to the arriving air — do not use "contribute to air quality" (ambiguous) and do not describe it as "being dispersed" or imply its pollution is blowing away from the station. Use the source type given in the data: a city is a city (reference its population for scale), an industrial zone is an industrial zone, a power plant is a power plant — do not mix up the categories.
+- Order sources using these tiers, resolved in sequence: (1) sources marked [along wind path] and within 150 km — order these by proximity to the station, closest first; (2) sources NOT marked [along wind path] but within 20 km — the station permanently sits in their air shed regardless of wind direction. Any source within 20 km MUST be mentioned as local urban context after any upwind sources — this is not optional. Integrate it into an existing paragraph rather than appending a standalone closing sentence: the peer comparison paragraph (local urban emissions add to what neighbours are measuring) or the fire paragraph (local urban background sits beneath arriving smoke) are the natural homes. A dangling sentence about a city at the end of the response reads as an afterthought; (3) everything else — omit. A source that is neither marked [along wind path] NOR within 20 km of the station must be omitted regardless of its size, population, or capacity — do not include it as a closing sentence, as secondary context, or in any other form. Example: Yangon at 72 km marked [along wind path] is tier 1 and must be mentioned. Chiang Mai at 87 km not marked [along wind path] and not within 20 km is tier 3 — omit it entirely. Distance alone does not qualify a source; the [along wind path] tag or the 20 km threshold must be met. Exception: when cumulative fire pressure is ≥ 70 AND area fire pressure is < 20 (fires are only along the distant upwind path, not local to this area), industrial and urban sources further than 50 km away are background noise — skip them entirely and keep the focus on the imported fire story. This exception does NOT apply when area fire pressure is ≥ 20 — in that case fires are burning in or near this area and upwind urban sources remain relevant context alongside the fire story. Within tier 1, proximity governs order regardless of capacity or population: a 1,878 MW plant 18 km away ranks above a 2,400 MW plant 114 km away. Do not substitute capacity or population for proximity when deciding what to mention first. When multiple sources of the same type are relevant, group them rather than listing individually (e.g., "three coal-fired power plants including BLCP and Gheco One" rather than naming all three separately). When describing an upwind source, frame it as adding pollution to the arriving air — do not use "contribute to air quality" (ambiguous) and do not describe it as "being dispersed" or imply its pollution is blowing away from the station. Use the source type given in the data: a city is a city (reference its population for scale), an industrial zone is an industrial zone, a power plant is a power plant — do not mix up the categories.
 - Compare against peer stations. Outlier status is determined solely by whether an outlier note appears in the PEER STATIONS section above — if no such note is present, this station is not an outlier and must not be described as one, regardless of how its reading compares to individual peers. If an outlier note is present, lead with that. When peer stations confirm the reading is regionally representative, summarize them in a single sentence with values inline (e.g., "nearby stations read 19, 18, and 25 µg/m³, confirming the pattern is regional") — do not list each as a separate sentence. When more than 10 peer stations are available, do not name individual stations. When a Distribution by AQI category line is present in the peer data, lead with it — combine the two or three highest-count categories into a single summary count (e.g. "37 of 40 nearby stations read Very unhealthy or Hazardous") before citing the range. Zero-count categories can be omitted. The distribution is more informative than the range alone; include the range only after the distribution summary, and only if the spread adds meaning. Do not open the peer sentence with "conditions similar to its immediate neighbors" and then immediately cite a wide range — pick one framing and be consistent. When naming a station, you MUST include its specific numerical value to one decimal place (e.g., 19.4, not 19). Use active phrasing only: "read" or "recorded X µg/m³" — never "reported" or "measured". When citing any PM2.5 value inline, always include the unit: µg/m³ (e.g., "nearby stations read 19.4, 25.2, and 17.5 µg/m³"). Before describing this station's reading relative to a peer, check the direction: is this station higher or lower than the peer value? State only what the numbers show — do not assume the station is the higher one. When a peer station reads higher than this station, do not use it as evidence that local conditions are elevated — it shows the opposite. Either note the difference ("a nearby station read 34.4 µg/m³, somewhat higher than here") or omit the peer comparison if it adds no useful information. If this station reads noticeably higher than peers (but below the strong outlier threshold), note the gap briefly rather than describing conditions as "consistent across the region" — consistency is only accurate when values are close. When peer stations show a wide spread (e.g., one reads Good and another reads Moderate or higher), note the spread rather than averaging over it — "nearby stations ranged from 11.7 to 34.4 µg/m³" is more honest than implying consistency.
 - Recent rain can wash out PM2.5 — mention it only if precipitation is significant (> 5 mm total). If rainfall is negligible, do not mention it. When rain and moderate conditions co-occur, describe them as two independent facts: "over 20 mm of rain has fallen recently" and "conditions are moderate." Do not connect them causally unless stating the physical mechanism directly (rain washes particles from the air) — and even then, state what happened, not what was avoided. High humidity (≥ 85%) may cause optical sensors to over-read.
 - ${isStrongOutlier && !isHighOutlier ? 'This station reads far below its neighbours — focus on why it is an outlier, not on whether the absolute level is good or bad.' : latestPm25 > 35 ? 'Conditions are elevated — focus on what explains the reading.' : 'Explain why conditions are currently relatively good: identify the positive explanation — clean marine or oceanic air origin, recent rainfall, or genuinely low regional fire activity. If all active drivers are absent, the honest explanation is clean air origin combined with recent washout — say that directly.'}

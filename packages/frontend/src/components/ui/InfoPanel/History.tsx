@@ -49,11 +49,6 @@ export function ShimmerHistory() {
   );
 }
 
-function compass2(deg: number): string {
-  const c = degToCompass(deg);
-  return c.length > 2 ? c.slice(0, 2) : c;
-}
-
 type TooltipState = { value: number; x: number; y: number } | null;
 
 function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
@@ -227,7 +222,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                     color="#a1a1aa"
                     strokeWidth={1.5}
                   />
-                  <span className="text-zinc-400">{compass2(w.windDirectionDeg)}</span>
+                  <span className="text-zinc-400">{degToCompass(w.windDirectionDeg)}</span>
                   <span className="tabular-nums">
                     {w.windSpeedKmh !== null ? Math.round(w.windSpeedKmh) : '-'}
                   </span>

@@ -1,0 +1,12 @@
+Air here originated over the Gulf of Thailand, clean marine air that read 11.5–15.5
+µg/m³ en route, but traveled northwest past Thailand's eastern seaboard industrial
+corridor before arriving. The Map Ta Phut and Rayong industrial zone, along with three
+coal-fired power plants including BLCP Power, lie 131–133 km upwind and are the most
+plausible source of the elevated reading.
+
+The only nearby station, Hua Hin 27 km away, reads 18.8 µg/m³, roughly half this
+station's reading. The gap is notable but with only one reference point it is hard to
+say whether this station is capturing a localised plume from the industrial cluster or
+whether conditions here are genuinely more affected than at Hua Hin. The modelled PM2.5
+shows consistently low values in the air arriving here, suggesting the industrial
+emissions are too localised for the regional model to fully resolve.

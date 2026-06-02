@@ -1,0 +1,9 @@
+This station is reading Unhealthy (71.2 µg/m³), but that number almost certainly does
+not reflect conditions in the wider area. All 162 nearby stations read Good or Moderate,
+with a regional average of 15.9 µg/m³ and no station exceeding 28.5 µg/m³. A reading
+4.5 times above its neighbours, with no regional smoke event and low fire activity, is
+most likely the result of a sensor fault or a very localised source directly at the
+station, a generator, a nearby burn, or exhaust from vehicles close to the monitor.
+
+The reading has been elevated for several days, which may indicate a persistent local
+interference rather than a one-off spike.

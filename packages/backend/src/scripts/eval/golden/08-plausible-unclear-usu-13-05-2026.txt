@@ -1,0 +1,9 @@
+Air here arrived from Indonesia via the Strait of Malacca, with modelled PM2.5 reading
+Good (10.3–11.4 µg/m³) along the entire route, no fires, no identified emission
+sources, and 88 mm of rain along the way. The Moderate reading at this station is only
+slightly above the modelled background, and there is no clear single cause to point to.
+
+Humidity reached 86% earlier in the week, which can cause optical sensors to over-read,
+and may partly explain why the station reads somewhat above the regional model. With no
+nearby reference stations, it is difficult to confirm whether this reflects actual
+conditions or a lingering sensor effect from the recent heavy rainfall.
