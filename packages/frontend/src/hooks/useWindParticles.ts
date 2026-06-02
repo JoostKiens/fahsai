@@ -219,6 +219,25 @@ function viewportParticleCount(viewport: Viewport): number {
   return Math.max(30, Math.min(N_PARTICLES, Math.round((N_PARTICLES * area) / REFERENCE_AREA)));
 }
 
+// Resize an existing particle array in-place to match the count implied by
+// the current viewport. Adds fresh particles (with scattered ages so they
+// don't all die together) when the viewport grows, truncates when it shrinks.
+function reconcileParticleCount(
+  particles: Particle[],
+  viewport: Viewport,
+  grid: WindGrid | null,
+  gridMap: Map<string, number> | null,
+): void {
+  const target = viewportParticleCount(viewport);
+  if (particles.length < target) {
+    for (let i = particles.length; i < target; i++) {
+      particles.push(spawnParticle(viewport, grid, gridMap, true));
+    }
+  } else if (particles.length > target) {
+    particles.length = target;
+  }
+}
+
 function initParticles(
   viewport: Viewport,
   grid: WindGrid | null,
@@ -307,21 +326,24 @@ export function useWindParticles(
   useEffect(() => {
     if (!map) return;
     stateRef.current.zoom = map.getZoom();
-    stateRef.current.viewport = mapViewport(map);
+    const initialViewport = mapViewport(map);
+    stateRef.current.viewport = initialViewport;
+
+    // If wind data arrived before this effect ran (common on mobile, where
+    // wind XHRs can resolve before mapbox reports valid bounds), particles
+    // were initialized against the FULL_VIEWPORT default and we'd render
+    // N_PARTICLES of them. Reconcile down to the real viewport count now.
+    const s = stateRef.current;
+    if (s.particles.length > 0) {
+      reconcileParticleCount(s.particles, initialViewport, s.grid, s.gridMap);
+    }
+
     const onMove = () => {
       stateRef.current.zoom = map.getZoom();
       const viewport = mapViewport(map);
       stateRef.current.viewport = viewport;
-
-      const { particles, grid, gridMap } = stateRef.current;
-      const target = viewportParticleCount(viewport);
-      if (particles.length < target) {
-        for (let i = particles.length; i < target; i++) {
-          particles.push(spawnParticle(viewport, grid, gridMap, true));
-        }
-      } else if (particles.length > target) {
-        particles.length = target;
-      }
+      const s2 = stateRef.current;
+      reconcileParticleCount(s2.particles, viewport, s2.grid, s2.gridMap);
     };
     map.on('zoom', onMove);
     map.on('move', onMove);
