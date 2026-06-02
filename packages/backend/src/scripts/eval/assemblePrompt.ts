@@ -356,6 +356,7 @@ ${fireStr}`;
 
   return `You are explaining current air quality to a general audience in plain English.
 
+<scientific_data>
 STATION: ${station.name} (${station.lat.toFixed(3)}°N, ${station.lng.toFixed(3)}°E)
 CURRENT PM2.5: ${currentPm25.toFixed(1)} µg/m³ — ${pm25Cat(currentPm25)}
 CASE: ${explainCase}
@@ -378,15 +379,17 @@ ${pressureScoreStr}
 UPWIND EMISSION SOURCES (cities, industrial zones, power plants along trajectory)
 ${sourcesStr}
 
-RECENT TREND (context only — do not narrate this in your response)
-${trend}
+BACKGROUND_ONLY: ${trend}
 
 PEER STATIONS WITHIN 75 KM (last 24 h)
 ${peerStr}
-${outlierNote ? `\n${outlierNote}` : ''}
 
-CONTEXT: ${seasonContext}
+SEASONAL CONTEXT: ${seasonContext}
+</scientific_data>
 
+<instructions>
+Never narrate the BACKGROUND_ONLY field or reference it in your response — it is for your reasoning only.
+${outlierNote ? `${outlierNote}\n\n` : ''}
 Write 1–3 short paragraphs in plain English. No markdown, no bullet points — flowing prose only.
 The reader already sees the station name, PM2.5 value, and AQI category — do not repeat these verbatim.
 Lead with what is most interesting: where the air came from and what drove it. Open with a concrete fact — a fire count, a distance, a geographic origin, a peer comparison — not an atmospheric description or an adjective. "Over 1,700 fires have burned along the path this air traveled" is a lead. "The air is blanketed in heavy fire activity" is not. When citing a fire count from the data, use past or present-perfect tense ("have burned", "have been detected") — not present continuous ("are burning"), which implies all fires are simultaneously active right now. Avoid hedge phrases such as "it is clear that", "it appears that", or "suggesting that" before factual statements — state the fact directly.
@@ -414,5 +417,6 @@ ${slowWindBuildup}
 ${trend.startsWith('not significant') ? '- The trend is not significant — do not discuss it at all, not even to note that values are low.' : ''}
 - Do not reference specific time windows from the underlying data in your prose (e.g. "last 3 days", "72-hour", "last 24 hours", "past 72 hours", "14 days", "two weeks"). Specific durations appear in the data context above for your reference only — do not quote them verbatim in the response. Use natural language instead ("recently", "over the past few days", "for weeks"). Treat all time windows as minimum durations — the underlying conditions may have persisted longer than what the data captures.
 - Describe what is happening, not what was avoided. Do not explain why conditions are not worse, do not name factors as primary or secondary without clear data support, and do not mention what is absent as an explanation. Every sentence should state a positive fact: where the air came from, what it picked up, what the numbers show. Do not end with a summary that contrasts the actual cause against an absent cause (e.g., "driven by X rather than Y", "due to Z, not fires"). End on a concrete fact — a number, a location, a peer comparison — not a process of elimination. Exception: for a strong low outlier, the absence of a local source or regional smoke pathway is itself the finding — state directly what is absent and why the reading is likely anomalous. The existing outlier note above already identifies the candidate explanations (faulty reading, local shielding, reporting error); use those as your positive claims.
-${isStrongOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}`;
+${isStrongOutlier ? '- Suggest the most likely explanations for the anomaly.' : ''}${lang === 'th' ? '\nRespond entirely in Thai (ภาษาไทย).' : ''}
+</instructions>`;
 }

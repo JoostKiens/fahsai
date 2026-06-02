@@ -26,6 +26,7 @@ const fixtureFilter = args.find((a) => a.startsWith('--fixture='))?.split('=')[1
 const lang = args.find((a) => a.startsWith('--lang='))?.split('=')[1];
 const noStream = args.includes('--no-stream');
 const showPrompt = args.includes('--show-prompt');
+const promptsOnly = args.includes('--prompts-only');
 
 const fixtures = fixtureFilter
   ? ALL_FIXTURES.filter((f) => f.id.startsWith(fixtureFilter))
@@ -80,6 +81,16 @@ for (const fixture of fixtures) {
   console.log(`DESC    : ${fixture.description}`);
 
   const prompt = assemblePrompt(fixture.input, lang);
+
+  if (promptsOnly) {
+    console.log(`\n${DIVIDER}`);
+    console.log(`FIXTURE : ${fixture.id}`);
+    console.log(`CASE    : ${fixture.case}`);
+    console.log('\nPROMPT:');
+    console.log(prompt);
+    continue;
+  }
+
   const golden = loadGolden(fixture.id);
 
   if (showPrompt) {
