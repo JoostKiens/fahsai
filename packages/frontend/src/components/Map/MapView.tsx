@@ -407,6 +407,12 @@ export function MapView() {
         mapContainer.classList.remove('deck-hovering');
       });
 
+      // disable map rotation using right click + drag
+      mapInstance.dragRotate.disable();
+
+      // disable map rotation using touch rotation gesture
+      mapInstance.touchZoomRotate.disableRotation();
+
       setMapZoom(mapInstance.getZoom());
       setWindOverlay(windOv);
       setPowerPlantsOverlay(powerPlantsOv);
