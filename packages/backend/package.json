@@ -10,6 +10,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "eval:explain": "node --env-file=.env.local --import=tsx/esm src/scripts/eval/eval-explain.ts",
+    "eval:explain:th": "node --env-file=.env.local --import=tsx/esm src/scripts/eval/eval-explain.ts --lang=th",
     "test:watch": "vitest",
     "ingest:fires": "node --env-file=.env.local --import=tsx/esm src/scripts/ingest-fires.ts",
     "ingest:station-readings": "node --env-file=.env.local --import=tsx/esm src/scripts/ingest-station-readings.ts",

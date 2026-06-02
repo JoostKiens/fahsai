@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '06-outlier-high-kasetsart',
+  id: '04-outlier-high-kasetsart-university-03-05-2026',
   case: 'OUTLIER_HIGH',
   description:
     'Station reads 4.5× peer mean during late dry/early monsoon transition. 162 nearby stations average 15.9 µg/m³ — all Good or Moderate — while this station reads Unhealthy at 71.2 µg/m³. Most likely a sensor fault or very localised source directly at the station. Low fire pressure, no regional smoke event.',
@@ -59,7 +59,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 14.8,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: null,
     },
     // Omitted for OUTLIER_HIGH — regional transport data not relevant
     trajectory: null,
@@ -67,6 +67,8 @@ export const fixture: ExplainFixture = {
       pathScore: null,
       pathFireCount: null,
       pathFiresByRecency: null,
+      topFires: null,
+
       areaScore: 12.2,
       areaFireCount: 46,
       areaTotalFrpMw: 316,
@@ -79,6 +81,7 @@ export const fixture: ExplainFixture = {
       unweightedMedian: 15.6,
       range: { min: 6.5, max: 28.5 },
       stations: [], // distribution used — >10 peers
+      distribution: '32 Good, 129 Moderate',
     },
     outlier: { direction: 'high', ratio: 4.5 },
     season: 'monsoon',

@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '10-plausible-unclear-usu',
+  id: '08-plausible-unclear-usu-13-05-2026',
   case: 'PLAUSIBLE_UNCLEAR',
   description:
     'Low Moderate reading with no identifiable cause. CAMS flat and Good along entire path, fire pressure negligible, no upwind sources, no peer stations. Air originated over Indonesia/Strait of Malacca after heavy rainfall. Sensor over-reading possible — RH hit 86% on May 10. The canonical PLAUSIBLE_UNCLEAR case.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 64.0,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: 88.0,
     },
     trajectory: {
       hoursTraced: 66,
@@ -95,6 +95,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 0, totalFrpMw: 0 },
         last72h: { count: 1, totalFrpMw: 4 },
       },
+      topFires: null,
+
       areaScore: 0,
       areaFireCount: null,
       areaTotalFrpMw: null,

@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '07-plausible-urban-industrial-chaloem',
+  id: '05-plausible-urban-industrial-chaloem-19-04-2026',
   case: 'PLAUSIBLE_URBAN_INDUSTRIAL',
   description:
     'Unhealthy for sensitive groups reading with Gulf of Thailand origin — air arrived clean (CAMS 8.5–13.4 µg/m³) then picked up Bangkok urban emissions. Area fire pressure High (49.9/100) reflects sustained local buildup. Path fire pressure 100/100 but CAMS suppression applies — fires on flanks, not in core air mass. Peers consistent at 44.1 µg/m³ weighted mean.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 2.1,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: 12.1,
     },
     trajectory: {
       hoursTraced: 66,
@@ -97,6 +97,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 713, totalFrpMw: 4121 },
         last72h: { count: 966, totalFrpMw: 5851 },
       },
+      topFires: null,
+
       areaScore: 49.9,
       areaFireCount: 150,
       areaTotalFrpMw: 994,
@@ -174,6 +176,7 @@ export const fixture: ExplainFixture = {
       unweightedMedian: 39.9,
       range: { min: 23.3, max: 71.7 },
       stations: [], // distribution used — >10 peers
+      distribution: '9 Moderate, 10 Unhealthy for sensitive groups, 6 Unhealthy',
     },
     outlier: null,
     season: 'peak_burning',

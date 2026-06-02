@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '09-plausible-clean-narathiwat-marine',
+  id: '09-plausible-clean-narathiwat-marine-11-03-2026',
   case: 'PLAUSIBLE_CLEAN',
   description:
     'Good air during early dry season, deep South China Sea origin 1,600 km away. CAMS flat at 13.5–14.7 µg/m³ across entire path — no gradient, no fire story, no sources. One peer confirms regional picture. Clean maritime air with no land sources encountered.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 0.1,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: 0.8,
     },
     trajectory: {
       hoursTraced: 66,
@@ -95,6 +95,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 39, totalFrpMw: 237 },
         last72h: { count: 37, totalFrpMw: 185 },
       },
+      topFires: null,
+
       areaScore: 0.3,
       areaFireCount: 4,
       areaTotalFrpMw: 20,
