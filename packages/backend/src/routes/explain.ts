@@ -6,6 +6,8 @@ import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { explainRatelimit } from '../cache/ratelimit.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
+import { classifyCase } from '../utils/classify.js';
+import type { ClassifyParams } from '../utils/classify.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
 import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
@@ -828,6 +830,17 @@ export function explainRoutes(app: FastifyInstance): void {
 
       // Outlier note injected into the data section so the model sees it before reasoning.
       const isHighOutlier = outlierRatio !== null && outlierRatio >= 2.0;
+
+      const explainCase = classifyCase({
+        isStrongOutlier,
+        isHighOutlier,
+        firePressureNorm,
+        camsMaxPm25,
+        latestPm25,
+        trajectoryPrecipTotal,
+        relevantSources,
+      } satisfies ClassifyParams);
+
       const outlierNote = isStrongOutlier
         ? isHighOutlier
           ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlierRatio.toFixed(1)}× the distance-weighted peer mean (${peerWeightedMean.toFixed(1)} µg/m³). Nearby stations are much lower. Do NOT attribute this reading to regional smoke or fires — the most likely explanations are a faulty reading, a very localised source directly at the station, or a data reporting error.`
@@ -912,6 +925,8 @@ ${fireStr}`;
 
 STATION: ${stationName} (${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E)
 CURRENT PM2.5: ${latestPm25.toFixed(1)} µg/m³ — ${pm25Cat(latestPm25)}
+CASE: ${explainCase}
+DATE: ${selectedDate} (UTC+7)
 
 7-DAY DAILY AVERAGES
 ${dailyLines || '  No historical data'}

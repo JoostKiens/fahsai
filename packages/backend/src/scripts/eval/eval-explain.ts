@@ -11,7 +11,7 @@ import { fixture as f04 } from './fixtures/04-outlier-high-kasetsart-university-
 import { fixture as f05 } from './fixtures/05-plausible-urban-industrial-chaloem-19-04-2026.js';
 import { fixture as f06 } from './fixtures/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
 import { fixture as f07 } from './fixtures/07-plausible-urban-industrial-hana-01-04-2026.js';
-import { fixture as f08 } from './fixtures/08-plausible-unclear-usu-13-05-2026.js';
+import { fixture as f08 } from './fixtures/08-plausible-clean-usu-13-05-2026.js';
 import { fixture as f09 } from './fixtures/09-plausible-clean-narathiwat-marine-11-03-2026.js';
 import { fixture as f10 } from './fixtures/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
 
