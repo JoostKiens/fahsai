@@ -1,11 +1,10 @@
-Around 1,000 fires have burned across central Thailand along the route this air
-traveled, and the modelled PM2.5 tells the story: 12.7 µg/m³ over the Gulf of
-Thailand at the origin, still 10.9 µg/m³ as the air crossed the coast, then jumping
-to 46.4 µg/m³ by the time it reached central Thailand, the fires loaded the air on
-the final leg north. Zero rainfall and low humidity have left no mechanism to wash1
-that smoke out.
+Air quality here is Unhealthy for sensitive groups (48.3 µg/m³), with smoke from
+agricultural fires burning across central Thailand the dominant cause. The air
+originated clean over the Gulf of Thailand at 12.7 µg/m³, but the modelled PM2.5
+jumped to 46.4 µg/m³ by the time it reached this area — nearly 1,000 fires detected
+along the route over the past three days help explain that rise. Zero rainfall and
+humidity below 35% have left nothing to wash the smoke out.
 
-Nearby stations read 21.1 to 51.7 µg/m³, mostly Moderate, with this station reading
-somewhat above the regional average of 31.7 µg/m³, the fires closest to the wind
-route appear to be affecting this area more than its immediate neighbours. Bangkok and
-Nonthaburi lie upwind to the south, adding urban background pollution to the arriving smoke.
+Nearby stations read 21.1 to 51.7 µg/m³, with most in the Moderate range — this
+station is on the higher end of the regional picture. Bangkok and Nonthaburi lie
+upwind to the south, adding urban background to the arriving smoke.
