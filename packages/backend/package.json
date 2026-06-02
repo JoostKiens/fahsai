@@ -12,6 +12,7 @@
     "test": "vitest run",
     "eval:explain": "node --env-file=.env.local --import=tsx/esm src/scripts/eval/eval-explain.ts",
     "eval:explain:th": "node --env-file=.env.local --import=tsx/esm src/scripts/eval/eval-explain.ts --lang=th",
+    "eval:explain:prompts": "node --env-file=.env.local --import=tsx/esm src/scripts/eval/eval-explain.ts --prompts-only",
     "test:watch": "vitest",
     "ingest:fires": "node --env-file=.env.local --import=tsx/esm src/scripts/ingest-fires.ts",
     "ingest:station-readings": "node --env-file=.env.local --import=tsx/esm src/scripts/ingest-station-readings.ts",
