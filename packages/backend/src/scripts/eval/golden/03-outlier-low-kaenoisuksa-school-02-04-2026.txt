@@ -1,0 +1,11 @@
+This station is reading Moderate (20.6 µg/m³) — but that number almost certainly does
+not reflect actual conditions here. The 51 nearest stations average 262 µg/m³, with 24
+reading Hazardous and 21 Very unhealthy; the region is in the midst of a severe smoke
+event driven by peak burning season across northern Thailand and Myanmar. A reading this
+far below its neighbours — roughly one tenth of the regional level — is most likely the
+result of a sensor fault or a data reporting error, possibly combined with localised
+shielding at the station site.
+
+The area fire pressure score is 92.8 out of 100, with nearly 400 fire detections in and
+around this location over the past weeks. There is no meteorological or air quality
+explanation for a Moderate reading under these conditions.

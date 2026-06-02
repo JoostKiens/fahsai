@@ -55,6 +55,7 @@ function traceBackTrajectory(
   startLng: number,
   selectedDate: string,
   windGridsByDate: Map<string, WindGridPoint[]>,
+  memberIndex = 0,
 ): TrajectoryWaypoint[] {
   const waypoints: TrajectoryWaypoint[] = [
     { lat: startLat, lng: startLng, date: selectedDate, stepIndex: 0 },
@@ -78,8 +79,26 @@ function traceBackTrajectory(
     const cosLat = Math.max(Math.cos((y * Math.PI) / 180), 0.1);
     const kmhToDegLng = 1 / (111 * cosLat);
 
+    const prevY = y;
+    const prevX = x;
     x -= Math.sin(travelRad) * windSpeed * STEP_HOURS * kmhToDegLng;
     y -= Math.cos(travelRad) * windSpeed * STEP_HOURS * KMH_TO_DEG_LAT;
+
+    // Temporary debug — remove after root cause confirmed
+    if (memberIndex === 0 && i <= 3) {
+      console.error(
+        JSON.stringify({
+          step: i,
+          currentLat: prevY,
+          currentLng: prevX,
+          date: stepDate,
+          windDirectionDeg: windDir,
+          windSpeedKmh: windSpeed,
+          nextLat: y,
+          nextLng: x,
+        }),
+      );
+    }
 
     waypoints.push({ lat: y, lng: x, date: stepDate, stepIndex: i });
   }
@@ -101,8 +120,8 @@ export function traceEnsemble(
     { dlat: 0, dlng: -ENSEMBLE_OFFSET_DEG },
   ];
 
-  const members = offsets.map(({ dlat, dlng }) =>
-    traceBackTrajectory(stationLat + dlat, stationLng + dlng, selectedDate, windGridsByDate),
+  const members = offsets.map(({ dlat, dlng }, idx) =>
+    traceBackTrajectory(stationLat + dlat, stationLng + dlng, selectedDate, windGridsByDate, idx),
   );
 
   const wind0 = windGridsByDate.get(selectedDate) ?? [];
