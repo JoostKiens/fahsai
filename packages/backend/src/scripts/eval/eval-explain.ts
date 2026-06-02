@@ -1,6 +1,109 @@
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { assemblePrompt } from './assemblePrompt.js';
 
-export function loadGolden(id: string): string {
-  return readFileSync(join(import.meta.dirname, 'golden', `${id}.txt`), 'utf-8').trim();
+// Static imports — add new fixtures here as they are created
+import { fixture as f01 } from './fixtures/01-plausible-clean-phetbura-garden-31-05-2026.js';
+import { fixture as f02 } from './fixtures/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
+import { fixture as f03 } from './fixtures/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
+import { fixture as f04 } from './fixtures/04-outlier-high-kasetsart-university-03-05-2026.js';
+import { fixture as f05 } from './fixtures/05-plausible-urban-industrial-chaloem-19-04-2026.js';
+import { fixture as f06 } from './fixtures/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
+import { fixture as f07 } from './fixtures/07-plausible-urban-industrial-hana-01-04-2026.js';
+import { fixture as f08 } from './fixtures/08-plausible-unclear-usu-13-05-2026.js';
+import { fixture as f09 } from './fixtures/09-plausible-clean-narathiwat-marine-11-03-2026.js';
+import { fixture as f10 } from './fixtures/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
+
+const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10];
+
+// ----------------------------------------------------------------
+// CLI flags
+// ----------------------------------------------------------------
+
+const args = process.argv.slice(2);
+const fixtureFilter = args.find((a) => a.startsWith('--fixture='))?.split('=')[1];
+const lang = args.find((a) => a.startsWith('--lang='))?.split('=')[1];
+const noStream = args.includes('--no-stream');
+const showPrompt = args.includes('--show-prompt');
+
+const fixtures = fixtureFilter
+  ? ALL_FIXTURES.filter((f) => f.id.startsWith(fixtureFilter))
+  : ALL_FIXTURES;
+
+if (!fixtures.length) {
+  console.error(`No fixtures matched filter: ${fixtureFilter}`);
+  process.exit(1);
 }
+
+// ----------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------
+
+function loadGolden(id: string): string {
+  const path = join(import.meta.dirname, 'golden', `${id}.txt`);
+  if (!existsSync(path)) return `[NO GOLDEN FILE: golden/${id}.txt]`;
+  return readFileSync(path, 'utf-8').trim();
+}
+
+async function runExplain(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+
+  if (noStream) {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  }
+
+  const result = await model.generateContentStream(prompt);
+  let text = '';
+  for await (const chunk of result.stream) {
+    text += chunk.text();
+  }
+  return text;
+}
+
+// ----------------------------------------------------------------
+// Main
+// ----------------------------------------------------------------
+
+const DIVIDER = '='.repeat(60);
+const SUBDIV = '-'.repeat(60);
+
+for (const fixture of fixtures) {
+  console.log(`\n${DIVIDER}`);
+  console.log(`FIXTURE : ${fixture.id}`);
+  console.log(`CASE    : ${fixture.case}`);
+  console.log(`DESC    : ${fixture.description}`);
+
+  const prompt = assemblePrompt(fixture.input, lang);
+  const golden = loadGolden(fixture.id);
+
+  if (showPrompt) {
+    console.log(SUBDIV);
+    console.log('\nPROMPT:');
+    console.log(prompt);
+  }
+
+  console.log(SUBDIV);
+  console.log('\nEXPECTED:');
+  console.log(golden);
+  console.log(SUBDIV);
+
+  let actual: string;
+  try {
+    actual = await runExplain(prompt);
+  } catch (err) {
+    console.error(`\nERROR: ${err instanceof Error ? err.message : String(err)}`);
+    continue;
+  }
+
+  console.log('\nACTUAL:');
+  console.log(actual);
+  console.log(DIVIDER);
+}
+
+console.log(`\nDone. ${fixtures.length} fixture(s) run.`);

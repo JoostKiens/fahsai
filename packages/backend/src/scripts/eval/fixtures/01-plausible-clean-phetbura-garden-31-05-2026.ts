@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '02-plausible-clean-le-thai',
+  id: '01-plausible-clean-phetbura-garden-31-05-2026',
   case: 'PLAUSIBLE_CLEAN',
   description:
     'Good air during monsoon, origin in Laos, low fire pressure, reading below most peers but not a strong outlier.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 45.4,
-      trajectoryOriginPrecipitationMm: 2.6,
+      trajectoryPrecipitationMm: 41.2,
     },
     trajectory: {
       hoursTraced: 66,
@@ -95,6 +95,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 3, totalFrpMw: 13 },
         last72h: { count: 42, totalFrpMw: 270 },
       },
+      topFires: null,
+
       areaScore: 0.9,
       areaFireCount: 7,
       areaTotalFrpMw: 45,

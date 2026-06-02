@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '05-outlier-low-chiang-dao',
+  id: '03-outlier-low-kaenoisuksa-school-02-04-2026',
   case: 'OUTLIER_LOW',
   description:
     'Station reads 0.1× peer median during peak burning season. 51 nearby stations average 262 µg/m³ with 24 Hazardous — the region is in crisis but this station reads Moderate at 20.6 µg/m³. Almost certainly a faulty reading or local shielding. Area fire pressure is Very High (92.8/100).',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 0.0,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: null,
     },
     // Omitted for OUTLIER_LOW — regional transport data not relevant
     trajectory: null,
@@ -71,6 +71,8 @@ export const fixture: ExplainFixture = {
       pathScore: null,
       pathFireCount: null,
       pathFiresByRecency: null,
+      topFires: null,
+
       areaScore: 92.8,
       areaFireCount: 389,
       areaTotalFrpMw: 1556,
@@ -83,6 +85,7 @@ export const fixture: ExplainFixture = {
       unweightedMedian: 241.0,
       range: { min: 98.5, max: 474.0 },
       stations: [], // distribution used — >10 peers
+      distribution: '6 Unhealthy, 21 Very unhealthy, 24 Hazardous',
     },
     outlier: { direction: 'low', ratio: 0.1 },
     season: 'peak_burning',

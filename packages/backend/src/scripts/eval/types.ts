@@ -34,7 +34,7 @@ export interface FixtureWeatherReading {
 export interface FixtureWeather {
   days: FixtureWeatherReading[];
   totalPrecipitationMm: number; // 5-day rolling total
-  trajectoryOriginPrecipitationMm: number | null; // rain at trajectory origin date
+  trajectoryPrecipitationMm: number | null; // cumulative precip along wind path; null when trajectory === null
 }
 
 export interface FixtureTrajectoryWaypoint {
@@ -67,6 +67,14 @@ export interface FixtureTrajectory {
   camsAlongPath: FixtureCamsReading[];
 }
 
+export interface FixtureFireRecord {
+  lat: number;
+  lng: number;
+  distKm: number;
+  frpMw: number;
+  ageH: number;
+}
+
 export interface FixtureFirePressure {
   pathScore: number | null; // null when reading is a strong outlier
   pathFireCount: number | null; // null when reading is a strong outlier
@@ -75,6 +83,7 @@ export interface FixtureFirePressure {
     last48h: { count: number; totalFrpMw: number };
     last72h: { count: number; totalFrpMw: number };
   } | null; // null when reading is a strong outlier
+  topFires: FixtureFireRecord[] | null; // null = omit individual list; [] = confirmed no fires; [...] = up to 30 records
   areaScore: number; // 0–100, 14-day precomputed grid score
   areaFireCount: number | null; // null when outside grid
   areaTotalFrpMw: number | null;
@@ -102,6 +111,9 @@ export interface FixturePeerContext {
   unweightedMedian: number;
   range: { min: number; max: number };
   stations: FixturePeerStation[];
+  // When stationCount > 10 the route shows "Distribution by AQI category: ..." instead of
+  // individual station list. Store the pre-computed string here so assemblePrompt can reproduce it.
+  distribution?: string | null;
 }
 
 export interface FixtureOutlier {

@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '09-plausible-urban-industrial-hana',
+  id: '07-plausible-urban-industrial-hana-01-04-2026',
   case: 'PLAUSIBLE_URBAN_INDUSTRIAL',
   description:
     'Unhealthy for sensitive groups reading with Gulf of Thailand marine origin. CAMS flat and low (11.5–15.5 µg/m³) — no gradient story. Map Ta Phut/Rayong industrial cluster and eastern seaboard power plants within 131–133 km along wind path are the most plausible cause. Station reads 2× its only peer (Hua Hin 18.8 µg/m³). Fire pressure Moderate at 24/100 but below the threshold for fire transport story.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 1.0,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: 2.3,
     },
     trajectory: {
       hoursTraced: 66,
@@ -95,6 +95,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 57, totalFrpMw: 562 },
         last72h: { count: 31, totalFrpMw: 64 },
       },
+      topFires: null,
+
       areaScore: 2.1,
       areaFireCount: 10,
       areaTotalFrpMw: 88,

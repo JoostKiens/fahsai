@@ -1,7 +1,7 @@
 import type { ExplainFixture } from '../types.js';
 
 export const fixture: ExplainFixture = {
-  id: '08-plausible-clean-ko-yawn-washout',
+  id: '06-plausible-clean-ko-yawn-washout-01-04-2026',
   case: 'PLAUSIBLE_CLEAN',
   description:
     'Moderate reading despite heavily smoke-loaded origin over Strait of Malacca (CAMS 60.7 µg/m³) — strong reverse CAMS gradient driven by 76 mm of rainfall along the path. Sumatra/southern Malaysia peatland fires near Singapore visible at origin. Rain washout is the dominant story. Area fire pressure negligible.',
@@ -62,7 +62,7 @@ export const fixture: ExplainFixture = {
         },
       ],
       totalPrecipitationMm: 32.8,
-      trajectoryOriginPrecipitationMm: null,
+      trajectoryPrecipitationMm: 76.2,
     },
     trajectory: {
       hoursTraced: 66,
@@ -95,6 +95,8 @@ export const fixture: ExplainFixture = {
         last48h: { count: 45, totalFrpMw: 324 },
         last72h: { count: 32, totalFrpMw: 57 },
       },
+      topFires: null,
+
       areaScore: 0.0,
       areaFireCount: 1,
       areaTotalFrpMw: 4,
