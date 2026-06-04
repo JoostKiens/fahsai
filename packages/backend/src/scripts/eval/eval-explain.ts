@@ -21,6 +21,8 @@ const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10];
 // CLI flags
 // ----------------------------------------------------------------
 
+const INTER_FIXTURE_DELAY_MS = 4500; // stay under 15 RPM free-tier limit
+
 const args = process.argv.slice(2);
 const fixtureFilter = args.find((a) => a.startsWith('--fixture='))?.split('=')[1];
 const lang = args.find((a) => a.startsWith('--lang='))?.split('=')[1];
@@ -104,17 +106,22 @@ for (const fixture of fixtures) {
   console.log(golden);
   console.log(SUBDIV);
 
-  let actual: string;
+  let actual: string | null = null;
   try {
     actual = await runExplain(prompt);
   } catch (err) {
     console.error(`\nERROR: ${err instanceof Error ? err.message : String(err)}`);
-    continue;
   }
 
-  console.log('\nACTUAL:');
-  console.log(actual);
-  console.log(DIVIDER);
+  if (actual !== null) {
+    console.log('\nACTUAL:');
+    console.log(actual);
+    console.log(DIVIDER);
+  }
+
+  if (fixtures.indexOf(fixture) < fixtures.length - 1) {
+    await new Promise((resolve) => setTimeout(resolve, INTER_FIXTURE_DELAY_MS));
+  }
 }
 
 console.log(`\nDone. ${fixtures.length} fixture(s) run.`);
