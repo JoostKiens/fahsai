@@ -134,7 +134,7 @@ export type Season =
 // Root fixture type
 // ----------------------------------------------------------------
 
-export interface ExplainFixtureInput {
+export interface RawExplainData {
   station: FixtureStation;
   date: string; // YYYY-MM-DD, station local date (UTC+7)
   currentPm25: number;
@@ -166,5 +166,5 @@ export interface ExplainFixture {
   id: string; // e.g. '01-outlier-low-erawan'
   case: ExplainCase;
   description: string; // why this fixture exists, human-readable
-  input: ExplainFixtureInput;
+  input: RawExplainData;
 }

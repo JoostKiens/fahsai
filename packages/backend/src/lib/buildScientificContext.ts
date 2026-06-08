@@ -1,0 +1,367 @@
+import { compassFromDeg } from '../utils/geo.js';
+import { classifyCase } from '../utils/classify.js';
+import type { ClassifyParams } from '../utils/classify.js';
+import type { ExplainCase } from '../routes/explain.js';
+import type { RawExplainData, FixtureUpwindSource } from '../scripts/eval/types.js';
+
+// Re-export for buildPrompt.ts
+export type { ExplainCase };
+
+// ----------------------------------------------------------------
+// AQI helpers — exported so buildPrompt can use them without duplication
+// ----------------------------------------------------------------
+
+const AQI_BP = [12.0, 35.4, 55.4, 150.4, 250.4];
+const AQI_LABELS = [
+  'Good',
+  'Moderate',
+  'Unhealthy for sensitive groups',
+  'Unhealthy',
+  'Very unhealthy',
+  'Hazardous',
+];
+
+export function pm25Cat(pm25: number): string {
+  for (let i = 0; i < AQI_BP.length; i++) {
+    if (pm25 <= AQI_BP[i]) return AQI_LABELS[i];
+  }
+  return AQI_LABELS[AQI_LABELS.length - 1];
+}
+
+export function firePressureLabel(score: number): string {
+  if (score === 0) return 'None';
+  if (score < 15) return 'Low';
+  if (score < 40) return 'Moderate';
+  if (score < 60) return 'High';
+  return 'Very high';
+}
+
+// ----------------------------------------------------------------
+// ScientificContext — the typed intermediate representation
+// buildPrompt only depends on this type, not on RawExplainData.
+// ----------------------------------------------------------------
+
+export type TierSource = Omit<FixtureUpwindSource, 'currentlyUpwind'>;
+
+export interface ScientificContext {
+  station: { name: string; lat: number; lng: number };
+  currentPm25: number;
+  aqiCategory: string;
+  explainCase: ExplainCase;
+  date: string;
+
+  sevenDayAverages: { date: string; value: number; category: string }[];
+
+  wind: {
+    // Only days with wind data available, newest first, up to 3
+    days: { date: string; directionLabel: string; speedKmh: number }[];
+  };
+
+  weatherContext: {
+    days: {
+      date: string;
+      precipitationMm: number;
+      humidity: number | null;
+      highHumidityWarning: boolean;
+    }[];
+    totalPrecipitationMm: number;
+    trajectoryPrecipitationMm: number;
+    availableDayCount: number;
+  };
+
+  persistentWind: {
+    label: string;
+    dayCount: number;
+    sourcesBeyondWindow: TierSource[];
+  } | null;
+
+  // null for OUTLIER_HIGH and OUTLIER_LOW — transport data not relevant
+  transport: {
+    trajectory: {
+      hoursTraced: number;
+      origin: { lat: number; lng: number; region: string; date: string };
+      corridorWidthKm: number;
+      meanWindSpeedKmh: number;
+      waypoints: { lat: number; lng: number; region: string }[];
+    };
+    cams: {
+      samples: { lat: number; lng: number; date: string; pm25: number; category: string }[];
+      maxPm25: number | null;
+      suppressionActive: boolean;
+    };
+    fire: {
+      pathScore: number;
+      pathFireCount: number;
+      recency: {
+        last24h: { count: number; totalFrpMw: number };
+        last48h: { count: number; totalFrpMw: number };
+        last72h: { count: number; totalFrpMw: number };
+      } | null;
+      nearestFireDistKm: number | null;
+      areaScore: number;
+      areaFireCount: number | null;
+      areaTotalFrpMw: number | null;
+      firesAreLocal: boolean;
+    };
+  } | null;
+
+  upwindSources: {
+    tier1: TierSource[];
+    tier2: TierSource[];
+  };
+
+  // Always populated — area fire pressure is a 14-day grid score independent of trajectory
+  areaFirePressure: {
+    score: number;
+    fireCount: number | null;
+    totalFrpMw: number | null;
+  } | null;
+
+  trend: string; // BACKGROUND_ONLY — never cited in response, for model reasoning only
+
+  peers: {
+    stationCount: number;
+    weightedMean: number;
+    unweightedMedian: number;
+    range: { min: number; max: number } | null;
+    distribution: string | null;
+    stations: { name: string; value: number; distanceKm: number }[];
+  } | null;
+
+  outlier: {
+    type: 'HIGH' | 'LOW';
+    ratio: number;
+  } | null;
+
+  seasonContext: string;
+}
+
+// ----------------------------------------------------------------
+// Internal helpers
+// ----------------------------------------------------------------
+
+function medianOf(arr: number[]): number {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+function computeTrend(
+  currentPm25: number,
+  sevenDayAverages: { date: string; value: number }[],
+): string {
+  if (currentPm25 < 12) return 'not significant — current level is well within Good range';
+  if (sevenDayAverages.length < 2) return 'insufficient data';
+  const avgs = sevenDayAverages.map((d) => d.value);
+  const latest = avgs[avgs.length - 1];
+  const baseline = medianOf(avgs.slice(0, -1));
+  if (baseline === 0) return 'stable';
+  const ratio = latest / baseline;
+  if (ratio > 1.15) return 'rising sharply';
+  if (ratio > 1.05) return 'rising';
+  if (ratio < 0.85) return 'falling sharply';
+  if (ratio < 0.95) return 'falling';
+  return 'stable';
+}
+
+function computeSourceTiers(
+  sources: FixtureUpwindSource[] | null,
+  firePressureNorm: number,
+  areaScore: number,
+  explainCase: ExplainCase,
+): { tier1: TierSource[]; tier2: TierSource[] } {
+  if (!sources?.length) return { tier1: [], tier2: [] };
+  if (explainCase === 'OUTLIER_HIGH' || explainCase === 'OUTLIER_LOW') {
+    return { tier1: [], tier2: [] };
+  }
+
+  // Fire exception: when high fire pressure with no local fires, distant urban sources are noise
+  const fireExceptionActive = firePressureNorm >= 70 && areaScore < 20;
+
+  const tier1: TierSource[] = [];
+  const tier2: TierSource[] = [];
+
+  for (const s of sources) {
+    if (s.currentlyUpwind && s.distanceKm <= 150) {
+      if (fireExceptionActive && s.distanceKm > 50) continue;
+      tier1.push(toTierSource(s));
+    } else if (!s.currentlyUpwind && s.distanceKm <= 20) {
+      tier2.push(toTierSource(s));
+    }
+    // tier 3: omit
+  }
+
+  tier1.sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return { tier1, tier2 };
+}
+
+function toTierSource(s: FixtureUpwindSource): TierSource {
+  // FixtureUpwindSource is a structural superset of TierSource; the extra field is dropped at type level
+  return s as TierSource;
+}
+
+// ----------------------------------------------------------------
+// Main export
+// ----------------------------------------------------------------
+
+export function buildScientificContext(raw: RawExplainData): ScientificContext {
+  const isStrongOutlier = raw.outlier !== null;
+  const isHighOutlier = raw.outlier !== null && raw.outlier.direction === 'high';
+
+  const firePressureNorm = raw.firePressure?.pathScore ?? 0;
+  const camsMaxPm25 = raw.trajectory?.camsAlongPath.length
+    ? Math.max(...raw.trajectory.camsAlongPath.map((c) => c.pm25))
+    : null;
+
+  const explainCase = classifyCase({
+    isStrongOutlier,
+    isHighOutlier,
+    firePressureNorm,
+    camsMaxPm25,
+    latestPm25: raw.currentPm25,
+    trajectoryPrecipTotal: raw.weather.trajectoryPrecipitationMm ?? 0,
+    relevantSources: (raw.upwindSources ?? []).map((s) => ({
+      isUpwind: s.currentlyUpwind,
+      distKm: s.distanceKm,
+    })),
+  } satisfies ClassifyParams);
+
+  const areaScore = raw.firePressure?.areaScore ?? 0;
+  const { tier1, tier2 } = computeSourceTiers(
+    raw.upwindSources,
+    firePressureNorm,
+    areaScore,
+    explainCase,
+  );
+
+  const topFires = raw.firePressure?.topFires;
+  const nearestFireDistKm =
+    topFires && topFires.length > 0 ? Math.min(...topFires.map((f) => f.distKm)) : null;
+
+  const suppressionActive = camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40;
+  const firesAreLocal = areaScore >= 20;
+
+  const trend = computeTrend(raw.currentPm25, raw.sevenDayAverages);
+
+  const seasonContext = {
+    peak_burning:
+      'Peak dry season and agricultural burning season in mainland Southeast Asia (Feb–Apr). Smoke can transport hundreds of kilometres under stable, low-wind conditions.',
+    early_dry:
+      'Early or late dry season in mainland Southeast Asia (Oct–Jan). Agricultural burning is beginning or winding down; fire activity is lower than peak.',
+    monsoon:
+      'Monsoon season in mainland Southeast Asia (May–Sep). Fire activity is low; elevated PM2.5 is more likely from urban/industrial sources or stagnant air pockets.',
+  }[raw.season];
+
+  const windDays = raw.weather.days
+    .filter((d) => d.wind.state === 'available')
+    .slice(0, 3)
+    .map((d) => ({
+      date: d.date,
+      directionLabel: compassFromDeg(d.wind.directionDeg!),
+      speedKmh: d.wind.speedKmh!,
+    }));
+
+  const weatherContext = {
+    days: raw.weather.days.map((d) => ({
+      date: d.date,
+      precipitationMm: d.precipitationMm,
+      humidity: d.humidity,
+      highHumidityWarning: d.highHumidityWarning,
+    })),
+    totalPrecipitationMm: raw.weather.totalPrecipitationMm,
+    trajectoryPrecipitationMm: raw.weather.trajectoryPrecipitationMm ?? 0,
+    availableDayCount: raw.weather.days.length,
+  };
+
+  const persistentWind = raw.persistentWind
+    ? {
+        label: raw.persistentWind.label,
+        dayCount: raw.persistentWind.dayCount,
+        sourcesBeyondWindow: raw.persistentWind.sourcesBeyondWindow.map(toTierSource),
+      }
+    : null;
+
+  let transport: ScientificContext['transport'] = null;
+  if (!isStrongOutlier && raw.trajectory && raw.firePressure) {
+    const traj = raw.trajectory;
+    const fp = raw.firePressure;
+    transport = {
+      trajectory: {
+        hoursTraced: traj.hoursTraced,
+        origin: traj.origin,
+        corridorWidthKm: traj.corridorWidthKm,
+        meanWindSpeedKmh: traj.meanWindSpeedKmh,
+        waypoints: traj.waypoints,
+      },
+      cams: {
+        samples: traj.camsAlongPath.map((c) => ({ ...c, category: pm25Cat(c.pm25) })),
+        maxPm25: camsMaxPm25,
+        suppressionActive,
+      },
+      fire: {
+        pathScore: fp.pathScore ?? 0,
+        pathFireCount: fp.pathFireCount ?? 0,
+        recency: fp.pathFiresByRecency,
+        nearestFireDistKm,
+        areaScore,
+        areaFireCount: fp.areaFireCount,
+        areaTotalFrpMw: fp.areaTotalFrpMw,
+        firesAreLocal,
+      },
+    };
+  }
+
+  const peers = raw.peers
+    ? {
+        stationCount: raw.peers.stationCount,
+        weightedMean: raw.peers.weightedMean,
+        unweightedMedian: raw.peers.unweightedMedian,
+        range: raw.peers.range ?? null,
+        distribution: raw.peers.distribution ?? null,
+        stations: raw.peers.stations.map((s) => ({
+          name: s.name,
+          value: s.value,
+          distanceKm: s.distanceKm,
+        })),
+      }
+    : null;
+
+  const outlier =
+    raw.outlier !== null
+      ? {
+          type: raw.outlier.direction === 'high' ? ('HIGH' as const) : ('LOW' as const),
+          ratio: raw.outlier.ratio,
+        }
+      : null;
+
+  return {
+    station: raw.station,
+    currentPm25: raw.currentPm25,
+    aqiCategory: pm25Cat(raw.currentPm25),
+    explainCase,
+    date: raw.date,
+    sevenDayAverages: raw.sevenDayAverages.map((d) => ({
+      date: d.date,
+      value: d.value,
+      category: pm25Cat(d.value),
+    })),
+    wind: { days: windDays },
+    weatherContext,
+    persistentWind,
+    transport,
+    upwindSources: { tier1, tier2 },
+    areaFirePressure: raw.firePressure
+      ? {
+          score: raw.firePressure.areaScore,
+          fireCount: raw.firePressure.areaFireCount,
+          totalFrpMw: raw.firePressure.areaTotalFrpMw,
+        }
+      : null,
+    trend,
+    peers,
+    outlier,
+    seasonContext,
+  };
+}
