@@ -88,6 +88,7 @@ export interface ScientificContext {
       samples: { lat: number; lng: number; date: string; pm25: number; category: string }[];
       maxPm25: number | null;
       suppressionActive: boolean;
+      stationExceedsCamsMax: boolean; // true when station PM2.5 exceeds peak modelled value by >20 µg/m³
     };
     fire: {
       pathScore: number;
@@ -299,6 +300,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         samples: traj.camsAlongPath.map((c) => ({ ...c, category: pm25Cat(c.pm25) })),
         maxPm25: camsMaxPm25,
         suppressionActive,
+        stationExceedsCamsMax: camsMaxPm25 !== null && raw.currentPm25 - camsMaxPm25 > 20,
       },
       fire: {
         pathScore: fp.pathScore ?? 0,
