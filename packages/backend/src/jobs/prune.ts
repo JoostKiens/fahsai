@@ -10,7 +10,7 @@ export async function runPrune(): Promise<{
   aqGridDeleted: number;
   weatherReadingsDeleted: number;
   stationWeatherDeleted: number;
-  firePressureScoresDeleted: number;
+  stationFirePressureDeleted: number;
 }> {
   console.log(`[prune] Deleting records older than ${RETENTION_DAYS} days...`);
 
@@ -64,21 +64,17 @@ export async function runPrune(): Promise<{
     throw new Error(`Failed to prune station_weather: ${stationWeatherError.message}`);
   }
 
-  const fpCutoff = new Date();
-  fpCutoff.setUTCDate(fpCutoff.getUTCDate() - RETENTION_DAYS);
-  const fpCutoffDate = fpCutoff.toISOString().slice(0, 10);
-
-  const { count: firePressureScoresDeleted, error: firePressureError } = await supabase
-    .from('fire_pressure_scores')
+  const { count: stationFirePressureDeleted, error: stationFirePressureError } = await supabase
+    .from('station_fire_pressure')
     .delete({ count: 'exact' })
-    .lt('date', fpCutoffDate);
+    .lt('date', cutoffDate);
 
-  if (firePressureError) {
-    throw new Error(`Failed to prune fire_pressure_scores: ${firePressureError.message}`);
+  if (stationFirePressureError) {
+    throw new Error(`Failed to prune station_fire_pressure: ${stationFirePressureError.message}`);
   }
 
   console.log(
-    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} station_readings, ${aqGridDeleted ?? 0} cams_grid, ${weatherReadingsDeleted ?? 0} weather_readings, ${stationWeatherDeleted ?? 0} station_weather, ${firePressureScoresDeleted ?? 0} fire_pressure_scores`,
+    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} station_readings, ${aqGridDeleted ?? 0} cams_grid, ${weatherReadingsDeleted ?? 0} weather_readings, ${stationWeatherDeleted ?? 0} station_weather, ${stationFirePressureDeleted ?? 0} station_fire_pressure`,
   );
   return {
     firePointsDeleted: firePointsDeleted ?? 0,
@@ -86,6 +82,6 @@ export async function runPrune(): Promise<{
     aqGridDeleted: aqGridDeleted ?? 0,
     weatherReadingsDeleted: weatherReadingsDeleted ?? 0,
     stationWeatherDeleted: stationWeatherDeleted ?? 0,
-    firePressureScoresDeleted: firePressureScoresDeleted ?? 0,
+    stationFirePressureDeleted: stationFirePressureDeleted ?? 0,
   };
 }
