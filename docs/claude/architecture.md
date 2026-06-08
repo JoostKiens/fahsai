@@ -106,7 +106,10 @@ cams-ingest           — daily     (0 23 * * *)   fetches CAMS PM2.5 grid for T
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings-today                         daily averages for TODAY via /hours/daily;
                                                         BKK day closes 16:59 UTC — 6h processing buffer;
-                                                        station_readings visible by ~23:30 UTC (06:30 BKK)
+                                                        station_readings visible by ~23:30 UTC (06:30 BKK).
+                                                        A second phase at the end of this job computes 75 km
+                                                        radius area fire pressure scores for all active stations
+                                                        and upserts to station_fire_pressure.
 
 station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily averages for YESTERDAY as safety
   ingest-station-readings                               net; overwrites any partial values pass 1 wrote
