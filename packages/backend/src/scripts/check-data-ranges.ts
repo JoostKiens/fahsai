@@ -44,7 +44,7 @@ const tables: Array<{ name: string; col: string }> = [
   { name: 'weather_readings', col: 'date' },
   { name: 'cams_grid', col: 'date' },
   { name: 'station_weather', col: 'date' },
-  { name: 'fire_pressure_scores', col: 'date' },
+  { name: 'station_fire_pressure', col: 'date' },
 ];
 
 console.log('\nTable                  Min date     Max date     Rows');

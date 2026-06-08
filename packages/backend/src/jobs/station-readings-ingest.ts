@@ -2,6 +2,7 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchSensorDailyAverage } from '../utils/openaq.js';
+import { runStationFirePressure } from './station-fire-pressure.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
@@ -32,7 +33,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
 
   const { data: stationRows, error: stationsError } = await supabase
     .from('stations')
-    .select('id, pm25_sensor_ids')
+    .select('id, pm25_sensor_ids, lat, lng')
     .filter('pm25_sensor_ids', 'not.eq', '{}');
 
   if (stationsError) throw new Error(`Failed to fetch stations: ${stationsError.message}`);
@@ -157,6 +158,15 @@ export async function runStationReadingsIngest(date?: string): Promise<{
     redis.del(`station-readings:latest:pm25:current`),
     redis.del(`station-readings:latest:pm25:${targetDate}`),
   ]);
+
+  // --- second phase: station fire pressure ---
+  // Uses fires from the 14 days ending at D-1 — ordering-safe regardless of
+  // when ingest-fires runs for the same day.
+  const stationsForPressure = (stationRows as { id: string; lat?: number; lng?: number }[]).filter(
+    (s): s is { id: string; lat: number; lng: number } =>
+      s.lat !== undefined && s.lat !== null && s.lng !== undefined && s.lng !== null,
+  );
+  await runStationFirePressure(targetDate, stationsForPressure);
 
   console.log('[station-readings-ingest] Done');
   return { sensorsQueried, measurementsInserted: measurementRows.length };

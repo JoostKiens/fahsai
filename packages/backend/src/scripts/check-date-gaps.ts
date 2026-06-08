@@ -8,7 +8,7 @@ import { supabase } from '../db/client.js';
 const tables: Array<{ name: string; col: string; start: string; end: string }> = [
   { name: 'weather_readings', col: 'date', start: '2026-02-16', end: '2026-05-26' },
   { name: 'station_weather', col: 'date', start: '2026-02-16', end: '2026-05-26' },
-  { name: 'fire_pressure_scores', col: 'date', start: '2026-02-14', end: '2026-05-26' },
+  { name: 'station_fire_pressure', col: 'date', start: '2026-02-14', end: '2026-05-26' },
 ];
 
 for (const { name, col, start, end } of tables) {
