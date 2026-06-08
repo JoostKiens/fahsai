@@ -231,9 +231,6 @@ export function explainRoutes(app: FastifyInstance): void {
       }
 
       // Gather all context in parallel
-      const snapLat = Math.round(Math.round(lat / 0.4) * 0.4 * 1000) / 1000;
-      const snapLng = Math.round(Math.round(lng / 0.4) * 0.4 * 1000) / 1000;
-
       const [
         stationRows,
         peerRows,
@@ -284,11 +281,10 @@ export function explainRoutes(app: FastifyInstance): void {
         getCamsGrid(d2),
 
         supabase
-          .from('fire_pressure_scores')
-          .select('score, fire_count, total_frp')
+          .from('station_fire_pressure')
+          .select('score, fire_count, total_frp_mw')
+          .eq('station_id', stationId)
           .eq('date', d0)
-          .eq('lat', snapLat)
-          .eq('lng', snapLng)
           .maybeSingle(),
       ]);
 
@@ -791,7 +787,7 @@ export function explainRoutes(app: FastifyInstance): void {
       const pressureData = pressureResult.data as {
         score: number;
         fire_count: number;
-        total_frp: number;
+        total_frp_mw: number;
       } | null;
       const pressureInterpretation =
         !isStrongOutlier &&
@@ -802,7 +798,7 @@ export function explainRoutes(app: FastifyInstance): void {
       const pressureScoreStr =
         pressureData?.score != null
           ? [
-              `Score: ${pressureData.score.toFixed(1)}/100 — ${firePressureLabel(pressureData.score)} (${pressureData.fire_count} detections, total FRP ${pressureData.total_frp.toFixed(0)} MW over 14 days)`,
+              `Score: ${pressureData.score.toFixed(1)}/100 — ${firePressureLabel(pressureData.score)} (${pressureData.fire_count} detections, total FRP ${pressureData.total_frp_mw.toFixed(0)} MW over 14 days)`,
               ...(pressureInterpretation ? [pressureInterpretation] : []),
             ].join('\n')
           : 'No data — location outside fire detection grid or no activity in past 14 days';
