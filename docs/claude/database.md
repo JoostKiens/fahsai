@@ -115,6 +115,19 @@ create table if not exists station_weather (
   relative_humidity_2m  float8,
   PRIMARY KEY (station_id, date)   -- leading station_id optimises the history query
 );
+
+-- Fire pressure scores (75 km radius, 14-day rolling window)
+-- Computed by station-readings-ingest (pass 1) for all active stations.
+-- Pruned at 100-day retention by the prune job.
+create table station_fire_pressure (
+  station_id   text          not null references stations(id),
+  date         date          not null,
+  score        numeric(6,2)  not null default 0,
+  fire_count   integer       not null default 0,
+  total_frp_mw numeric(10,2) not null default 0,
+  primary key  (station_id, date)
+);
+create index on station_fire_pressure (date);
 ```
 
 ---
@@ -141,6 +154,10 @@ for future use.
 `station_readings` two-table design.
 
 ---
+
+## 100-day retention for station_fire_pressure
+
+The prune job deletes rows older than **100 days** from `station_fire_pressure`.
 
 ## 130-day retention derivation
 
