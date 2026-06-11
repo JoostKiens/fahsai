@@ -191,6 +191,15 @@ pnpm lint                                         # lint all packages
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env)
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
+## AI Explanation Cache
+
+Explain responses are cached in Redis with key `explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang}`.
+**Whenever you change the prompt** (in `buildPrompt.ts` or `buildScientificContext.ts`), bump
+`EXPLAIN_CACHE_VERSION` in `packages/backend/src/routes/explain.ts`. Old keys orphan and expire
+naturally after 7 days. Caching is production-only — dev always generates fresh.
+
+---
+
 ## Internationalisation (i18n)
 
 Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.

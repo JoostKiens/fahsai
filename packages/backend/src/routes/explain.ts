@@ -23,6 +23,7 @@ import { buildPrompt } from '../lib/buildPrompt.js';
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 450;
+const EXPLAIN_CACHE_VERSION = 1;
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const DAY_MS = 86_400_000;
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
@@ -149,6 +150,10 @@ function nextMidnightPT(): number {
   return Date.UTC(next.getFullYear(), next.getMonth(), next.getDate(), 8);
 }
 
+function explainCacheKey(stationId: string, date: string, lang: string): string {
+  return `explain:v${EXPLAIN_CACHE_VERSION}:${stationId}:${date}:${lang}`;
+}
+
 export function explainRoutes(app: FastifyInstance): void {
   app.post<{ Body: { stationId: string; lat: number; lng: number; date?: string; lang?: string } }>(
     '/api/explain',
@@ -188,6 +193,21 @@ export function explainRoutes(app: FastifyInstance): void {
 
       const selectedDate =
         req.body.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+      const normalizedLang = lang ?? 'en';
+
+      if (process.env.NODE_ENV === 'production') {
+        const cached = await redis.get<string>(
+          explainCacheKey(stationId, selectedDate, normalizedLang),
+        );
+        if (cached) {
+          return reply
+            .status(200)
+            .header('Content-Type', 'application/json')
+            .header('X-Cache', 'HIT')
+            .send({ text: cached });
+        }
+      }
+
       const [yr, mo, dy] = selectedDate.split('-').map(Number);
       const anchorEndMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS + 86_400_000;
 
@@ -780,6 +800,7 @@ export function explainRoutes(app: FastifyInstance): void {
         'Access-Control-Allow-Origin': '*',
       });
 
+      let accumulatedForCache = '';
       try {
         if (process.env.NODE_ENV !== 'production') {
           reply.raw.write('__PROMPT__' + JSON.stringify(prompt) + '\n');
@@ -788,9 +809,12 @@ export function explainRoutes(app: FastifyInstance): void {
         const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
         const result = await model.generateContentStream(prompt);
         for await (const chunk of result.stream) {
-          reply.raw.write(chunk.text());
+          const text = chunk.text();
+          accumulatedForCache += text;
+          reply.raw.write(text);
         }
       } catch (err) {
+        accumulatedForCache = '';
         const msg = err instanceof Error ? err.message : String(err);
         req.log.error({ err }, 'Gemini API error');
         const lower = msg.toLowerCase();
@@ -814,6 +838,18 @@ export function explainRoutes(app: FastifyInstance): void {
       }
 
       reply.raw.end();
+
+      if (
+        process.env.NODE_ENV === 'production' &&
+        accumulatedForCache &&
+        selectedDate !== todayBkk
+      ) {
+        void redis.set(
+          explainCacheKey(stationId, selectedDate, normalizedLang),
+          accumulatedForCache,
+          { ex: HISTORICAL_TTL_SECONDS },
+        );
+      }
     },
   );
 }
