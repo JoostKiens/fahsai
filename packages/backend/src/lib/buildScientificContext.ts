@@ -169,7 +169,12 @@ function computeTrend(
   if (currentPm25 < 12) return { direction, isSignificant: false };
   const isSignificant = (() => {
     if (direction === 'stable') return false;
-    const prior = avgs.slice(0, -1);
+    // Exclude yesterday from the historical window — it already drives the direction
+    // ratio above, so including it in Math.min/max would let a single-day sensor dip
+    // both flip the direction and pull the trough/peak, compounding into a false
+    // significant trend.
+    const prior = avgs.slice(0, -2);
+    if (prior.length === 0) return false;
     if (direction === 'rising') {
       const trough = Math.min(...prior);
       return trough > 0 && (latest - trough) / trough > 0.25;
