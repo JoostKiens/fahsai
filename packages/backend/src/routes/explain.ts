@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { explainRatelimit } from '../cache/ratelimit.js';
+import { reportWarning } from '../lib/rollbar.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { computeFirePressureNorm } from '../utils/firePressure.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
@@ -831,6 +832,7 @@ export function explainRoutes(app: FastifyInstance): void {
               ? 'gemini_tpm'
               : 'gemini_rpm';
           const resetAtMs = isDaily ? nextMidnightPT() : Date.now() + 60_000;
+          reportWarning('Gemini rate limit hit', { type, resetAtMs });
           reply.raw.write(`[ERROR_JSON:${JSON.stringify({ type, resetAtMs })}]`);
         } else {
           reply.raw.write(`\n\n[ERROR: ${msg}]`);
