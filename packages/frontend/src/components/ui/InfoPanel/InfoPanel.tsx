@@ -126,7 +126,7 @@ export function InfoPanel() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={TWEEN_ENTER}
-          className="flex flex-col items-center justify-center h-[100px] gap-2 text-zinc-500"
+          className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
         >
           <CursorClickIcon />
           <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
@@ -280,7 +280,7 @@ function PanelHeader({
       <button
         onClick={onClose}
         aria-label={t('infoPanel.dismiss')}
-        className="inline-flex items-center justify-center w-[34px] h-[34px] shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
+        className="inline-flex items-center justify-center size-8.5 shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
       >
         <XIcon />
       </button>
@@ -513,7 +513,7 @@ function PowerPlantPanel({
       {plant.owner && (
         <Row align="start">
           <span className="text-zinc-300 shrink-0">{t('infoPanel.owner')}</span>
-          <span className="text-[12px] text-zinc-100 font-medium text-right text-balance leading-snug max-w-[170px]">
+          <span className="text-[12px] text-zinc-100 font-medium text-right text-balance leading-snug max-w-42.5">
             {plant.owner}
           </span>
         </Row>
