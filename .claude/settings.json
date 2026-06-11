@@ -8,5 +8,13 @@
       "Bash(pnpm --filter frontend lint *)",
       "Bash(pnpm --filter backend lint *)"
     ]
-  }
+  },
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [
+        {"type": "command", "command": "npm run typecheck --silent"},
+        {"type": "command", "command": "npm run lint --silent"}
+      ]
+    }]
 }
