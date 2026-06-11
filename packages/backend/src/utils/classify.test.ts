@@ -10,6 +10,7 @@ const base = {
   latestPm25: 35,
   trajectoryPrecipTotal: 5,
   relevantSources: [] as { isUpwind: boolean; distKm: number }[],
+  peerWeightedMean: null as number | null,
 };
 
 describe('classifyCase', () => {
@@ -86,6 +87,16 @@ describe('classifyCase', () => {
   it('does not return PLAUSIBLE_URBAN_INDUSTRIAL when upwind source beyond 150 km', () => {
     const sources = [{ isUpwind: true, distKm: 200 }];
     expect(classifyCase({ ...base, relevantSources: sources })).toBe('PLAUSIBLE_UNCLEAR');
+  });
+
+  it('returns PLAUSIBLE_REGIONAL_BACKGROUND when consistent with peers and no dominant source', () => {
+    // station 35, peers 34 → |35-34|/34 = 2.9% — well within ±40%
+    expect(classifyCase({ ...base, peerWeightedMean: 34 })).toBe('PLAUSIBLE_REGIONAL_BACKGROUND');
+  });
+
+  it('does not return PLAUSIBLE_REGIONAL_BACKGROUND when station diverges from peers (>40%)', () => {
+    // station 35, peers 20 → |35-20|/20 = 75% — above threshold
+    expect(classifyCase({ ...base, peerWeightedMean: 20 })).toBe('PLAUSIBLE_UNCLEAR');
   });
 
   it('returns PLAUSIBLE_UNCLEAR when no upwind sources and no clear cause', () => {

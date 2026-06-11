@@ -1,5 +1,11 @@
 import type { ScientificContext, TierSource, ExplainCase } from './buildScientificContext.js';
 import { pm25Cat, firePressureLabel } from './buildScientificContext.js';
+import { golden as goldenFireTransport } from '../scripts/eval/golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
+import { golden as goldenOutlierLow } from '../scripts/eval/golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
+import { golden as goldenOutlierHigh } from '../scripts/eval/golden/04-outlier-high-kasetsart-university-03-05-2026.js';
+import { golden as goldenUrbanIndustrial } from '../scripts/eval/golden/05-plausible-urban-industrial-chaloem-19-04-2026.js';
+import { golden as goldenClean } from '../scripts/eval/golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
+import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
 // ----------------------------------------------------------------
 // Source formatting helper
@@ -433,6 +439,26 @@ does not reflect actual conditions.
   for a [AQI category] reading under these conditions."
 </instructions>`;
 
+const REGIONAL_BACKGROUND_SECTION = `\
+<instructions>
+CASE: PLAUSIBLE_REGIONAL_BACKGROUND
+This reading reflects regional background pollution — consistent with
+neighbouring stations, no single dominant source.
+
+- Lead with the air origin character (use ORIGIN CHARACTER in plain language)
+  and the seasonal context as the explanation: regional smoke accumulation
+  during burning season, or urban background during non-burning months
+- Do not mention fires unless LOCAL FIRES shows meaningful activity (> 50
+  detections) — frame them as a contributing background factor, not a cause
+- Do not mention upwind sources — none qualified for this case
+- Confirm the reading is consistent with peers: cite the peer range in one
+  sentence
+- If trend is significant and rising: close with one sentence noting that
+  readings have been building
+- Keep to one paragraph when the story is simple; two only when trend or
+  seasonal context adds meaningful context
+</instructions>`;
+
 const UNCLEAR_SECTION = `<instructions>
 CASE: PLAUSIBLE_UNCLEAR
 Lead with what the reading is and be honest that no single cause dominates.
@@ -446,68 +472,12 @@ Lead with what the reading is and be honest that no single cause dominates.
   asserting any one of them
 </instructions>`;
 
-const EXAMPLE_FIRE_TRANSPORT = `<example>
-
-Over 12,000 fires have been detected across Myanmar and northern Thailand along
-the path this air traveled over the past few days, and over 600 more have been
-detected within 75 km of this station for weeks. Westerly winds have carried
-smoke from deep inside Myanmar, crossing the border into northern Thailand where
-it has mixed with smoke from fires close to this station.
-
-No rain fell and humidity dropped as low as 22%, keeping the smoke from
-dispersing. 38 of 41 nearby stations read Very unhealthy or Hazardous. This is
-a regional crisis, not an isolated event. Chiang Mai, 86 km to the south, sits
-under the same smoke.
-</example>`;
-
-const EXAMPLE_CLEAN = `<example>
-Air arriving here originated over the Strait of Malacca, where fires in
-southern Malaysia had loaded it with smoke. Over 76 mm of rain fell along the
-route over the past few days, enough to strip most of those particles out
-before arrival. The rain did most of the work.
-
-The result is a Moderate reading that reflects what the air picked up locally
-after the washout, not what it carried from the south. Nearby stations range
-from 12 to 38 µg/m³, with the spread suggesting local variation in how much
-rain fell across the area.
-</example>`;
-
-const EXAMPLE_OUTLIER_LOW = `<example>
-This station is reading Moderate, but that almost certainly does not reflect
-actual conditions here. The 51 nearest stations average 262 µg/m³, with 24
-reading Hazardous and 21 Very unhealthy. The region is in the midst of severe
-pollution driven by peak burning season across northern Thailand and Myanmar.
-A reading this far below its neighbours, roughly one tenth of the regional
-level, is most likely a sensor fault, local shielding, or a data reporting error.
-
-Nearly 400 fires have been detected within 75 km of this station over recent
-weeks. There is no meteorological explanation for a Moderate reading under
-these conditions.
-</example>`;
-
-const EXAMPLE_OUTLIER_HIGH = `<example>
-This station reads 4.5 times higher than the 162 nearby stations, none of
-which exceeds 29 µg/m³. With low fire activity across the region and all
-nearby stations reading Good or Moderate, this isolated reading is most likely
-a sensor fault, a very localised source directly at the station, a generator,
-a nearby burn, exhaust from vehicles close to the equipment, or a data
-reporting error.
-
-The reading has been elevated for several days, which suggests persistent
-local interference rather than a one-off spike.
-</example>`;
-
-const EXAMPLE_URBAN_INDUSTRIAL = `<example>
-Air arrived here from the Gulf of Thailand, clean marine air to start, but
-consistent southerly winds carried it north through the Bangkok metropolitan
-area, picking up emissions from Bangkok, Nonthaburi, and the Samut Prakan
-industrial corridor along the way.
-
-Around 150 fires have been detected within 75 km of this station over recent
-weeks, adding a background layer of smoke to the urban emissions arriving from
-the south. Nearby stations average 44 µg/m³, ranging from Moderate to
-Unhealthy, with conditions here consistent with the regional picture.
-</example>`;
+const EXAMPLE_FIRE_TRANSPORT = `<example>\n${goldenFireTransport}\n</example>`;
+const EXAMPLE_CLEAN = `<example>\n${goldenClean}\n</example>`;
+const EXAMPLE_OUTLIER_LOW = `<example>\n${goldenOutlierLow}\n</example>`;
+const EXAMPLE_OUTLIER_HIGH = `<example>\n${goldenOutlierHigh}\n</example>`;
+const EXAMPLE_URBAN_INDUSTRIAL = `<example>\n${goldenUrbanIndustrial}\n</example>`;
+const EXAMPLE_REGIONAL_BACKGROUND = `<example>\n${goldenRegionalBackground}\n</example>`;
 
 // ----------------------------------------------------------------
 // Case section and example selectors
@@ -537,6 +507,8 @@ function buildCaseSection(ctx: ScientificContext): string {
       return OUTLIER_HIGH_SECTION;
     case 'OUTLIER_LOW':
       return OUTLIER_LOW_SECTION;
+    case 'PLAUSIBLE_REGIONAL_BACKGROUND':
+      return REGIONAL_BACKGROUND_SECTION;
     case 'PLAUSIBLE_UNCLEAR':
       return UNCLEAR_SECTION;
   }
@@ -554,6 +526,8 @@ function buildExampleBlock(explainCase: ExplainCase): string {
       return EXAMPLE_OUTLIER_HIGH;
     case 'PLAUSIBLE_URBAN_INDUSTRIAL':
       return EXAMPLE_URBAN_INDUSTRIAL;
+    case 'PLAUSIBLE_REGIONAL_BACKGROUND':
+      return EXAMPLE_REGIONAL_BACKGROUND;
     case 'PLAUSIBLE_UNCLEAR':
       return '';
   }

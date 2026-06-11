@@ -1,0 +1,3 @@
+export const golden = `Air here originated over the Gulf of Thailand, clean marine air, but traveled northwest past Thailand's eastern seaboard industrial corridor before arriving. The Map Ta Phut and Rayong industrial zone, along with three coal-fired power plants including BLCP Power, lie around 130 km upwind and are the most plausible source of the elevated reading.
+
+The only nearby station, Hua Hin 27 km away, reads 19 µg/m³, roughly half the reading here. With only one reference point it is hard to say whether this is a localised plume from the industrial cluster or whether conditions here are genuinely more affected than at Hua Hin.`;
