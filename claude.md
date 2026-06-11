@@ -20,6 +20,7 @@ simplicity and correctness over premature optimization.
 - Frontend layers, AQI scale, map config: `docs/claude/frontend.md`
 - Shared TypeScript types: `docs/claude/types.md`
 - Conventions, gotchas, wind direction: `docs/claude/conventions.md`
+- `/api/explain` implementation (cache, back-trajectory, urban sources): `docs/claude/explain.md`
 
 ---
 
@@ -191,15 +192,6 @@ pnpm lint                                         # lint all packages
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env)
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
-## AI Explanation Cache
-
-Explain responses are cached in Redis with key `explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang}`.
-**Whenever you change the prompt** (in `buildPrompt.ts` or `buildScientificContext.ts`), bump
-`EXPLAIN_CACHE_VERSION` in `packages/backend/src/routes/explain.ts`. Old keys orphan and expire
-naturally after 7 days. Caching is production-only — dev always generates fresh.
-
----
-
 ## Internationalisation (i18n)
 
 Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
@@ -299,7 +291,7 @@ When a spec or assets are referenced, read the local spec/asset files first — 
 
 ## 7. Data Ingest & Backfill
 
-When querying or backfilling Supabase/Postgres data, account for the 1000-row default limit, set explicit time-bound upper limits, and add retry handling (e.g., pRetry) to long-running backfill scripts.
+When querying or backfilling Supabase/Postgres data, set explicit time-bound upper limits and add retry handling (e.g., pRetry) to long-running backfill scripts. See `docs/claude/conventions.md` for the Supabase 1000-row pagination gotcha.
 
 ## 8. Debugging Approach
 
