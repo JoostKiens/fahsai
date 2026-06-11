@@ -155,6 +155,7 @@ function regionalCrisisFraction(peers: ScientificContext['peers'] & object): num
 
 function computeTrend(
   sevenDayAverages: { date: string; value: number }[],
+  currentPm25: number,
 ): { direction: 'rising' | 'falling' | 'stable'; isSignificant: boolean } | null {
   if (sevenDayAverages.length < 3) return null;
   const avgs = sevenDayAverages.map((d) => d.value);
@@ -164,6 +165,8 @@ function computeTrend(
   const ratio = latest / yesterday;
   const direction: 'rising' | 'falling' | 'stable' =
     ratio > 1.1 ? 'rising' : ratio < 0.9 ? 'falling' : 'stable';
+  // A trend at Good air quality levels (< 12 µg/m³) carries no public-health narrative.
+  if (currentPm25 < 12) return { direction, isSignificant: false };
   const isSignificant = (() => {
     if (direction === 'stable') return false;
     const prior = avgs.slice(0, -1);
@@ -256,7 +259,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
   const suppressionActive = camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40;
   const firesAreLocal = areaScore >= 20;
 
-  let trend = computeTrend(raw.sevenDayAverages);
+  let trend = computeTrend(raw.sevenDayAverages, raw.currentPm25);
 
   const seasonContext = {
     peak_burning:
