@@ -7,6 +7,7 @@ import { Header } from './components/ui/Header/Header';
 import { Sidebar } from './components/ui/Sidebar/Sidebar';
 import { useDataNotifications } from './hooks/useDataNotifications';
 import { useUrlSync } from './hooks/useUrlSync';
+import { useSelectionHydration } from './hooks/useSelectionHydration';
 import { LatestDateProvider } from './providers/LatestDateProvider';
 
 function useIsMobile() {
@@ -23,6 +24,7 @@ function useIsMobile() {
 function AppContent() {
   useDataNotifications();
   useUrlSync();
+  useSelectionHydration();
   return (
     <div className="flex flex-col h-full">
       <Header />

@@ -70,6 +70,26 @@ transport footprint of air arriving at a station.
 
 ---
 
+## Persistent wind direction context (`/api/explain`)
+
+When `station_weather` shows wind from a consistent direction (all 5 days within ±45°
+of the circular mean), a `PERSISTENT WIND DIRECTION` section is added to the prompt.
+This surfaces sources that lie in that direction beyond the 66-hour trajectory window —
+physically plausible contributors the trajectory doesn't capture.
+
+**Computation:** circular mean of `wind_direction_deg` from `station_weather` for
+`d0`–`d4`. Consistency check: every reading within ±45° of the mean. Requires ≥ 3
+days of data.
+
+**Source filter:** sources from `relevantSources` where `distKm > corridorKm` AND
+bearing from station to source is within ±45° of `persistentWind.directionDeg`.
+
+**In the prompt:** framed as background context with uncertainty, not as confirmed
+cause. The model should reference these sources as places the air "may have passed
+over" before the trajectory window, not as direct contributors to the current reading.
+
+---
+
 ## Urban pollution sources
 
 A static list of major cities and industrial areas in mainland Southeast Asia is maintained in
@@ -79,8 +99,11 @@ emission sources when building the Gemini prompt context. No API calls — stati
 **Influence score** = `population / distanceKm²` (or `emissionProxy`-based for power plants
 and industrial zones). Sources below a minimum threshold (default 50) are excluded.
 
-**Upwind detection**: a source is upwind if the bearing FROM the station TO the source aligns
-within ±60° of `windDirectionDeg`.
+**Upwind detection**: a source is upwind if its minimum distance to any waypoint across all
+5 ensemble trajectory members is within `corridorKm`. This replaces the earlier bearing-angle
+check against today's wind snapshot — trajectory proximity is physically correct because it
+asks whether the air mass actually passed near the source, not whether the source is in
+today's wind direction.
 
 Influence formula:
 ```

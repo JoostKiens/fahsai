@@ -1,0 +1,3 @@
+export const golden = `This station is reading Moderate, but that almost certainly does not reflect actual conditions here. The 51 nearest stations average 262 µg/m³, with 24 reading Hazardous and 21 Very unhealthy. The region is in the midst of severe pollution driven by peak burning season across northern Thailand and Myanmar. A reading this far below its neighbours, roughly one tenth of the regional level, is most likely a sensor fault, local shielding, or a data reporting error.
+
+Nearly 400 fires have been detected within 75 km of this station over recent weeks. There is no meteorological explanation for a Moderate reading under these conditions.`;

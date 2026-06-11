@@ -32,7 +32,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
 
   const { data: stationRows, error: stationsError } = await supabase
     .from('stations')
-    .select('id, pm25_sensor_ids')
+    .select('id, pm25_sensor_ids, lat, lng')
     .filter('pm25_sensor_ids', 'not.eq', '{}');
 
   if (stationsError) throw new Error(`Failed to fetch stations: ${stationsError.message}`);
