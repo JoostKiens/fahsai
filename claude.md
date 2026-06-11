@@ -279,3 +279,27 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## 5. Verification & Testing
+
+Always run `tsc --noEmit` (typecheck) and the linter after making code edits, and fix any errors before considering the task done.
+
+## 6. Working with Specs
+
+When a spec or assets are referenced, read the local spec/asset files first — do not fetch private GitHub URLs or convert assets that are already provided ready-to-use.
+
+## 7. Data Ingest & Backfill
+
+When querying or backfilling Supabase/Postgres data, account for the 1000-row default limit, set explicit time-bound upper limits, and add retry handling (e.g., pRetry) to long-running backfill scripts.
+
+## 8. Debugging Approach
+
+Do not make overconfident claims about root causes (e.g., calling something a 'core bug' or assuming data storage/refetch behavior) without verifying against the actual code or data first.
+
+## 9. General Principles
+
+Prefer the simplest solution that meets the stated requirements; do not over-engineer (e.g., gated multi-platform CI deployments) or alter text/behavior the user did not ask to change.
+
+Before implementing, give me a numbered plan broken into independently-committable steps so we can stop cleanly between them.
+
+Before changing the schema or ingest logic, ask me any clarifying questions about replace-vs-append semantics and downstream query impact.
