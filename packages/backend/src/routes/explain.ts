@@ -49,6 +49,11 @@ function geoRegion(lat: number, lng: number): string {
       return feature.properties.name;
     }
   }
+  // The China polygon in geo-regions.json caps at ~30°N, leaving northern China and Tibet
+  // unmatched. Proper fix: replace the feature with a full Natural Earth 1:110m admin-0
+  // polygon. Until then, fall back to a bounding-box check — it mislabels Mongolia and
+  // north-east Asia, but that is better than silently dropping the region from the prompt.
+  if (lat > 30 && lat <= 53.5 && lng >= 73 && lng <= 135) return 'China';
   return '';
 }
 
