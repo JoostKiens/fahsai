@@ -1,4 +1,4 @@
-import type { ScientificContext, TierSource } from './buildScientificContext.js';
+import type { ScientificContext, TierSource, ExplainCase } from './buildScientificContext.js';
 import { pm25Cat, firePressureLabel } from './buildScientificContext.js';
 
 // ----------------------------------------------------------------
@@ -19,7 +19,7 @@ function buildScientificDataBlock(ctx: ScientificContext): string {
   // --- 7-day averages ---
   const dailyLines = ctx.sevenDayAverages.length
     ? ctx.sevenDayAverages
-        .map((d) => `  ${d.date}: ${d.value.toFixed(1)} µg/m³ (${d.category})`)
+        .map((d) => `  ${d.date}: ${Math.round(d.value)} µg/m³ (${d.category})`)
         .join('\n')
     : '  No historical data';
 
@@ -82,6 +82,15 @@ function buildScientificDataBlock(ctx: ScientificContext): string {
   if (ctx.transport !== null) {
     const { trajectory, cams, fire } = ctx.transport;
 
+    // Origin character — derived from the furthest-from-station CAMS sample (last element)
+    let originCharacter = '';
+    if (cams.samples.length > 0) {
+      const originPm25 = cams.samples[cams.samples.length - 1].pm25;
+      const label =
+        originPm25 > 35 ? 'Smoke-loaded' : originPm25 > 12 ? 'Moderately polluted' : 'Clean';
+      originCharacter = `ORIGIN CHARACTER: ${label}\n`;
+    }
+
     // Trajectory string
     let prevRegion = '';
     const pathStr = trajectory.waypoints
@@ -109,44 +118,12 @@ function buildScientificDataBlock(ctx: ScientificContext): string {
     ].join('\n');
 
     const trajectoryBlock = `3-DAY WIND PATH (5-member ensemble, surface-level approximation)
-${trajectoryStr}
-NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin region as indicative, not precise.`;
-
-    // CAMS block — omitted when suppression active, except PLAUSIBLE_URBAN_INDUSTRIAL
-    // which needs the near-origin value to anchor the "air arrived clean" story
-    let camsBlock = '';
-    if (!cams.suppressionActive || ctx.explainCase === 'PLAUSIBLE_URBAN_INDUSTRIAL') {
-      const total = cams.samples.length;
-      const camsStr = total
-        ? [...cams.samples]
-            .reverse()
-            .map((s, ri) => {
-              const origIdx = total - 1 - ri;
-              const lbl =
-                total === 1
-                  ? 'Along path'
-                  : origIdx === 0
-                    ? 'Near station'
-                    : origIdx === total - 1
-                      ? 'Near origin (furthest from station)'
-                      : 'Mid-path';
-              return `  ${lbl}: ${s.pm25.toFixed(1)} µg/m³ — ${s.category} (${s.lat.toFixed(1)}°N ${s.lng.toFixed(1)}°E, ${s.date})`;
-            })
-            .join('\n')
-        : '  No CAMS data along route';
-      // Suppress gap explanation when suppression is active — fires are on the flanks,
-      // not in the core air mass; the gap is from urban sources, not unresolved fire smoke.
-      const gapLine =
-        !cams.suppressionActive && cams.stationExceedsCamsMax
-          ? 'STATION VS MODEL GAP: Yes — station reads >20 µg/m³ above peak modelled value. Explain the gap.'
-          : 'STATION VS MODEL GAP: No — gap is within normal range. Do not add a gap explanation sentence.';
-      camsBlock = `\nAIR QUALITY ALONG WIND PATH (CAMS model PM2.5)\n${camsStr}\n${gapLine}`;
-    }
+${trajectoryStr}`;
 
     // Fire block — omitted when suppression active
     let fireBlock = '';
     if (!fire.pathScore && fire.pathFireCount === 0) {
-      fireBlock = `\nCUMULATIVE FIRE PRESSURE (fires within wind path, recent days)\nScore: 0/100 — None\nNo fires detected within route corridor`;
+      fireBlock = `\nCUMULATIVE FIRE PRESSURE (fires within wind path, recent days)\nNone\nNo fires detected within route corridor`;
     } else if (!cams.suppressionActive) {
       const recencyLine = fire.recency
         ? `  By recency: recent: ${fire.recency.last24h.count} fires (${fire.recency.last24h.totalFrpMw.toFixed(0)} MW FRP) | ` +
@@ -158,7 +135,7 @@ NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin r
           ? `Nearest fire to path centerline: ${fire.nearestFireDistKm.toFixed(0)} km`
           : null;
       const fireLines = [
-        `Score: ${fire.pathScore}/100 — ${firePressureLabel(fire.pathScore)}`,
+        firePressureLabel(fire.pathScore),
         `Total fires along path: ${fire.pathFireCount}`,
         recencyLine,
         nearestLine,
@@ -168,27 +145,15 @@ NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin r
       fireBlock = `\nCUMULATIVE FIRE PRESSURE (fires within wind path, recent days)\n${fireLines}`;
     }
 
-    transportSection = `${trajectoryBlock}${camsBlock}${fireBlock}`;
+    transportSection = `${originCharacter}${trajectoryBlock}${fireBlock}`;
   }
 
-  // --- area fire pressure — always shown, even for outliers ---
-  let pressureScoreStr: string;
-  if (
-    !ctx.areaFirePressure ||
-    (ctx.areaFirePressure.score === 0 && ctx.areaFirePressure.fireCount === null)
-  ) {
-    pressureScoreStr = 'No data — location outside fire detection grid or no recent activity';
-  } else {
-    const afp = ctx.areaFirePressure;
-    const interpretation =
-      ctx.outlier === null && afp.score >= 40
-        ? `Interpretation: Fire activity has been sustained at ${firePressureLabel(afp.score).toLowerCase()} levels across this area for weeks or longer — this reflects persistent regional smoke buildup, not a one-off event.`
-        : null;
-    pressureScoreStr = [
-      `Score: ${afp.score.toFixed(1)}/100 — ${firePressureLabel(afp.score)} (${afp.fireCount ?? 0} detections, total FRP ${(afp.totalFrpMw ?? 0).toFixed(0)} MW)`,
-      ...(interpretation ? [interpretation] : []),
-    ].join('\n');
-  }
+  // --- local fires — always shown, even for outliers ---
+  const radiusKm = ctx.transport?.fire.areaFireRadiusKm ?? 75;
+  const localFiresStr =
+    !ctx.areaFirePressure || !ctx.areaFirePressure.fireCount
+      ? `No significant fire activity within ${radiusKm} km`
+      : `${ctx.areaFirePressure.fireCount} fires detected within ${radiusKm} km over recent weeks`;
 
   // --- upwind sources ---
   let sourcesStr: string;
@@ -242,24 +207,19 @@ NOTE: Simplified 2D surface trajectory from daily wind snapshots. Treat origin r
     }
   }
 
-  const candidateSourcesBlock =
-    ctx.explainCase === 'OUTLIER_HIGH'
-      ? `\nCANDIDATE LOCAL SOURCES (standard list for isolated high readings)\n` +
-        `  A generator running near the equipment\n` +
-        `  A nearby burn (garden, agricultural, waste)\n` +
-        `  Vehicle exhaust directly next to the monitor\n` +
-        `  A sensor fault or calibration drift\n` +
-        `  A data reporting error\n`
+  const trendSection =
+    ctx.trend?.isSignificant === true
+      ? `\nTREND (past week)\n  Direction: ${ctx.trend.direction}\n  Use this to add one closing sentence to your response when it adds context beyond what the user sees in the chart. "Readings have been rising over the past week" or "Conditions have been easing from higher levels earlier this week." Only one sentence. Only when the direction meaningfully changes the interpretation of the current reading.\n`
       : '';
 
-  return `You are explaining current air quality to a general audience in plain English.
-
+  return `
 <scientific_data>
 STATION: ${ctx.station.name} (${ctx.station.lat.toFixed(3)}°N, ${ctx.station.lng.toFixed(3)}°E)
 CURRENT PM2.5: ${ctx.currentPm25.toFixed(1)} µg/m³ — ${ctx.aqiCategory}
 CASE: ${ctx.explainCase}
 DATE: ${ctx.date} (UTC+7)
-${candidateSourcesBlock}
+SEASONAL CONTEXT: ${ctx.seasonContext}
+
 7-DAY DAILY AVERAGES
 ${dailyLines}
 
@@ -268,321 +228,345 @@ ${windSummary}
 
 WEATHER CONTEXT (precipitation and humidity at station)
 ${weatherContextStr}
-${persistentWindSection}${transportSection ? `${transportSection}\n\n` : ''}AREA FIRE PRESSURE (precomputed score at this location)
-${pressureScoreStr}
+${persistentWindSection}${transportSection ? `${transportSection}\n\n` : ''}LOCAL FIRES (within ${radiusKm} km)
+${localFiresStr}
 
 UPWIND EMISSION SOURCES (cities, industrial zones, power plants along route)
 ${sourcesStr}
-
-BACKGROUND_ONLY: ${ctx.trend}
-
+${trendSection}
 PEER STATIONS WITHIN 75 KM (recent readings)
 ${peerStr}
-
-SEASONAL CONTEXT: ${ctx.seasonContext}
 </scientific_data>`;
 }
 
 // ----------------------------------------------------------------
-// Instructions block — Step 2: per-case rewrite
+// Instruction constants
 // ----------------------------------------------------------------
 
-function buildCaseInstructions(ctx: ScientificContext): string {
-  const transport = ctx.transport;
-  const firesAreLocal = transport?.fire.firesAreLocal ?? false;
-  const nearestFireDistKm = transport?.fire.nearestFireDistKm ?? null;
-  const pathScore = transport?.fire.pathScore ?? 0;
-  const trajectoryPrecipMm = ctx.weatherContext.trajectoryPrecipitationMm;
-  const suppressionActive = transport?.cams.suppressionActive ?? false;
-  const afpScore = ctx.areaFirePressure?.score ?? 0;
-  const afpFireCount = ctx.areaFirePressure?.fireCount ?? null;
-  const totalPrecipMm = ctx.weatherContext.totalPrecipitationMm;
-  const humidities = ctx.weatherContext.days
-    .filter((d) => d.humidity !== null)
-    .map((d) => d.humidity!);
-  const lowestHumidity = humidities.length ? Math.min(...humidities) : null;
-  const hasHighHumidityWarning = ctx.weatherContext.days.some((d) => d.highHumidityWarning);
-  const peerCount = ctx.peers?.stationCount ?? 0;
-  const originRegion = transport?.trajectory.origin.region?.toLowerCase() ?? '';
+const ROLE_AND_GOAL = `
+<role_and_goal>
+You are an air quality analyst explaining a PM2.5 reading to a member of the
+public. Your goal is to answer one question: what is causing this reading right
+now? Be direct, factual, calm and brief. Do not dramatise elevated readings or
+minimise them — state what the data shows.You are not summarising data — you are
+explaining a cause.
 
-  // Flat CAMS gradient: all samples within 5 µg/m³ and same AQI category
-  const camsValues = transport?.cams.samples.map((s) => s.pm25) ?? [];
-  const camsCategories = new Set(transport?.cams.samples.map((s) => s.category) ?? []);
-  const isCamsFlat =
-    camsValues.length >= 2 &&
-    Math.max(...camsValues) - Math.min(...camsValues) <= 5 &&
-    camsCategories.size === 1;
+AUDIENCE: General public. No scientific background assumed. Plain language only.
 
-  // Peak burning season from date (Feb–Apr = months 2–4), regardless of season field
-  const month = parseInt(ctx.date.slice(5, 7), 10);
-  const isPeakBurning = month >= 2 && month <= 4;
+OUTPUT FORMAT: 1 to 3 short paragraphs of plain prose. No markdown, no bullet
+points, no headers. 40 to 80 words per paragraph. One strong paragraph is
+better than two thin ones.
 
+ROLE OF THE DATA: The data block gives you evidence. Your job is to select the
+most important evidence and explain it — not to report all of it. Leave out
+anything that does not help explain the cause.
+</role_and_goal>`;
+
+const UNIVERSAL_RULES = `<universal_rules>
+VOICE: Third person only. "This station", "this area", "conditions here". Never
+"we" or "our".
+
+NUMBERS: Round PM2.5 values to the nearest integer. Always include µg/m³.
+Never cite CAMS modelled values as numbers — the data block contains an ORIGIN
+CHARACTER label; use that in plain language ("clean marine air", "smoke-laden
+air from Myanmar") instead of a modelled µg/m³ figure. CAMS values are
+low-resolution model estimates not visible to the user — citing them alongside
+station readings causes confusion.
+
+FIRES: Use "detected" with a time window: "over 1,000 fires have been detected
+along the route over the past few days." Never use present continuous ("fires
+are burning") — it implies simultaneity. Never cite a fire pressure score number.
+
+TIME: Never cite specific durations from the data labels ("72 hours", "14
+days", "last 24 hours", "past 5 days"). Use "recently", "over the past few
+days", "for weeks". These are minimum durations — conditions may have persisted
+longer.
+
+WHAT NOT TO SAY:
+- Never mention "CAMS", "trajectory", "corridor", "transport", "wind path",
+  "particulate matter", "concentration"
+- Never cite a fire pressure score number
+- Never mention what data is absent as an explanation ("no trajectory data
+  available") — simply omit that section
+- Never repeat the station name or PM2.5 value — the user sees these in the
+  UI already
+- No em-dashes
+
+DRY CONDITIONS: When zero rainfall and low humidity explain why smoke persists,
+use active voice: "Dry conditions kept the smoke from dispersing. No rain fell
+and humidity dropped as low as X%." Never "left nothing to wash the smoke out."
+
+RAINFALL WASHOUT: State the total mm and the effect: "Over 76 mm of rain fell
+along the route over the past few days, enough to strip most of those particles
+out before arrival." Let the number speak — do not call it "heavy" unless the
+context (monsoon season) makes that characterisation obvious.
+
+PEERS: Include peer context only when it adds causal information:
+- Fire transport: peer distribution confirms this is a regional pattern
+- Outliers: peer readings confirm the anomaly
+- Clean with peers confirming: one sentence maximum, range only
+- When more than 3 peer stations: summarise as range or AQI distribution,
+  never list individual station names
+- When 1 to 2 peer stations: name each with value and distance
+- When peers add nothing to the causal explanation: omit entirely
+
+SOURCES: Name upwind cities and industrial sources from the tier 1 list when
+they are a plausible cause or useful context. Frame them as adding emissions to
+arriving air, not as waypoints the air passed through.
+</universal_rules>`;
+
+const FIRE_TRANSPORT_LOCAL_SECTION = `<instructions>
+CASE: PLAUSIBLE_FIRE_TRANSPORT
+This reading is driven by fire activity. Lead with fires.
+
+- Open with the area fire count ("over X fires detected within 75 km of this
+  station over recent weeks") and the path fire count and origin geography
+- Name the specific countries and regions where path fires were detected,
+  derived from the trajectory waypoints
+- Cite zero rainfall and lowest humidity reading if present, using the active
+  dry-conditions construction
+- Close with peer distribution if more than 10 stations; name a specific
+  nearby city from tier 1 sources if it anchors the regional scale
+
+Name countries and regions from the trajectory waypoints.
+Use "detected" not "fires burning."
+</instructions>`;
+
+const FIRE_TRANSPORT_IMPORTED_SECTION = `<instructions>
+CASE: PLAUSIBLE_FIRE_TRANSPORT
+This reading is driven by fire activity. Lead with fires.
+
+- Open with the path fire count, origin geography, and direction ("fires
+  detected across [region] along the path this air traveled over the past few
+  days")
+- Cite zero rainfall and lowest humidity if present
+- Name tier 1 upwind urban sources in the peer paragraph as background context
+- Close with peer range or distribution
+
+Name countries and regions from the trajectory waypoints.
+Use "detected" not "fires burning."`;
+
+const URBAN_INDUSTRIAL_SECTION = `<instructions>
+CASE: PLAUSIBLE_URBAN_INDUSTRIAL
+Lead with the air origin character and the upwind sources.
+
+- Open with the origin (marine or continental) using the ORIGIN CHARACTER
+  label in plain language, then name the tier 1 upwind sources as the cause
+- If LOCAL FIRES shows significant activity and CUMULATIVE FIRE PRESSURE is
+  High or Very high: mention local fire detections within 75 km as a
+  background layer — cite the count, frame as weeks of buildup, not a
+  single event
+- Do not mention fires if LOCAL FIRES shows no significant activity and
+  CUMULATIVE FIRE PRESSURE is Low, Moderate, or None
+- Close with peer confirmation (weighted mean and range)
+- If only one peer station: note the gap and the uncertainty honestly ("with
+  only one reference point it is hard to say whether this is a localised plume
+  or whether conditions here are genuinely more affected")
+</instructions>`;
+
+const CLEAN_WASHOUT_SECTION = `<instructions>
+CASE: PLAUSIBLE_CLEAN
+Lead with the cause of the clean reading — what kept the air clean or washed
+it out.
+
+- Washout story: where the air originated and its character (use ORIGIN
+  CHARACTER), then the rainfall total and its effect
+- If ORIGIN CHARACTER is "Smoke-loaded" or "Moderately polluted", the contrast
+  between origin and clean arrival is the story — include it
+- If highHumidityWarning is true and no dominant cause: add a second paragraph
+  noting humidity as a candidate for over-reading, and note if no peer stations
+  are available to confirm
+- Close with peer range if available; note spread if wide
+</instructions>`;
+
+const CLEAN_MARINE_SECTION = `<instructions>
+CASE: PLAUSIBLE_CLEAN
+Lead with the cause of the clean reading — what kept the air clean or washed
+it out.
+
+- Lead with the origin geography — name the body of water or region, describe
+  it qualitatively ("deep in the South China Sea", "far out over the Gulf of
+  Thailand") — do not cite a computed distance in km
+- If CAMS shows flat low values across the entire route: note that the air was
+  clean throughout, not just at the origin
+- If persistent wind is present and consistent with the origin: cite it as the
+  reason conditions remain clean ("strong easterly winds have kept this
+  maritime flow in place for several days")
+- If peak burning season (February to April) and reading is Good or Moderate:
+  close with the burning season contrast — this is the most useful fact for
+  the reader
+- Peer confirmation as the final sentence if available
+</instructions>`;
+
+const OUTLIER_HIGH_SECTION = `<instructions>
+CASE: OUTLIER_HIGH
+Lead with the anomaly. Every sentence should make the case that this reading
+does not reflect conditions in the wider area.
+
+- Open with the ratio and the peer mean: "This station reads X times higher
+  than the Y nearby stations" and cite the peer ceiling (highest peer reading)
+- State that all nearby stations read Good or Moderate (if true)
+- List all candidate explanations by name: a sensor fault or calibration drift,
+  a very localised source directly at the station — a generator, a nearby burn,
+  exhaust from vehicles close to the equipment — or a data reporting error
+- If the reading has been elevated for multiple days in the 7-day averages:
+  note this as evidence of persistent local interference, not a one-off spike
+- Do not mention fires, trajectory, or CAMS — they are not relevant
+</instructions>`;
+
+const OUTLIER_LOW_SECTION = `<instructions>
+CASE: OUTLIER_LOW
+Lead with the anomaly immediately. Make clear this reading almost certainly
+does not reflect actual conditions.
+
+- Open with the ratio and context: "This station is reading [AQI category],
+  but that almost certainly does not reflect actual conditions here"
+- Cite the peer count, peer mean, and AQI distribution (how many Hazardous,
+  how many Very unhealthy)
+- Describe regional conditions factually (burning season, sustained pollution)
+  without citing CAMS values
+- If area fire detections within 75 km are present and significant, cite the
+  count as evidence that the regional conditions make a low reading implausible
+- List the candidate explanations: sensor fault, local shielding, data
+  reporting error
+- Close with a definitive statement: "There is no meteorological explanation
+  for a [AQI category] reading under these conditions."
+</instructions>`;
+
+const UNCLEAR_SECTION = `<instructions>
+CASE: PLAUSIBLE_UNCLEAR
+Lead with what the reading is and be honest that no single cause dominates.
+
+- Describe the reading and the absence of a dominant driver
+- Mention any weak signals present (moderate fire activity, mild upwind
+  sources, slight CAMS gradient) as candidates, not conclusions
+- Peer range to show whether this is consistent with or divergent from
+  neighbours
+- Close with honest uncertainty — name candidate explanations without
+  asserting any one of them
+</instructions>`;
+
+const EXAMPLE_FIRE_TRANSPORT = `<example>
+
+Over 12,000 fires have been detected across Myanmar and northern Thailand along
+the path this air traveled over the past few days, and over 600 more have been
+detected within 75 km of this station for weeks. Westerly winds have carried
+smoke from deep inside Myanmar, crossing the border into northern Thailand where
+it has mixed with smoke from fires close to this station.
+
+No rain fell and humidity dropped as low as 22%, keeping the smoke from
+dispersing. 38 of 41 nearby stations read Very unhealthy or Hazardous. This is
+a regional crisis, not an isolated event. Chiang Mai, 86 km to the south, sits
+under the same smoke.
+</example>`;
+
+const EXAMPLE_CLEAN = `<example>
+Air arriving here originated over the Strait of Malacca, where fires in
+southern Malaysia had loaded it with smoke. Over 76 mm of rain fell along the
+route over the past few days, enough to strip most of those particles out
+before arrival. The rain did most of the work.
+
+The result is a Moderate reading that reflects what the air picked up locally
+after the washout, not what it carried from the south. Nearby stations range
+from 12 to 38 µg/m³, with the spread suggesting local variation in how much
+rain fell across the area.
+</example>`;
+
+const EXAMPLE_OUTLIER_LOW = `<example>
+This station is reading Moderate, but that almost certainly does not reflect
+actual conditions here. The 51 nearest stations average 262 µg/m³, with 24
+reading Hazardous and 21 Very unhealthy. The region is in the midst of severe
+pollution driven by peak burning season across northern Thailand and Myanmar.
+A reading this far below its neighbours, roughly one tenth of the regional
+level, is most likely a sensor fault, local shielding, or a data reporting error.
+
+Nearly 400 fires have been detected within 75 km of this station over recent
+weeks. There is no meteorological explanation for a Moderate reading under
+these conditions.
+</example>`;
+
+const EXAMPLE_OUTLIER_HIGH = `<example>
+This station reads 4.5 times higher than the 162 nearby stations, none of
+which exceeds 29 µg/m³. With low fire activity across the region and all
+nearby stations reading Good or Moderate, this isolated reading is most likely
+a sensor fault, a very localised source directly at the station, a generator,
+a nearby burn, exhaust from vehicles close to the equipment, or a data
+reporting error.
+
+The reading has been elevated for several days, which suggests persistent
+local interference rather than a one-off spike.
+</example>`;
+
+const EXAMPLE_URBAN_INDUSTRIAL = `<example>
+Air arrived here from the Gulf of Thailand, clean marine air to start, but
+consistent southerly winds carried it north through the Bangkok metropolitan
+area, picking up emissions from Bangkok, Nonthaburi, and the Samut Prakan
+industrial corridor along the way.
+
+Around 150 fires have been detected within 75 km of this station over recent
+weeks, adding a background layer of smoke to the urban emissions arriving from
+the south. Nearby stations average 44 µg/m³, ranging from Moderate to
+Unhealthy, with conditions here consistent with the regional picture.
+</example>`;
+
+// ----------------------------------------------------------------
+// Case section and example selectors
+// ----------------------------------------------------------------
+
+function buildFireTransportSection(ctx: ScientificContext): string {
+  return ctx.transport?.fire.firesAreLocal
+    ? FIRE_TRANSPORT_LOCAL_SECTION
+    : FIRE_TRANSPORT_IMPORTED_SECTION;
+}
+
+function buildCleanSection(ctx: ScientificContext): string {
+  return ctx.weatherContext.trajectoryPrecipitationMm > 40
+    ? CLEAN_WASHOUT_SECTION
+    : CLEAN_MARINE_SECTION;
+}
+
+function buildCaseSection(ctx: ScientificContext): string {
   switch (ctx.explainCase) {
-    case 'PLAUSIBLE_FIRE_TRANSPORT': {
-      if (firesAreLocal) {
-        const slowWind =
-          transport !== null && afpScore >= 40 && transport.trajectory.meanWindSpeedKmh <= 10
-            ? ' Winds have been slow — stagnant air has allowed this smoke to build up over an extended period. This is an accumulation story, not a one-day event.'
-            : '';
-
-        // F02: cite low humidity and zero rainfall when present
-        const hasLowHumidity = lowestHumidity !== null && lowestHumidity < 40;
-        const dispersalNote =
-          totalPrecipMm === 0 && hasLowHumidity
-            ? `\n\nZero rainfall and humidity as low as ${lowestHumidity.toFixed(0)}% are shown in the weather data — cite both as the reason smoke has not dispersed. This is why conditions have been able to build up rather than clearing.`
-            : totalPrecipMm === 0
-              ? '\n\nZero rainfall is shown in the weather data — note that nothing has washed the smoke out.'
-              : '';
-
-        // F02: geographic anchor via tier 1 city
-        const tier1Cities = ctx.upwindSources.tier1.filter((s) => s.type === 'city');
-        const cityNote =
-          tier1Cities.length > 0
-            ? `\n\nA named city appears in tier 1 sources: ${tier1Cities.map((c) => `${c.name} (${c.distanceKm.toFixed(0)} km)`).join(', ')}. Name it alongside the peer data as a place experiencing the same conditions — "X, Y km away, sits under the same smoke" — this geographic anchor makes the regional crisis concrete for the reader.`
-            : '';
-
-        // F07: path count in lead, area count as secondary chronic evidence
-        return `Fires have been burning at or near this location for an extended period — lead with that buildup story.
-
-Open with the path fire count (shown in CUMULATIVE FIRE PRESSURE) as the lead number — this is the acute 72-hour signal. Then cite the area detection count (shown in AREA FIRE PRESSURE) as evidence of sustained chronic buildup: "over X fires have also been detected in and around this location over recent weeks." Do not describe the pressure level as a "perfect score" or use the score label. Use "for weeks" for the area count — never cite "14 days" or "two weeks" by name.${slowWind}${dispersalNote}${cityNote}
-
-Cite the CAMS gradient if meaningful (start and end values in µg/m³). Name specific countries and sub-regions from the trajectory where fires are concentrated.
-
-Close with peer confirmation: how many nearby stations read similarly, confirming this is a regional picture.`;
-      } else {
-        const nearestStr =
-          nearestFireDistKm !== null
-            ? ` The nearest fire to the path centerline was ${nearestFireDistKm.toFixed(0)} km away — fires were along the upwind path, not directly at this location.`
-            : '';
-        const fireLeadStr =
-          pathScore >= 70
-            ? '\n\nBecause trajectory fire pressure is high, open with the fire count and geographic origin before mentioning any urban or industrial sources — fires are the primary driver here.'
-            : '';
-
-        // F10: cite zero rainfall + low humidity for imported-fire cases
-        const hasLowHumidity = lowestHumidity !== null && lowestHumidity < 40;
-        const dispersalNote =
-          totalPrecipMm === 0 && hasLowHumidity
-            ? `\n\nZero rainfall and humidity as low as ${lowestHumidity.toFixed(0)}% appear in the weather data — cite both in a single sentence as the reason the smoke has not dispersed despite traveling a long distance: "Zero rainfall and humidity below ${lowestHumidity.toFixed(0)}% has left nothing to wash the smoke out."`
-            : totalPrecipMm === 0
-              ? '\n\nZero rainfall appears in the weather data — mention that nothing fell to wash the smoke out during its journey.'
-              : '';
-
-        // F05/F10: name tier 1 sources and persistent-wind beyond-window sources in peer paragraph
-        const tier1Names = ctx.upwindSources.tier1
-          .filter((s) => s.type === 'city')
-          .map((s) => `${s.name} (${s.distanceKm.toFixed(0)} km upwind)`);
-        const persistentNames = (ctx.persistentWind?.sourcesBeyondWindow ?? [])
-          .filter((s) => s.type === 'city')
-          .map((s) => `${s.name} (${s.distanceKm.toFixed(0)} km)`);
-        const urbanSourceNames = [...new Set([...tier1Names, ...persistentNames])];
-        const urbanSourceNote =
-          urbanSourceNames.length > 0
-            ? `\n\nUpwind urban sources are present in the data — ${urbanSourceNames.join(', ')}. Name them in the peer paragraph as background context that adds urban emissions to the arriving smoke, not as a primary cause. Final sentence framing: "[City], [distance] km upwind, adds urban emissions to the smoke arriving from [origin region]."`
-            : '';
-
-        return `This station is receiving smoke imported from fires burning along the upwind route — open with that origin story.
-
-Lead with the total path fire count and the geographic origin of the air mass. Name the specific countries and sub-regions where fires burned, derived from the trajectory waypoints and region labels.${nearestStr}${fireLeadStr}${dispersalNote}${urbanSourceNote}
-
-Cite the CAMS gradient if meaningful (origin vs arrival values in µg/m³). Close with a peer confirmation sentence.`;
-      }
-    }
-
-    case 'PLAUSIBLE_URBAN_INDUSTRIAL': {
-      // Fix 2c: near-origin CAMS value is the baseline; clarify which sample to use
-      const camsOriginNote =
-        '\n\nThe CAMS data section labels each sample by position. The "near origin" value is the starting point of the air mass — cite this as the clean marine or continental baseline. Do not cite the mid-path or near-station values as the origin reading.';
-
-      // F05: area fire pressure as background layer when suppression active
-      const areaFireNote =
-        suppressionActive && afpScore >= 40
-          ? `\n\nArea fire pressure is ${afpScore.toFixed(1)}/100 with ${afpFireCount ?? 0} detections over 14 days — mention this sustained local fire activity as a background layer on top of the urban emissions, framing it as weeks of buildup, not a single event.`
-          : '';
-
-      // F07: fire threshold — only cite fires when pathScore >= 40
-      const fireThresholdNote =
-        pathScore < 40
-          ? '\n\nCite fires only when path fire pressure score is shown as ≥ 40 in the data. For this reading it is not — omit any mention of fires, fire counts, or fire pressure.'
-          : '';
-
-      // F05: rainfall note — mention only when active, not its absence
-      const rainfallNote =
-        '\n\nMention rainfall only if it was significant (> 5 mm total) and played an active role in the story — omit it when absent or negligible.';
-
-      // F07: honest single-peer framing
-      const singlePeerNote =
-        peerCount === 1
-          ? '\n\nOnly one peer station is available — frame the comparison honestly: the gap is notable, but a single reference point is not enough to determine whether this is a localised plume or a genuinely broader elevation.'
-          : '';
-
-      return `The air originates from a relatively clean source and picks up pollution from urban and industrial sources along the path.
-
-Lead with the air mass origin — name the water body or region specifically — and its clean CAMS reading at that source. Then describe how Tier 1 sources (along the path, ≤150 km) add pollution to the arriving air, named by proximity closest first. If a Local air-shed source (≤20 km) appears in the data, weave it naturally into the most relevant paragraph.${camsOriginNote}${areaFireNote}${fireThresholdNote}${rainfallNote}${singlePeerNote}
-
-Cite the peer weighted mean. Close with peer confirmation.`;
-    }
-
-    case 'PLAUSIBLE_CLEAN': {
-      // S1: suppress fire mentions when pathScore < 40
-      const fireOmissionNote =
-        pathScore < 40
-          ? '\n\nFire data is present in the data block for context only. Do not mention fires, fire counts, or fire pressure in this response — path fire pressure is below 40 and is not a contributing factor.'
-          : '';
-
-      if (trajectoryPrecipMm > 40) {
-        // Fix 3: washout — two paragraphs when high humidity present
-        const washoutHumidityNote = hasHighHumidityWarning
-          ? `\n\nStructure as two paragraphs: (1) the washout story (origin, rainfall total, CAMS gradient showing clean air arrival); (2) an uncertainty paragraph noting the station reads slightly above the modelled background — cite high humidity as a candidate reason: humidity above 85% can cause optical equipment to over-read. If fewer than 3 peer stations are available, note that it is difficult to confirm whether this reflects actual air quality or a sensor effect. The second paragraph is required when high humidity is flagged.`
-          : '';
-
-        return `Rain along the air's route has washed out particles — this is the primary explanation for the clean reading.
-
-Lead with the current reading and where the air came from — name the specific origin region and its CAMS reading. Rainfall is the explanation, not the subject: introduce it as the mechanism after establishing the origin and the CAMS gradient. Structure: "Air that read X µg/m³ at the origin arrived here at Y µg/m³ after ${trajectoryPrecipMm.toFixed(1)} mm of rainfall along the route."
-
-Important: the "Y µg/m³ on arrival" in that structure is the CAMS "near station" value — the sample closest to the station — not the station reading itself. The station reading may differ from the CAMS model; cite the CAMS near-station value as the evidence of washout, not the station PM2.5.
-
-Show the full CAMS gradient if it meets the ≥15 µg/m³ or AQI-crossing threshold.
-
-Close with the peer range if available, confirming this is a regional picture.${fireOmissionNote}${washoutHumidityNote}`;
-      } else {
-        // F09: marine origin — qualitative description, not computed distance
-        const isMarineOrigin = [
-          'sea',
-          'ocean',
-          'gulf',
-          'bay',
-          'strait',
-          'andaman',
-          'south china',
-          'pacific',
-          'indian',
-        ].some((w) => originRegion.includes(w));
-
-        const marineNote = isMarineOrigin
-          ? '\n\nThe trajectory origin is over open water — describe it geographically using qualitative language: "deep in the South China Sea", "far out over the Gulf of Thailand", "well offshore in the Strait of Malacca". Do not cite a computed distance in km. The interesting fact is the unbroken stretch of open ocean with no land sources reaching this station.'
-          : '';
-
-        const persistentWindNote =
-          ctx.persistentWind !== null
-            ? ' If the persistent wind direction aligns with the clean origin, cite it as the reason conditions have remained clean: the wind pattern has kept this maritime flow in place for several days.'
-            : '';
-
-        // F04: flat CAMS gradient — mandatory cite when present
-        const flatCamsMin = camsValues.length ? Math.min(...camsValues).toFixed(1) : '?';
-        const flatCamsMax = camsValues.length ? Math.max(...camsValues).toFixed(1) : '?';
-        const flatCamsRequired =
-          isCamsFlat && camsValues.length >= 2
-            ? `\n\nThe CAMS data is flat across the entire route: ${flatCamsMin}–${flatCamsMax} µg/m³, all within the same AQI category. This is a required sentence in the second paragraph — include it verbatim or close to it: "the modelled PM2.5 was flat at ${flatCamsMin}–${flatCamsMax} µg/m³ across the entire route." This confirms the entire route was clean, not just the origin — it is not optional context.`
-            : '';
-
-        // F04: peak burning season contrast
-        const burningSeasonNote =
-          isPeakBurning && ctx.currentPm25 <= 35.4
-            ? '\n\nThis is peak burning season in mainland Southeast Asia. The closing sentence must include the burning season contrast: persistent winds from this direction have kept the maritime flow in place, explaining why conditions here remain clean despite widespread burning elsewhere in the region. This contrast is required — it answers the question a reader would naturally ask.'
-            : '';
-
-        // F08: high humidity as candidate explanation when no dominant cause
-        const humidityNote = hasHighHumidityWarning
-          ? '\n\nHigh humidity is flagged in the weather data. If no other dominant cause is clearly present (no significant fire pressure, no strong CAMS gradient), cite humidity as a candidate reason the station reads slightly above the regional model: humidity above 85% can cause optical equipment to over-read. Do not invent a cause when none is present in the data — if the explanation is genuinely unclear, say so directly.'
-          : '';
-
-        return `The air originates from a clean source and has not picked up significant pollution along its route.
-
-Lead with the specific origin — name the water body, ocean, or low-fire region — and its CAMS reading. Cite the peer range to confirm this is regional, not just this station.${marineNote}${persistentWindNote}${flatCamsRequired}
-
-Close with a concrete fact about the origin.${burningSeasonNote}${fireOmissionNote}${humidityNote}`;
-      }
-    }
-
+    case 'PLAUSIBLE_FIRE_TRANSPORT':
+      return buildFireTransportSection(ctx);
+    case 'PLAUSIBLE_URBAN_INDUSTRIAL':
+      return URBAN_INDUSTRIAL_SECTION;
+    case 'PLAUSIBLE_CLEAN':
+      return buildCleanSection(ctx);
     case 'OUTLIER_HIGH':
-      return `This reading is anomalously high relative to all nearby stations — lead with that fact.
-
-Open with the ratio versus the peer mean (cite both: the ratio and the peer mean in µg/m³). State that nearby stations are much lower.
-
-Cite the peer count and the highest peer reading. Note how many of the past seven days this station has read elevated (visible in the 7-day averages).
-
-List the candidate local sources from the CANDIDATE LOCAL SOURCES field in the data block — cite all five in natural prose. Do not paraphrase or substitute — use the exact categories as written.
-
-Close with the finding: the regional picture does not support this reading.`;
-
-    case 'OUTLIER_LOW': {
-      // F03: cite area fire pressure as evidence of implausible low reading
-      const afpNote =
-        afpScore >= 40
-          ? `Area fire pressure is ${afpScore.toFixed(1)} out of 100 with ${afpFireCount ?? 0} fire detections over 14 days — cite this as evidence that the regional conditions make a low reading implausible: fire activity has been sustained in and around this location while this station reads clean.`
-          : 'If area fire pressure is elevated, name it as context — fires are present across the region while this station reads clean.';
-
-      return `This reading is anomalously low relative to all nearby stations — lead with that fact.
-
-Open with the ratio versus the peer mean (cite both: the ratio and the peer mean in µg/m³). State that nearby stations are much higher.
-
-Cite the peer count and the AQI distribution of peers. ${afpNote}
-
-List the most plausible explanations: sensor fault, local shielding of particles, or a data reporting error.
-
-End with a definitive statement that forecloses alternatives: "There is no meteorological or air quality explanation for this reading under current regional conditions." Do not speculate about what conditions "should" be.`;
-    }
-
+      return OUTLIER_HIGH_SECTION;
+    case 'OUTLIER_LOW':
+      return OUTLIER_LOW_SECTION;
     case 'PLAUSIBLE_UNCLEAR':
-    default:
-      return `No single driver clearly dominates this reading — acknowledge that directly.
-
-Lead with the current PM2.5 level and state plainly that the cause is unclear.
-
-Cite the CAMS values along the route (note whether they are flat, slightly elevated, or ambiguous — describe the pattern). Cite the peer range. Mention any weak fire or urban signal present in the data.
-
-Close by naming the candidate explanations honestly without asserting any one of them. Honest uncertainty is the correct output here.`;
+      return UNCLEAR_SECTION;
   }
 }
 
+function buildExampleBlock(explainCase: ExplainCase): string {
+  switch (explainCase) {
+    case 'PLAUSIBLE_FIRE_TRANSPORT':
+      return EXAMPLE_FIRE_TRANSPORT;
+    case 'PLAUSIBLE_CLEAN':
+      return EXAMPLE_CLEAN;
+    case 'OUTLIER_LOW':
+      return EXAMPLE_OUTLIER_LOW;
+    case 'OUTLIER_HIGH':
+      return EXAMPLE_OUTLIER_HIGH;
+    case 'PLAUSIBLE_URBAN_INDUSTRIAL':
+      return EXAMPLE_URBAN_INDUSTRIAL;
+    case 'PLAUSIBLE_UNCLEAR':
+      return '';
+  }
+}
+
+// ----------------------------------------------------------------
+// Instructions block
+// ----------------------------------------------------------------
+
 function buildInstructionsBlock(ctx: ScientificContext): string {
-  const { outlier, transport, trend } = ctx;
-
-  const outlierNote = outlier
-    ? outlier.type === 'HIGH'
-      ? `⚠ STRONG OUTLIER (HIGH): This station reads ${outlier.ratio.toFixed(1)}× the distance-weighted peer mean (${ctx.peers?.weightedMean.toFixed(1) ?? '?'} µg/m³). Nearby stations are much lower.`
-      : `⚠ STRONG OUTLIER (LOW): This station reads ${outlier.ratio.toFixed(1)}× the distance-weighted peer mean (${ctx.peers?.weightedMean.toFixed(1) ?? '?'} µg/m³). Nearby stations are much higher.`
-    : '';
-
-  const suppressionActive = transport?.cams.suppressionActive ?? false;
-
-  const universal = `Write 1–3 paragraphs in plain prose — no markdown, no bullet points. Aim for 40–80 words per paragraph; one strong paragraph beats two thin ones.
-
-Lead with the single most concrete fact: a number, an origin location, a peer comparison. Not an adjective or a weather description.
-
-Use third person throughout ("this station", "this area", "conditions here"). No "we" or "our".
-
-For fire counts use past or present-perfect tense: "have burned", "have been detected" — not present continuous ("are burning").
-
-Never use these words: trajectory, corridor, transport, wind path, particulate matter, concentration, sensors. Name the geography instead ("fires burning across northern Myanmar") rather than describing how air moved. Plain equivalents when needed: "the route the air traveled", "measuring stations".
-
-Always cite PM2.5 values with µg/m³ to one decimal place (e.g. 29.4 µg/m³).
-
-The data block uses duration labels for technical reference only — do not reproduce them in your response. Write "recently", "for weeks", "over the past few days" — never "past 72 hours", "last 24 hours", "14 days", "past 5 days", "past two weeks", "over the past day", or any other specific count of hours or days. Treat durations as minimums — conditions may have persisted longer than the data captures.
-
-Recent rain (> 5 mm total) can wash out particles — mention it when significant and state what happened, not what was avoided. High humidity (≥85%) may cause stations to over-read.
-
-The reader already sees the station name, PM2.5 value, and AQI category in the UI — do not repeat any of these verbatim. Refer to the location as "this station", "here", or "this area" — never by name.
-
-BACKGROUND_ONLY is for your reasoning only — never reference or narrate it.`;
-
-  const camsRule = `CAMS gradient: narrate only when the endpoint differs from the origin by ≥15 µg/m³ or crosses an AQI category boundary. When the threshold is met, cite both values in µg/m³ ("air that read 6.8 µg/m³ over the Gulf reached 29.2 µg/m³ on arrival"). STATION VS MODEL GAP: if this field is "Yes", add one sentence explaining why the station reads higher than the regional model (local fire activity the model does not fully resolve at this scale; cite both the station reading and the peak modelled value). If "No", do not add this sentence. When CAMS values decrease along the route, describe the arriving air as cleaner — not as accumulation. Name specific countries and regions along the route; "from the coast" is not enough.${suppressionActive ? ' The CAMS and fire data sections are absent from the scientific data — do not infer or speculate about fire activity.' : ''}`;
-
-  const peerRule = `Peers: when a Distribution by AQI category line is present, lead with combined category counts (e.g. "37 of 40 nearby stations read Very unhealthy or Hazardous") then cite the range. When 3 or more peer stations are available, summarise as a range ("nearby stations ranged from X to Y µg/m³") or by AQI category — never list individual station names or values. When fewer than 3 stations are available, name each with its value to one decimal place and distance in km. Use "read" or "recorded" — not "reported" or "measured".`;
-
-  const caseInstructions = buildCaseInstructions(ctx);
-
-  return `<instructions>
-Never narrate the BACKGROUND_ONLY field or reference it in your response — it is for your reasoning only.
-${outlierNote ? `${outlierNote}\n\n` : ''}${universal}
-
-${camsRule}
-
-${peerRule}
-
-${trend.startsWith('not significant') ? 'The trend is not significant — do not discuss trend direction at all, not even to note that values are low.\n\n' : ''}${caseInstructions}
-</instructions>`;
+  const caseSection = buildCaseSection(ctx);
+  const example = buildExampleBlock(ctx.explainCase);
+  return [ROLE_AND_GOAL, UNIVERSAL_RULES, caseSection, example].filter(Boolean).join('\n\n');
 }
 
 // ----------------------------------------------------------------

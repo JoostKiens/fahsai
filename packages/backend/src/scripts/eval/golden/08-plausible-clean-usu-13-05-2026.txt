@@ -1,9 +1,3 @@
-Air here arrived from Indonesia via the Strait of Malacca, with modelled PM2.5 reading
-Good (10.3–11.4 µg/m³) along the entire route, no fires, no identified emission
-sources, and 88 mm of rain along the way. The Moderate reading at this station is only
-slightly above the modelled background, and there is no clear single cause to point to.
+Air here arrived from Indonesia via the Strait of Malacca, clean throughout the route with no fires and no identified emission sources along the way. Over 88 mm of rain fell along the route over the past few days. The Moderate reading has no single clear cause.
 
-Humidity reached 86% earlier in the week, which can cause optical sensors to over-read,
-and may partly explain why the station reads somewhat above the regional model. With no
-nearby reference stations, it is difficult to confirm whether this reflects actual
-conditions or a lingering sensor effect from the recent heavy rainfall.
+Humidity reached 86% earlier this week, which can cause optical measuring equipment to over-read. With no nearby reference stations, it is difficult to confirm whether this reflects actual air quality or a lingering sensor effect from the recent heavy rainfall.

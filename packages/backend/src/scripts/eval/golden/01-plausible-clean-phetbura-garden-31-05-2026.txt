@@ -1,3 +1,3 @@
-Air quality here is Good (8.6 µg/m³), with the air arriving from central Thailand after traveling through heavy monsoon rainfall. The modelled PM2.5 read 25.7 µg/m³ at the origin but only 12.9 µg/m³ closer to the station, consistent with progressive washout as the air moved north. Wind has been consistently from the south to southeast for several days, meaning the air likely passed over the Bangkok metropolitan area before arriving, but monsoon rainfall had scrubbed most of its pollution out en route.
+Heavy monsoon rainfall has scrubbed the air clean as it traveled north from central Thailand. Wind has been consistently from the south to southeast for several days, meaning the air likely passed over the Bangkok metropolitan area before arriving, but rainfall washed most of that pollution out before it got here.
 
-Nearby stations read between 9.1 and 20.9 µg/m³, placing this station on the cleaner end of the regional picture.
+Nearby stations read between 9 and 21 µg/m³, placing this station on the cleaner end of the regional picture.

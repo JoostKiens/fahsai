@@ -5,6 +5,7 @@ const base = {
   isStrongOutlier: false,
   isHighOutlier: false,
   firePressureNorm: 10,
+  areaScore: 0,
   camsMaxPm25: 15,
   latestPm25: 35,
   trajectoryPrecipTotal: 5,
@@ -32,6 +33,24 @@ describe('classifyCase', () => {
 
   it('does not return PLAUSIBLE_FIRE_TRANSPORT when CAMS suppression active (Chaloem: score 62, camsMax 13)', () => {
     expect(classifyCase({ ...base, firePressureNorm: 62, camsMaxPm25: 13 })).not.toBe(
+      'PLAUSIBLE_FIRE_TRANSPORT',
+    );
+  });
+
+  it('returns PLAUSIBLE_FIRE_TRANSPORT when areaScore >= 40 even with low path score (Mae Sot case)', () => {
+    expect(classifyCase({ ...base, firePressureNorm: 10, areaScore: 40, camsMaxPm25: 5 })).toBe(
+      'PLAUSIBLE_FIRE_TRANSPORT',
+    );
+  });
+
+  it('CAMS suppression does not apply when areaScore >= 40 (area fires are local)', () => {
+    expect(classifyCase({ ...base, firePressureNorm: 50, areaScore: 50, camsMaxPm25: 5 })).toBe(
+      'PLAUSIBLE_FIRE_TRANSPORT',
+    );
+  });
+
+  it('CAMS suppression still applies when triggered by path score alone (areaScore < 40)', () => {
+    expect(classifyCase({ ...base, firePressureNorm: 50, areaScore: 10, camsMaxPm25: 5 })).not.toBe(
       'PLAUSIBLE_FIRE_TRANSPORT',
     );
   });
