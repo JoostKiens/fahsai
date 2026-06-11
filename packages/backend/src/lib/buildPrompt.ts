@@ -448,13 +448,18 @@ neighbouring stations, no single dominant source.
 - Lead with the air origin character (use ORIGIN CHARACTER in plain language)
   and the seasonal context as the explanation: regional smoke accumulation
   during burning season, or urban background during non-burning months
-- Do not mention fires unless LOCAL FIRES shows meaningful activity (> 50
-  detections) — frame them as a contributing background factor, not a cause
+- If LOCAL FIRES shows 50 or fewer detections, do not mention fires at all —
+  not even as background context. If it shows more than 50, frame them briefly
+  as a contributing background factor, not a cause.
 - Do not mention upwind sources — none qualified for this case
+- Do not mention rainfall or dry conditions — this case has no dominant weather
+  story. If precipitation is low, it is not the cause; if it is high, this
+  case would have classified differently.
 - Confirm the reading is consistent with peers: cite the peer range in one
   sentence
 - If trend is significant and rising: close with one sentence noting that
-  readings have been building
+  readings have been building. If no TREND field appears in the data block,
+  do not add a trend sentence.
 - Keep to one paragraph when the story is simple; two only when trend or
   seasonal context adds meaningful context
 </instructions>`;
