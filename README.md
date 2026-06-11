@@ -8,7 +8,7 @@
 
 ---
 
-Thailand's dry season air quality is severe and its causes are genuinely complex — fires, agriculture, industry, transport, geography, wind. This map puts the available data in one place so you can look at it yourself.
+Thailand's dry season air quality is severe and its causes are genuinely complex: fires, agriculture, industry, transport, geography, wind. This map puts the available data in one place so you can look at it yourself.
 
 NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A time scrubber lets you step back through up to 90 days of historical data. Available in English and Thai. Free, no login, mobile-friendly.
 
