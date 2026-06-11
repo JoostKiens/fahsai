@@ -94,12 +94,16 @@
   "fire.satellite.unknown": "ไม่ทราบ",
 
   "explain.button": "อะไรทำให้เกิดสิ่งนี้?",
-  "explain.buttonUnavailable": "อะไรทำให้เกิดสิ่งนี้? (ไม่พร้อมใช้งาน)",
   "explain.fetching": "กำลังดึงข้อมูล…",
   "explain.thinking": "กำลังคิด…",
   "explain.refresh": "รีเฟรช",
-  "explain.quotaReached": "ถึงขีดจำกัดรายวันแล้ว — ลองใหม่พรุ่งนี้",
   "explain.unavailable": "ไม่สามารถอธิบายได้ในขณะนี้ — ลองใหม่อีกครั้ง",
+  "explain.rateLimitIp": "คำขอมากเกินไป โปรดลองใหม่ใน {{count}} {{unit}}",
+  "explain.rateLimitQuota": "ถึงขีดจำกัดรายวันแล้ว โปรดลองใหม่หลัง {{time}}",
+  "explain.rateLimitGeminiBusy": "AI ยุ่งอยู่ โปรดลองใหม่ใน {{count}} วินาที",
+  "explain.rateLimitGeminiRpd": "ถึงขีดจำกัดรายวันของ AI แล้ว โปรดลองใหม่หลัง {{time}}",
+  "explain.timeUnit.minutes": "นาที",
+  "explain.timeUnit.seconds": "วินาที",
 
   "scrubber.selectDate": "เลือกวันที่",
 

@@ -94,12 +94,16 @@
   "fire.satellite.unknown": "Unknown",
 
   "explain.button": "What's causing this?",
-  "explain.buttonUnavailable": "What's causing this? (unavailable)",
   "explain.fetching": "Fetching data…",
   "explain.thinking": "Thinking…",
   "explain.refresh": "Refresh",
-  "explain.quotaReached": "Daily limit reached — try again tomorrow.",
   "explain.unavailable": "Explanation unavailable. Try again later.",
+  "explain.rateLimitIp": "Too many requests. Try again in {{count}} {{unit}}.",
+  "explain.rateLimitQuota": "Daily limit reached. Try again after {{time}}.",
+  "explain.rateLimitGeminiBusy": "AI is busy. Try again in {{count}} seconds.",
+  "explain.rateLimitGeminiRpd": "AI daily limit reached. Try again after {{time}}.",
+  "explain.timeUnit.minutes": "minutes",
+  "explain.timeUnit.seconds": "seconds",
 
   "scrubber.selectDate": "Select date",
 

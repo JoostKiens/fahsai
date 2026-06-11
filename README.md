@@ -51,9 +51,6 @@ Click any monitoring station and hit "What is causing this?" The backend assembl
 The model sees more than just the PM2.5 number. It gets the 5-day daily trend, current wind speed and direction, and fires discovered via a 72-hour backward trajectory: the backend runs a 5-member backward trajectory ensemble — tracing the air mass from the station and four cardinal offsets, stepping back in 6-hour increments over 72 hours using stored wind grids. Fires within the combined footprint of all five paths are then scored by FRP, recency, and proximity to the trajectory corridor. A pre-computed daily grid of 14-day cumulative fire pressure (fire count and total FRP within 75km of station) is used to quantify fire influence along the transport path, so recent high-intensity clusters near the trajectory carry more weight than distant or weak fires. Major cities, industrial zones, and power plants near the trajectory footprint are also evaluated as upwind emission sources — each scored by population or emission proxy and proximity to the center path, and filtered to those whose bearing from the station aligns with the current wind direction. It also gets the distance-weighted mean PM2.5 from all peer stations within 75 km that have reported in the last 24 hours.
 
 When a station reads at least twice — or less than 40% of — the distance-weighted mean of nearby stations, the trajectory, fire, and CAMS sections are dropped from the model's context entirely; the explanation focuses on the anomaly and its most likely causes rather than regional transport. When the reading is consistent with the regional picture, transport and fire evidence take the foreground.
-
-There's a shared daily quota of 500 requests per Bangkok calendar day. When it runs out, the button is disabled.
-
 ---
 
 ## Data

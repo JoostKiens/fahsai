@@ -10,12 +10,17 @@ interface ExplainOptions {
   date: string; // YYYY-MM-DD in BKK timezone — anchors the fire/peer/measurement windows
 }
 
+export interface RateLimit {
+  type: string;
+  resetAtMs: number;
+}
+
 interface ExplainState {
   text: string;
   loading: boolean;
   phase: 'fetching' | 'thinking' | null;
-  error: 'quota_exceeded' | 'unavailable' | null;
-  quotaExceeded: boolean;
+  error: 'unavailable' | null;
+  rateLimit: RateLimit | null;
 }
 
 const INITIAL: ExplainState = {
@@ -23,7 +28,7 @@ const INITIAL: ExplainState = {
   loading: false,
   phase: null,
   error: null,
-  quotaExceeded: false,
+  rateLimit: null,
 };
 
 export function useExplain() {
@@ -41,7 +46,7 @@ export function useExplain() {
     controllerRef.current = controller;
     const { signal } = controller;
 
-    setState({ text: '', loading: true, phase: 'fetching', error: null, quotaExceeded: false });
+    setState({ text: '', loading: true, phase: 'fetching', error: null, rateLimit: null });
 
     let res: Response;
     try {
@@ -53,46 +58,32 @@ export function useExplain() {
       });
     } catch {
       if (signal.aborted) return;
-      setState({
-        text: '',
-        loading: false,
-        phase: null,
-        error: 'unavailable',
-        quotaExceeded: false,
-      });
+      setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       return;
     }
 
     if (res.status === 429) {
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const type = typeof body.type === 'string' ? body.type : 'quota_exceeded';
+      const resetAtMs =
+        typeof body.resetAtMs === 'number' ? body.resetAtMs : Date.now() + 3_600_000;
       setState({
         text: '',
         loading: false,
         phase: null,
-        error: 'quota_exceeded',
-        quotaExceeded: true,
+        error: null,
+        rateLimit: { type, resetAtMs },
       });
       return;
     }
     if (!res.ok) {
-      setState({
-        text: '',
-        loading: false,
-        phase: null,
-        error: 'unavailable',
-        quotaExceeded: false,
-      });
+      setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       return;
     }
 
     const reader = res.body?.getReader();
     if (!reader) {
-      setState({
-        text: '',
-        loading: false,
-        phase: null,
-        error: 'unavailable',
-        quotaExceeded: false,
-      });
+      setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       return;
     }
 
@@ -125,13 +116,31 @@ export function useExplain() {
           promptStripped = true;
         }
 
+        // Structured rate-limit error from Gemini (mid-stream)
+        const errorJsonMatch = /\[ERROR_JSON:(\{[^}]+\})\]/.exec(accumulated);
+        if (errorJsonMatch) {
+          try {
+            const parsed = JSON.parse(errorJsonMatch[1]) as RateLimit;
+            setState({ text: '', loading: false, phase: null, error: null, rateLimit: parsed });
+          } catch {
+            setState({
+              text: '',
+              loading: false,
+              phase: null,
+              error: 'unavailable',
+              rateLimit: null,
+            });
+          }
+          break;
+        }
+
         const hasError = accumulated.includes('[ERROR:');
         setState({
           text: accumulated,
           loading: !hasError,
           phase: hasError ? null : 'thinking',
           error: hasError ? 'unavailable' : null,
-          quotaExceeded: false,
+          rateLimit: null,
         });
         if (hasError) break;
       }

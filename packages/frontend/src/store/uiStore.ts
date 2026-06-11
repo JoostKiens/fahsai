@@ -58,8 +58,8 @@ interface UIStore {
   setMapCenter: (center: [number, number]) => void;
   mapZoom: number;
   setMapZoom: (zoom: number) => void;
-  explainQuotaExceeded: boolean;
-  setExplainQuotaExceeded: (v: boolean) => void;
+  explainRateLimit: { type: string; resetAtMs: number } | null;
+  setExplainRateLimit: (v: { type: string; resetAtMs: number } | null) => void;
   aboutOpen: boolean;
   setAboutOpen: (v: boolean) => void;
   settingsOpen: boolean;
@@ -105,8 +105,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setMapCenter: (center) => set({ mapCenter: center }),
   mapZoom: 5.5,
   setMapZoom: (zoom) => set({ mapZoom: zoom }),
-  explainQuotaExceeded: false,
-  setExplainQuotaExceeded: (v) => set({ explainQuotaExceeded: v }),
+  explainRateLimit: null,
+  setExplainRateLimit: (v) => set({ explainRateLimit: v }),
   aboutOpen: false,
   setAboutOpen: (v) => set({ aboutOpen: v }),
   settingsOpen: false,
