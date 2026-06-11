@@ -18,7 +18,7 @@ import {
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 import type { RawExplainData, Season, FixtureUpwindSource } from '../scripts/eval/types.js';
-import { buildScientificContext } from '../lib/buildScientificContext.js';
+import { buildScientificContext, pm25Cat } from '../lib/buildScientificContext.js';
 import { buildPrompt } from '../lib/buildPrompt.js';
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
@@ -444,25 +444,7 @@ export function explainRoutes(app: FastifyInstance): void {
               'Hazardous',
             ]
               .map((label) => {
-                const cnt = peerList.filter((p) => {
-                  const aqi_bp = [12.0, 35.4, 55.4, 150.4, 250.4];
-                  const aqi_labels = [
-                    'Good',
-                    'Moderate',
-                    'Unhealthy for sensitive groups',
-                    'Unhealthy',
-                    'Very unhealthy',
-                    'Hazardous',
-                  ];
-                  let cat = aqi_labels[aqi_labels.length - 1];
-                  for (let i = 0; i < aqi_bp.length; i++) {
-                    if (p.pm25 <= aqi_bp[i]) {
-                      cat = aqi_labels[i];
-                      break;
-                    }
-                  }
-                  return cat === label;
-                }).length;
+                const cnt = peerList.filter((p) => pm25Cat(p.pm25) === label).length;
                 return cnt > 0 ? `${cnt} ${label}` : null;
               })
               .filter((s): s is string => s !== null)
