@@ -22,8 +22,9 @@ import { buildScientificContext, pm25Cat } from '../lib/buildScientificContext.j
 import { buildPrompt } from '../lib/buildPrompt.js';
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const DAILY_QUOTA_LIMIT = 500;
+const DAILY_QUOTA_LIMIT = 450;
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
+const DAY_MS = 86_400_000;
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
 
 export type ExplainCase =
@@ -122,6 +123,32 @@ function sampleCams(
   return best.pm25;
 }
 
+// Gemini RPD resets at midnight America/Los_Angeles (PDT = UTC-7, PST = UTC-8).
+// Try both offsets for the next LA calendar day and return the one where LA hour == 0.
+function nextMidnightPT(): number {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const next = new Date(get('year'), get('month') - 1, get('day') + 1);
+  for (const offsetH of [7, 8]) {
+    const candidate = new Date(
+      Date.UTC(next.getFullYear(), next.getMonth(), next.getDate(), offsetH),
+    );
+    const laHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      hour12: false,
+    }).format(candidate);
+    if (laHour === '0' || laHour === '00') return candidate.getTime();
+  }
+  return Date.UTC(next.getFullYear(), next.getMonth(), next.getDate(), 8);
+}
+
 export function explainRoutes(app: FastifyInstance): void {
   app.post<{ Body: { stationId: string; lat: number; lng: number; date?: string; lang?: string } }>(
     '/api/explain',
@@ -136,13 +163,15 @@ export function explainRoutes(app: FastifyInstance): void {
         return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
       }
 
-      try {
-        const { success } = await explainRatelimit.limit(req.ip);
-        if (!success) {
-          return reply.status(429).send({ error: 'Rate limit exceeded. Try again later.' });
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          const { success, reset } = await explainRatelimit.limit(req.ip);
+          if (!success) {
+            return reply.status(429).send({ type: 'ip_ratelimit', resetAtMs: reset });
+          }
+        } catch (err) {
+          req.log.error({ err }, 'explainRatelimit: Upstash error — failing open');
         }
-      } catch (err) {
-        req.log.error({ err }, 'explainRatelimit: Upstash error — failing open');
       }
 
       const todayBkk = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
@@ -150,7 +179,11 @@ export function explainRoutes(app: FastifyInstance): void {
       const count = await redis.incr(quotaKey);
       if (count === 1) await redis.expire(quotaKey, 86400);
       if (count > DAILY_QUOTA_LIMIT) {
-        return reply.status(429).send({ error: 'quota_exceeded' });
+        const startOfBkkDayUtcMs =
+          Math.floor((Date.now() + BKK_OFFSET_MS) / DAY_MS) * DAY_MS - BKK_OFFSET_MS;
+        return reply
+          .status(429)
+          .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + DAY_MS });
       }
 
       const selectedDate =
@@ -760,7 +793,24 @@ export function explainRoutes(app: FastifyInstance): void {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         req.log.error({ err }, 'Gemini API error');
-        reply.raw.write(`\n\n[ERROR: ${msg}]`);
+        const lower = msg.toLowerCase();
+        const isRateLimit =
+          (err as Record<string, unknown>).status === 429 ||
+          lower.includes('resource_exhausted') ||
+          lower.includes('rate limit') ||
+          lower.includes('quota');
+        if (isRateLimit) {
+          const isDaily = lower.includes('per day') || lower.includes('daily');
+          const type = isDaily
+            ? 'gemini_rpd'
+            : lower.includes('token')
+              ? 'gemini_tpm'
+              : 'gemini_rpm';
+          const resetAtMs = isDaily ? nextMidnightPT() : Date.now() + 60_000;
+          reply.raw.write(`[ERROR_JSON:${JSON.stringify({ type, resetAtMs })}]`);
+        } else {
+          reply.raw.write(`\n\n[ERROR: ${msg}]`);
+        }
       }
 
       reply.raw.end();

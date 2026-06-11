@@ -364,8 +364,8 @@ function StationPanel({
 }) {
   const { t } = useTranslation();
   const cat = pm25ToCategory(station.pm25);
-  const explainQuotaExceeded = useUIStore((s) => s.explainQuotaExceeded);
-  const setExplainQuotaExceeded = useUIStore((s) => s.setExplainQuotaExceeded);
+  const explainRateLimit = useUIStore((s) => s.explainRateLimit);
+  const setExplainRateLimit = useUIStore((s) => s.setExplainRateLimit);
 
   return (
     <>
@@ -393,8 +393,11 @@ function StationPanel({
         stationId={station.stationId}
         lat={lngLat[1]}
         lng={lngLat[0]}
-        globalQuotaExceeded={explainQuotaExceeded}
-        onQuotaExceeded={() => setExplainQuotaExceeded(true)}
+        rateLimitControl={{
+          value: explainRateLimit,
+          onSet: setExplainRateLimit,
+          onClear: () => setExplainRateLimit(null),
+        }}
         className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
       />
       {(historyLoading || historyDays) && (

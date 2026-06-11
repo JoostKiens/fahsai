@@ -3,6 +3,6 @@ import { redis } from './client.js';
 
 export const explainRatelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, '1 h'),
+  limiter: Ratelimit.slidingWindow(5, '1 h'),
   prefix: 'ratelimit:explain',
 });
