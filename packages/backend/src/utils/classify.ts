@@ -32,15 +32,18 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
   const fireTransportByPath = params.firePressureNorm >= 40;
   const fireTransportByArea = params.areaScore >= 40;
 
-  if (fireTransportByPath || fireTransportByArea) {
-    // CAMS suppression applies only when path score alone triggered the classification.
-    // Area fires are genuinely local — suppression does not apply to that trigger.
-    if (fireTransportByPath && !fireTransportByArea) {
-      const camsSuppressionActive = params.camsMaxPm25 !== null && params.camsMaxPm25 < 25;
-      if (!camsSuppressionActive) return 'PLAUSIBLE_FIRE_TRANSPORT';
-    } else {
-      return 'PLAUSIBLE_FIRE_TRANSPORT';
-    }
+  if (!params.isStrongOutlier && (fireTransportByPath || fireTransportByArea)) {
+    // CAMS suppression: when path fires trigger and CAMS shows clean air, the incoming
+    // air mass didn't pass through fire areas — suppress the fire transport story.
+    // This applies even when areaScore also triggers, because clean CAMS means the air
+    // arrived from a non-fire corridor; area fires are background, not the primary driver.
+    // Exception: area-only triggers (path score too low) bypass CAMS — local fires are
+    // genuinely local and can't be assessed via the path corridor.
+    const pathSuppressed =
+      fireTransportByPath && params.camsMaxPm25 !== null && params.camsMaxPm25 < 25;
+    const areaOnlyTrigger = fireTransportByArea && !fireTransportByPath;
+    if (areaOnlyTrigger || !pathSuppressed) return 'PLAUSIBLE_FIRE_TRANSPORT';
+    // Path fires suppressed by CAMS — fall through to urban/industrial or clean
   }
 
   if (params.latestPm25 <= 12) return 'PLAUSIBLE_CLEAN';

@@ -9,7 +9,12 @@ import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { computeFirePressureNorm } from '../utils/firePressure.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
-import { traceEnsemble, offsetDate, nearestGridPoint } from '../utils/trajectory.js';
+import {
+  traceEnsemble,
+  offsetDate,
+  nearestGridPoint,
+  TRAJECTORY_STEPS,
+} from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 import type { RawExplainData, Season, FixtureUpwindSource } from '../scripts/eval/types.js';
@@ -510,6 +515,21 @@ export function explainRoutes(app: FastifyInstance): void {
       })();
 
       // --- urban sources ---
+      // Mean wind direction: persistentWind (5-day average) preferred; fallback to d0 grid point.
+      const meanWindDirDeg: number | null = (() => {
+        if (persistentWind !== null) return persistentWind.directionDeg;
+        if (!wind0.length) return null;
+        return nearestGridPoint(lat, lng, wind0).wind_direction_deg;
+      })();
+
+      // True when the bearing from the station to the source aligns with where the wind comes FROM.
+      const isBearingUpwind = (sourceLat: number, sourceLng: number): boolean => {
+        if (meanWindDirDeg === null) return true; // no wind data — fail open
+        const bearing = bearingDeg(lat, lng, sourceLat, sourceLng);
+        const diff = Math.abs(((bearing - meanWindDirDeg + 540) % 360) - 180);
+        return diff <= 60;
+      };
+
       const relevantSources = URBAN_SOURCES.map((source) => {
         const distFromStation = haversineKm(lat, lng, source.lat, source.lng);
         const minDistToPath = Math.min(
@@ -520,7 +540,13 @@ export function explainRoutes(app: FastifyInstance): void {
         const populationScore = source.population / effectiveDist ** 2;
         const emissionScore = (source.emissionProxy * 10_000) / effectiveDist ** 2;
         if (populationScore + emissionScore < 50) return null;
-        const isUpwind = minDistToPath <= corridorKm;
+        // Cone check: corridor width scales from 0 at the station to corridorKm at the origin.
+        // A 5 km floor prevents floating-point zero at step 0 from excluding co-located sensors.
+        const isOnCone = allWaypoints.some((w) => {
+          const threshold = Math.max(5, corridorKm * (w.stepIndex / TRAJECTORY_STEPS));
+          return haversineKm(w.lat, w.lng, source.lat, source.lng) <= threshold;
+        });
+        const isUpwind = isOnCone && isBearingUpwind(source.lat, source.lng);
         return { ...source, distKm: distFromStation, minDistToPath, isUpwind };
       })
         .filter((s): s is NonNullable<typeof s> => s !== null)

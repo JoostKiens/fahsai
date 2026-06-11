@@ -43,8 +43,8 @@ describe('classifyCase', () => {
     );
   });
 
-  it('CAMS suppression does not apply when areaScore >= 40 (area fires are local)', () => {
-    expect(classifyCase({ ...base, firePressureNorm: 50, areaScore: 50, camsMaxPm25: 5 })).toBe(
+  it('CAMS suppression applies when both path and area fires trigger (Chaloem case: air arrived clean)', () => {
+    expect(classifyCase({ ...base, firePressureNorm: 50, areaScore: 50, camsMaxPm25: 5 })).not.toBe(
       'PLAUSIBLE_FIRE_TRANSPORT',
     );
   });
