@@ -120,7 +120,7 @@ export const fixture: ExplainFixture = {
       stations: [{ name: 'White Elephant Park', value: 11.8, distanceKm: 61 }],
     },
     outlier: null,
-    season: 'early_dry',
+    season: 'peak_burning',
     persistentWind: {
       directionDeg: 90,
       label: 'E',

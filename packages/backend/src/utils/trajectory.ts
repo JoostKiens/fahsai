@@ -27,6 +27,7 @@ export interface EnsembleResult {
 
 const STEP_HOURS = 6;
 const STEPS = 12; // 6h × 12 = 72h look-back
+export const TRAJECTORY_STEPS = STEPS;
 const KMH_TO_DEG_LAT = 1 / 111;
 const ENSEMBLE_OFFSET_DEG = 0.4; // ~44 km, one grid cell
 
