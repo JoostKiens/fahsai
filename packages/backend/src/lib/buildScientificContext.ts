@@ -103,6 +103,7 @@ export interface ScientificContext {
       areaFireCount: number | null;
       areaTotalFrpMw: number | null;
       firesAreLocal: boolean;
+      areaFireRadiusKm: number;
     };
   } | null;
 
@@ -118,7 +119,7 @@ export interface ScientificContext {
     totalFrpMw: number | null;
   } | null;
 
-  trend: string; // BACKGROUND_ONLY — never cited in response, for model reasoning only
+  trend: { direction: 'rising' | 'falling' | 'stable'; isSignificant: boolean } | null;
 
   peers: {
     stationCount: number;
@@ -148,22 +149,38 @@ function medianOf(arr: number[]): number {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
+function regionalCrisisFraction(peers: ScientificContext['peers'] & object): number {
+  const { stationCount, distribution, stations } = peers;
+  if (stationCount === 0) return 0;
+  if (distribution !== null) {
+    const haz = parseInt(/(\d+) Hazardous/.exec(distribution)?.[1] ?? '0', 10);
+    const veryUnhealthy = parseInt(/(\d+) Very unhealthy/.exec(distribution)?.[1] ?? '0', 10);
+    return (haz + veryUnhealthy) / stationCount;
+  }
+  return stations.filter((s) => s.value > 150.4).length / stationCount;
+}
+
 function computeTrend(
-  currentPm25: number,
   sevenDayAverages: { date: string; value: number }[],
-): string {
-  if (currentPm25 < 12) return 'not significant — current level is well within Good range';
-  if (sevenDayAverages.length < 2) return 'insufficient data';
+): { direction: 'rising' | 'falling' | 'stable'; isSignificant: boolean } | null {
+  if (sevenDayAverages.length < 3) return null;
   const avgs = sevenDayAverages.map((d) => d.value);
   const latest = avgs[avgs.length - 1];
-  const baseline = medianOf(avgs.slice(0, -1));
-  if (baseline === 0) return 'stable';
-  const ratio = latest / baseline;
-  if (ratio > 1.15) return 'rising sharply';
-  if (ratio > 1.05) return 'rising';
-  if (ratio < 0.85) return 'falling sharply';
-  if (ratio < 0.95) return 'falling';
-  return 'stable';
+  const prior = avgs.slice(0, -1);
+  const baseline = medianOf(prior);
+  if (baseline === 0) return { direction: 'stable', isSignificant: false };
+  const direction: 'rising' | 'falling' | 'stable' =
+    latest > baseline * 1.05 ? 'rising' : latest < baseline * 0.95 ? 'falling' : 'stable';
+  const isSignificant = (() => {
+    if (direction === 'stable') return false;
+    if (direction === 'rising') {
+      const trough = Math.min(...prior);
+      return trough > 0 && (latest - trough) / trough > 0.25;
+    }
+    const peak = Math.max(...prior);
+    return peak > 0 && (peak - latest) / peak > 0.25;
+  })();
+  return { direction, isSignificant };
 }
 
 function computeSourceTiers(
@@ -212,6 +229,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
   const isHighOutlier = raw.outlier !== null && raw.outlier.direction === 'high';
 
   const firePressureNorm = raw.firePressure?.pathScore ?? 0;
+  const areaScore = raw.firePressure?.areaScore ?? 0;
   const camsMaxPm25 = raw.trajectory?.camsAlongPath.length
     ? Math.max(...raw.trajectory.camsAlongPath.map((c) => c.pm25))
     : null;
@@ -220,6 +238,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     isStrongOutlier,
     isHighOutlier,
     firePressureNorm,
+    areaScore,
     camsMaxPm25,
     latestPm25: raw.currentPm25,
     trajectoryPrecipTotal: raw.weather.trajectoryPrecipitationMm ?? 0,
@@ -228,8 +247,6 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
       distKm: s.distanceKm,
     })),
   } satisfies ClassifyParams);
-
-  const areaScore = raw.firePressure?.areaScore ?? 0;
   const { tier1, tier2 } = computeSourceTiers(
     raw.upwindSources,
     firePressureNorm,
@@ -244,7 +261,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
   const suppressionActive = camsMaxPm25 !== null && camsMaxPm25 < 25 && firePressureNorm >= 40;
   const firesAreLocal = areaScore >= 20;
 
-  const trend = computeTrend(raw.currentPm25, raw.sevenDayAverages);
+  let trend = computeTrend(raw.sevenDayAverages);
 
   const seasonContext = {
     peak_burning:
@@ -311,6 +328,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         areaFireCount: fp.areaFireCount,
         areaTotalFrpMw: fp.areaTotalFrpMw,
         firesAreLocal,
+        areaFireRadiusKm: 75,
       },
     };
   }
@@ -329,6 +347,17 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         })),
       }
     : null;
+
+  if (
+    trend !== null &&
+    trend.isSignificant &&
+    explainCase === 'PLAUSIBLE_FIRE_TRANSPORT' &&
+    firesAreLocal &&
+    peers !== null &&
+    regionalCrisisFraction(peers) > 0.5
+  ) {
+    trend = { ...trend, isSignificant: false };
+  }
 
   const outlier =
     raw.outlier !== null

@@ -1,11 +1,3 @@
-The air reaching this station originated over the Strait of Malacca, where fires
-burning in southern Malaysia near the Singapore Strait had loaded it with smoke,
-the modelled PM2.5 at the origin was 60.7 µg/m³, well into Unhealthy territory. But
-over 76 mm of rain fell along the path as the air traveled north, stripping most of
-those particles out before arrival. By the time it reached this station the modelled
-value had dropped to 4.8 µg/m³, the rain did most of the work.
+Air arriving here originated over the Strait of Malacca, where fires in southern Malaysia had loaded it with smoke. Over 76 mm of rain fell along the route over the past few days, enough to strip most of those particles out before arrival. The rain did most of the work.
 
-The result is a Moderate reading of 21.9 µg/m³ that reflects what the air picked up
-locally after the washout rather than the smoke it carried from the south. Nearby
-stations range from 11.8 to 38.1 µg/m³, with the spread suggesting local variation
-in how much rain fell across the area.
+The result is a Moderate reading that reflects what the air picked up locally after the washout, not what it carried from the south. Nearby stations range from 12 to 38 µg/m³, with the spread suggesting local variation in how much rain fell across the area.

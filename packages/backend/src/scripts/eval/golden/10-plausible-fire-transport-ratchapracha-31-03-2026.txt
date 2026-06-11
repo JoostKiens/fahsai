@@ -1,10 +1,3 @@
-Air quality here is Unhealthy for sensitive groups (48.3 µg/m³), with smoke from
-agricultural fires burning across central Thailand the dominant cause. The air
-originated clean over the Gulf of Thailand at 12.7 µg/m³, but the modelled PM2.5
-jumped to 46.4 µg/m³ by the time it reached this area — nearly 1,000 fires detected
-along the route over the past three days help explain that rise. Zero rainfall and
-humidity below 35% have left nothing to wash the smoke out.
+Smoke from agricultural fires burning across central Thailand is the dominant cause here. The air originated clean over the Gulf of Thailand but picked up heavy smoke as it moved north, with nearly 1,000 fires detected along the route over the past few days. Dry conditions kept the smoke from dispersing. No rain fell and humidity dropped as low as 29%.
 
-Nearby stations read 21.1 to 51.7 µg/m³, with most in the Moderate range — this
-station is on the higher end of the regional picture. Bangkok and Nonthaburi lie
-upwind to the south, adding urban background to the arriving smoke.
+Bangkok and Nonthaburi lie upwind to the south, adding urban emissions to the arriving smoke. Nearby stations read 21 to 52 µg/m³, with most in the Moderate range. This station is on the higher end of the regional picture.

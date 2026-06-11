@@ -403,9 +403,14 @@ export function explainRoutes(app: FastifyInstance): void {
         return totalW > 0 ? sum / totalW : 0;
       })();
 
+      const bothLow = latestPm25 < 35 && peerWeightedMean < 35;
       const outlierRatio = peerWeightedMean > 0 ? latestPm25 / peerWeightedMean : null;
-      const isStrongOutlier = outlierRatio !== null && (outlierRatio >= 2.0 || outlierRatio <= 0.4);
-      const isHighOutlier = outlierRatio !== null && outlierRatio >= 2.0;
+      const isStrongOutlier =
+        !bothLow &&
+        outlierRatio !== null &&
+        (outlierRatio >= 2.0 || outlierRatio <= 0.4) &&
+        Math.abs(latestPm25 - peerWeightedMean) >= 20;
+      const isHighOutlier = isStrongOutlier && outlierRatio !== null && outlierRatio >= 2.0;
 
       const nonOutlierPeers =
         peerMedian > 0 &&
