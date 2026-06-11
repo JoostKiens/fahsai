@@ -22,7 +22,7 @@ NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and
 | PM2.5 stations  | OpenAQ ground measurements, colored by US EPA AQI thresholds                                     |
 | Fire detections | NASA VIIRS active fire points, sized by Fire Radiative Power (FRP)                               |
 | Wind particles  | Animated flow field from Open-Meteo                                                              |
-| Power plants    | WRI coal, gas, and oil plants across Thailand, Myanmar, Laos, and Cambodia                       |
+| Power plants    | WRI coal, gas, and oil plants across Southeast and South Asia                                    |
 
 Click any element on the map to open the info panel:
 
