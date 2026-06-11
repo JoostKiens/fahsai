@@ -7,6 +7,9 @@ import { golden as goldenUrbanIndustrial } from '../scripts/eval/golden/05-plaus
 import { golden as goldenClean } from '../scripts/eval/golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
 import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
+const SLOW_WIND_THRESHOLD_KMH = 10;
+const STAGNATION_AREA_SCORE_MIN = 40;
+
 // ----------------------------------------------------------------
 // Source formatting helper
 // ----------------------------------------------------------------
@@ -321,22 +324,33 @@ they are a plausible cause or useful context. Frame them as adding emissions to
 arriving air, not as waypoints the air passed through.
 </universal_rules>`;
 
-const FIRE_TRANSPORT_LOCAL_SECTION = `<instructions>
-CASE: PLAUSIBLE_FIRE_TRANSPORT
-This reading is driven by fire activity. Lead with fires.
+function buildFireTransportLocalSection(areaScore: number, meanWindSpeedKmh: number): string {
+  const isStagnation =
+    areaScore >= STAGNATION_AREA_SCORE_MIN && meanWindSpeedKmh <= SLOW_WIND_THRESHOLD_KMH;
+  const stagnationBullet = isStagnation
+    ? `- Mean wind speed is ${SLOW_WIND_THRESHOLD_KMH} km/h or below and area fire pressure is high:
+  frame as stagnation and accumulation, not transport. The smoke has built up
+  because the air barely moved, not because it was carried from elsewhere. Lead
+  with the local buildup story; do not describe where the air traveled — the
+  trajectory origin is not relevant here.`
+    : `- Open with the path fire count and origin geography, naming the specific
+  countries and regions where path fires were detected from the trajectory waypoints`;
 
+  return `<instructions>
+CASE: PLAUSIBLE_FIRE_TRANSPORT
+This reading is driven by local fire activity. Lead with fires.
+
+${stagnationBullet}
 - Open with the area fire count ("over X fires detected within 75 km of this
-  station over recent weeks") and the path fire count and origin geography
-- Name the specific countries and regions where path fires were detected,
-  derived from the trajectory waypoints
+  station over recent weeks")${isStagnation ? ' as the lead number — this is the chronic accumulation signal' : ' and the path fire count'}
 - Cite zero rainfall and lowest humidity reading if present, using the active
   dry-conditions construction
 - Close with peer distribution if more than 10 stations; name a specific
   nearby city from tier 1 sources if it anchors the regional scale
 
-Name countries and regions from the trajectory waypoints.
 Use "detected" not "fires burning."
 </instructions>`;
+}
 
 const FIRE_TRANSPORT_IMPORTED_SECTION = `<instructions>
 CASE: PLAUSIBLE_FIRE_TRANSPORT
@@ -489,9 +503,11 @@ const EXAMPLE_REGIONAL_BACKGROUND = `<example>\n${goldenRegionalBackground}\n</e
 // ----------------------------------------------------------------
 
 function buildFireTransportSection(ctx: ScientificContext): string {
-  return ctx.transport?.fire.firesAreLocal
-    ? FIRE_TRANSPORT_LOCAL_SECTION
-    : FIRE_TRANSPORT_IMPORTED_SECTION;
+  if (!ctx.transport?.fire.firesAreLocal) return FIRE_TRANSPORT_IMPORTED_SECTION;
+  return buildFireTransportLocalSection(
+    ctx.transport.fire.areaScore,
+    ctx.transport.trajectory.meanWindSpeedKmh,
+  );
 }
 
 function buildCleanSection(ctx: ScientificContext): string {
