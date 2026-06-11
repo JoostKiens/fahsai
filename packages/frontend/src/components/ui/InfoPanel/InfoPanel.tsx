@@ -455,6 +455,10 @@ function FirePanel({
         </span>
       </Row>
       <Row>
+        <span className="text-zinc-300">{t('infoPanel.satellite')}</span>
+        <span className="text-zinc-100 font-medium">{t(satKey as never)}</span>
+      </Row>
+      <Row>
         <span className="text-[11px] text-zinc-400">
           {t('infoPanel.detectedAt', {
             datetime: new Date(fire.detectedAt).toLocaleString(locale, {
@@ -467,10 +471,6 @@ function FirePanel({
           })}
           {dnKey && <> · {t(dnKey as never)}</>}
         </span>
-      </Row>
-      <Row>
-        <span className="text-zinc-300">{t('infoPanel.satellite')}</span>
-        <span className="text-zinc-100 font-medium">{t(satKey as never)}</span>
       </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
     </>
