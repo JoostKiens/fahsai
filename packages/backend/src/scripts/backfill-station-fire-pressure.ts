@@ -1,20 +1,19 @@
 /**
- * Backfill fire_pressure_scores for a date range.
+ * Backfill station_fire_pressure for a date range.
  *
  * Usage:
- *   pnpm --filter backend run backfill:fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
+ *   pnpm --filter backend run backfill:station-fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
  *
- * For each date in the range, aggregates the trailing 14-day fire_points window into
- * fire_pressure_scores. Dates that already have rows are skipped.
- * Max range: 120 days.
+ * For each date in the range, computes 14-day trailing window fire pressure scores
+ * for all active stations (75 km radius). Dates that already have rows are skipped.
+ * Max range: 130 days.
  */
 import 'dotenv/config';
-import pRetry from 'p-retry';
 import { supabase } from '../db/client.js';
-import { ingestFirePressure } from '../jobs/ingest-fire-pressure.js';
+import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
 
-const LOG = '[backfill-fire-pressure]';
-const MAX_DAYS = 120;
+const LOG = '[backfill-station-fire-pressure]';
+const MAX_DAYS = 130;
 
 function parseDateFlag(flag: string): string {
   const val = process.argv.find((a) => a.startsWith(`--${flag}=`))?.slice(flag.length + 3);
@@ -53,9 +52,25 @@ while (cursor <= endMs) {
   cursor += 86400000;
 }
 
+interface StationRow {
+  id: string;
+  lat: number;
+  lng: number;
+}
+
+async function fetchActiveStations(): Promise<StationRow[]> {
+  const { data, error } = await supabase
+    .from('stations')
+    .select('id, lat, lng')
+    .neq('pm25_sensor_ids', '{}');
+
+  if (error) throw new Error(`${LOG} stations query failed: ${error.message}`);
+  return (data ?? []) as StationRow[];
+}
+
 async function existingRowCount(date: string): Promise<number> {
   const { count, error } = await supabase
-    .from('fire_pressure_scores')
+    .from('station_fire_pressure')
     .select('*', { count: 'exact', head: true })
     .eq('date', date);
   if (error) throw new Error(`${LOG} Count query failed for ${date}: ${error.message}`);
@@ -63,22 +78,18 @@ async function existingRowCount(date: string): Promise<number> {
 }
 
 try {
+  console.log(`${LOG} Fetching active stations...`);
+  const stations = await fetchActiveStations();
+  console.log(`${LOG} Found ${stations.length} active stations`);
+
   for (let i = 0; i < dates.length; i++) {
     const date = dates[i];
     const existing = await existingRowCount(date);
-    if (existing > 0) {
+    if (existing >= stations.length) {
       console.log(`[${i + 1}/${dates.length}] ${date} — skipped (${existing} rows)`);
       continue;
     }
-    await pRetry(() => ingestFirePressure(date), {
-      retries: 3,
-      minTimeout: 2000,
-      factor: 2,
-      onFailedAttempt: (err) =>
-        console.warn(
-          `${LOG} ${date} attempt ${err.attemptNumber} failed (${err.retriesLeft} retries left): ${err.message}`,
-        ),
-    });
+    await runStationFirePressure(date, stations);
     console.log(`[${i + 1}/${dates.length}] ${date} — done`);
   }
   process.exit(0);
