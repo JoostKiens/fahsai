@@ -1,0 +1,3 @@
+export const golden = `This station reads 4.5 times higher than the 162 nearby stations, none of which exceeds 29 µg/m³. With low fire activity across the region and all nearby stations reading Good or Moderate, this isolated reading is most likely a sensor fault, a very localised source directly at the station, a generator, a nearby burn, exhaust from vehicles close to the equipment, or a data reporting error.
+
+The reading has been elevated for several days, which suggests persistent local interference rather than a one-off spike.`;

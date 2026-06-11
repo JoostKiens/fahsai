@@ -142,13 +142,6 @@ export interface ScientificContext {
 // Internal helpers
 // ----------------------------------------------------------------
 
-function medianOf(arr: number[]): number {
-  if (!arr.length) return 0;
-  const s = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-
 function regionalCrisisFraction(peers: ScientificContext['peers'] & object): number {
   const { stationCount, distribution, stations } = peers;
   if (stationCount === 0) return 0;
@@ -166,13 +159,14 @@ function computeTrend(
   if (sevenDayAverages.length < 3) return null;
   const avgs = sevenDayAverages.map((d) => d.value);
   const latest = avgs[avgs.length - 1];
-  const prior = avgs.slice(0, -1);
-  const baseline = medianOf(prior);
-  if (baseline === 0) return { direction: 'stable', isSignificant: false };
+  const yesterday = avgs[avgs.length - 2];
+  if (yesterday === 0) return { direction: 'stable', isSignificant: false };
+  const ratio = latest / yesterday;
   const direction: 'rising' | 'falling' | 'stable' =
-    latest > baseline * 1.05 ? 'rising' : latest < baseline * 0.95 ? 'falling' : 'stable';
+    ratio > 1.1 ? 'rising' : ratio < 0.9 ? 'falling' : 'stable';
   const isSignificant = (() => {
     if (direction === 'stable') return false;
+    const prior = avgs.slice(0, -1);
     if (direction === 'rising') {
       const trough = Math.min(...prior);
       return trough > 0 && (latest - trough) / trough > 0.25;
@@ -246,6 +240,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
       isUpwind: s.currentlyUpwind,
       distKm: s.distanceKm,
     })),
+    peerWeightedMean: raw.peers?.weightedMean ?? null,
   } satisfies ClassifyParams);
   const { tier1, tier2 } = computeSourceTiers(
     raw.upwindSources,

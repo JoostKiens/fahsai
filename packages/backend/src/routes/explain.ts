@@ -32,6 +32,7 @@ export type ExplainCase =
   | 'PLAUSIBLE_FIRE_TRANSPORT'
   | 'PLAUSIBLE_URBAN_INDUSTRIAL'
   | 'PLAUSIBLE_CLEAN'
+  | 'PLAUSIBLE_REGIONAL_BACKGROUND'
   | 'PLAUSIBLE_UNCLEAR';
 
 // Full weather grid is 4,599 points. Require ≥4,000 before trusting a cache hit —

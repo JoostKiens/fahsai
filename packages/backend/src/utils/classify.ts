@@ -9,6 +9,7 @@ export interface ClassifyParams {
   latestPm25: number;
   trajectoryPrecipTotal: number;
   relevantSources: { isUpwind: boolean; distKm: number }[];
+  peerWeightedMean: number | null;
 }
 
 // Case classifier — must stay identical between the route and the eval.
@@ -51,6 +52,12 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
 
   const hasNearbyUpwindSource = params.relevantSources.some((s) => s.isUpwind && s.distKm <= 150);
   if (hasNearbyUpwindSource) return 'PLAUSIBLE_URBAN_INDUSTRIAL';
+
+  const consistentWithPeers =
+    params.peerWeightedMean !== null &&
+    params.peerWeightedMean > 0 &&
+    Math.abs(params.latestPm25 - params.peerWeightedMean) / params.peerWeightedMean <= 0.4;
+  if (!hasNearbyUpwindSource && consistentWithPeers) return 'PLAUSIBLE_REGIONAL_BACKGROUND';
 
   return 'PLAUSIBLE_UNCLEAR';
 }

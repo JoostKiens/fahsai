@@ -1,7 +1,30 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { assemblePrompt } from './assemblePrompt.js';
+import { golden as g01 } from './golden/01-plausible-clean-phetbura-garden-31-05-2026.js';
+import { golden as g02 } from './golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
+import { golden as g03 } from './golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
+import { golden as g04 } from './golden/04-outlier-high-kasetsart-university-03-05-2026.js';
+import { golden as g05 } from './golden/05-plausible-urban-industrial-chaloem-19-04-2026.js';
+import { golden as g06 } from './golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
+import { golden as g07 } from './golden/07-plausible-urban-industrial-hana-01-04-2026.js';
+import { golden as g08 } from './golden/08-plausible-clean-usu-13-05-2026.js';
+import { golden as g09 } from './golden/09-plausible-clean-narathiwat-marine-11-03-2026.js';
+import { golden as g10 } from './golden/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
+import { golden as g11 } from './golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
+
+const GOLDENS: Record<string, string> = {
+  '01-plausible-clean-phetbura-garden-31-05-2026': g01,
+  '02-plausible-fire-transport-wiang-nuea-01-04-2026': g02,
+  '03-outlier-low-kaenoisuksa-school-02-04-2026': g03,
+  '04-outlier-high-kasetsart-university-03-05-2026': g04,
+  '05-plausible-urban-industrial-chaloem-19-04-2026': g05,
+  '06-plausible-clean-ko-yawn-washout-01-04-2026': g06,
+  '07-plausible-urban-industrial-hana-01-04-2026': g07,
+  '08-plausible-clean-usu-13-05-2026': g08,
+  '09-plausible-clean-narathiwat-marine-11-03-2026': g09,
+  '10-plausible-fire-transport-ratchapracha-31-03-2026': g10,
+  '11-plausible-regional-background-chanthaburi-06-04-2026': g11,
+};
 
 // Static imports — add new fixtures here as they are created
 import { fixture as f01 } from './fixtures/01-plausible-clean-phetbura-garden-31-05-2026.js';
@@ -14,8 +37,9 @@ import { fixture as f07 } from './fixtures/07-plausible-urban-industrial-hana-01
 import { fixture as f08 } from './fixtures/08-plausible-clean-usu-13-05-2026.js';
 import { fixture as f09 } from './fixtures/09-plausible-clean-narathiwat-marine-11-03-2026.js';
 import { fixture as f10 } from './fixtures/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
+import { fixture as f11 } from './fixtures/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
-const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10];
+const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10, f11];
 
 // ----------------------------------------------------------------
 // CLI flags
@@ -44,9 +68,7 @@ if (!fixtures.length) {
 // ----------------------------------------------------------------
 
 function loadGolden(id: string): string {
-  const path = join(import.meta.dirname, 'golden', `${id}.txt`);
-  if (!existsSync(path)) return `[NO GOLDEN FILE: golden/${id}.txt]`;
-  return readFileSync(path, 'utf-8').trim();
+  return GOLDENS[id] ?? `[NO GOLDEN: ${id}]`;
 }
 
 async function runExplain(prompt: string): Promise<string> {
