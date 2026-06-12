@@ -24,6 +24,9 @@ import { buildPrompt } from '../lib/buildPrompt.js';
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 450;
 const EXPLAIN_CACHE_VERSION = 1;
+const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
+const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
+const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const DAY_MS = 86_400_000;
 const HISTORICAL_TTL_SECONDS = 604800; // 7 days
@@ -168,7 +171,7 @@ export function explainRoutes(app: FastifyInstance): void {
         return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
       }
 
-      if (process.env.NODE_ENV === 'production') {
+      if (IP_RATELIMIT_ENABLED) {
         try {
           const { success, reset } = await explainRatelimit.limit(req.ip);
           if (!success) {
@@ -195,16 +198,23 @@ export function explainRoutes(app: FastifyInstance): void {
         req.body.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
       const normalizedLang = lang ?? 'en';
 
-      if (process.env.NODE_ENV === 'production') {
+      if (EXPLAIN_CACHE_ENABLED) {
         const cached = await redis.get<string>(
           explainCacheKey(stationId, selectedDate, normalizedLang),
         );
         if (cached) {
-          return reply
-            .status(200)
-            .header('Content-Type', 'application/json')
-            .header('X-Cache', 'HIT')
-            .send({ text: cached });
+          reply.hijack();
+          reply.raw.writeHead(200, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Transfer-Encoding': 'chunked',
+            'X-Accel-Buffering': 'no',
+            'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*',
+            'X-Cache': 'HIT',
+          });
+          reply.raw.write(cached);
+          reply.raw.end();
+          return;
         }
       }
 
@@ -802,7 +812,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
       let accumulatedForCache = '';
       try {
-        if (process.env.NODE_ENV !== 'production') {
+        if (EMIT_DEBUG_PROMPT) {
           reply.raw.write('__PROMPT__' + JSON.stringify(prompt) + '\n');
         }
         const genAI = new GoogleGenerativeAI(apiKey);
@@ -839,11 +849,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
       reply.raw.end();
 
-      if (
-        process.env.NODE_ENV === 'production' &&
-        accumulatedForCache &&
-        selectedDate !== todayBkk
-      ) {
+      if (EXPLAIN_CACHE_ENABLED && accumulatedForCache && selectedDate !== todayBkk) {
         void redis.set(
           explainCacheKey(stationId, selectedDate, normalizedLang),
           accumulatedForCache,

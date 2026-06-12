@@ -81,13 +81,6 @@ export function useExplain() {
       return;
     }
 
-    const contentType = res.headers.get('content-type') ?? '';
-    if (contentType.includes('application/json')) {
-      const { text } = (await res.json()) as { text: string };
-      setState({ text, loading: false, phase: null, error: null, rateLimit: null });
-      return;
-    }
-
     const reader = res.body?.getReader();
     if (!reader) {
       setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
