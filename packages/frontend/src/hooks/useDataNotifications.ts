@@ -5,7 +5,7 @@ import { useFires } from './useFires';
 import { useStationReadings } from './useStationReadings';
 import { useWind } from './useWind';
 import { useCamsGrid } from './useCamsGrid';
-import { useTimeStore, selectIsSettled } from '../store/timeStore';
+import { useTimeStore, selectIsSettled } from '@/store/timeStore';
 
 type ToastId = string | number;
 

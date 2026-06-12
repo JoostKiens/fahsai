@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useUIStore } from '../store/uiStore';
-import { useTimeStore } from '../store/timeStore';
-import { selParamFromPending, selParamFromSelection } from '../utils/selectionUrl';
+import { useUIStore } from '@/store/uiStore';
+import { useTimeStore } from '@/store/timeStore';
+import { selParamFromPending, selParamFromSelection } from '@/utils/selectionUrl';
 
 export function useUrlSync() {
   const mapCenter = useUIStore((s) => s.mapCenter);

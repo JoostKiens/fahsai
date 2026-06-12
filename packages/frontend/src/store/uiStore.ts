@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useSettingsStore } from './settingsStore';
-import { parsePendingSelectionFromSearch } from '../utils/selectionUrl';
+import { parsePendingSelectionFromSearch } from '@/utils/selectionUrl';
 
 const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 — Bangkok / ICT
 

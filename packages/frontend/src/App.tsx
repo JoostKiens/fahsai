@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
-import { MapView } from './components/Map/MapView';
-import { UIOverlay } from './components/ui/UIOverlay';
-import { Scrubber } from './components/ui/Scrubber/Scrubber';
-import { Header } from './components/ui/Header/Header';
-import { Sidebar } from './components/ui/Sidebar/Sidebar';
-import { useDataNotifications } from './hooks/useDataNotifications';
-import { useUrlSync } from './hooks/useUrlSync';
-import { useSelectionHydration } from './hooks/useSelectionHydration';
-import { LatestDateProvider } from './providers/LatestDateProvider';
+import { MapView } from '@/components/Map/MapView';
+import { UIOverlay } from '@/components/UIOverlay';
+import { Scrubber } from '@/components/Scrubber';
+import { Header } from '@/components/Header';
+import { Sidebar } from '@/components/Sidebar';
+import { useDataNotifications } from '@/hooks/useDataNotifications';
+import { useUrlSync } from '@/hooks/useUrlSync';
+import { useSelectionHydration } from '@/hooks/useSelectionHydration';
+import { LatestDateProvider } from '@/providers/LatestDateProvider';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);

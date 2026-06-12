@@ -24,6 +24,12 @@ simplicity and correctness over premature optimization.
 
 ---
 
+## Conventions
+
+@~/.claude/skills/frontend-conventions/SKILL.md
+
+---
+
 ## Monorepo structure
 
 ```

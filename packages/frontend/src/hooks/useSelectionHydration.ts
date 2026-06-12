@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../store/uiStore';
+import { useUIStore } from '@/store/uiStore';
 import { useStationReadings } from './useStationReadings';
 import { useFires } from './useFires';
 import { usePowerPlants } from './usePowerPlants';
