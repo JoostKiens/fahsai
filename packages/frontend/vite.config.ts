@@ -17,6 +17,9 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         th: resolve(__dirname, 'th/index.html'),
       },
+      output: {
+        manualChunks: { 'vendor-obs': ['rollbar'] },
+      },
     },
   },
 });

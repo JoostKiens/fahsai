@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { runFiresIngest } from '../jobs/fires-ingest.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 try {
   const result = await runFiresIngest(process.argv[2]);
@@ -10,5 +11,7 @@ try {
   const stack = err instanceof Error ? err.stack : undefined;
   console.error(`[fires-ingest] failed: ${message}`);
   if (stack) console.error(stack);
+  reportError(err);
+  await waitForRollbar();
   process.exit(1);
 }

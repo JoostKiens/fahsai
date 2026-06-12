@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import Fastify from 'fastify';
+import Fastify, { type FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
 import { healthRoutes } from './routes/health';
@@ -11,6 +11,8 @@ import { camsRoutes } from './routes/cams';
 import { powerPlantsRoutes } from './routes/power-plants';
 import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
+import { rollbarProxyRoutes } from './routes/rollbar-proxy';
+import { reportError } from './lib/rollbar';
 
 const app = Fastify({ logger: true, trustProxy: true });
 
@@ -28,6 +30,14 @@ await app.register(camsRoutes);
 await app.register(powerPlantsRoutes);
 await app.register(explainRoutes);
 await app.register(latestDateRoutes);
+await app.register(rollbarProxyRoutes);
+
+app.setErrorHandler<FastifyError>((error, request, reply) => {
+  if (!error.statusCode || error.statusCode >= 500) {
+    reportError(error, { path: request.url, method: request.method });
+  }
+  void reply.send(error);
+});
 
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? '0.0.0.0';
