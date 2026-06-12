@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { useLatestDate } from '../hooks/useLatestDate';
-import { useTimeStore } from '../store/timeStore';
-import { useUIStore } from '../store/uiStore';
-import { useSettingsStore } from '../store/settingsStore';
+import { useLatestDate } from './useLatestDate';
+import { useTimeStore } from '@/store/timeStore';
+import { useUIStore } from '@/store/uiStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const MAX_DAYS = 90;
 
