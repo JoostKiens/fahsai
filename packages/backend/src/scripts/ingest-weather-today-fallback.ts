@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { runWeatherIngest } from '../jobs/weather-ingest.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 const MIN_COMPLETE_POINTS = 4000;
 const yesterday = (() => {
@@ -29,6 +30,8 @@ try {
   console.log('[weather-fallback] done', result);
   process.exit(0);
 } catch (err) {
+  reportError(err);
   console.error('[weather-fallback] failed', err);
+  await waitForRollbar();
   process.exit(1);
 }
