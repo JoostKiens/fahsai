@@ -3,30 +3,22 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from 'deck.gl';
 import type { Layer, PickingInfo } from 'deck.gl';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
-import type { LatestMeasurement } from '../../hooks/useStationReadings';
+import type { LatestMeasurement } from '@/hooks';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { createOverlay, type OverlayInstance } from '../../utils/deck-overlay';
-import { mapRef as globalMapRef } from '../../utils/mapRef';
-import { useLayerStore } from '../../store/layerStore';
-import { useUIStore } from '../../store/uiStore';
-import { useFires } from '../../hooks/useFires';
-import { useStationReadings } from '../../hooks/useStationReadings';
-import { useCamsGrid } from '../../hooks/useCamsGrid';
-import { useCamsBitmap } from '../../hooks/useCamsBitmap';
-import { VIEWPORT_BBOX } from '../../utils/bbox';
-import { createFiresLayer, baseRadiusForZoom } from '../../layers/FiresLayer';
-import { useWind } from '../../hooks/useWind';
-import { useWindParticles } from '../../hooks/useWindParticles';
-import {
-  createLandMaskLayer,
-  createPM25BitmapLayer,
-  createPM25StationsLayers,
-} from '../../layers/PM25Layer';
-import { usePowerPlants } from '../../hooks/usePowerPlants';
-import { createPowerPlantsLayer, iconSizeForZoom } from '../../layers/PowerPlantsLayer';
-import { usePrefetchAdjacentDates } from '../../hooks/usePrefetchAdjacentDates';
-import { useSettingsStore } from '../../store/settingsStore';
+import { createOverlay, type OverlayInstance } from '@/utils/deck-overlay';
+import { mapRef as globalMapRef } from '@/utils/mapRef';
+import { useLayerStore } from '@/store/layerStore';
+import { useUIStore } from '@/store/uiStore';
+import { useFires, useStationReadings, useCamsGrid, useWind, usePowerPlants } from '@/hooks';
+import { useCamsBitmap } from './useCamsBitmap';
+import { VIEWPORT_BBOX } from '@/utils/bbox';
+import { createFiresLayer, baseRadiusForZoom } from './FiresLayer';
+import { useWindParticles } from './useWindParticles';
+import { createLandMaskLayer, createPM25BitmapLayer, createPM25StationsLayers } from './PM25Layer';
+import { createPowerPlantsLayer, iconSizeForZoom } from './PowerPlantsLayer';
+import { usePrefetchAdjacentDates } from './usePrefetchAdjacentDates';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];

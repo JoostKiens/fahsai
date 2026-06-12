@@ -5,7 +5,7 @@ import {
   selParamFromPending,
   selParamFromSelection,
 } from './selectionUrl.js';
-import type { PendingSelection, SelectedPoint } from '../store/uiStore';
+import type { PendingSelection, SelectedPoint } from '@/store/uiStore';
 
 const station: SelectedPoint = {
   lngLat: [100.5, 13.7],

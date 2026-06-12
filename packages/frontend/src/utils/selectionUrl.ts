@@ -1,4 +1,4 @@
-import type { PendingSelection, SelectedPoint } from '../store/uiStore';
+import type { PendingSelection, SelectedPoint } from '@/store/uiStore';
 
 /**
  * Serialize a resolved `SelectedPoint` to the `sel=` URL value (without the key).
