@@ -7,8 +7,8 @@ import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 
 const N_PARTICLES = 2400;
 const TRAIL_LENGTH = 20;
-// Degrees of movement per frame per km/h of wind speed (at 60 fps).
-// Tuned so a 15 km/h breeze visually crosses the region in ~15 s.
+// Degrees of movement per frame per km/h of wind speed.
+// Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
 const ANIM_SCALE = 0.0015;
 // Below this speed the trail is always at full TRAIL_LENGTH.
 // Above it, trail point count shrinks as √(TRAIL_SPEED_REF / speed) so total
@@ -21,6 +21,10 @@ const PARTICLE_START_ALPHA = 170;
 const PARTICLE_START_ALPHA_MAX = 240;
 const BASE_ZOOM = 5.5;
 const ZOOM_PLATEAU = 9;
+// Viewport lng-degree width at BASE_ZOOM on a reference ~1440px desktop — the viewport width
+// against which ANIM_SCALE was tuned. Used to normalise particle velocity so crossing time stays
+// consistent regardless of screen width or zoom level.
+const REF_VIEWPORT_DEG_WIDTH = 22;
 const TRAIL_LENGTH_MAX = 35;
 const MIN_AGE = 80;
 const MAX_AGE = 220;
@@ -409,8 +413,8 @@ export function useWindParticles(
       if (!visible || !grid) {
         ov.setProps({ layers: [] });
       } else {
-        const zoomScale = Math.pow(2, BASE_ZOOM - zoom);
-        const dtScale = (dt / 16.67) * zoomScale;
+        const [west, , east] = viewport;
+        const dtScale = (dt / 16.67) * ((east - west) / REF_VIEWPORT_DEG_WIDTH);
         const zoomT = smoothstep(BASE_ZOOM, ZOOM_PLATEAU, zoom);
         const dynamicAlpha = Math.round(
           PARTICLE_START_ALPHA + zoomT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
