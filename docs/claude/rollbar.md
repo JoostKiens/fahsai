@@ -31,7 +31,8 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 - **4xx route errors** — client errors, not our bugs. The `setErrorHandler` skips
   anything with `statusCode < 500`.
 - **Anything in development** — both SDKs initialize only when their token env var
-  is set. Local dev always falls through to console/Pino logs.
+  is set **and** `NODE_ENV` / `MODE` is `production`. Local dev always falls through
+  to console/Pino logs.
 
 ---
 
@@ -55,6 +56,11 @@ import { rollbar } from '../lib/rollbar';
 rollbar?.error(err);
 ```
 
+The browser SDK is configured to route through `POST /api/rollbar` on the backend
+(see `routes/rollbar-proxy.ts`) rather than posting directly to `api.rollbar.com`.
+This avoids ad-blocker / privacy-extension interference (e.g. Ghostery). The
+backend relay forwards the payload unchanged and passes Rollbar's response back.
+
 ---
 
 ## Error boundaries
@@ -70,8 +76,9 @@ preserves the component's outer dimensions so the layout does not shift:
 | `Scrubber` | Empty `md:h-[52px]` div |
 
 The reusable `<ErrorBoundary name="..." fallback={...}>` lives at
-`packages/frontend/src/components/ui/ErrorBoundary.tsx`. It wraps
-`@rollbar/react`'s `ErrorBoundary` and sends `{ component: name }` as extra context.
+`packages/frontend/src/components/ui/ErrorBoundary.tsx`. It is a plain React class
+component that calls `rollbar.error(error, { component: name, componentStack })` in
+`componentDidCatch`, and falls back to `console.error` in dev (when `rollbar` is null).
 
 ---
 

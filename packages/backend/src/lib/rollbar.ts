@@ -10,24 +10,25 @@ const instance =
         environment: 'production',
         captureUncaught: true,
         captureUnhandledRejections: true,
+        exitOnUncaughtException: true,
       })
     : null;
 
 export function reportError(err: unknown, extra?: Record<string, unknown>): void {
   if (!instance) return;
-  const subject = err instanceof Error ? err : String(err);
-  if (extra) {
-    instance.error(subject, extra);
+  if (err instanceof Error) {
+    instance.error(err, extra);
   } else {
-    instance.error(subject);
+    instance.error('Non-Error thrown', { error: err, ...extra });
   }
 }
 
 export function reportWarning(message: string, extra?: Record<string, unknown>): void {
   if (!instance) return;
-  if (extra) {
-    instance.warning(message, extra);
-  } else {
-    instance.warning(message);
-  }
+  instance.warning(message, extra);
+}
+
+export function waitForRollbar(): Promise<void> {
+  if (!instance) return Promise.resolve();
+  return new Promise((resolve) => instance.wait(resolve));
 }

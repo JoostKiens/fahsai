@@ -11,6 +11,7 @@ import { camsRoutes } from './routes/cams';
 import { powerPlantsRoutes } from './routes/power-plants';
 import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
+import { rollbarProxyRoutes } from './routes/rollbar-proxy';
 import { reportError } from './lib/rollbar';
 
 const app = Fastify({ logger: true, trustProxy: true });
@@ -29,6 +30,7 @@ await app.register(camsRoutes);
 await app.register(powerPlantsRoutes);
 await app.register(explainRoutes);
 await app.register(latestDateRoutes);
+await app.register(rollbarProxyRoutes);
 
 app.setErrorHandler<FastifyError>((error, request, reply) => {
   if (!error.statusCode || error.statusCode >= 500) {
