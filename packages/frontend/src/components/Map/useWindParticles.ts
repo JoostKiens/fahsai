@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { PathLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
+import { VIEWPORT_BBOX } from '@/utils/bbox';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -31,10 +32,10 @@ const MAX_AGE = 220;
 
 // Grid bounds — must match the weather grid constants in openmeteo.ts.
 // 0.4° step, lng 89→114 (63 pts), lat 1→30 (73 pts) = 4,599 points.
-const GRID_LNG_MIN = 89;
-const GRID_LNG_MAX = 114;
-const GRID_LAT_MIN = 1;
-const GRID_LAT_MAX = 30;
+const GRID_LNG_MIN = VIEWPORT_BBOX[0];
+const GRID_LAT_MIN = VIEWPORT_BBOX[1];
+const GRID_LNG_MAX = VIEWPORT_BBOX[2];
+const GRID_LAT_MAX = VIEWPORT_BBOX[3];
 const GRID_STEP = 0.4;
 const GRID_LNG_COUNT = Math.floor((GRID_LNG_MAX - GRID_LNG_MIN) / GRID_STEP) + 1; // 63
 const GRID_LAT_COUNT = Math.floor((GRID_LAT_MAX - GRID_LAT_MIN) / GRID_STEP) + 1; // 73
@@ -45,10 +46,10 @@ const KMH_TO_DEG_LAT = 1 / 111; // 1 degree lat ≈ 111 km, constant
 const HOURS_PER_STEP = TRACE_STEP_HOURS;
 
 // Hard limits — wind grid coverage. Particles are clamped to these.
-const SPAWN_LNG_MIN = 89;
-const SPAWN_LNG_MAX = 114;
-const SPAWN_LAT_MIN = 1;
-const SPAWN_LAT_MAX = 30;
+const SPAWN_LNG_MIN = VIEWPORT_BBOX[0];
+const SPAWN_LAT_MIN = VIEWPORT_BBOX[1];
+const SPAWN_LNG_MAX = VIEWPORT_BBOX[2];
+const SPAWN_LAT_MAX = VIEWPORT_BBOX[3];
 
 // Reference area (full wind grid) used to normalise N_PARTICLES to viewport size,
 // keeping visual density constant across different screen widths and zoom levels.
