@@ -21,6 +21,7 @@ simplicity and correctness over premature optimization.
 - Shared TypeScript types: `docs/claude/types.md`
 - Conventions, gotchas, wind direction: `docs/claude/conventions.md`
 - `/api/explain` implementation (cache, back-trajectory, urban sources): `docs/claude/explain.md`
+- Rollbar error tracking (what's captured, env vars, ErrorBoundary): `docs/claude/rollbar.md`
 
 ---
 
