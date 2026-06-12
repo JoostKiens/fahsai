@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useLayerStore } from '@/store/layerStore';
-import { AQI_CATEGORIES, FUEL_COLORS } from '@/utils/aqiColors';
+import { AQI_CATEGORIES } from '@/utils/aqiColors';
+import { FUEL_COLORS } from '@/utils/powerPlantColors';
 import { Toggle } from './Toggle';
 
 const FIRE_TIERS = [

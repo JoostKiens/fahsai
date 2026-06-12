@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
-import { MapView } from '@/components/Map/MapView';
+import { MapView } from '@/components/Map';
 import { UIOverlay } from '@/components/UIOverlay';
 import { Scrubber } from '@/components/Scrubber';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useDataNotifications } from '@/hooks/useDataNotifications';
-import { useUrlSync } from '@/hooks/useUrlSync';
-import { useSelectionHydration } from '@/hooks/useSelectionHydration';
+import { useDataNotifications, useUrlSync, useSelectionHydration } from '@/hooks';
 import { LatestDateProvider } from '@/providers/LatestDateProvider';
 
 function useIsMobile() {
