@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { runWeatherIngest } from '../jobs/weather-ingest.js';
-import { reportError } from '../lib/rollbar.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 try {
   const result = await runWeatherIngest();
@@ -10,5 +10,6 @@ try {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(`[weather-ingest] failed: ${msg}`);
   reportError(err);
+  await waitForRollbar();
   process.exit(1);
 }

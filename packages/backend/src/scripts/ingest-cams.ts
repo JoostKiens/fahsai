@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { runCamsIngest } from '../jobs/cams-ingest.js';
-import { reportError } from '../lib/rollbar.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 try {
   const result = await runCamsIngest(process.argv[2]);
@@ -9,5 +9,6 @@ try {
 } catch (err) {
   reportError(err);
   console.error('[cams-ingest] failed', err);
+  await waitForRollbar();
   process.exit(1);
 }

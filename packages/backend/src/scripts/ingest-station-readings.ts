@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { runStationReadingsIngest } from '../jobs/station-readings-ingest.js';
-import { reportError } from '../lib/rollbar.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 try {
   const result = await runStationReadingsIngest(process.argv[2]);
@@ -9,5 +9,6 @@ try {
 } catch (err) {
   reportError(err);
   console.error('[station-readings-ingest] failed', err);
+  await waitForRollbar();
   process.exit(1);
 }

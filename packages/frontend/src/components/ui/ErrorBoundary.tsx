@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { rollbar } from '../../lib/rollbar';
 
 interface Props {
@@ -18,8 +18,15 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error): void {
-    rollbar?.error(error, { component: this.props.name });
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    if (rollbar) {
+      rollbar.error(error, {
+        component: this.props.name,
+        componentStack: errorInfo.componentStack,
+      });
+    } else {
+      console.error(`[ErrorBoundary:${this.props.name}]`, error, errorInfo);
+    }
   }
 
   render() {
