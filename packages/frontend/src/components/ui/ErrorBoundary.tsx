@@ -1,5 +1,5 @@
-import { ErrorBoundary as RollbarErrorBoundary } from '@rollbar/react';
-import type { ReactNode } from 'react';
+import { Component, type ReactNode } from 'react';
+import { rollbar } from '../../lib/rollbar';
 
 interface Props {
   name: string;
@@ -7,10 +7,22 @@ interface Props {
   children: ReactNode;
 }
 
-export function ErrorBoundary({ name, fallback, children }: Props) {
-  return (
-    <RollbarErrorBoundary extra={{ component: name }} fallbackUI={() => <>{fallback}</>}>
-      {children}
-    </RollbarErrorBoundary>
-  );
+interface State {
+  hasError: boolean;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false };
+
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error): void {
+    rollbar?.error(error, { component: this.props.name });
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
 }
