@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { runCamsIngest } from '../jobs/cams-ingest.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 const MIN_COMPLETE_POINTS = 4000;
 // Fallback runs at 01:00 UTC — already the next calendar day — so "today" for
@@ -27,6 +28,8 @@ try {
   console.log('[cams-fallback] done', result);
   process.exit(0);
 } catch (err) {
+  reportError(err);
   console.error('[cams-fallback] failed', err);
+  await waitForRollbar();
   process.exit(1);
 }
