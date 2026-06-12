@@ -1,7 +1,7 @@
 import { IconLayer } from 'deck.gl';
 import type { Layer, PickingInfo } from 'deck.gl';
 import type { PowerPlantCollection, PowerPlantFeature } from '@thailand-aq/types';
-import { FUEL_COLORS } from '@/utils/aqiColors';
+import { FUEL_COLORS } from '@/utils/powerPlantColors';
 
 const FUELS = ['Coal', 'Gas', 'Oil', 'Diesel'];
 

@@ -97,13 +97,6 @@ export function pm25ToCategory(pm25: number): AqiCategory {
   );
 }
 
-export const FUEL_COLORS: Record<string, string> = {
-  Coal: '#999999',
-  Gas: '#4a9edd',
-  Oil: '#d4a017',
-  Diesel: '#c17f24',
-};
-
 // Returns black text for light backgrounds, white for dark ones.
 export function contrastColor(rgb: RGB): RGBA {
   const lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
