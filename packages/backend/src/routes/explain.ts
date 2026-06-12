@@ -4,22 +4,20 @@ import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { explainRatelimit } from '../cache/ratelimit.js';
 import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { computeFirePressureNorm } from '../utils/firePressure.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
-import {
-  traceEnsemble,
-  offsetDate,
-  nearestGridPoint,
-  TRAJECTORY_STEPS,
-} from '../utils/trajectory.js';
+import { traceEnsemble, nearestGridPoint, TRAJECTORY_STEPS } from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
-import type { RawExplainData, Season, FixtureUpwindSource } from '../scripts/eval/types.js';
-import { buildScientificContext, pm25Cat } from '../lib/buildScientificContext.js';
+import { buildScientificContext } from '../lib/buildScientificContext.js';
 import { buildPrompt } from '../lib/buildPrompt.js';
+import { fetchExplainContext } from '../lib/fetchExplainContext.js';
+import { analyzePeers } from '../lib/analyzePeers.js';
+import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 450;
@@ -29,7 +27,6 @@ const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
 const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
 const DAY_MS = 86_400_000;
-const HISTORICAL_TTL_SECONDS = 604800; // 7 days
 
 export type ExplainCase =
   | 'OUTLIER_HIGH'
@@ -39,11 +36,6 @@ export type ExplainCase =
   | 'PLAUSIBLE_CLEAN'
   | 'PLAUSIBLE_REGIONAL_BACKGROUND'
   | 'PLAUSIBLE_UNCLEAR';
-
-// Full weather grid is 4,599 points. Require ≥4,000 before trusting a cache hit —
-// incomplete caches from the 1000-row Supabase cap must be bypassed.
-const GRID_MIN_COMPLETE = 4000;
-const GRID_PAGE_SIZE = 1000;
 
 function geoRegion(lat: number, lng: number): string {
   const pt = point([lng, lat]);
@@ -60,53 +52,6 @@ function geoRegion(lat: number, lng: number): string {
   // north-east Asia, but that is better than silently dropping the region from the prompt.
   if (lat > 30 && lat <= 53.5 && lng >= 73 && lng <= 135) return 'China';
   return '';
-}
-
-function getSeason(date: string): Season {
-  const month = new Date(date).getUTCMonth() + 1;
-  if (month >= 2 && month <= 4) return 'peak_burning';
-  if (month >= 10 || month <= 1) return 'early_dry';
-  return 'monsoon';
-}
-
-function medianOf(arr: number[]): number {
-  if (!arr.length) return 0;
-  const s = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-
-// Map UrbanSource type to FixtureUpwindSource type.
-// All power_plant entries in URBAN_SOURCES are coal plants in practice.
-function mapSourceType(t: string): FixtureUpwindSource['type'] {
-  if (t === 'megacity' || t === 'city') return 'city';
-  if (t === 'industrial') return 'industrial';
-  return 'coal_plant';
-}
-
-async function getWindGrid(date: string): Promise<WeatherReading[]> {
-  const cached = await redis.get<WeatherReading[]>(`weather:${date}`);
-  if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
-
-  const all: WeatherReading[] = [];
-  let offset = 0;
-  while (true) {
-    const { data } = await supabase
-      .from('weather_readings')
-      .select(
-        'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-      )
-      .eq('date', date)
-      .range(offset, offset + GRID_PAGE_SIZE - 1);
-    if (!data?.length) break;
-    all.push(...(data as WeatherReading[]));
-    if (data.length < GRID_PAGE_SIZE) break;
-    offset += GRID_PAGE_SIZE;
-  }
-
-  if (!all.length) return [];
-  void redis.set(`weather:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
-  return all;
 }
 
 function sampleCams(
@@ -182,7 +127,7 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       }
 
-      const todayBkk = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+      const todayBkk = new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
       const quotaKey = `explain:quota:${todayBkk}`;
       const count = await redis.incr(quotaKey);
       if (count === 1) await redis.expire(quotaKey, 86400);
@@ -218,138 +163,42 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       }
 
-      const [yr, mo, dy] = selectedDate.split('-').map(Number);
-      const anchorEndMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS + 86_400_000;
+      // ----------------------------------------------------------------
+      // Fetch all context data in parallel
+      // ----------------------------------------------------------------
 
-      const since7d = new Date(anchorEndMs - 8 * 86_400_000).toISOString();
-      const since24h = new Date(anchorEndMs - 24 * 3600_000).toISOString();
-      const since72h = new Date(anchorEndMs - 72 * 3600_000).toISOString();
-      const until = new Date(anchorEndMs).toISOString();
-
-      const d0 = selectedDate;
-      const d1 = offsetDate(selectedDate, -1);
-      const d2 = offsetDate(selectedDate, -2);
-      const d3 = offsetDate(selectedDate, -3);
-      const d4 = offsetDate(selectedDate, -4);
-
-      async function getCamsGrid(
-        date: string,
-      ): Promise<{ lat: number; lng: number; pm25: number }[]> {
-        const cached = await redis.get<{ lat: number; lng: number; pm25: number }[]>(
-          `cams:pm25:${date}`,
-        );
-        if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
-
-        const all: { lat: number; lng: number; pm25: number }[] = [];
-        let offset = 0;
-        while (true) {
-          const { data } = await supabase
-            .from('cams_grid')
-            .select('lat, lng, pm25')
-            .eq('date', date)
-            .range(offset, offset + GRID_PAGE_SIZE - 1);
-          if (!data?.length) break;
-          all.push(...(data as { lat: number; lng: number; pm25: number }[]));
-          if (data.length < GRID_PAGE_SIZE) break;
-          offset += GRID_PAGE_SIZE;
-        }
-
-        if (!all.length) return [];
-        void redis.set(`cams:pm25:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
-        return all;
+      const ctx = await fetchExplainContext(stationId, selectedDate);
+      if (!ctx) {
+        return reply.status(404).send({ error: 'Station not found' });
       }
 
-      // Gather all context in parallel
-      const [
-        stationRows,
+      const {
+        anchorEndMs,
+        since72h,
+        d0,
+        d1,
+        d2,
+        d3,
+        d4,
+        stationName,
+        stationReadings,
         peerRows,
-        stationWeatherRows,
+        stationWeatherByDate,
         wind0,
         wind1,
         wind2,
         camsD0,
         camsD1,
         camsD2,
-        pressureResult,
-      ] = await Promise.all([
-        supabase
-          .from('station_readings')
-          .select('value, measured_at, stations(id, name)')
-          .eq('station_id', stationId)
-          .gte('measured_at', since7d)
-          .lt('measured_at', until)
-          .order('measured_at', { ascending: false })
-          .limit(170),
+        pressureData,
+      } = ctx;
 
-        supabase
-          .from('station_readings')
-          .select('value, measured_at, station_id, stations(id, name, lat, lng)')
-          .gte('measured_at', since24h)
-          .lt('measured_at', until)
-          .neq('station_id', stationId)
-          .order('measured_at', { ascending: false }),
+      const latestPm25 = stationReadings[0].value;
 
-        supabase
-          .from('station_weather')
-          .select(
-            'date, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-          )
-          .eq('station_id', stationId)
-          .in('date', [d0, d1, d2, d3, d4]),
+      // ----------------------------------------------------------------
+      // Trajectory
+      // ----------------------------------------------------------------
 
-        getWindGrid(d0),
-        getWindGrid(d1),
-        getWindGrid(d2),
-
-        getCamsGrid(d0),
-        getCamsGrid(d1),
-        getCamsGrid(d2),
-
-        supabase
-          .from('station_fire_pressure')
-          .select('score, fire_count, total_frp_mw')
-          .eq('station_id', stationId)
-          .eq('date', d0)
-          .maybeSingle(),
-      ]);
-
-      const camsDataByDate = new Map([
-        [d0, camsD0],
-        [d1, camsD1],
-        [d2, camsD2],
-      ]);
-
-      if (stationRows.error) throw new Error(stationRows.error.message);
-      if (!stationRows.data?.length) {
-        return reply.status(404).send({ error: 'Station not found' });
-      }
-
-      // --- station context ---
-      type StationJoin = { id: string; name: string } | null;
-      const stationName =
-        (stationRows.data[0].stations as unknown as StationJoin)?.name ?? stationId;
-      const readings = (stationRows.data as { value: number; measured_at: string }[]).map(
-        (r) => r.value,
-      );
-      const latestPm25 = readings[0];
-
-      // Daily averages (group by BKK calendar day)
-      const dailyMap = new Map<string, number[]>();
-      for (const row of stationRows.data as { value: number; measured_at: string }[]) {
-        const bkkDate = new Date(new Date(row.measured_at).getTime() + BKK_OFFSET_MS)
-          .toISOString()
-          .slice(0, 10);
-        if (!dailyMap.has(bkkDate)) dailyMap.set(bkkDate, []);
-        dailyMap.get(bkkDate)!.push(row.value);
-      }
-      const dailyAvgs = [...dailyMap.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, vals]) => ({
-          date,
-          avg: vals.reduce((s, v) => s + v, 0) / vals.length,
-        }));
-
-      // --- trajectory ---
       const windGridsByDate = new Map<string, WindGridPoint[]>([
         [d0, wind0],
         [d1, wind1],
@@ -395,11 +244,15 @@ export function explainRoutes(app: FastifyInstance): void {
         return total;
       })();
 
-      // --- fire query ---
+      // ----------------------------------------------------------------
+      // Fire query (depends on trajectory footprint)
+      // ----------------------------------------------------------------
+
       const fireUntil = `${selectedDate}T23:59:59Z`;
       type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
       const allFireRows: FireRow[] = [];
       let fireOffset = 0;
+      const FIRE_PAGE_SIZE = 1000;
       while (true) {
         const { data: firePage } = await supabase
           .from('fire_points')
@@ -411,11 +264,11 @@ export function explainRoutes(app: FastifyInstance): void {
           .gte('lng', footprintBbox.lngMin)
           .lte('lng', footprintBbox.lngMax)
           .order('detected_at', { ascending: false })
-          .range(fireOffset, fireOffset + GRID_PAGE_SIZE - 1);
+          .range(fireOffset, fireOffset + FIRE_PAGE_SIZE - 1);
         if (!firePage?.length) break;
         allFireRows.push(...(firePage as unknown as FireRow[]));
-        if (firePage.length < GRID_PAGE_SIZE) break;
-        fireOffset += GRID_PAGE_SIZE;
+        if (firePage.length < FIRE_PAGE_SIZE) break;
+        fireOffset += FIRE_PAGE_SIZE;
       }
 
       req.log.info(
@@ -436,109 +289,37 @@ export function explainRoutes(app: FastifyInstance): void {
           return ageA !== ageB ? ageA - ageB : a.distKm - b.distKm;
         });
 
-      // --- fire pressure ---
       const firePressureNorm = computeFirePressureNorm(
         fires.map((f) => ({ detected_at: f.detected_at, frp: f.frp, distKm: f.distKm })),
         corridorKm,
         anchorEndMs,
       );
 
-      // --- peers ---
-      type PeerJoin = { id: string; name: string; lat: number; lng: number } | null;
-      const peerMap = new Map<string, { name: string; pm25: number; distKm: number }>();
-      for (const row of (peerRows.data as {
-        value: number;
-        measured_at: string;
-        station_id: string;
-        stations: unknown;
-      }[]) ?? []) {
-        const sid = row.station_id;
-        if (peerMap.has(sid)) continue;
-        const s = row.stations as PeerJoin;
-        if (!s) continue;
-        const distKm = haversineKm(lat, lng, s.lat, s.lng);
-        if (distKm > 75) continue;
-        if (distKm < 0.5) continue;
-        peerMap.set(sid, { name: s.name, pm25: row.value, distKm });
-      }
-      const peerList = [...peerMap.values()];
-      const peerValues = peerList.map((p) => p.pm25);
-      const peerMedian = medianOf(peerValues);
+      // ----------------------------------------------------------------
+      // Peer analysis
+      // ----------------------------------------------------------------
 
-      const peerWeightedMean = (() => {
-        if (!peerList.length) return 0;
-        let totalW = 0;
-        let sum = 0;
-        for (const p of peerList) {
-          const w = 1 / Math.max(p.distKm, 1);
-          totalW += w;
-          sum += p.pm25 * w;
-        }
-        return totalW > 0 ? sum / totalW : 0;
-      })();
+      const peers = analyzePeers(peerRows, lat, lng, latestPm25);
 
-      const bothLow = latestPm25 < 35 && peerWeightedMean < 35;
-      const outlierRatio = peerWeightedMean > 0 ? latestPm25 / peerWeightedMean : null;
-      const isStrongOutlier =
-        !bothLow &&
-        outlierRatio !== null &&
-        (outlierRatio >= 2.0 || outlierRatio <= 0.4) &&
-        Math.abs(latestPm25 - peerWeightedMean) >= 20;
-      const isHighOutlier = isStrongOutlier && outlierRatio !== null && outlierRatio >= 2.0;
+      // ----------------------------------------------------------------
+      // Station weather + precipitation totals
+      // ----------------------------------------------------------------
 
-      const nonOutlierPeers =
-        peerMedian > 0 &&
-        peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4).length >= 3
-          ? peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4)
-          : peerList;
-
-      const filteredPeerValues = nonOutlierPeers.map((p) => p.pm25);
-      const filteredPeerMin = filteredPeerValues.length ? Math.min(...filteredPeerValues) : null;
-      const filteredPeerMax = filteredPeerValues.length ? Math.max(...filteredPeerValues) : null;
-
-      const peerDistribution =
-        peerList.length > 10
-          ? [
-              'Good',
-              'Moderate',
-              'Unhealthy for sensitive groups',
-              'Unhealthy',
-              'Very unhealthy',
-              'Hazardous',
-            ]
-              .map((label) => {
-                const cnt = peerList.filter((p) => pm25Cat(p.pm25) === label).length;
-                return cnt > 0 ? `${cnt} ${label}` : null;
-              })
-              .filter((s): s is string => s !== null)
-              .join(', ')
-          : null;
-
-      // --- station weather ---
-      type StationWeatherRecord = {
-        date: string;
-        wind_speed_kmh: number | null;
-        wind_direction_deg: number | null;
-        precipitation_sum: number | null;
-        relative_humidity_2m: number | null;
-      };
-      const stationWeatherByDate = new Map<string, StationWeatherRecord>();
-      for (const row of (stationWeatherRows.data ?? []) as StationWeatherRecord[]) {
-        stationWeatherByDate.set(row.date, row);
-      }
       const wx0 = stationWeatherByDate.get(d0) ?? null;
       const wx1 = stationWeatherByDate.get(d1) ?? null;
       const wx2 = stationWeatherByDate.get(d2) ?? null;
       const wx3 = stationWeatherByDate.get(d3) ?? null;
       const wx4 = stationWeatherByDate.get(d4) ?? null;
 
-      // Total precipitation over 5 days
       const totalPrecip5d = [wx0, wx1, wx2, wx3, wx4].reduce(
         (sum, wx) => sum + (wx?.precipitation_sum ?? 0),
         0,
       );
 
-      // --- persistent wind ---
+      // ----------------------------------------------------------------
+      // Persistent wind
+      // ----------------------------------------------------------------
+
       const persistentWind = (() => {
         const wxDays = [wx0, wx1, wx2, wx3, wx4].filter(
           (wx): wx is NonNullable<typeof wx> => wx !== null && wx.wind_direction_deg !== null,
@@ -565,17 +346,18 @@ export function explainRoutes(app: FastifyInstance): void {
         };
       })();
 
-      // --- urban sources ---
-      // Mean wind direction: persistentWind (5-day average) preferred; fallback to d0 grid point.
+      // ----------------------------------------------------------------
+      // Urban sources
+      // ----------------------------------------------------------------
+
       const meanWindDirDeg: number | null = (() => {
         if (persistentWind !== null) return persistentWind.directionDeg;
         if (!wind0.length) return null;
         return nearestGridPoint(lat, lng, wind0).wind_direction_deg;
       })();
 
-      // True when the bearing from the station to the source aligns with where the wind comes FROM.
       const isBearingUpwind = (sourceLat: number, sourceLng: number): boolean => {
-        if (meanWindDirDeg === null) return true; // no wind data — fail open
+        if (meanWindDirDeg === null) return true;
         const bearing = bearingDeg(lat, lng, sourceLat, sourceLng);
         const diff = Math.abs(((bearing - meanWindDirDeg + 540) % 360) - 180);
         return diff <= 60;
@@ -608,7 +390,6 @@ export function explainRoutes(app: FastifyInstance): void {
         )
         .slice(0, 8);
 
-      // Sources in persistent wind direction beyond trajectory window
       const persistentWindSources =
         persistentWind !== null
           ? relevantSources.filter((s) => {
@@ -619,7 +400,16 @@ export function explainRoutes(app: FastifyInstance): void {
             })
           : [];
 
-      // --- CAMS samples along center trajectory ---
+      // ----------------------------------------------------------------
+      // CAMS samples + trajectory waypoints with regions
+      // ----------------------------------------------------------------
+
+      const camsDataByDate = new Map([
+        [d0, camsD0],
+        [d1, camsD1],
+        [d2, camsD2],
+      ]);
+
       const sampleIndices = [
         Math.floor(centerTrajectory.length * 0.33),
         Math.floor(centerTrajectory.length * 0.66),
@@ -636,27 +426,6 @@ export function explainRoutes(app: FastifyInstance): void {
           (s): s is { waypoint: (typeof centerTrajectory)[0]; pm25: number } => s.pm25 !== null,
         );
 
-      // --- fire recency buckets ---
-      function fireBucket(maxAgeH: number, minAgeH = 0) {
-        const bucket = fires.filter((f) => {
-          const age = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
-          return age >= minAgeH && age < maxAgeH;
-        });
-        const totalFrpMw = bucket.reduce((s, f) => s + (f.frp ?? 0), 0);
-        return { count: bucket.length, totalFrpMw };
-      }
-      const b0 = fireBucket(24);
-      const b1 = fireBucket(48, 24);
-      const b2 = fireBucket(73, 48);
-
-      // --- area fire pressure ---
-      const pressureData = pressureResult.data as {
-        score: number;
-        fire_count: number;
-        total_frp_mw: number;
-      } | null;
-
-      // --- trajectory waypoints with regions ---
       const pathWaypoints =
         centerTrajectory.length >= 2
           ? centerTrajectory
@@ -665,66 +434,40 @@ export function explainRoutes(app: FastifyInstance): void {
           : [];
 
       // ----------------------------------------------------------------
-      // Build RawExplainData (RawExplainData shape)
+      // Fire recency buckets
       // ----------------------------------------------------------------
 
-      function buildWeatherDay(date: string, wx: StationWeatherRecord | null) {
-        const windState =
-          wx === null
-            ? ('not_fetched' as const)
-            : wx.wind_speed_kmh !== null
-              ? ('available' as const)
-              : ('missing' as const);
-        return {
-          date,
-          wind: {
-            state: windState,
-            directionDeg: wx?.wind_direction_deg ?? null,
-            speedKmh: wx?.wind_speed_kmh ?? null,
-          },
-          precipitationMm: wx?.precipitation_sum ?? 0,
-          humidity: wx?.relative_humidity_2m ?? null,
-          highHumidityWarning: (wx?.relative_humidity_2m ?? 0) >= 85,
-        };
+      function fireBucket(maxAgeH: number, minAgeH = 0) {
+        const bucket = fires.filter((f) => {
+          const age = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
+          return age >= minAgeH && age < maxAgeH;
+        });
+        return { count: bucket.length, totalFrpMw: bucket.reduce((s, f) => s + (f.frp ?? 0), 0) };
       }
 
-      function buildSource(s: (typeof relevantSources)[0]): FixtureUpwindSource {
-        return {
-          name: s.name,
-          country: s.country,
-          distanceKm: s.distKm,
-          type: mapSourceType(s.type),
-          population: s.population > 0 ? s.population : undefined,
-          capacityMw: s.type === 'power_plant' && s.emissionProxy > 0 ? s.emissionProxy : undefined,
-          currentlyUpwind: s.isUpwind,
-        };
-      }
+      // ----------------------------------------------------------------
+      // Assemble RawExplainData
+      // ----------------------------------------------------------------
 
-      const rawData: RawExplainData = {
+      const rawData = buildRawExplainData({
         station: { name: stationName, lat, lng },
-        date: selectedDate,
-        currentPm25: latestPm25,
+        selectedDate,
+        stationReadings,
 
-        sevenDayAverages: dailyAvgs.map((d) => ({ date: d.date, value: d.avg })),
-
-        weather: {
-          days: [
-            buildWeatherDay(d0, wx0),
-            buildWeatherDay(d1, wx1),
-            buildWeatherDay(d2, wx2),
-            buildWeatherDay(d3, wx3),
-            buildWeatherDay(d4, wx4),
-          ],
-          totalPrecipitationMm: totalPrecip5d,
-          trajectoryPrecipitationMm: centerTrajectory.length >= 2 ? trajectoryPrecipTotal : null,
-        },
+        d0,
+        d1,
+        d2,
+        d3,
+        d4,
+        stationWeatherByDate,
+        totalPrecipitationMm: totalPrecip5d,
+        trajectoryPrecipitationMm: centerTrajectory.length >= 2 ? trajectoryPrecipTotal : null,
 
         trajectory:
           centerTrajectory.length < 2
             ? null
             : {
                 hoursTraced: (centerTrajectory.length - 1) * 6,
-                memberCount: 5,
                 origin: {
                   lat: originWaypoint.lat,
                   lng: originWaypoint.lng,
@@ -745,7 +488,9 @@ export function explainRoutes(app: FastifyInstance): void {
         firePressure: {
           pathScore: firePressureNorm,
           pathFireCount: fires.length,
-          pathFiresByRecency: { last24h: b0, last48h: b1, last72h: b2 },
+          last24h: fireBucket(24),
+          last48h: fireBucket(48, 24),
+          last72h: fireBucket(73, 48),
           topFires: fires.slice(0, 30).map((f) => ({
             lat: f.lat,
             lng: f.lng,
@@ -760,47 +505,31 @@ export function explainRoutes(app: FastifyInstance): void {
           areaTotalFrpMw: pressureData?.total_frp_mw ?? null,
         },
 
-        upwindSources: relevantSources.map(buildSource),
+        upwindSources: relevantSources,
 
-        peers:
-          peerList.length === 0 || filteredPeerMin === null || filteredPeerMax === null
-            ? null
-            : {
-                stationCount: peerList.length,
-                weightedMean: peerWeightedMean,
-                unweightedMedian: peerMedian,
-                range: { min: filteredPeerMin, max: filteredPeerMax },
-                stations: nonOutlierPeers
-                  .sort((a, b) => a.distKm - b.distKm)
-                  .slice(0, 10)
-                  .map((p) => ({ name: p.name, value: p.pm25, distanceKm: p.distKm })),
-                distribution: peerDistribution,
-              },
+        peers,
 
-        outlier: isStrongOutlier
-          ? { direction: isHighOutlier ? 'high' : 'low', ratio: outlierRatio ?? 0 }
+        outlier: peers.isStrongOutlier
+          ? { direction: peers.isHighOutlier ? 'high' : 'low', ratio: peers.outlierRatio ?? 0 }
           : null,
-
-        season: getSeason(selectedDate),
 
         persistentWind: persistentWind
           ? {
               directionDeg: persistentWind.directionDeg,
               label: persistentWind.label,
               dayCount: persistentWind.dayCount,
-              sourcesBeyondWindow: persistentWindSources.map(buildSource),
+              sourcesBeyondWindow: persistentWindSources,
             }
           : null,
-      };
+      });
 
       // ----------------------------------------------------------------
-      // Build prompt via shared layers
+      // Build prompt + stream
       // ----------------------------------------------------------------
 
-      const ctx = buildScientificContext(rawData);
-      const prompt = buildPrompt(ctx, lang ?? 'en');
+      const scientificCtx = buildScientificContext(rawData);
+      const prompt = buildPrompt(scientificCtx, normalizedLang);
 
-      // Start streaming
       reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': 'text/plain; charset=utf-8',
