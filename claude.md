@@ -27,7 +27,14 @@ simplicity and correctness over premature optimization.
 
 ## Conventions
 
-@~/.claude/skills/frontend-conventions/SKILL.md
+Before writing or reviewing any JavaScript or TypeScript code, invoke the `frontend-conventions` skill.
+
+For **new files**, the convention skills above take precedence over existing
+patterns in the codebase.
+
+For **existing files**, match the style of the file you are editing unless
+the task is explicitly a refactor. If you notice a convention violation while
+working in a file, mention it rather than fixing it silently.
 
 ---
 
