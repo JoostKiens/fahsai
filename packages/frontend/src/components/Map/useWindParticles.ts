@@ -3,6 +3,7 @@ import { PathLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
+import { PM25_CAT_BREAKPOINTS } from '@/utils/aqiColors';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -44,15 +45,9 @@ const TRACE_STEP_HOURS = 3; // 8 steps × 3h = 24h
 const TRACE_STEPS = 8;
 const KMH_TO_DEG_LAT = 1 / 111; // 1 degree lat ≈ 111 km, constant
 
-// Hard limits — wind grid coverage. Particles are clamped to these.
-const SPAWN_LNG_MIN = VIEWPORT_BBOX[0];
-const SPAWN_LAT_MIN = VIEWPORT_BBOX[1];
-const SPAWN_LNG_MAX = VIEWPORT_BBOX[2];
-const SPAWN_LAT_MAX = VIEWPORT_BBOX[3];
-
 // Reference area (full wind grid) used to normalise particle count to viewport size,
 // keeping visual density constant across different screen widths and zoom levels.
-const REFERENCE_AREA = (SPAWN_LNG_MAX - SPAWN_LNG_MIN) * (SPAWN_LAT_MAX - SPAWN_LAT_MIN);
+const REFERENCE_AREA = (GRID_LNG_MAX - GRID_LNG_MIN) * (GRID_LAT_MAX - GRID_LAT_MIN);
 
 // Buffer around the visible viewport used as the spawn/OOB area.
 // Gives particles time to enter the screen before being counted, and avoids
@@ -76,7 +71,7 @@ type WindGrid = Float32Array; // [dx0, dy0, dx1, dy1, ...]
 
 type Viewport = [west: number, south: number, east: number, north: number];
 
-const FULL_VIEWPORT: Viewport = [SPAWN_LNG_MIN, SPAWN_LAT_MIN, SPAWN_LNG_MAX, SPAWN_LAT_MAX];
+const FULL_VIEWPORT: Viewport = [GRID_LNG_MIN, GRID_LAT_MIN, GRID_LNG_MAX, GRID_LAT_MAX];
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -258,10 +253,10 @@ function mapViewport(map: mapboxgl.Map): Viewport {
   const b = map.getBounds();
   if (!b) return FULL_VIEWPORT;
   return [
-    Math.max(SPAWN_LNG_MIN, b.getWest() - VIEWPORT_BUFFER_DEG),
-    Math.max(SPAWN_LAT_MIN, b.getSouth() - VIEWPORT_BUFFER_DEG),
-    Math.min(SPAWN_LNG_MAX, b.getEast() + VIEWPORT_BUFFER_DEG),
-    Math.min(SPAWN_LAT_MAX, b.getNorth() + VIEWPORT_BUFFER_DEG),
+    Math.max(GRID_LNG_MIN, b.getWest() - VIEWPORT_BUFFER_DEG),
+    Math.max(GRID_LAT_MIN, b.getSouth() - VIEWPORT_BUFFER_DEG),
+    Math.min(GRID_LNG_MAX, b.getEast() + VIEWPORT_BUFFER_DEG),
+    Math.min(GRID_LAT_MAX, b.getNorth() + VIEWPORT_BUFFER_DEG),
   ];
 }
 
@@ -323,7 +318,7 @@ function stepParticles({
   trailLength: number;
 }): void {
   for (const p of particles) {
-    const [dx, dy] = sampleWind({ lng: p.lng, lat: p.lat, grid });
+    const [dx, dy] = sampleWind(p.lng, p.lat, grid);
     const cosLat = Math.max(Math.cos((p.lat * Math.PI) / 180), 0.1);
 
     p.lng += (dx * ANIM_SCALE * dtScale) / cosLat;
@@ -342,10 +337,7 @@ function stepParticles({
     // the viewport and only die when they leave the wind-data area entirely.
     // Respawn within the current viewport so density stays high when zoomed in.
     const oob =
-      p.lng < SPAWN_LNG_MIN ||
-      p.lng > SPAWN_LNG_MAX ||
-      p.lat < SPAWN_LAT_MIN ||
-      p.lat > SPAWN_LAT_MAX;
+      p.lng < GRID_LNG_MIN || p.lng > GRID_LNG_MAX || p.lat < GRID_LAT_MIN || p.lat > GRID_LAT_MAX;
 
     if (p.age >= p.maxAge || oob) {
       const fresh = spawnParticle({ viewport: spawnViewport, grid, gridMap, scatterAge: false });
@@ -382,7 +374,7 @@ function spawnParticle({
   const [west, south, east, north] = viewport;
   const lng = west + Math.random() * (east - west);
   const lat = south + Math.random() * (north - south);
-  const maxAge = MIN_AGE_FRAMES + Math.floor(Math.random() * (MAX_AGE_FRAMES - MIN_AGE_FRAMES));
+  const maxAge = MIN_AGE_FRAMES + Math.floor(Math.random() * (MAX_AGE_FRAMES - MIN_AGE_FRAMES + 1));
   return {
     lng,
     lat,
@@ -407,8 +399,6 @@ const PARTICLE_COLORS: [number, number, number][] = [
   [205, 80, 110], // Hazardous         — vivid rose
 ];
 
-const PM25_BP = [12.0, 35.4, 55.4, 150.4, 250.4];
-
 // Reuses the existing grid constants (same 0.4° step, same origin) to produce
 // an integer index key — avoids floating-point string formatting issues.
 function sampleSpawnColor({
@@ -424,7 +414,7 @@ function sampleSpawnColor({
 }): [number, number, number] {
   if (!gridMap) return [255, 255, 255];
 
-  const [originLng, originLat] = grid ? traceBack24h({ lng, lat, grid }) : [lng, lat];
+  const [originLng, originLat] = grid ? traceBack24h(lng, lat, grid) : [lng, lat];
 
   if (
     originLng < GRID_LNG_MIN ||
@@ -443,27 +433,19 @@ function sampleSpawnColor({
 }
 
 function pm25ToParticleColor(pm25: number): [number, number, number] {
-  for (let i = 0; i < PM25_BP.length; i++) {
-    if (pm25 <= PM25_BP[i]) return PARTICLE_COLORS[i];
+  for (let i = 0; i < PM25_CAT_BREAKPOINTS.length; i++) {
+    if (pm25 <= PM25_CAT_BREAKPOINTS[i]) return PARTICLE_COLORS[i];
   }
   return PARTICLE_COLORS[PARTICLE_COLORS.length - 1];
 }
 
 // ─── grid helpers ─────────────────────────────────────────────────────────────
 
-function traceBack24h({
-  lng,
-  lat,
-  grid,
-}: {
-  lng: number;
-  lat: number;
-  grid: WindGrid;
-}): [number, number] {
+function traceBack24h(lng: number, lat: number, grid: WindGrid): [number, number] {
   let x = lng;
   let y = lat;
   for (let i = 0; i < TRACE_STEPS; i++) {
-    const [dx, dy] = sampleWind({ lng: x, lat: y, grid });
+    const [dx, dy] = sampleWind(x, y, grid);
     const cosLat = Math.max(Math.cos((y * Math.PI) / 180), 0.1);
     const kmhToDegLng = 1 / (111 * cosLat);
     x -= dx * TRACE_STEP_HOURS * kmhToDegLng;
@@ -472,21 +454,17 @@ function traceBack24h({
   return [x, y];
 }
 
-function sampleWind({
-  lng,
-  lat,
-  grid,
-}: {
-  lng: number;
-  lat: number;
-  grid: WindGrid;
-}): [number, number] {
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function sampleWind(lng: number, lat: number, grid: WindGrid): [number, number] {
   const li = (lng - GRID_LNG_MIN) / GRID_STEP_DEG;
   const lati = (lat - GRID_LAT_MIN) / GRID_STEP_DEG;
-  const l0 = Math.max(0, Math.min(GRID_LNG_COUNT - 2, Math.floor(li)));
-  const la0 = Math.max(0, Math.min(GRID_LAT_COUNT - 2, Math.floor(lati)));
-  const lf = li - l0;
-  const laf = lati - la0;
+  const l0 = clamp(Math.floor(li), 0, GRID_LNG_COUNT - 2);
+  const la0 = clamp(Math.floor(lati), 0, GRID_LAT_COUNT - 2);
+  const lf = clamp(li - l0, 0, 1);
+  const laf = clamp(lati - la0, 0, 1);
 
   const i00 = (la0 * GRID_LNG_COUNT + l0) * 2;
   const i10 = (la0 * GRID_LNG_COUNT + l0 + 1) * 2;
@@ -519,6 +497,6 @@ function buildGrid(data: WindReading[]): WindGrid {
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
 }
