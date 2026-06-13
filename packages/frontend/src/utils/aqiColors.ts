@@ -88,7 +88,7 @@ export function pm25ToRgba(pm25: number, alpha: number): RGBA {
   return [r, g, b, alpha];
 }
 
-const PM25_CAT_BREAKPOINTS = [12.0, 35.4, 55.4, 150.4, 250.4];
+export const PM25_CAT_BREAKPOINTS = [12.0, 35.4, 55.4, 150.4, 250.4];
 
 export function pm25ToCategory(pm25: number): AqiCategory {
   return (
