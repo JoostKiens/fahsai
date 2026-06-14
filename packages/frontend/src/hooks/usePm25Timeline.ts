@@ -7,8 +7,11 @@ import { staleTimeForArray } from '@/utils/queryHelpers';
 const API = import.meta.env.VITE_API_BASE_URL;
 
 // Daily p95 PM2.5 across the scrubber's date range, used to draw the gradient line chart.
-// Returns a Map<date, pm25> for O(1) per-day lookup; the raw array is what
-// TanStack caches so staleTimeForArray can treat the historical series as immutable.
+// Returns a Map<date, pm25> for O(1) per-day lookup via the `select` transform.
+// IMPORTANT: staleTimeForArray inspects q.state.data.length — TanStack Query stores
+// pre-select data there, so it sees the raw array, not the Map. Do NOT move the Map
+// transform into queryFn; that would make staleTimeForArray receive a Map (.length
+// undefined) and always return EMPTY_DATA_STALE_MS, causing constant re-fetches.
 export function usePm25Timeline() {
   const latestDate = useTimeStore((s) => s.latestDate);
   const scrubberDays = useEffectiveScrubberDays();

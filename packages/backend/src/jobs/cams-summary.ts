@@ -1,4 +1,4 @@
-import pRetry, { AbortError } from 'p-retry';
+import pRetry from 'p-retry';
 import { supabase } from '../db/client.js';
 
 // 95th percentile of PM2.5 across a day's CAMS grid. The grid spans land, sea, and
@@ -22,7 +22,7 @@ export async function upsertCamsDailySummary(
       const { error } = await supabase
         .from('cams_daily_summary')
         .upsert({ date, pm25_p95: p95, point_count: pointCount }, { onConflict: 'date' });
-      if (error) throw new AbortError(`[cams-summary] upsert failed for ${date}: ${error.message}`);
+      if (error) throw new Error(`[cams-summary] upsert failed for ${date}: ${error.message}`);
     },
     { retries: 3, minTimeout: 1000, factor: 2 },
   );

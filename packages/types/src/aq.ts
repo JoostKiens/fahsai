@@ -6,5 +6,5 @@ export interface PM25GridPoint {
 
 export interface PM25DailySummary {
   date: string; // YYYY-MM-DD
-  pm25: number; // 90th-percentile µg/m³ across that day's CAMS grid
+  pm25: number; // 95th-percentile µg/m³ across that day's CAMS grid
 }

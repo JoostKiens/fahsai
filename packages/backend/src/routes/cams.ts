@@ -11,8 +11,8 @@ const PAGE_SIZE = 1000;
 const MIN_COMPLETE_POINTS = 4000;
 
 // Daily summary covers at most the scrubber window; cap the range as a guard.
-const MAX_SUMMARY_DAYS = 130;
-// The newest day's p90 is recomputed each ingest, so this series is not immutable.
+const MAX_SUMMARY_DAYS = 120;
+// The newest day's p95 is recomputed each ingest, so this series is not immutable.
 const SUMMARY_TTL_SECONDS = 60 * 60; // 1 hour
 const CACHE_CONTROL_SUMMARY = `public, max-age=${SUMMARY_TTL_SECONDS}`;
 
@@ -70,7 +70,7 @@ export function camsRoutes(app: FastifyInstance): void {
   });
 
   // GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
-  // Daily p90 PM2.5 time series powering the scrubber heat-strip.
+  // Daily p95 PM2.5 time series powering the scrubber gradient line chart.
   app.get<{ Querystring: { start?: string; end?: string } }>(
     '/api/cams/summary',
     async (req, reply) => {

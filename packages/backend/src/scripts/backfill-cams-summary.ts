@@ -1,20 +1,22 @@
 /**
- * Backfill cams_daily_summary (daily p90 PM2.5) for a date range.
+ * Backfill cams_daily_summary (daily p95 PM2.5) for a date range.
  *
  * Usage:
  *   pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD
  *
  * For each date in the range, reads that day's cams_grid PM2.5 values and stores the
- * 90th percentile (the value that powers the scrubber heat-strip). Dates that already
- * have a cams_daily_summary row are skipped. Max range: 130 days.
+ * 95th percentile (the value that powers the scrubber gradient line chart). Dates that already
+ * have a cams_daily_summary row are skipped. Max range: 120 days.
  */
 import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { computeP95, upsertCamsDailySummary } from '../jobs/cams-summary.js';
 
 const LOG = '[backfill-cams-summary]';
-const MAX_DAYS = 130;
+const MAX_DAYS = 120;
 const PAGE_SIZE = 1000;
+// Must match cams-ingest MIN_COMPLETE_POINTS — only store p95 from complete grids.
+const MIN_COMPLETE_POINTS = 4000;
 
 function parseDateFlag(flag: string): string {
   const val = process.argv.find((a) => a.startsWith(`--${flag}=`))?.slice(flag.length + 3);
@@ -89,8 +91,10 @@ try {
       continue;
     }
     const values = await fetchCamsPm25ForDate(date);
-    if (values.length === 0) {
-      console.log(`[${i + 1}/${dates.length}] ${date} — skipped (no grid data)`);
+    if (values.length < MIN_COMPLETE_POINTS) {
+      console.log(
+        `[${i + 1}/${dates.length}] ${date} — skipped (${values.length} pts, below threshold)`,
+      );
       continue;
     }
     const p95 = computeP95(values);
