@@ -9,8 +9,10 @@ import {
   getEffectiveScrubberDays,
 } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
+import { usePm25Timeline } from '@/hooks/usePm25Timeline';
 import { dateLocale } from '@/i18n';
 import { PlayButton } from './PlayButton';
+import { TimelineChart } from './TimelineChart';
 
 const PLAY_INTERVAL_MS = 800;
 const DEBOUNCE_MS = 300;
@@ -43,6 +45,7 @@ export function Scrubber() {
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
   const latestDate = useTimeStore((s) => s.latestDate);
+  const { data: timeline } = usePm25Timeline();
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -102,8 +105,7 @@ export function Scrubber() {
   return (
     <div
       className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
-                 flex flex-col gap-1 py-1.5
-                 md:h-[52px] md:flex-row md:items-center md:gap-3 md:py-0"
+                 flex flex-col gap-1 py-1.5"
     >
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
@@ -114,7 +116,7 @@ export function Scrubber() {
       </div>
 
       {/* Row 2 — slider (+ play button and date on desktop) */}
-      <div className="flex items-center gap-3 md:flex-1">
+      <div className="flex items-center gap-3">
         <div className="hidden md:block">
           <PlayButton playing={playing} onToggle={() => setPlaying(!playing)} />
         </div>
@@ -124,6 +126,15 @@ export function Scrubber() {
         </span>
 
         <div className="flex-1 min-w-0">
+          {/* Timeline chart — desktop only, aligned to the slider width */}
+          <div className="hidden md:block">
+            <TimelineChart
+              timeline={timeline}
+              scrubberDay={scrubberDay}
+              latestDate={latestDate}
+              scrubberDays={scrubberDays}
+            />
+          </div>
           <Slider.Root
             value={scrubberDay}
             onValueChange={handleValueChange}
@@ -131,7 +142,7 @@ export function Scrubber() {
             min={0}
             max={scrubberDays - 1}
             step={1}
-            className="w-full md:mt-4"
+            className="w-full"
           >
             <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
               <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">

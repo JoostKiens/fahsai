@@ -74,7 +74,7 @@ create index if not exists power_plants_location_idx on power_plants using gist(
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
 -- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)
--- Pruned after 130 days. Redis (cams:pm25:{date}, TTL 7d) is the hot cache.
+-- Pruned after 120 days. Redis (cams:pm25:{date}, TTL 7d) is the hot cache.
 create table if not exists cams_grid (
   date  date    not null,
   lat   float8  not null,
@@ -85,7 +85,7 @@ create table if not exists cams_grid (
 create index if not exists cams_grid_date_idx on cams_grid (date);
 
 -- Weather grid (Open-Meteo, snapshot at 07:00 UTC = 14:00 BKK)
--- Pruned after 40 days. Redis (weather:{date}, TTL 7d) is the hot cache.
+-- Pruned after 120 days. Redis (weather:{date}, TTL 7d) is the hot cache.
 create table if not exists weather_readings (
   date                      date   not null,
   lat                       float8 not null,
@@ -105,7 +105,7 @@ create index if not exists weather_readings_lat_lng_date_idx on weather_readings
 -- Populated by weather-ingest after the grid is stored.
 -- The history endpoint queries this directly — no weather_readings lookup at request time.
 -- Station source: distinct station_ids from station_readings for that date.
--- Not pruned independently — rows expire as stations stop reporting.
+-- Pruned after 120 days by the prune job.
 create table if not exists station_weather (
   date                  date NOT NULL,
   station_id            text NOT NULL REFERENCES stations(id),
@@ -118,7 +118,7 @@ create table if not exists station_weather (
 
 -- Fire pressure scores (75 km radius, 14-day rolling window)
 -- Computed by station-readings-ingest (pass 1) for all active stations.
--- Pruned at 100-day retention by the prune job.
+-- Pruned after 120 days by the prune job.
 create table station_fire_pressure (
   station_id   text          not null references stations(id),
   date         date          not null,
@@ -128,6 +128,17 @@ create table station_fire_pressure (
   primary key  (station_id, date)
 );
 create index on station_fire_pressure (date);
+
+-- Daily nationwide CAMS PM2.5 summary, one row per date (028_cams_daily_summary.sql).
+-- Stores the 95th-percentile PM2.5 across that day's cams_grid; powers the time
+-- scrubber's gradient line chart. Computed during cams-ingest (gated on a complete grid)
+-- and backfilled from cams_grid. Pruned after 120 days by the prune job.
+create table cams_daily_summary (
+  date         date              primary key,
+  pm25_p95     double precision  not null,
+  point_count  integer           not null,  -- grid completeness at compute time
+  created_at   timestamptz       not null default now()
+);
 ```
 
 ---
@@ -155,16 +166,15 @@ for future use.
 
 ---
 
-## 100-day retention for station_fire_pressure
+## 120-day retention
 
-The prune job deletes rows older than **100 days** from `station_fire_pressure`.
+The prune job deletes rows older than **120 days** (uniform across all tables it touches:
+`fire_points`, `station_readings`, `cams_grid`, `weather_readings`, `station_weather`,
+`station_fire_pressure`, and `cams_daily_summary`).
 
-## 130-day retention derivation
-
-The prune job deletes rows older than **130 days** from `fire_points`, `station_readings`,
-`cams_grid`, `weather_readings`, and `station_weather`. Derivation:
-31 days (30 scrubber days T-1→T-30, plus today T not yet visible)
-
-- 7 days (Explain fetches 7-day measurement history, so scrubber day 0 reaches back to T-37)
-- 2 days buffer (UTC+7 timezone boundary + prune timing)
-  = **130 days**.
+Basis: the 90-day max scrubber window + a 7-day buffer for the Explain feature's measurement
+history + a timezone/prune-timing buffer would only require ~100 days. Retention is set to **120**
+to add DB-size headroom and history margin. At 120 days the projected burning-season peak is
+~0.42–0.43 GB of Supabase's 0.5 GB free-tier limit; `fire_points` is the only strongly seasonal
+table, while the grids (`weather_readings`, `cams_grid`) scale linearly per day. If size ever
+approaches the limit, those three tables are the largest levers.
