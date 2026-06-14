@@ -24,8 +24,20 @@ not return `country_id`, so per-country coloring is not available.
 ## AQI color scale
 
 US EPA official thresholds. Values are raw **PM2.5 µg/m³**, not AQI index values.
-Colors defined once in `packages/frontend/src/lib/aqiColors.ts`, shared by both
+Colors defined once in `packages/frontend/src/utils/aqiColors.ts`, shared by both
 `BitmapLayer` and `ScatterplotLayer`.
+
+Two color functions serve different purposes — use the right one:
+- `pm25ToRgb(pm25)` — step function; snaps to the category color at each EPA breakpoint.
+  Used by map layers (heatmap, station dots) where exact threshold colors matter.
+- `pm25ToRgbLerped(pm25)` — linearly interpolates between adjacent category colors within
+  each band. Used by `TimelineChart` so the gradient line transitions fluidly rather than
+  jumping at breakpoints.
+
+At exact EPA breakpoints (e.g. 12.0 µg/m³), the two functions differ: `pm25ToRgbLerped`
+returns the **next** category's color (t=1 of the lower band, fully transitioned), while
+`pm25ToRgb` returns the **current** category's color (boundary is inclusive in the step
+function).
 
 | Category | PM2.5 µg/m³ | Hex | RGB |
 |---|---|---|---|

@@ -58,3 +58,11 @@ the frontend or run it manually in rapid succession.
 
 **Schema migrations** — all schema changes use new Supabase migration files. Never modify
 existing migrations.
+
+**Browser cache + TanStack Query double-caching** — Fastify routes must return
+`Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body
+lets the browser serve that empty body from cache after data arrives, bypassing TanStack's
+own cache layer entirely. Equally, `queryFn` fetches should pass `{ cache: 'no-cache' }` so
+the browser never acts as a secondary cache on top of TanStack. Omitting either fix produces
+silent stale-data bugs that only appear in the window between an empty-then-filled data state
+(e.g. post-migration before backfill completes).

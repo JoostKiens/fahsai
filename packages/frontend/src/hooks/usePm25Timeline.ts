@@ -6,8 +6,8 @@ import { staleTimeForArray } from '@/utils/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
-// Daily p90 PM2.5 across the scrubber's date range, used to color the heat-strip.
-// Returns a Map<date, pm25> for O(1) per-segment lookup; the raw array is what
+// Daily p95 PM2.5 across the scrubber's date range, used to draw the gradient line chart.
+// Returns a Map<date, pm25> for O(1) per-day lookup; the raw array is what
 // TanStack caches so staleTimeForArray can treat the historical series as immutable.
 export function usePm25Timeline() {
   const latestDate = useTimeStore((s) => s.latestDate);
