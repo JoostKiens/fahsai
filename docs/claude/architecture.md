@@ -51,7 +51,7 @@ keeps API keys server-side.
   429 backoff: 65 s for minutely, 65 min for hourly, abort with exit code 1 for daily.
 - Schedule: daily (0 2 \* \* \* UTC)
 - Storage:
-  - Supabase `weather_readings` (persistent, 130-day retention) + Redis `weather:{date}` TTL 7d
+  - Supabase `weather_readings` (persistent, 120-day retention) + Redis `weather:{date}` TTL 7d
     and `weather:wind:{date}` TTL 7d. Ingest writes to both. Wind route checks Redis first;
     on miss reads from Supabase. ERA5 reanalysis (CDS API) is used to backfill dates prior to
     the weather-ingest cron start date — all data (Open-Meteo + ERA5) is stored at 0.4°
@@ -74,10 +74,13 @@ keeps API keys server-side.
 - No API key required
 - Schedule: daily (0 23 \* \* \* UTC)
 - Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
-  first; on miss reads from Supabase. Ingest writes to both. Pruned after 130 days.
+  first; on miss reads from Supabase. Ingest writes to both. Pruned after 120 days.
 - License: CC BY 4.0 (same Open-Meteo footer attribution covers both weather and AQ)
 - Data source: CAMS (Copernicus Atmosphere Monitoring Service), ~11 km resolution
 - Script: `pnpm --filter backend run ingest:cams YYYY-MM-DD`
+- Daily summary: cams-ingest also stores the day's 95th-percentile PM2.5 in `cams_daily_summary`
+  (gated on a complete grid). Backfill: `pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD`.
+  Served by `GET /api/cams/summary` (below) to draw the time scrubber's gradient line chart.
 
 ---
 
@@ -129,7 +132,9 @@ weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather gr
                                                   for yesterday; re-ingests if < 4,000 rows.
 
 prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, cams_grid,
-                                                  weather_readings, station_weather rows > 40 days
+                                                  weather_readings, station_weather,
+                                                  station_fire_pressure, cams_daily_summary
+                                                  rows > 120 days
 
 backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for weather_readings.
   backfill:weather                                Single CDS API request for full date range → one
@@ -199,6 +204,11 @@ GET /api/cams?date=YYYY-MM-DD&bbox=...
   Returns CAMS gridded PM2.5 for a specific date (up to 4,599 points).
   Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
 
+GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
+  Returns the daily p95 PM2.5 time series ({ date, pm25 }[]) for the scrubber gradient chart.
+  Redis first (key: cams:summary:{start}:{end}, TTL 1h — newest day mutates each ingest);
+  on miss reads from Supabase cams_daily_summary. Range capped at 130 days.
+
 GET /api/power-plants
   Returns WRI power plants (Coal/Gas/Oil) for THA/MMR/LAO/KHM as GeoJSON FeatureCollection.
   Redis cache key: power_plants:geojson, TTL 24h.
@@ -233,6 +243,7 @@ GET /health
 | `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                       | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                              | `public, max-age=3600`                                         |
 | `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                    | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                        | none set                                                        |
 | `GET /api/explain`                  | —                                                 | —         | Streams from Gemini API                                    | none set                                                        |

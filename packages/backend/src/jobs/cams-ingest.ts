@@ -2,6 +2,7 @@ import pRetry, { AbortError } from 'p-retry';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAirQualityGrid, OpenMeteoHttpError } from '../utils/openmeteo.js';
+import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
 
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
@@ -99,6 +100,12 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     console.log(
       `[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL ${HISTORICAL_TTL_SECONDS})`,
     );
+
+    // Pre-compute the daily p95 that powers the scrubber timeline chart. Gated on a complete
+    // grid so a rate-limited partial ingest never produces a misleading percentile.
+    const p95 = computeP95(points.map((p) => p.pm25));
+    await upsertCamsDailySummary(targetDate, p95, points.length);
+    console.log(`[cams-ingest] Stored p95 ${p95.toFixed(1)} µg/m³ in cams_daily_summary`);
   } else {
     console.warn(
       `[cams-ingest] Only ${points.length} points — below threshold (${MIN_COMPLETE_POINTS}), skipping Redis write`,

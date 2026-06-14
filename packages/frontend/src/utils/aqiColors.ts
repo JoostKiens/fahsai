@@ -64,11 +64,37 @@ export const AQI_CATEGORIES: AqiCategory[] = [
 // Upper PM2.5 breakpoints matching AQI_CATEGORIES order.
 const PM25_BREAKPOINTS = [12.0, 35.4, 55.4, 150.4, 250.4, Infinity];
 
+// Lower breakpoints (entry point of each band) — used for lerp interpolation.
+const PM25_LERP_BREAKPOINTS = [0, 12.0, 35.4, 55.4, 150.4, 250.4];
+
 export function pm25ToRgb(pm25: number): RGB {
   for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
     if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_CATEGORIES[i].rgb;
   }
   return AQI_CATEGORIES[AQI_CATEGORIES.length - 1].rgb;
+}
+
+// Smooth RGB interpolation between adjacent AQI category colors. Unlike pm25ToRgb
+// (step function), this lerps within each band so gradients transition fluidly.
+export function pm25ToRgbLerped(pm25: number): RGB {
+  const colors = AQI_CATEGORIES.map((c) => c.rgb);
+  if (pm25 <= 0) return colors[0];
+  if (pm25 >= 250.4) return colors[colors.length - 1];
+  for (let i = 0; i < PM25_LERP_BREAKPOINTS.length - 1; i++) {
+    if (pm25 <= PM25_LERP_BREAKPOINTS[i + 1]) {
+      const t =
+        (pm25 - PM25_LERP_BREAKPOINTS[i]) /
+        (PM25_LERP_BREAKPOINTS[i + 1] - PM25_LERP_BREAKPOINTS[i]);
+      const [r1, g1, b1] = colors[i];
+      const [r2, g2, b2] = colors[i + 1];
+      return [
+        Math.round(r1 + t * (r2 - r1)),
+        Math.round(g1 + t * (g2 - g1)),
+        Math.round(b1 + t * (b2 - b1)),
+      ];
+    }
+  }
+  return colors[colors.length - 1];
 }
 
 export function pm25ToBorderRgb(pm25: number): RGB {
