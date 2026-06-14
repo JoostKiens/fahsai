@@ -45,6 +45,7 @@ export function Scrubber() {
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
   const latestDate = useTimeStore((s) => s.latestDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   const { data: timeline } = usePm25Timeline();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -104,8 +105,8 @@ export function Scrubber() {
 
   return (
     <div
-      className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
-                 flex flex-col gap-1 py-1.5"
+      className={`bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
+                 flex flex-col gap-1 py-1.5${latestDateResolved ? '' : ' invisible'}`}
     >
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
@@ -121,7 +122,7 @@ export function Scrubber() {
           <PlayButton playing={playing} onToggle={() => setPlaying(!playing)} />
         </div>
 
-        <span className="hidden md:block text-[13px] font-medium text-zinc-200 tabular-nums w-[100px] shrink-0">
+        <span className="hidden md:block text-[13px] font-medium text-zinc-200 tabular-nums w-25 shrink-0">
           {formatDate(dateStr, locale)}
         </span>
 
@@ -148,7 +149,7 @@ export function Scrubber() {
               <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                 <Slider.Thumb
                   ref={thumbRef}
-                  className="size-4 rounded-full bg-teal-600 ring-2 ring-zinc-900 shadow-sm outline-none cursor-grab data-dragging:cursor-grabbing pointer-coarse:size-[44px] pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,#18181b_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
+                  className="size-4 rounded-full bg-teal-600 ring-2 ring-zinc-900 shadow-sm outline-none cursor-grab data-dragging:cursor-grabbing pointer-coarse:size-11 pointer-coarse:[background:radial-gradient(circle_at_center,#0d9488_0_8px,#18181b_8px_10px,transparent_10px)] pointer-coarse:[box-shadow:none]"
                   getAriaLabel={() => t('scrubber.selectDate')}
                   getAriaValueText={(_, value) =>
                     formatDate(dayToDate(value, latestDate, scrubberDays), locale)

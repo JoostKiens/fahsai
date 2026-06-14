@@ -31,7 +31,7 @@ function AppContent() {
         <ErrorBoundary
           name="Sidebar"
           fallback={
-            <aside className="hidden md:flex shrink-0 z-20 w-[260px] bg-zinc-900 border-r border-zinc-800 items-center justify-center">
+            <aside className="hidden md:flex shrink-0 z-20 w-65 bg-zinc-900 border-r border-zinc-800 items-center justify-center">
               <span className="text-zinc-500 text-[11px] text-center px-4">
                 Controls unavailable
               </span>
@@ -57,7 +57,7 @@ function AppContent() {
       <ErrorBoundary
         name="Scrubber"
         fallback={
-          <div className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4 md:h-[52px] flex items-center justify-center">
+          <div className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4 md:h-13 flex items-center justify-center">
             <span className="text-zinc-500 text-[11px]">Timeline unavailable</span>
           </div>
         }
