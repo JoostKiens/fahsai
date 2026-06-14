@@ -72,10 +72,14 @@ function initialScrubberDayFromUrl(): number {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return scrubberDays - 1;
   const urlMs = new Date(raw + 'T00:00:00Z').getTime();
   if (!isFinite(urlMs)) return scrubberDays - 1;
-  // Use yesterday ICT (= timeStore's initial latestDate) so dayToDate(day, yesterdayICT)
-  // produces exactly the URL date at first render — no off-by-one before the provider corrects.
-  const yesterdayIctMs = Date.now() + ICT_OFFSET_MS - 86_400_000;
-  const daysAgo = Math.round((yesterdayIctMs - urlMs) / 86_400_000);
+  // Use midnight UTC of yesterdayICT so the diff against urlMs (also midnight UTC) is always an
+  // exact multiple of 86 400 000. Using the raw timestamp (Date.now() - 17h) produces a
+  // fractional quotient that Math.round gets wrong for any current UTC time past noon.
+  const yesterdayIctDate = new Date(Date.now() + ICT_OFFSET_MS - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const anchorMs = new Date(yesterdayIctDate + 'T00:00:00Z').getTime();
+  const daysAgo = (anchorMs - urlMs) / 86_400_000;
   return Math.max(0, Math.min(scrubberDays - 1, scrubberDays - 1 - daysAgo));
 }
 
