@@ -29,6 +29,7 @@ export function InfoPanel() {
 
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
+  const pendingSelection = useUIStore((s) => s.pendingSelection);
   const { data: aqGrid } = useCamsGrid();
   const { data: aqData } = useStationReadings();
   const { data: wind } = useWind();
@@ -118,19 +119,23 @@ export function InfoPanel() {
         aria-label={t('infoPanel.ariaLabel')}
         className={`hidden md:block ${PANEL_BASE}`}
       >
-        <motion.div
-          key="empty"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={TWEEN_ENTER}
-          className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
-        >
-          <CursorClickIcon />
-          <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
-            {t('infoPanel.clickPrompt')}
-          </span>
-        </motion.div>
+        {pendingSelection ? (
+          <PanelSkeleton />
+        ) : (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={TWEEN_ENTER}
+            className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
+          >
+            <CursorClickIcon />
+            <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
+              {t('infoPanel.clickPrompt')}
+            </span>
+          </motion.div>
+        )}
       </div>
     );
   }
@@ -547,6 +552,19 @@ function Row({
     >
       {children}
     </motion.div>
+  );
+}
+
+function PanelSkeleton() {
+  return (
+    <div className="p-3 flex flex-col gap-2">
+      <Shimmer className="h-3 w-16" />
+      <Shimmer className="h-4 w-36" />
+      <Shimmer className="h-3 w-24 mt-0.5" />
+      <hr className="border-zinc-800 my-1" />
+      <Shimmer className="h-4 w-full" />
+      <Shimmer className="h-4 w-full" />
+    </div>
   );
 }
 
