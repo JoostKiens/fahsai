@@ -1,4 +1,4 @@
-import type { ScientificContext, TierSource, ExplainCase } from './buildScientificContext.js';
+import type { ScientificContext, TierSource } from './buildScientificContext.js';
 import { pm25Cat, firePressureLabel } from './buildScientificContext.js';
 import { golden as goldenFireTransport } from '../scripts/eval/golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
 import { golden as goldenOutlierLow } from '../scripts/eval/golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
@@ -418,7 +418,11 @@ it out.
 - Peer confirmation as the final sentence if available
 </instructions>`;
 
-const OUTLIER_HIGH_SECTION = `<instructions>
+function buildOutlierHighSection(ctx: ScientificContext): string {
+  const tier = ctx.outlier?.type === 'HIGH' ? ctx.outlier.peerTier : 1;
+
+  if (tier === 1) {
+    return `<instructions>
 CASE: OUTLIER_HIGH
 Lead with the anomaly. Every sentence should make the case that this reading
 does not reflect conditions in the wider area.
@@ -433,6 +437,50 @@ does not reflect conditions in the wider area.
   note this as evidence of persistent local interference, not a one-off spike
 - Do not mention fires, trajectory, or CAMS — they are not relevant
 </instructions>`;
+  }
+
+  if (tier === 2) {
+    return `<instructions>
+CASE: OUTLIER_HIGH (elevated regional background)
+The region is already experiencing elevated pollution. This station reads
+anomalously high even by those elevated standards.
+
+- Open with the regional picture first: cite the peer distribution or range
+  and name the AQI categories (e.g. "nearby stations read between 60 and
+  140 µg/m³, all Unhealthy or Unhealthy for sensitive groups")
+- Then note the anomaly: this station reads X times above those already
+  elevated levels, which suggests a sensor fault or a very localised source
+  directly at the station on top of the regional pollution
+- List candidate explanations: sensor fault, calibration drift, generator,
+  nearby burn, vehicle exhaust, data reporting error
+- If elevated for multiple days: note persistent local interference
+- Do not suppress the regional context — the background pollution is real
+  and users should know about it
+</instructions>`;
+  }
+
+  return `<instructions>
+CASE: OUTLIER_HIGH (severe regional background)
+The region is in a severe pollution event. This station reads far above even
+those already hazardous levels — but under these conditions, both a genuine
+reading and a sensor fault are physically plausible.
+
+- Open with the regional crisis: cite the peer distribution (how many
+  Hazardous, Very unhealthy) and the peer range
+- Then note the anomaly: this station reads X times above its already
+  severely affected neighbours — far above what regional smoke alone would
+  explain
+- Do NOT assert sensor fault as the likely cause. Instead offer both
+  possibilities with equal weight: "This could reflect intense local fire
+  activity very close to the equipment, or a sensor reading high under
+  extreme conditions — both are possible"
+- List candidate explanations without ranking them: intense local fire
+  activity, a sensor fault or calibration drift under extreme smoke
+  conditions, a very localised source at the station
+- If elevated for multiple days: note this, but frame as consistent with
+  either a persistent local fire or persistent sensor interference
+</instructions>`;
+}
 
 const OUTLIER_LOW_SECTION = `<instructions>
 CASE: OUTLIER_LOW
@@ -525,7 +573,7 @@ function buildCaseSection(ctx: ScientificContext): string {
     case 'PLAUSIBLE_CLEAN':
       return buildCleanSection(ctx);
     case 'OUTLIER_HIGH':
-      return OUTLIER_HIGH_SECTION;
+      return buildOutlierHighSection(ctx);
     case 'OUTLIER_LOW':
       return OUTLIER_LOW_SECTION;
     case 'PLAUSIBLE_REGIONAL_BACKGROUND':
@@ -535,8 +583,8 @@ function buildCaseSection(ctx: ScientificContext): string {
   }
 }
 
-function buildExampleBlock(explainCase: ExplainCase): string {
-  switch (explainCase) {
+function buildExampleBlock(ctx: ScientificContext): string {
+  switch (ctx.explainCase) {
     case 'PLAUSIBLE_FIRE_TRANSPORT':
       return EXAMPLE_FIRE_TRANSPORT;
     case 'PLAUSIBLE_CLEAN':
@@ -544,7 +592,7 @@ function buildExampleBlock(explainCase: ExplainCase): string {
     case 'OUTLIER_LOW':
       return EXAMPLE_OUTLIER_LOW;
     case 'OUTLIER_HIGH':
-      return EXAMPLE_OUTLIER_HIGH;
+      return ctx.outlier?.type === 'HIGH' && ctx.outlier.peerTier === 1 ? EXAMPLE_OUTLIER_HIGH : '';
     case 'PLAUSIBLE_URBAN_INDUSTRIAL':
       return EXAMPLE_URBAN_INDUSTRIAL;
     case 'PLAUSIBLE_REGIONAL_BACKGROUND':
@@ -560,7 +608,7 @@ function buildExampleBlock(explainCase: ExplainCase): string {
 
 function buildInstructionsBlock(ctx: ScientificContext): string {
   const caseSection = buildCaseSection(ctx);
-  const example = buildExampleBlock(ctx.explainCase);
+  const example = buildExampleBlock(ctx);
   return [ROLE_AND_GOAL, UNIVERSAL_RULES, caseSection, example].filter(Boolean).join('\n\n');
 }
 

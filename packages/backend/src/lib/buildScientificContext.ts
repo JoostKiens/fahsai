@@ -130,10 +130,10 @@ export interface ScientificContext {
     stations: { name: string; value: number; distanceKm: number }[];
   } | null;
 
-  outlier: {
-    type: 'HIGH' | 'LOW';
-    ratio: number;
-  } | null;
+  outlier:
+    | { type: 'HIGH'; ratio: number; peerTier: 1 | 2 | 3 }
+    | { type: 'LOW'; ratio: number }
+    | null;
 
   seasonContext: string;
 }
@@ -362,12 +362,13 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     trend = { ...trend, isSignificant: false };
   }
 
+  const peerWeightedMean = raw.peers?.weightedMean ?? 0;
+  const peerTier: 1 | 2 | 3 = peerWeightedMean < 55 ? 1 : peerWeightedMean < 150 ? 2 : 3;
   const outlier =
     raw.outlier !== null
-      ? {
-          type: raw.outlier.direction === 'high' ? ('HIGH' as const) : ('LOW' as const),
-          ratio: raw.outlier.ratio,
-        }
+      ? raw.outlier.direction === 'high'
+        ? { type: 'HIGH' as const, ratio: raw.outlier.ratio, peerTier }
+        : { type: 'LOW' as const, ratio: raw.outlier.ratio }
       : null;
 
   return {
