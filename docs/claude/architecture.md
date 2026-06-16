@@ -87,7 +87,10 @@ keeps API keys server-side.
 ## Scheduled ingestion jobs (Railway cron)
 
 Each job is a standalone script in `packages/backend/src/jobs/`, invoked directly by Railway
-cron. Schedules are configured in Railway's cron service UI. All times are UTC.
+cron. Schedules and start commands live in config-as-code at `packages/backend/railway/*.json`,
+one file per Railway service; each service points at its file via the Config-as-code path in its
+Railway Settings tab. Env vars stay in the Railway dashboard (config-as-code never holds secrets).
+All times are UTC.
 
 ```
 firms-ingest          — daily     (0 10 * * *)   fetches VIIRS data for TODAY; last pass lands
