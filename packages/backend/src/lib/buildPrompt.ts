@@ -602,14 +602,16 @@ function buildFireTransportSection(ctx: ScientificContext): string {
   );
 }
 
-function buildCleanSection(ctx: ScientificContext): string {
-  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return CLEAN_WASHOUT_SECTION;
+type CleanSubCase = 'washout' | 'coastal' | 'fireSeasonGood' | 'marine';
+
+function cleanSubCase(ctx: ScientificContext): CleanSubCase {
+  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return 'washout';
   if (
     ctx.transport !== null &&
     ctx.transport.trajectory.originIsWater &&
     ctx.transport.fire.pathScore >= 40
   )
-    return CLEAN_COASTAL_FIRE_SEASON_SECTION;
+    return 'coastal';
   if (
     ctx.currentPm25 <= 12 &&
     ctx.transport !== null &&
@@ -617,8 +619,21 @@ function buildCleanSection(ctx: ScientificContext): string {
     !ctx.transport.trajectory.originIsWater &&
     ctx.weatherContext.trajectoryPrecipitationMm > 0
   )
-    return CLEAN_FIRE_SEASON_GOOD_SECTION;
-  return CLEAN_MARINE_SECTION;
+    return 'fireSeasonGood';
+  return 'marine';
+}
+
+function buildCleanSection(ctx: ScientificContext): string {
+  switch (cleanSubCase(ctx)) {
+    case 'washout':
+      return CLEAN_WASHOUT_SECTION;
+    case 'coastal':
+      return CLEAN_COASTAL_FIRE_SEASON_SECTION;
+    case 'fireSeasonGood':
+      return CLEAN_FIRE_SEASON_GOOD_SECTION;
+    case 'marine':
+      return CLEAN_MARINE_SECTION;
+  }
 }
 
 function buildCaseSection(ctx: ScientificContext): string {
@@ -645,22 +660,16 @@ function buildExampleBlock(ctx: ScientificContext): string {
     case 'PLAUSIBLE_FIRE_TRANSPORT':
       return EXAMPLE_FIRE_TRANSPORT;
     case 'PLAUSIBLE_CLEAN':
-      if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return EXAMPLE_CLEAN_WASHOUT;
-      if (
-        ctx.transport !== null &&
-        ctx.transport.trajectory.originIsWater &&
-        ctx.transport.fire.pathScore >= 40
-      )
-        return EXAMPLE_CLEAN_COASTAL;
-      if (
-        ctx.currentPm25 <= 12 &&
-        ctx.transport !== null &&
-        ctx.transport.fire.pathScore >= 40 &&
-        !ctx.transport.trajectory.originIsWater &&
-        ctx.weatherContext.trajectoryPrecipitationMm > 0
-      )
-        return EXAMPLE_CLEAN_FIRE_SEASON_GOOD;
-      return EXAMPLE_CLEAN_MARINE;
+      switch (cleanSubCase(ctx)) {
+        case 'washout':
+          return EXAMPLE_CLEAN_WASHOUT;
+        case 'coastal':
+          return EXAMPLE_CLEAN_COASTAL;
+        case 'fireSeasonGood':
+          return EXAMPLE_CLEAN_FIRE_SEASON_GOOD;
+        case 'marine':
+          return EXAMPLE_CLEAN_MARINE;
+      }
     case 'OUTLIER_LOW':
       return EXAMPLE_OUTLIER_LOW;
     case 'OUTLIER_HIGH':
