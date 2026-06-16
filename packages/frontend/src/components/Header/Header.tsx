@@ -41,7 +41,7 @@ function Logo({ size }: { size: number }) {
 }
 
 const ICON_BTN_CLS =
-  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]';
+  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-175';
 
 function IconBtn({
   ariaLabel,
@@ -98,7 +98,7 @@ function AppDialog({
             <Dialog.Title className="text-[14px] font-semibold text-zinc-100">{title}</Dialog.Title>
             <Dialog.Close
               aria-label={t('header.close')}
-              className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]"
+              className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors ease-out hover:duration-175"
             >
               <XIcon />
             </Dialog.Close>
@@ -194,7 +194,7 @@ export function Header() {
                   setScrubberDays(opt);
                   setScrubberDay(opt - 1);
                 }}
-                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-[175ms] ${
+                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-175 ${
                   scrubberDays === opt
                     ? 'bg-teal-700 text-white'
                     : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'

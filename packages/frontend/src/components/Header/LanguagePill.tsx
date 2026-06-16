@@ -46,7 +46,7 @@ export function LanguagePill() {
     <Select.Root value={currentCode} onValueChange={(v) => select(v as Language)}>
       <Select.Trigger
         aria-label={t('header.selectLanguage')}
-        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[12px] font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]"
+        className="h-8 px-2 inline-flex items-center gap-1 rounded text-[12px] font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-175"
       >
         {current.pill}
         <Select.Icon>
@@ -61,7 +61,7 @@ export function LanguagePill() {
                 <Select.Item
                   key={lang.code}
                   value={lang.code}
-                  className="w-full text-left px-3 py-2 text-[12px] cursor-default transition-colors ease-out hover:duration-[175ms] data-highlighted:bg-zinc-800 data-selected:text-teal-400 data-selected:font-medium text-zinc-200"
+                  className="w-full text-left px-3 py-2 text-[12px] cursor-default transition-colors ease-out hover:duration-175 data-highlighted:bg-zinc-800 data-selected:text-teal-400 data-selected:font-medium text-zinc-200"
                 >
                   <Select.ItemText>{lang.native}</Select.ItemText>
                 </Select.Item>

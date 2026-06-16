@@ -41,7 +41,7 @@ function Swatch({ color, shape }: { color: string; shape: LayerMeta['shape'] }) 
       </span>
     );
   }
-  const base = 'w-2 h-2 flex-shrink-0';
+  const base = 'w-2 h-2 shrink-0';
   return (
     <span
       className={`${base} ${shape === 'circle' ? 'rounded-full' : 'rounded-sm'}`}

@@ -4,7 +4,7 @@ import { useUIStore } from '@/store/uiStore';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 
 const TRIGGER_CLS =
-  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-[175ms]';
+  'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-175';
 
 const ITEM_CLS =
   'w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-zinc-200 cursor-default data-highlighted:bg-zinc-800 text-left';

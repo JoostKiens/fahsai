@@ -16,7 +16,7 @@
     "@base-ui-components/react": "1.0.0-rc.0",
     "@deck.gl/extensions": "^9.2.11",
     "@deck.gl/mapbox": "^9.2.11",
-    "@tailwindcss/vite": "^4.2.2",
+    "@tailwindcss/vite": "^4.3.1",
     "@tanstack/react-query": "^5.56.0",
     "@thailand-aq/consts": "workspace:*",
     "@thailand-aq/types": "workspace:*",
@@ -30,7 +30,7 @@
     "rollbar": "^3.1.0",
     "sonner": "^2.0.7",
     "supercluster": "^8.0.1",
-    "tailwindcss": "^4.2.2",
+    "tailwindcss": "^4.3.1",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
