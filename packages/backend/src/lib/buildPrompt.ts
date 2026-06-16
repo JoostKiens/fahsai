@@ -7,6 +7,7 @@ import { golden as goldenUrbanIndustrial } from '../scripts/eval/golden/05-plaus
 import { golden as goldenCleanWashout } from '../scripts/eval/golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
 import { golden as goldenCleanMarine } from '../scripts/eval/golden/09-plausible-clean-narathiwat-marine-11-03-2026.js';
 import { golden as goldenCleanCoastal } from '../scripts/eval/golden/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
+import { golden as goldenCleanFireSeasonGood } from '../scripts/eval/golden/13-plausible-clean-khong-champasack-30-04-2026.js';
 import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
 const SLOW_WIND_THRESHOLD_KMH = 10;
@@ -423,6 +424,22 @@ it out.
 - Close with peer range if available; note spread if wide
 </instructions>`;
 
+const CLEAN_FIRE_SEASON_GOOD_SECTION = `<instructions>
+CASE: PLAUSIBLE_CLEAN (Good reading during active fire season)
+This station reads Good despite significant fire activity in the region.
+Do not lead with fires.
+
+- Lead with rainfall as the cause: rain along the route stripped smoke from
+  the air mass before it arrived — cite the trajectory precipitation total in
+  mm and its effect
+- Frame fires as regional context only: "fires have been detected across
+  [region] over recent weeks" — they explain why nearby stations read higher,
+  not why this one is clean
+- Close with peer comparison to anchor the contrast (this station reads
+  cleaner than its neighbours)
+- Keep to one or two paragraphs
+</instructions>`;
+
 const CLEAN_MARINE_SECTION = `<instructions>
 CASE: PLAUSIBLE_CLEAN
 Lead with the cause of the clean reading — what kept the air clean or washed
@@ -567,6 +584,7 @@ const EXAMPLE_FIRE_TRANSPORT = `<example>\n${goldenFireTransport}\n</example>`;
 const EXAMPLE_CLEAN_WASHOUT = `<example>\n${goldenCleanWashout}\n</example>`;
 const EXAMPLE_CLEAN_MARINE = `<example>\n${goldenCleanMarine}\n</example>`;
 const EXAMPLE_CLEAN_COASTAL = `<example>\n${goldenCleanCoastal}\n</example>`;
+const EXAMPLE_CLEAN_FIRE_SEASON_GOOD = `<example>\n${goldenCleanFireSeasonGood}\n</example>`;
 const EXAMPLE_OUTLIER_LOW = `<example>\n${goldenOutlierLow}\n</example>`;
 const EXAMPLE_OUTLIER_HIGH = `<example>\n${goldenOutlierHigh}\n</example>`;
 const EXAMPLE_URBAN_INDUSTRIAL = `<example>\n${goldenUrbanIndustrial}\n</example>`;
@@ -592,6 +610,13 @@ function buildCleanSection(ctx: ScientificContext): string {
     ctx.transport.fire.pathScore >= 40
   )
     return CLEAN_COASTAL_FIRE_SEASON_SECTION;
+  if (
+    ctx.currentPm25 <= 12 &&
+    ctx.transport !== null &&
+    ctx.transport.fire.pathScore >= 40 &&
+    !ctx.transport.trajectory.originIsWater
+  )
+    return CLEAN_FIRE_SEASON_GOOD_SECTION;
   return CLEAN_MARINE_SECTION;
 }
 
@@ -626,6 +651,13 @@ function buildExampleBlock(ctx: ScientificContext): string {
         ctx.transport.fire.pathScore >= 40
       )
         return EXAMPLE_CLEAN_COASTAL;
+      if (
+        ctx.currentPm25 <= 12 &&
+        ctx.transport !== null &&
+        ctx.transport.fire.pathScore >= 40 &&
+        !ctx.transport.trajectory.originIsWater
+      )
+        return EXAMPLE_CLEAN_FIRE_SEASON_GOOD;
       return EXAMPLE_CLEAN_MARINE;
     case 'OUTLIER_LOW':
       return EXAMPLE_OUTLIER_LOW;

@@ -13,6 +13,7 @@ import { golden as g09 } from './golden/09-plausible-clean-narathiwat-marine-11-
 import { golden as g10 } from './golden/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
 import { golden as g11 } from './golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 import { golden as g12 } from './golden/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
+import { golden as g13 } from './golden/13-plausible-clean-khong-champasack-30-04-2026.js';
 
 const GOLDENS: Record<string, string> = {
   '01-plausible-clean-phetbura-garden-31-05-2026': g01,
@@ -27,6 +28,7 @@ const GOLDENS: Record<string, string> = {
   '10-plausible-fire-transport-ratchapracha-31-03-2026': g10,
   '11-plausible-regional-background-chanthaburi-06-04-2026': g11,
   '12-plausible-clean-coastal-nakhon-nayok-06-04-2026': g12,
+  '13-plausible-clean-khong-champasack-30-04-2026': g13,
 };
 
 // Static imports — add new fixtures here as they are created
@@ -42,8 +44,9 @@ import { fixture as f09 } from './fixtures/09-plausible-clean-narathiwat-marine-
 import { fixture as f10 } from './fixtures/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
 import { fixture as f11 } from './fixtures/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 import { fixture as f12 } from './fixtures/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
+import { fixture as f13 } from './fixtures/13-plausible-clean-khong-champasack-30-04-2026.js';
 
-const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10, f11, f12];
+const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10, f11, f12, f13];
 
 // ----------------------------------------------------------------
 // CLI flags
