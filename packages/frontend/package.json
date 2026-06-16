@@ -20,6 +20,7 @@
     "@tanstack/react-query": "^5.56.0",
     "@thailand-aq/consts": "workspace:*",
     "@thailand-aq/types": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
     "deck.gl": "^9.0.0",
     "i18next": "^26.2.0",
     "mapbox-gl": "^3.6.0",
