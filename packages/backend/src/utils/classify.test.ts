@@ -11,6 +11,7 @@ const base = {
   trajectoryPrecipTotal: 5,
   relevantSources: [] as { isUpwind: boolean; distKm: number }[],
   peerWeightedMean: null as number | null,
+  originIsWater: false,
 };
 
 describe('classifyCase', () => {
@@ -54,6 +55,38 @@ describe('classifyCase', () => {
     expect(classifyCase({ ...base, firePressureNorm: 50, areaScore: 10, camsMaxPm25: 5 })).not.toBe(
       'PLAUSIBLE_FIRE_TRANSPORT',
     );
+  });
+
+  it('returns PLAUSIBLE_CLEAN for coastal water origin with Moderate reading despite Very high fire pressure (Nakhon Nayok: 28.6, pathScore 78)', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 28.6,
+        firePressureNorm: 78,
+        areaScore: 82,
+        camsMaxPm25: 26,
+        originIsWater: true,
+      }),
+    ).toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('does not apply coastal override when reading exceeds Moderate ceiling (35.4)', () => {
+    expect(
+      classifyCase({ ...base, latestPm25: 36, firePressureNorm: 78, originIsWater: true }),
+    ).not.toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('does not apply coastal override when origin is not water', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 28.6,
+        firePressureNorm: 78,
+        areaScore: 82,
+        camsMaxPm25: 26,
+        originIsWater: false,
+      }),
+    ).toBe('PLAUSIBLE_FIRE_TRANSPORT');
   });
 
   it('returns PLAUSIBLE_CLEAN when pm25 <= 12 (Le Thai: 8.6, Narathiwat: 11.6)', () => {

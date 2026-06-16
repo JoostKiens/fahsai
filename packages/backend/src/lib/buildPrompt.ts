@@ -4,7 +4,9 @@ import { golden as goldenFireTransport } from '../scripts/eval/golden/02-plausib
 import { golden as goldenOutlierLow } from '../scripts/eval/golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
 import { golden as goldenOutlierHigh } from '../scripts/eval/golden/04-outlier-high-kasetsart-university-03-05-2026.js';
 import { golden as goldenUrbanIndustrial } from '../scripts/eval/golden/05-plausible-urban-industrial-chaloem-19-04-2026.js';
-import { golden as goldenClean } from '../scripts/eval/golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
+import { golden as goldenCleanWashout } from '../scripts/eval/golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
+import { golden as goldenCleanMarine } from '../scripts/eval/golden/09-plausible-clean-narathiwat-marine-11-03-2026.js';
+import { golden as goldenCleanCoastal } from '../scripts/eval/golden/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
 import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
 const SLOW_WIND_THRESHOLD_KMH = 10;
@@ -384,6 +386,28 @@ Lead with the air origin character and the upwind sources.
   or whether conditions here are genuinely more affected")
 </instructions>`;
 
+const CLEAN_COASTAL_FIRE_SEASON_SECTION = `<instructions>
+CASE: PLAUSIBLE_CLEAN (coastal — moderate reading during fire season)
+This station reads relatively clean because it sits close to the coast,
+where arriving marine air has not yet accumulated the smoke building up
+further inland.
+
+- Lead with the geographic contrast: burning season is producing conditions
+  further inland, but conditions here remain moderate because the station
+  is close enough to the coast that the arriving air is still relatively fresh
+- Name the body of water the air arrived from (from origin region label)
+- Do not lead with fires — they are regional context, not the cause of
+  this reading
+- If fires are present regionally, mention them briefly as the reason
+  inland stations are more affected: "fires across [region] are driving
+  higher readings further inland"
+- Peer comparison: cite the range and confirm this station is on the cleaner
+  end of what the region is experiencing
+- Do not mention upwind urban sources as a cause — they add background
+  but do not explain why this station is clean
+- Keep to one paragraph
+</instructions>`;
+
 const CLEAN_WASHOUT_SECTION = `<instructions>
 CASE: PLAUSIBLE_CLEAN
 Lead with the cause of the clean reading — what kept the air clean or washed
@@ -540,7 +564,9 @@ Lead with what the reading is and be honest that no single cause dominates.
 </instructions>`;
 
 const EXAMPLE_FIRE_TRANSPORT = `<example>\n${goldenFireTransport}\n</example>`;
-const EXAMPLE_CLEAN = `<example>\n${goldenClean}\n</example>`;
+const EXAMPLE_CLEAN_WASHOUT = `<example>\n${goldenCleanWashout}\n</example>`;
+const EXAMPLE_CLEAN_MARINE = `<example>\n${goldenCleanMarine}\n</example>`;
+const EXAMPLE_CLEAN_COASTAL = `<example>\n${goldenCleanCoastal}\n</example>`;
 const EXAMPLE_OUTLIER_LOW = `<example>\n${goldenOutlierLow}\n</example>`;
 const EXAMPLE_OUTLIER_HIGH = `<example>\n${goldenOutlierHigh}\n</example>`;
 const EXAMPLE_URBAN_INDUSTRIAL = `<example>\n${goldenUrbanIndustrial}\n</example>`;
@@ -559,9 +585,14 @@ function buildFireTransportSection(ctx: ScientificContext): string {
 }
 
 function buildCleanSection(ctx: ScientificContext): string {
-  return ctx.weatherContext.trajectoryPrecipitationMm > 40
-    ? CLEAN_WASHOUT_SECTION
-    : CLEAN_MARINE_SECTION;
+  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return CLEAN_WASHOUT_SECTION;
+  if (
+    ctx.transport !== null &&
+    ctx.transport.trajectory.originIsWater &&
+    ctx.transport.fire.pathScore >= 40
+  )
+    return CLEAN_COASTAL_FIRE_SEASON_SECTION;
+  return CLEAN_MARINE_SECTION;
 }
 
 function buildCaseSection(ctx: ScientificContext): string {
@@ -588,7 +619,14 @@ function buildExampleBlock(ctx: ScientificContext): string {
     case 'PLAUSIBLE_FIRE_TRANSPORT':
       return EXAMPLE_FIRE_TRANSPORT;
     case 'PLAUSIBLE_CLEAN':
-      return EXAMPLE_CLEAN;
+      if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return EXAMPLE_CLEAN_WASHOUT;
+      if (
+        ctx.transport !== null &&
+        ctx.transport.trajectory.originIsWater &&
+        ctx.transport.fire.pathScore >= 40
+      )
+        return EXAMPLE_CLEAN_COASTAL;
+      return EXAMPLE_CLEAN_MARINE;
     case 'OUTLIER_LOW':
       return EXAMPLE_OUTLIER_LOW;
     case 'OUTLIER_HIGH':

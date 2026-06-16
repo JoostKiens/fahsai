@@ -22,7 +22,7 @@ import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 1;
+const EXPLAIN_CACHE_VERSION = 2;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';

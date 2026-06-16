@@ -10,6 +10,7 @@ export interface ClassifyParams {
   trajectoryPrecipTotal: number;
   relevantSources: { isUpwind: boolean; distKm: number }[];
   peerWeightedMean: number | null;
+  originIsWater: boolean;
 }
 
 // Case classifier — must stay identical between the route and the eval.
@@ -29,6 +30,14 @@ export interface ClassifyParams {
 export function classifyCase(params: ClassifyParams): ExplainCase {
   if (params.isStrongOutlier && params.isHighOutlier) return 'OUTLIER_HIGH';
   if (params.isStrongOutlier && !params.isHighOutlier) return 'OUTLIER_LOW';
+
+  // Coastal/marine clean override: when the reading is Moderate or below and
+  // the air originated over water, the station benefits from a short maritime
+  // path regardless of fire pressure. The fires are inland; this station
+  // receives relatively fresh marine air.
+  if (!params.isStrongOutlier && params.latestPm25 <= 35.4 && params.originIsWater) {
+    return 'PLAUSIBLE_CLEAN';
+  }
 
   const fireTransportByPath = params.firePressureNorm >= 40;
   const fireTransportByArea = params.areaScore >= 40;

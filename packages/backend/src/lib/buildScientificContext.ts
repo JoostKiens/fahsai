@@ -83,6 +83,7 @@ export interface ScientificContext {
       corridorWidthKm: number;
       meanWindSpeedKmh: number;
       waypoints: { lat: number; lng: number; region: string }[];
+      originIsWater: boolean;
     };
     cams: {
       samples: { lat: number; lng: number; date: string; pm25: number; category: string }[];
@@ -137,6 +138,20 @@ export interface ScientificContext {
 
   seasonContext: string;
 }
+
+const WATER_REGION_KEYWORDS = [
+  'gulf',
+  'sea',
+  'ocean',
+  'strait',
+  'bay',
+  'andaman',
+  'malacca',
+  'indian',
+  'pacific',
+  'south china',
+  'bengal',
+];
 
 // ----------------------------------------------------------------
 // Internal helpers
@@ -236,6 +251,9 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     ? Math.max(...raw.trajectory.camsAlongPath.map((c) => c.pm25))
     : null;
 
+  const originRegion = raw.trajectory?.origin.region?.toLowerCase() ?? '';
+  const originIsWater = WATER_REGION_KEYWORDS.some((kw) => originRegion.includes(kw));
+
   const explainCase = classifyCase({
     isStrongOutlier,
     isHighOutlier,
@@ -249,6 +267,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
       distKm: s.distanceKm,
     })),
     peerWeightedMean: raw.peers?.weightedMean ?? null,
+    originIsWater,
   } satisfies ClassifyParams);
   const { tier1, tier2 } = computeSourceTiers(
     raw.upwindSources,
@@ -315,6 +334,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         corridorWidthKm: traj.corridorWidthKm,
         meanWindSpeedKmh: traj.meanWindSpeedKmh,
         waypoints: traj.waypoints,
+        originIsWater,
       },
       cams: {
         samples: traj.camsAlongPath.map((c) => ({ ...c, category: pm25Cat(c.pm25) })),
