@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
-import { MapView } from '@/components/Map';
+import { MapView } from '@/components/Map/MapView';
 import { UIOverlay } from '@/components/UIOverlay';
-import { Scrubber } from '@/components/Scrubber';
-import { Header } from '@/components/Header';
+import { Scrubber } from '@/components/Scrubber/Scrubber';
+import { Header } from '@/components/Header/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useDataNotifications, useUrlSync, useSelectionHydration } from '@/hooks';

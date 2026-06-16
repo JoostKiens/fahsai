@@ -1,5 +1,4 @@
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import { point } from '@turf/helpers';
 import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '../db/client.js';
@@ -39,7 +38,11 @@ export type ExplainCase =
   | 'PLAUSIBLE_UNCLEAR';
 
 function geoRegion(lat: number, lng: number): string {
-  const pt = point([lng, lat]);
+  const pt = {
+    type: 'Feature' as const,
+    geometry: { type: 'Point' as const, coordinates: [lng, lat] },
+    properties: {},
+  };
   for (const feature of regions.features) {
     if (
       booleanPointInPolygon(pt, feature as unknown as Parameters<typeof booleanPointInPolygon>[1])
