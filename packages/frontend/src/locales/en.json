@@ -104,6 +104,7 @@
   "explain.rateLimitGeminiRpd": "AI daily limit reached. Try again after {{time}}.",
   "explain.timeUnit.minutes": "minutes",
   "explain.timeUnit.seconds": "seconds",
+  "explain.disclaimer": "AI-generated — may contain errors",
 
   "scrubber.selectDate": "Select date",
 

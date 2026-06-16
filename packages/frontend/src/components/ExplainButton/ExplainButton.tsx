@@ -144,6 +144,8 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
         </div>
       )}
 
+      {text && <p className="mt-1 text-[10px] text-zinc-500">{t('explain.disclaimer')}</p>}
+
       {msg && <p className="mt-1 text-[10px] text-amber-400">{msg}</p>}
       {error === 'unavailable' && (
         <p className="mt-1 text-[10px] text-red-400">{t('explain.unavailable')}</p>

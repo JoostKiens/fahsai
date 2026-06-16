@@ -104,6 +104,7 @@
   "explain.rateLimitGeminiRpd": "ถึงขีดจำกัดรายวันของ AI แล้ว โปรดลองใหม่หลัง {{time}}",
   "explain.timeUnit.minutes": "นาที",
   "explain.timeUnit.seconds": "วินาที",
+  "explain.disclaimer": "สร้างโดย AI — อาจมีข้อผิดพลาด",
 
   "scrubber.selectDate": "เลือกวันที่",
 
