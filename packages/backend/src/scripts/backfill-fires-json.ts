@@ -11,8 +11,9 @@
  */
 import { readFileSync } from 'fs';
 import { supabase } from '../db/client.js';
+import { parseBbox } from '../utils/bbox.js';
 
-const BBOX = { west: 89, south: 1, east: 114, north: 30 };
+const BBOX = parseBbox(undefined);
 const BATCH = 500;
 const SOURCE = 'VIIRS_NOAA21_NRT';
 

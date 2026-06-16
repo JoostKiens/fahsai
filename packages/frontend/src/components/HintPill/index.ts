@@ -1,1 +1,0 @@
-export { HintPill } from './HintPill';

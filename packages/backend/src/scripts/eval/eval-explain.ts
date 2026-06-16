@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { assemblePrompt } from './assemblePrompt.js';
+import { buildScientificContext } from '../../lib/buildScientificContext.js';
+import { buildPrompt } from '../../lib/buildPrompt.js';
 import { golden as g01 } from './golden/01-plausible-clean-phetbura-garden-31-05-2026.js';
 import { golden as g02 } from './golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
 import { golden as g03 } from './golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
@@ -107,7 +108,7 @@ for (const fixture of fixtures) {
   console.log(`CASE    : ${fixture.case}`);
   console.log(`DESC    : ${fixture.description}`);
 
-  const prompt = assemblePrompt(fixture.input, lang);
+  const prompt = buildPrompt(buildScientificContext(fixture.input), lang ?? 'en');
 
   if (promptsOnly) {
     console.log(`\n${DIVIDER}`);

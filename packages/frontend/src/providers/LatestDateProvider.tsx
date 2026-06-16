@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useLatestDate } from './useLatestDate';
 import { useTimeStore } from '@/store/timeStore';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -12,8 +12,20 @@ const MAX_DAYS = 90;
  * Also does the one-time initialisation of the scrubber position from the URL date param,
  * deferred until the real latestDate is known so the range boundaries are correct.
  */
+const API = import.meta.env.VITE_API_BASE_URL;
+
 export function LatestDateProvider({ children }: { children: React.ReactNode }) {
-  const { data: latestDate } = useLatestDate();
+  const { data: latestDate } = useQuery({
+    queryKey: ['latest-date'],
+    queryFn: async () => {
+      const res = await fetch(`${API}/api/latest-date`);
+      if (!res.ok) throw new Error('Failed to fetch latest date');
+      const json = (await res.json()) as { date: string };
+      return json.date;
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 2,
+  });
   const setLatestDate = useTimeStore((s) => s.setLatestDate);
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
   const setSessionScrubberDays = useUIStore((s) => s.setSessionScrubberDays);
