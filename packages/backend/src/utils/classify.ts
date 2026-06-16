@@ -22,10 +22,10 @@ export interface ClassifyParams {
 //   areaScore >= 40               — local fires dominant; triggers even when path score is low
 //   camsMaxPm25 < 25              — CAMS suppression: fires on flanks, not core air mass
 //                                   (applies only when triggered by path score alone)
-//   latestPm25 <= 12              — unambiguously Good
+//   latestPm25 <= 12              — unambiguously Good (checked before fire transport)
 //   trajectoryPrecipTotal > 40 && latestPm25 <= 25
-//                                 — rain-washout (Ko Yawn 21.9/76mm ✓,
-//                                   Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
+//                                 — rain-washout, checked before fire transport
+//                                   (Ko Yawn 21.9/76mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
 //   distKm <= 150                 — tier-1 upwind source threshold
 export function classifyCase(params: ClassifyParams): ExplainCase {
   if (params.isStrongOutlier && params.isHighOutlier) return 'OUTLIER_HIGH';
@@ -38,6 +38,11 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
   if (!params.isStrongOutlier && params.latestPm25 <= 35.4 && params.originIsWater) {
     return 'PLAUSIBLE_CLEAN';
   }
+
+  // Good readings and heavy-washout readings resolve to PLAUSIBLE_CLEAN regardless of fire
+  // pressure — if PM2.5 ≤ 12, fires are not the current cause; the question is why it's clean.
+  if (params.latestPm25 <= 12) return 'PLAUSIBLE_CLEAN';
+  if (params.trajectoryPrecipTotal > 40 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
 
   const fireTransportByPath = params.firePressureNorm >= 40;
   const fireTransportByArea = params.areaScore >= 40;
@@ -55,9 +60,6 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
     if (areaOnlyTrigger || !pathSuppressed) return 'PLAUSIBLE_FIRE_TRANSPORT';
     // Path fires suppressed by CAMS — fall through to urban/industrial or clean
   }
-
-  if (params.latestPm25 <= 12) return 'PLAUSIBLE_CLEAN';
-  if (params.trajectoryPrecipTotal > 40 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
 
   const hasNearbyUpwindSource = params.relevantSources.some((s) => s.isUpwind && s.distKm <= 150);
   if (hasNearbyUpwindSource) return 'PLAUSIBLE_URBAN_INDUSTRIAL';
