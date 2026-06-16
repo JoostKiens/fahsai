@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 
@@ -18,8 +19,8 @@ export function latestDateRoutes(app: FastifyInstance): void {
     const now = Date.now();
 
     for (let offset = 1; offset <= LOOKBACK_DAYS; offset++) {
-      const date = new Date(now - offset * 86_400_000).toISOString().slice(0, 10);
-      const nextDate = new Date(now - (offset - 1) * 86_400_000).toISOString().slice(0, 10);
+      const date = new Date(now - offset * MS_PER_DAY).toISOString().slice(0, 10);
+      const nextDate = new Date(now - (offset - 1) * MS_PER_DAY).toISOString().slice(0, 10);
 
       const [aqResult, fireResult, measResult, windResult] = await Promise.all([
         supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),

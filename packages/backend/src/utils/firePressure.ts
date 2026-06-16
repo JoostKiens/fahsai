@@ -1,3 +1,5 @@
+import { MS_PER_HOUR } from '@thailand-aq/consts';
+
 export interface FireRow {
   detected_at: string;
   frp: number | null;
@@ -17,7 +19,7 @@ export function computeFirePressureNorm(
   anchorEndMs: number,
 ): number {
   const raw = fires.reduce((sum, f) => {
-    const ageHours = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
+    const ageHours = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / MS_PER_HOUR);
     const recencyWeight = 1 / (1 + ageHours / 24);
     const transportWeight = 1 / (1 + f.distKm / corridorKm) ** 2;
     return sum + (f.frp ?? 10) * recencyWeight * transportWeight;

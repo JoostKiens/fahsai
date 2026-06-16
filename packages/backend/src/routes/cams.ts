@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { PM25DailySummary, PM25GridPoint } from '@thailand-aq/types';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
@@ -84,7 +85,7 @@ export function camsRoutes(app: FastifyInstance): void {
       }
       const rangeDays = Math.round(
         (new Date(end + 'T00:00:00Z').getTime() - new Date(start + 'T00:00:00Z').getTime()) /
-          86400000,
+          MS_PER_DAY,
       );
       if (rangeDays >= MAX_SUMMARY_DAYS) {
         return reply.status(400).send({ error: `range exceeds ${MAX_SUMMARY_DAYS} days` });

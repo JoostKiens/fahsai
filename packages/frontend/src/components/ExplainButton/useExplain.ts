@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import i18next from 'i18next';
+import { MS_PER_HOUR } from '@thailand-aq/consts';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -66,7 +67,7 @@ export function useExplain() {
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       const type = typeof body.type === 'string' ? body.type : 'quota_exceeded';
       const resetAtMs =
-        typeof body.resetAtMs === 'number' ? body.resetAtMs : Date.now() + 3_600_000;
+        typeof body.resetAtMs === 'number' ? body.resetAtMs : Date.now() + MS_PER_HOUR;
       setState({
         text: '',
         loading: false,

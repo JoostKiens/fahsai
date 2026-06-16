@@ -53,6 +53,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.101.1
+      '@thailand-aq/consts':
+        specifier: workspace:*
+        version: link:../consts
       '@thailand-aq/types':
         specifier: workspace:*
         version: link:../types
@@ -94,6 +97,12 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.15)(jsdom@25.0.1)(lightningcss@1.32.0)
 
+  packages/consts:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/frontend:
     dependencies:
       '@base-ui-components/react':
@@ -111,6 +120,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.56.0
         version: 5.96.1(react@18.3.1)
+      '@thailand-aq/consts':
+        specifier: workspace:*
+        version: link:../consts
       '@thailand-aq/types':
         specifier: workspace:*
         version: link:../types

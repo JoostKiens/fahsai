@@ -3,8 +3,7 @@ import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
-
-const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
+import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 const GRID_MIN_COMPLETE = 4000;
 const GRID_PAGE_SIZE = 1000;
 
@@ -103,11 +102,11 @@ export async function fetchExplainContext(
   selectedDate: string,
 ): Promise<ExplainContext | null> {
   const [yr, mo, dy] = selectedDate.split('-').map(Number);
-  const anchorEndMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS + 86_400_000;
+  const anchorEndMs = Date.UTC(yr, mo - 1, dy) - ICT_OFFSET_MS + MS_PER_DAY;
 
-  const since7d = new Date(anchorEndMs - 8 * 86_400_000).toISOString();
-  const since24h = new Date(anchorEndMs - 24 * 3600_000).toISOString();
-  const since72h = new Date(anchorEndMs - 72 * 3600_000).toISOString();
+  const since7d = new Date(anchorEndMs - 8 * MS_PER_DAY).toISOString();
+  const since24h = new Date(anchorEndMs - 24 * MS_PER_HOUR).toISOString();
+  const since72h = new Date(anchorEndMs - 72 * MS_PER_HOUR).toISOString();
   const until = new Date(anchorEndMs).toISOString();
 
   const d0 = selectedDate;

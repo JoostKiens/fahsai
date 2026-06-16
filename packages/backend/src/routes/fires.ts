@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { FirePoint } from '@thailand-aq/types';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
@@ -75,7 +76,7 @@ async function queryFires(
   end: string,
   bbox: ReturnType<typeof parseBbox>,
 ): Promise<FirePoint[]> {
-  const dayAfterEnd = new Date(new Date(end).getTime() + 86400000).toISOString().slice(0, 10);
+  const dayAfterEnd = new Date(new Date(end).getTime() + MS_PER_DAY).toISOString().slice(0, 10);
   const allRows: FirePoint[] = [];
   let offset = 0;
 

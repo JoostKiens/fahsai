@@ -13,6 +13,7 @@ import { URBAN_SOURCES } from '../data/urbanSources.js';
 import { traceEnsemble, nearestGridPoint, TRAJECTORY_STEPS } from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
+import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildScientificContext } from '../lib/buildScientificContext.js';
 import { buildPrompt } from '../lib/buildPrompt.js';
 import { fetchExplainContext } from '../lib/fetchExplainContext.js';
@@ -25,8 +26,6 @@ const EXPLAIN_CACHE_VERSION = 2;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
-const BKK_OFFSET_MS = 7 * 3600_000; // UTC+7
-const DAY_MS = 86_400_000;
 
 export type ExplainCase =
   | 'OUTLIER_HIGH'
@@ -131,20 +130,20 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       }
 
-      const todayBkk = new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
       const quotaKey = `explain:quota:${todayBkk}`;
       const count = await redis.incr(quotaKey);
       if (count === 1) await redis.expire(quotaKey, 86400);
       if (count > DAILY_QUOTA_LIMIT) {
         const startOfBkkDayUtcMs =
-          Math.floor((Date.now() + BKK_OFFSET_MS) / DAY_MS) * DAY_MS - BKK_OFFSET_MS;
+          Math.floor((Date.now() + ICT_OFFSET_MS) / MS_PER_DAY) * MS_PER_DAY - ICT_OFFSET_MS;
         return reply
           .status(429)
-          .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + DAY_MS });
+          .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + MS_PER_DAY });
       }
 
       const selectedDate =
-        req.body.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+        req.body.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
       const normalizedLang = lang ?? 'en';
 
       if (EXPLAIN_CACHE_ENABLED) {
@@ -288,8 +287,8 @@ export function explainRoutes(app: FastifyInstance): void {
         }))
         .filter((f) => f.distKm <= corridorKm)
         .sort((a, b) => {
-          const ageA = Math.max(0, (anchorEndMs - new Date(a.detected_at).getTime()) / 3_600_000);
-          const ageB = Math.max(0, (anchorEndMs - new Date(b.detected_at).getTime()) / 3_600_000);
+          const ageA = Math.max(0, (anchorEndMs - new Date(a.detected_at).getTime()) / MS_PER_HOUR);
+          const ageB = Math.max(0, (anchorEndMs - new Date(b.detected_at).getTime()) / MS_PER_HOUR);
           return ageA !== ageB ? ageA - ageB : a.distKm - b.distKm;
         });
 
@@ -443,7 +442,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
       function fireBucket(maxAgeH: number, minAgeH = 0) {
         const bucket = fires.filter((f) => {
-          const age = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000);
+          const age = Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / MS_PER_HOUR);
           return age >= minAgeH && age < maxAgeH;
         });
         return { count: bucket.length, totalFrpMw: bucket.reduce((s, f) => s + (f.frp ?? 0), 0) };
@@ -501,7 +500,7 @@ export function explainRoutes(app: FastifyInstance): void {
             distKm: f.distKm,
             frpMw: f.frp ?? 0,
             ageH: Math.round(
-              Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / 3_600_000),
+              Math.max(0, (anchorEndMs - new Date(f.detected_at).getTime()) / MS_PER_HOUR),
             ),
           })),
           areaScore: pressureData?.score ?? 0,

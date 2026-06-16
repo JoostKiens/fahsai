@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import type { Measurement } from '@thailand-aq/types';
+import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 
 const MAX_HISTORY_HOURS = 168; // 7 days
-const BKK_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
 const CURRENT_DATE_TTL_SECONDS = 3600;
 
 interface WeatherData {
@@ -186,20 +186,20 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       // Anchor the window to the requested end date (BKK); default to today BKK.
       const endDateStr =
-        req.query.date ?? new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
-      const todayBkk = new Date(Date.now() + BKK_OFFSET_MS).toISOString().slice(0, 10);
+        req.query.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
       const isHistorical = endDateStr < todayBkk;
 
       const [yr, mo, dy] = endDateStr.split('-').map(Number);
       // UTC ms of BKK midnight for the end date (BKK midnight = UTC date - 7h)
-      const endMidnightUtcMs = Date.UTC(yr, mo - 1, dy) - BKK_OFFSET_MS;
-      const startMidnightUtcMs = endMidnightUtcMs - (days - 1) * 86_400_000;
+      const endMidnightUtcMs = Date.UTC(yr, mo - 1, dy) - ICT_OFFSET_MS;
+      const startMidnightUtcMs = endMidnightUtcMs - (days - 1) * MS_PER_DAY;
 
       const since = new Date(startMidnightUtcMs).toISOString();
-      const until = new Date(endMidnightUtcMs + 86_400_000).toISOString(); // exclusive
+      const until = new Date(endMidnightUtcMs + MS_PER_DAY).toISOString(); // exclusive
 
       // BKK calendar start date for weather query
-      const startDateStr = new Date(Date.UTC(yr, mo - 1, dy) - (days - 1) * 86_400_000)
+      const startDateStr = new Date(Date.UTC(yr, mo - 1, dy) - (days - 1) * MS_PER_DAY)
         .toISOString()
         .slice(0, 10);
 
@@ -227,7 +227,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       // Group readings by Bangkok calendar day (UTC+7)
       const byDay = new Map<string, { max: number; count: number }>();
       for (const row of data ?? []) {
-        const bkkMs = new Date(row.measured_at as string).getTime() + BKK_OFFSET_MS;
+        const bkkMs = new Date(row.measured_at as string).getTime() + ICT_OFFSET_MS;
         const date = new Date(bkkMs).toISOString().slice(0, 10);
         const val = row.value as number;
         const entry = byDay.get(date);
@@ -252,8 +252,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       // Build result: oldest-first, from (endDate - days + 1) to endDate
       const result: DayData[] = [];
       for (let i = 0; i < days; i++) {
-        const dayUtcMs = startMidnightUtcMs + i * 86_400_000;
-        const date = new Date(dayUtcMs + BKK_OFFSET_MS).toISOString().slice(0, 10);
+        const dayUtcMs = startMidnightUtcMs + i * MS_PER_DAY;
+        const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
         const entry = byDay.get(date);
         result.push({
           date,

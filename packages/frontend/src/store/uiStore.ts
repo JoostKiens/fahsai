@@ -1,8 +1,7 @@
 import { create } from 'zustand';
+import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { useSettingsStore } from './settingsStore';
 import { parsePendingSelectionFromSearch } from '@/utils/selectionUrl';
-
-const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 — Bangkok / ICT
 
 export interface SelectedPoint {
   lngLat: [number, number];
@@ -75,11 +74,11 @@ function initialScrubberDayFromUrl(): number {
   // Use midnight UTC of yesterdayICT so the diff against urlMs (also midnight UTC) is always an
   // exact multiple of 86 400 000. Using the raw timestamp (Date.now() - 17h) produces a
   // fractional quotient that Math.round gets wrong for any current UTC time past noon.
-  const yesterdayIctDate = new Date(Date.now() + ICT_OFFSET_MS - 86_400_000)
+  const yesterdayIctDate = new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY)
     .toISOString()
     .slice(0, 10);
   const anchorMs = new Date(yesterdayIctDate + 'T00:00:00Z').getTime();
-  const daysAgo = (anchorMs - urlMs) / 86_400_000;
+  const daysAgo = (anchorMs - urlMs) / MS_PER_DAY;
   return Math.max(0, Math.min(scrubberDays - 1, scrubberDays - 1 - daysAgo));
 }
 
@@ -120,7 +119,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
 // day 0 = (days-1) days before latestDate, day (days-1) = latestDate.
 export function dayToDate(day: number, latestDate: string, days = 30): string {
   const anchorMs = new Date(latestDate + 'T00:00:00Z').getTime();
-  return new Date(anchorMs - (days - 1 - day) * 86_400_000).toISOString().slice(0, 10);
+  return new Date(anchorMs - (days - 1 - day) * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
 /** Returns the session override if set, otherwise the persisted user preference. */

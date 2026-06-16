@@ -48,6 +48,7 @@
     "@fastify/cors": "^10.1.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.45.0",
+    "@thailand-aq/consts": "workspace:*",
     "@thailand-aq/types": "workspace:*",
     "@turf/boolean-point-in-polygon": "^7.3.5",
     "@upstash/ratelimit": "^2.0.8",

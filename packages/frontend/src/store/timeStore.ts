@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 
 interface TimeStore {
   latestDate: string; // always a valid YYYY-MM-DD; starts as yesterday ICT, updated by LatestDateProvider
@@ -12,8 +13,7 @@ interface TimeStore {
   setRange: (start: string, end: string) => void;
 }
 
-const ICT_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 — must match uiStore
-export const yesterdayICT = new Date(Date.now() + ICT_OFFSET_MS - 86_400_000)
+export const yesterdayICT = new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY)
   .toISOString()
   .slice(0, 10);
 
@@ -22,7 +22,7 @@ function initialDateFromUrl(): string {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return yesterdayICT;
   const ms = new Date(raw + 'T00:00:00Z').getTime();
   const nowMs = Date.now() + ICT_OFFSET_MS;
-  if (!isFinite(ms) || ms > nowMs || nowMs - ms > 90 * 86_400_000) return yesterdayICT;
+  if (!isFinite(ms) || ms > nowMs || nowMs - ms > 90 * MS_PER_DAY) return yesterdayICT;
   return raw;
 }
 

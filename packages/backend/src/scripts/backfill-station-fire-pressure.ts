@@ -9,6 +9,7 @@
  * Max range: 130 days.
  */
 import 'dotenv/config';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
 
@@ -39,7 +40,7 @@ if (endMs < startMs) {
   process.exit(1);
 }
 
-const diffDays = Math.round((endMs - startMs) / 86400000) + 1;
+const diffDays = Math.round((endMs - startMs) / MS_PER_DAY) + 1;
 if (diffDays > MAX_DAYS) {
   console.error(`${LOG} Date range ${diffDays} days exceeds maximum ${MAX_DAYS} days`);
   process.exit(1);
@@ -49,7 +50,7 @@ const dates: string[] = [];
 let cursor = startMs;
 while (cursor <= endMs) {
   dates.push(new Date(cursor).toISOString().slice(0, 10));
-  cursor += 86400000;
+  cursor += MS_PER_DAY;
 }
 
 interface StationRow {

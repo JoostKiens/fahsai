@@ -1,4 +1,5 @@
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
+import { MS_PER_HOUR } from '@thailand-aq/consts';
 
 export class OpenMeteoHttpError extends Error {
   constructor(
@@ -268,7 +269,7 @@ async function fetchAQBatch(
       console.warn(`[openmeteo] 429 daily limit: "${reason}" — skipping batch`);
       return [];
     } else if (/next hour/i.test(reason)) {
-      const msUntilNextHour = 3_600_000 - (Date.now() % 3_600_000) + 5_000; // +5s buffer
+      const msUntilNextHour = MS_PER_HOUR - (Date.now() % MS_PER_HOUR) + 5_000; // +5s buffer
       delay = msUntilNextHour;
       delaySource = `body hint "next hour" (${Math.round(delay / 1000)}s until :00)`;
     } else if (/minute|minutely/i.test(reason)) {

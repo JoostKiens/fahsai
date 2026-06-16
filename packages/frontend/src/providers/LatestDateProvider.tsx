@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { useTimeStore } from '@/store/timeStore';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -44,18 +45,18 @@ export function LatestDateProvider({ children }: { children: React.ReactNode }) 
 
     const scrubberDays = useSettingsStore.getState().scrubberDays;
     const latestMs = new Date(latestDate + 'T00:00:00Z').getTime();
-    const oldestMs = latestMs - (scrubberDays - 1) * 86_400_000;
-    const oldest90Ms = latestMs - (MAX_DAYS - 1) * 86_400_000;
+    const oldestMs = latestMs - (scrubberDays - 1) * MS_PER_DAY;
+    const oldest90Ms = latestMs - (MAX_DAYS - 1) * MS_PER_DAY;
     const urlMs = new Date(urlDate + 'T00:00:00Z').getTime();
     if (!isFinite(urlMs)) return;
 
     if (urlMs >= oldestMs && urlMs <= latestMs) {
-      const day = Math.round((latestMs - urlMs) / 86_400_000);
+      const day = Math.round((latestMs - urlMs) / MS_PER_DAY);
       setScrubberDay(scrubberDays - 1 - day);
     } else if (urlMs >= oldest90Ms && urlMs <= latestMs) {
       // Within 90 days but outside user's current window — expand for this session only.
       setSessionScrubberDays(MAX_DAYS);
-      const daysBack = Math.round((latestMs - urlMs) / 86_400_000);
+      const daysBack = Math.round((latestMs - urlMs) / MS_PER_DAY);
       setScrubberDay(MAX_DAYS - 1 - daysBack);
     } else {
       setScrubberDay(urlMs < oldest90Ms ? 0 : scrubberDays - 1);

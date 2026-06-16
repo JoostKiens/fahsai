@@ -3,6 +3,7 @@
  * Usage: pnpm --filter backend run check-date-gaps
  */
 import 'dotenv/config';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 
 const tables: Array<{ name: string; col: string; start: string; end: string }> = [
@@ -14,7 +15,7 @@ const tables: Array<{ name: string; col: string; start: string; end: string }> =
 for (const { name, col, start, end } of tables) {
   const startMs = new Date(start + 'T00:00:00Z').getTime();
   const endMs = new Date(end + 'T00:00:00Z').getTime();
-  const totalDays = Math.round((endMs - startMs) / 86400000) + 1;
+  const totalDays = Math.round((endMs - startMs) / MS_PER_DAY) + 1;
   const emptyDates: string[] = [];
 
   let cursor = startMs;
@@ -25,7 +26,7 @@ for (const { name, col, start, end } of tables) {
       .select('*', { count: 'exact', head: true })
       .eq(col, date);
     if ((count ?? 0) === 0) emptyDates.push(date);
-    cursor += 86400000; // daily
+    cursor += MS_PER_DAY; // daily
   }
 
   const gapSummary = emptyDates.length === 0 ? 'none found' : emptyDates.join(', ');
