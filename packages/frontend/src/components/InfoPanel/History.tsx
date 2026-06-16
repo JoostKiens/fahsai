@@ -7,7 +7,11 @@ import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToSoftRgb } from '@/utils/aqiColors';
 import { degToCompass } from './ambient';
 import { dateLocale } from '@/i18n';
+import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
+
+const MAX_BAR_H = 48;
+const DAY_LABEL_H = 16;
 
 const SHIMMER_ROWS: [string, string, string, string][] = [
   ['w-8', 'w-14', 'w-5', 'w-5'],
@@ -20,26 +24,44 @@ const SHIMMER_ROWS: [string, string, string, string][] = [
 export function ShimmerHistory() {
   return (
     <>
-      <div className="flex items-end gap-[2px] h-[64px]">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t-sm animate-pulse bg-zinc-700"
-            style={{ height: `${24 + (i % 3) * 12}px` }}
-          />
-        ))}
+      {/* PM2.5 bar chart — mirrors History's layout (y-axis + bars + day labels) */}
+      <div className="flex items-stretch gap-1">
+        <div
+          className="flex flex-col justify-between shrink-0"
+          style={{ paddingBottom: `${DAY_LABEL_H}px` }}
+        >
+          <Shimmer className="h-[15px] w-5" />
+          <Shimmer className="h-[15px] w-3" />
+        </div>
+        <div
+          className="flex items-end gap-[2px] flex-1"
+          style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
+        >
+          {Array.from({ length: 5 }, (_, i) => {
+            const barH = 24 + (i % 3) * 12;
+            return (
+              <div key={i} className="flex flex-col items-center flex-1">
+                <div
+                  className="w-full rounded-t-sm animate-pulse [animation-duration:1.2s] bg-zinc-700"
+                  style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
+                />
+                <Shimmer className="h-[15px] w-8 mt-1" />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-3">
-        <div className="h-[15px] w-12 rounded animate-pulse bg-zinc-700 mb-1" />
+        <Shimmer className="h-[16.5px] w-12 mb-1" />
         <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
           {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
-            <div key={j} className={`h-[15px] rounded animate-pulse bg-zinc-700 ${w}`} />
+            <Shimmer key={j} className={`h-[15px] ${w}`} />
           ))}
           {SHIMMER_ROWS.map((cols, i) => (
             <Fragment key={i}>
               {cols.map((w, j) => (
-                <div key={j} className={`h-[15px] rounded animate-pulse bg-zinc-700 ${w}`} />
+                <Shimmer key={j} className={`h-[16.5px] ${w}`} />
               ))}
             </Fragment>
           ))}
@@ -75,8 +97,6 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const MAX_BAR_H = 48;
-  const DAY_LABEL_H = 16;
   const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);

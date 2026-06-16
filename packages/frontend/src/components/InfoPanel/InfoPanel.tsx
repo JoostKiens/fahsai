@@ -10,6 +10,7 @@ import { AqiBadge } from './AqiBadge';
 import { pm25ToCategory } from '@/utils/aqiColors';
 import { reverseGeocode } from './geocode';
 import { AppScrollArea } from '@/components/AppScrollArea';
+import { Shimmer } from '@/components/Shimmer';
 import { CountryFlag, alpha2ToIso3 } from './countryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from './ambient';
 import { useCamsGrid, useStationReadings, useWind } from '@/hooks';
@@ -566,10 +567,6 @@ function PanelSkeleton() {
       <Shimmer className="h-4 w-full" />
     </div>
   );
-}
-
-function Shimmer({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-zinc-700 rounded ${className ?? ''}`} />;
 }
 
 // --- Helpers ---
