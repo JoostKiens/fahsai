@@ -1,13 +1,16 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   playing: boolean;
   onToggle: () => void;
 }
 
 export function PlayButton({ playing, onToggle }: Props) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onToggle}
-      aria-label={playing ? 'Pause' : 'Play'}
+      aria-label={playing ? t('scrubber.pause') : t('scrubber.play')}
       className="w-8 h-8 flex items-center justify-center rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 shrink-0 transition-colors"
     >
       {playing ? <PauseIcon /> : <PlayIcon />}

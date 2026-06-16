@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { useTimeStore } from '@/store/timeStore';
 import { useUIStore } from '@/store/uiStore';
@@ -16,6 +17,7 @@ const MAX_DAYS = 90;
 const API = import.meta.env.VITE_API_BASE_URL;
 
 export function LatestDateProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const { data: latestDate } = useQuery({
     queryKey: ['latest-date'],
     queryFn: async () => {
@@ -60,7 +62,7 @@ export function LatestDateProvider({ children }: { children: React.ReactNode }) 
       setScrubberDay(MAX_DAYS - 1 - daysBack);
     } else {
       setScrubberDay(urlMs < oldest90Ms ? 0 : scrubberDays - 1);
-      toast('Date not available — showing the nearest available date instead.');
+      toast(t('scrubber.dateNotAvailable'));
     }
   }, [latestDate, setLatestDate, setScrubberDay, setSessionScrubberDays]);
 

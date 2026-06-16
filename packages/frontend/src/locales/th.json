@@ -107,6 +107,9 @@
   "explain.disclaimer": "สร้างโดย AI — อาจมีข้อผิดพลาด",
 
   "scrubber.selectDate": "เลือกวันที่",
+  "scrubber.play": "เล่น",
+  "scrubber.pause": "หยุดชั่วคราว",
+  "scrubber.dateNotAvailable": "วันที่ไม่พร้อมใช้งาน — แสดงวันที่ใกล้เคียงที่สุดแทน",
 
   "history.weather": "สภาพอากาศ",
   "history.wind": "ลม",
