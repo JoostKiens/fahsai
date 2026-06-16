@@ -10,6 +10,8 @@ import { golden as goldenCleanCoastal } from '../scripts/eval/golden/12-plausibl
 import { golden as goldenCleanFireSeasonGood } from '../scripts/eval/golden/13-plausible-clean-khong-champasack-30-04-2026.js';
 import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
+export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+
 const SLOW_WIND_THRESHOLD_KMH = 10;
 const STAGNATION_AREA_SCORE_MIN = 40;
 

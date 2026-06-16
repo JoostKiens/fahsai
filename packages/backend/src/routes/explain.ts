@@ -15,12 +15,11 @@ import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildScientificContext } from '../lib/buildScientificContext.js';
-import { buildPrompt } from '../lib/buildPrompt.js';
+import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { fetchExplainContext } from '../lib/fetchExplainContext.js';
 import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const DAILY_QUOTA_LIMIT = 450;
 const EXPLAIN_CACHE_VERSION = 2;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';

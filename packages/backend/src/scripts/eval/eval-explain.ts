@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildScientificContext } from '../../lib/buildScientificContext.js';
-import { buildPrompt } from '../../lib/buildPrompt.js';
+import { buildPrompt, GEMINI_MODEL } from '../../lib/buildPrompt.js';
 import { golden as g01 } from './golden/01-plausible-clean-phetbura-garden-31-05-2026.js';
 import { golden as g02 } from './golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
 import { golden as g03 } from './golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
@@ -83,7 +83,7 @@ async function runExplain(prompt: string): Promise<string> {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
   if (noStream) {
     const result = await model.generateContent(prompt);
