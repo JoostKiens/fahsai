@@ -29,7 +29,7 @@
     "backfill:cams-summary": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-cams-summary.ts",
     "railway:ingest:fires": "node --import=tsx/esm src/scripts/ingest-fires.ts",
     "railway:ingest:station-readings": "node --import=tsx/esm src/scripts/ingest-station-readings.ts",
-    "railway:ingest:station-readings:today": "node --import=tsx/esm src/scripts/ingest-station-readings.ts",
+    "railway:ingest:station-readings:today": "node --import=tsx/esm src/scripts/ingest-station-readings.ts --today",
     "railway:ingest:stations": "node --import=tsx/esm src/scripts/ingest-stations.ts",
     "railway:ingest:weather:today": "node --import=tsx/esm src/scripts/ingest-weather.ts",
     "railway:ingest:weather:today:fallback": "node --import=tsx/esm src/scripts/ingest-weather-today-fallback.ts",
