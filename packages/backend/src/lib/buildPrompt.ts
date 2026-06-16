@@ -614,7 +614,8 @@ function buildCleanSection(ctx: ScientificContext): string {
     ctx.currentPm25 <= 12 &&
     ctx.transport !== null &&
     ctx.transport.fire.pathScore >= 40 &&
-    !ctx.transport.trajectory.originIsWater
+    !ctx.transport.trajectory.originIsWater &&
+    ctx.weatherContext.trajectoryPrecipitationMm > 0
   )
     return CLEAN_FIRE_SEASON_GOOD_SECTION;
   return CLEAN_MARINE_SECTION;
@@ -655,7 +656,8 @@ function buildExampleBlock(ctx: ScientificContext): string {
         ctx.currentPm25 <= 12 &&
         ctx.transport !== null &&
         ctx.transport.fire.pathScore >= 40 &&
-        !ctx.transport.trajectory.originIsWater
+        !ctx.transport.trajectory.originIsWater &&
+        ctx.weatherContext.trajectoryPrecipitationMm > 0
       )
         return EXAMPLE_CLEAN_FIRE_SEASON_GOOD;
       return EXAMPLE_CLEAN_MARINE;

@@ -94,6 +94,31 @@ describe('classifyCase', () => {
     expect(classifyCase({ ...base, latestPm25: 11.6 })).toBe('PLAUSIBLE_CLEAN');
   });
 
+  it('returns PLAUSIBLE_CLEAN when pm25 <= 12 even with very high fire pressure (Khong: 9.3, pathScore 78, areaScore 75)', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 9.3,
+        firePressureNorm: 78,
+        areaScore: 75,
+        camsMaxPm25: 26,
+      }),
+    ).toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('returns PLAUSIBLE_CLEAN for washout even with high fire pressure (Ko Yawn: 76.2 mm, 21.9, pathScore 30)', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 21.9,
+        trajectoryPrecipTotal: 76.2,
+        firePressureNorm: 45,
+        areaScore: 0,
+        camsMaxPm25: 30,
+      }),
+    ).toBe('PLAUSIBLE_CLEAN');
+  });
+
   it('returns PLAUSIBLE_CLEAN when heavy rain + reading <= 25 (Ko Yawn: 76.2 mm, 21.9 µg/m³)', () => {
     expect(classifyCase({ ...base, trajectoryPrecipTotal: 76.2, latestPm25: 21.9 })).toBe(
       'PLAUSIBLE_CLEAN',
