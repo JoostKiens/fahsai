@@ -36,7 +36,7 @@ export function CountryFlag({
   if (!cc) return null;
   return (
     <img
-      src={`https://flagcdn.com/${cc}.svg`}
+      src={`/flags/${cc}.svg`}
       alt=""
       width={14}
       height={10}
