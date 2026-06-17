@@ -82,20 +82,28 @@ export function InfoPanel() {
     isFetching: historyFetching,
   } = useStationHistory(stationId);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSelectedPoint(null);
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [setSelectedPoint]);
+  // BottomSheet registers its own Escape handler when open=true (covers both mobile and desktop
+  // via the portal), so no separate handler is needed here.
 
   // Resets to peek on every new selection so the sheet always opens at rest height.
   const [detent, setDetent] = useState<'peek' | 'full'>('peek');
   useEffect(() => {
     setDetent('peek');
   }, [selectedPoint]);
-  const fullHeight = Math.round(window.innerHeight * 0.75);
+
+  // Use visualViewport so fullHeight stays correct when the virtual keyboard
+  // appears / dismisses on mobile (window.innerHeight does not update).
+  const [viewportHeight, setViewportHeight] = useState(
+    () => window.visualViewport?.height ?? window.innerHeight,
+  );
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setViewportHeight(vv.height);
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, []);
+  const fullHeight = Math.round(viewportHeight * 0.75);
 
   // Auto-pan the map so the selected marker stays above the sheet on mobile.
   // Desktop uses a floating card (no padding needed); skip on md+ viewports.
@@ -493,7 +501,7 @@ function StationPanel({
   // Chart only shows days up to (and including) the currently selected date.
   const chartDays = historyDays?.filter((d) => d.date <= selectedDate);
   const fmtDay = (dateStr: string) =>
-    new Date(`${dateStr}T12:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 
   return (
     <>

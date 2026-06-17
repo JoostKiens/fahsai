@@ -89,7 +89,9 @@ export function BottomSheet({
 
               if (activeDetent === 'full') {
                 // Drag down past midpoint or fast → snap to peek
-                if (offset.y > peekOffset / 2 || velocity.y > 400) {
+                // Clamp to 40px minimum so the threshold never collapses to zero
+                // when peekHeight approaches fullHeight.
+                if (offset.y > Math.max(peekOffset / 2, 40) || velocity.y > 400) {
                   onDetentChangeRef.current?.('peek');
                 }
                 // else: spring back to full via animate target
