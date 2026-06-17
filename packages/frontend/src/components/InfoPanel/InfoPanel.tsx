@@ -231,6 +231,7 @@ export function InfoPanel() {
         detents={{ peekHeight: PEEK_HEIGHT, fullHeight }}
         activeDetent={detent}
         onDetentChange={setDetent}
+        showBackdrop={false}
       >
         {!selectedPoint ? (
           <PanelSkeleton />

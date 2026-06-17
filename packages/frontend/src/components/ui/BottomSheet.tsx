@@ -17,6 +17,9 @@ interface BottomSheetProps {
   detents?: BottomSheetDetents;
   activeDetent?: 'peek' | 'full';
   onDetentChange?: (detent: 'peek' | 'full') => void;
+  // Set false when the map behind the sheet must stay tappable (InfoPanel).
+  // The layer menu keeps the default (true) so clicking outside closes it.
+  showBackdrop?: boolean;
 }
 
 export function BottomSheet({
@@ -27,6 +30,7 @@ export function BottomSheet({
   detents,
   activeDetent = 'peek',
   onDetentChange,
+  showBackdrop = true,
 }: BottomSheetProps) {
   const dragControls = useDragControls();
   const onCloseRef = useRef(onClose);
@@ -53,14 +57,16 @@ export function BottomSheet({
     <AnimatePresence>
       {open && (
         <>
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: TWEEN_ENTER }}
-            exit={{ opacity: 0, transition: TWEEN_EXIT }}
-            onClick={() => onCloseRef.current()}
-            className="fixed inset-0 bg-black/30 z-40 pointer-events-auto md:hidden"
-          />
+          {showBackdrop && (
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: TWEEN_ENTER }}
+              exit={{ opacity: 0, transition: TWEEN_EXIT }}
+              onClick={() => onCloseRef.current()}
+              className="fixed inset-0 bg-black/30 z-40 pointer-events-auto md:hidden"
+            />
+          )}
           <motion.div
             key="drawer"
             initial={{ y: '100%' }}
