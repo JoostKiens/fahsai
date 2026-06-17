@@ -131,5 +131,7 @@
   "toast.noStationReadings": "ไม่มีค่าวัดจากสถานีสำหรับวันนี้",
   "toast.noWind": "ไม่มีข้อมูลลมสำหรับวันนี้",
   "toast.noCams": "ไม่มีข้อมูลแบบจำลอง PM2.5 บรรยากาศสำหรับวันนี้",
-  "toast.selectionNotFound": "ไม่พบรายการที่แชร์มาแล้ว"
+  "toast.selectionNotFound": "ไม่พบรายการที่แชร์มาแล้ว",
+  "infoPanel.prevDay": "วันก่อนหน้า",
+  "infoPanel.nextDay": "วันถัดไป"
 }

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { useUIStore } from '@/store/uiStore';
+import { useUIStore, dayToDate, useEffectiveScrubberDays } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
 import { ExplainButton } from '@/components/ExplainButton';
 import { AqiBadge } from './AqiBadge';
@@ -465,6 +465,17 @@ function StationPanel({
   const cat = pm25ToCategory(station.pm25);
   const explainRateLimit = useUIStore((s) => s.explainRateLimit);
   const setExplainRateLimit = useUIStore((s) => s.setExplainRateLimit);
+  const scrubberDay = useUIStore((s) => s.scrubberDay);
+  const setScrubberDay = useUIStore((s) => s.setScrubberDay);
+  const scrubberDays = useEffectiveScrubberDays();
+  const latestDate = useTimeStore((s) => s.latestDate);
+
+  // Prev is safe to enable only when historyDays confirms data exists for that date.
+  // Next only needs the scrubber-bounds check — going toward the present is low-risk.
+  const historyDateSet = new Set(historyDays?.map((d) => d.date) ?? []);
+  const prevDate = scrubberDay > 0 ? dayToDate(scrubberDay - 1, latestDate, scrubberDays) : null;
+  const canGoPrev = prevDate !== null && historyDateSet.has(prevDate);
+  const canGoNext = scrubberDay < scrubberDays - 1;
 
   return (
     <>
@@ -485,6 +496,24 @@ function StationPanel({
               }),
             })}
           </span>
+          <div className="flex items-center shrink-0">
+            <button
+              onClick={() => setScrubberDay(scrubberDay - 1)}
+              disabled={!canGoPrev}
+              aria-label={t('infoPanel.prevDay')}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            >
+              <ChevronLeftIcon />
+            </button>
+            <button
+              onClick={() => setScrubberDay(scrubberDay + 1)}
+              disabled={!canGoNext}
+              aria-label={t('infoPanel.nextDay')}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            >
+              <ChevronRightIcon />
+            </button>
+          </div>
         </Row>
       )}
       {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
@@ -698,6 +727,40 @@ function mapConfidence(raw: string | null): { labelKey: string; color: string } 
 }
 
 // --- Icons ---
+
+function ChevronLeftIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 12L6 8l4-4" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 12l4-4-4-4" />
+    </svg>
+  );
+}
 
 function CursorClickIcon() {
   return (

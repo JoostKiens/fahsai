@@ -131,5 +131,7 @@
   "toast.noStationReadings": "No station readings for this date",
   "toast.noWind": "No wind data for this date",
   "toast.noCams": "No ambient PM2.5 model data for this date",
-  "toast.selectionNotFound": "Shared selection no longer available"
+  "toast.selectionNotFound": "Shared selection no longer available",
+  "infoPanel.prevDay": "Previous day",
+  "infoPanel.nextDay": "Next day"
 }
