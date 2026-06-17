@@ -1,8 +1,5 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "buildCommand": "pnpm --filter backend run build"
-  },
   "deploy": {
     "startCommand": "pnpm --filter backend run start",
     "restartPolicyType": "ON_FAILURE",
