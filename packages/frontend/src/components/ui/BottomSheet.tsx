@@ -1,19 +1,40 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useDragControls } from 'motion/react';
+import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'motion/react';
 import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
+
+export interface BottomSheetDetents {
+  peekHeight: number; // px — determines where peek detent rests
+  fullHeight: number; // px — full sheet height (consumer: Math.round(window.innerHeight * 0.75))
+}
 
 interface BottomSheetProps {
   open: boolean;
   onClose: () => void;
   closeAriaLabel: string;
   children: React.ReactNode;
+  // Two-detent mode — omit for single-detent (layer menu) behaviour
+  detents?: BottomSheetDetents;
+  activeDetent?: 'peek' | 'full';
+  onDetentChange?: (detent: 'peek' | 'full') => void;
 }
 
-export function BottomSheet({ open, onClose, closeAriaLabel, children }: BottomSheetProps) {
+export function BottomSheet({
+  open,
+  onClose,
+  closeAriaLabel,
+  children,
+  detents,
+  activeDetent = 'peek',
+  onDetentChange,
+}: BottomSheetProps) {
   const dragControls = useDragControls();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onDetentChangeRef = useRef(onDetentChange);
+  onDetentChangeRef.current = onDetentChange;
+  const prefersReducedMotion = useReducedMotion();
+  const transition = prefersReducedMotion ? { duration: 0 } : SPRING;
 
   useEffect(() => {
     if (!open) return;
@@ -23,6 +44,10 @@ export function BottomSheet({ open, onClose, closeAriaLabel, children }: BottomS
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
+
+  // Y translation from the full position to the peek position
+  const peekOffset = detents ? detents.fullHeight - detents.peekHeight : 0;
+  const yTarget = detents && activeDetent === 'peek' ? peekOffset : 0;
 
   return createPortal(
     <AnimatePresence>
@@ -39,18 +64,46 @@ export function BottomSheet({ open, onClose, closeAriaLabel, children }: BottomS
           <motion.div
             key="drawer"
             initial={{ y: '100%' }}
-            animate={{ y: 0 }}
+            animate={{ y: yTarget }}
             exit={{ y: '100%' }}
-            transition={SPRING}
+            transition={transition}
             drag="y"
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0 }}
             dragElastic={{ top: 0 }}
             onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 400) onCloseRef.current();
+              const { offset, velocity } = info;
+
+              if (!detents) {
+                // Single-detent: swipe down to dismiss
+                if (offset.y > 80 || velocity.y > 400) onCloseRef.current();
+                return;
+              }
+
+              if (activeDetent === 'full') {
+                // Drag down past midpoint or fast → snap to peek
+                if (offset.y > peekOffset / 2 || velocity.y > 400) {
+                  onDetentChangeRef.current?.('peek');
+                }
+                // else: spring back to full via animate target
+              } else {
+                // At peek: drag down → dismiss; drag up → snap to full
+                if (offset.y > 80 || velocity.y > 400) {
+                  onCloseRef.current();
+                } else if (offset.y < -40 || velocity.y < -400) {
+                  onDetentChangeRef.current?.('full');
+                }
+                // else: spring back to peek via animate target
+              }
             }}
-            className="fixed bottom-0 left-0 right-0 max-h-[70vh] bg-zinc-900 border-t border-zinc-800 rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden"
+            className={[
+              'fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden',
+              detents ? '' : 'max-h-[70vh]',
+            ]
+              .join(' ')
+              .trim()}
+            style={detents ? { height: detents.fullHeight } : undefined}
           >
             <div
               className="flex items-center justify-between px-4 pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing shrink-0"
