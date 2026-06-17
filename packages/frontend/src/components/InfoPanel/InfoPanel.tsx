@@ -18,11 +18,15 @@ import { useStationHistory } from './useStationHistory';
 import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { WindArrow } from './WindArrow';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const PANEL_BASE =
   'absolute top-3 right-3 w-[260px] bg-zinc-900 border border-zinc-700/60 rounded-lg z-20 pointer-events-auto shadow-2xl';
+
+// ponytail: tune against real station content on a narrow viewport (≈375px)
+const PEEK_HEIGHT = 232;
 
 export function InfoPanel() {
   const { t, i18n } = useTranslation();
@@ -73,12 +77,6 @@ export function InfoPanel() {
 
   const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
 
-  const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
-  const displayStation =
-    selectedPoint?.station && liveAqi
-      ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
-      : (selectedPoint?.station ?? null);
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setSelectedPoint(null);
@@ -86,6 +84,19 @@ export function InfoPanel() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [setSelectedPoint]);
+
+  // Resets to peek on every new selection so the sheet always opens at rest height.
+  const [detent, setDetent] = useState<'peek' | 'full'>('peek');
+  useEffect(() => {
+    setDetent('peek');
+  }, [selectedPoint]);
+  const fullHeight = Math.round(window.innerHeight * 0.75);
+
+  const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
+  const displayStation =
+    selectedPoint?.station && liveAqi
+      ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
+      : (selectedPoint?.station ?? null);
 
   const panelType = selectedPoint?.fire
     ? 'fire'
@@ -113,90 +124,150 @@ export function InfoPanel() {
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3;
 
-  if (!selectedPoint) {
-    return (
+  const isOpen = !!selectedPoint || !!pendingSelection;
+
+  return (
+    <>
+      {/* Desktop: floating card */}
       <div
         role="region"
         aria-label={t('infoPanel.ariaLabel')}
         className={`hidden md:block ${PANEL_BASE}`}
       >
-        {pendingSelection ? (
-          <PanelSkeleton />
+        {!selectedPoint ? (
+          pendingSelection ? (
+            <PanelSkeleton />
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={TWEEN_ENTER}
+              className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
+            >
+              <CursorClickIcon />
+              <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
+                {t('infoPanel.clickPrompt')}
+              </span>
+            </motion.div>
+          )
         ) : (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={TWEEN_ENTER}
-            className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
-          >
-            <CursorClickIcon />
-            <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
-              {t('infoPanel.clickPrompt')}
-            </span>
-          </motion.div>
+          <div className="overflow-hidden max-h-[calc(100%-1.5rem)]">
+            <AppScrollArea viewportClassName="max-h-[80svh]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={panelType}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+                  exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+                  className="p-3"
+                >
+                  <PanelHeader
+                    panelType={panelType}
+                    lngLat={selectedPoint.lngLat}
+                    placeName={placeName}
+                    geocodeLoading={geocodeLoading}
+                    stationName={displayStation?.stationName ?? null}
+                    plantName={selectedPoint.powerPlant?.name ?? null}
+                    countryIso3={countryIso3}
+                    onClose={() => setSelectedPoint(null)}
+                    showClose={true}
+                  />
+                  <hr className="border-zinc-800 my-2" />
+                  {displayStation && (
+                    <StationPanel
+                      station={displayStation}
+                      lngLat={selectedPoint.lngLat}
+                      historyDays={historyDays}
+                      historyLoading={historyLoading}
+                      locale={locale}
+                    />
+                  )}
+                  {selectedPoint.fire && (
+                    <FirePanel
+                      fire={selectedPoint.fire}
+                      aqPoint={aqPoint}
+                      windVec={windVec}
+                      locale={locale}
+                    />
+                  )}
+                  {selectedPoint.powerPlant && (
+                    <PowerPlantPanel
+                      plant={selectedPoint.powerPlant}
+                      aqPoint={aqPoint}
+                      windVec={windVec}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </AppScrollArea>
+          </div>
         )}
       </div>
-    );
-  }
 
-  return (
-    <div
-      role="region"
-      aria-label={t('infoPanel.ariaLabel')}
-      className={`${PANEL_BASE} overflow-hidden max-h-[calc(100%-1.5rem)]`}
-    >
-      <AppScrollArea viewportClassName="max-h-[80svh]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={panelType}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
-            exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
-            className="p-3"
-          >
-            <PanelHeader
-              panelType={panelType}
-              lngLat={selectedPoint.lngLat}
-              placeName={placeName}
-              geocodeLoading={geocodeLoading}
-              stationName={displayStation?.stationName ?? null}
-              plantName={selectedPoint.powerPlant?.name ?? null}
-              countryIso3={countryIso3}
-              onClose={() => setSelectedPoint(null)}
-            />
-
-            <hr className="border-zinc-800 my-2" />
-
-            {displayStation && (
-              <StationPanel
-                station={displayStation}
+      {/* Mobile: bottom sheet — all three panel types, unified two-detent */}
+      <BottomSheet
+        open={isOpen}
+        onClose={() => setSelectedPoint(null)}
+        closeAriaLabel={t('infoPanel.dismiss')}
+        detents={{ peekHeight: PEEK_HEIGHT, fullHeight }}
+        activeDetent={detent}
+        onDetentChange={setDetent}
+      >
+        {!selectedPoint ? (
+          <PanelSkeleton />
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={panelType}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+              exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+              className="p-3"
+            >
+              <PanelHeader
+                panelType={panelType}
                 lngLat={selectedPoint.lngLat}
-                historyDays={historyDays}
-                historyLoading={historyLoading}
-                locale={locale}
+                placeName={placeName}
+                geocodeLoading={geocodeLoading}
+                stationName={displayStation?.stationName ?? null}
+                plantName={selectedPoint.powerPlant?.name ?? null}
+                countryIso3={countryIso3}
+                onClose={() => setSelectedPoint(null)}
+                showClose={false}
               />
-            )}
-            {selectedPoint.fire && (
-              <FirePanel
-                fire={selectedPoint.fire}
-                aqPoint={aqPoint}
-                windVec={windVec}
-                locale={locale}
-              />
-            )}
-            {selectedPoint.powerPlant && (
-              <PowerPlantPanel
-                plant={selectedPoint.powerPlant}
-                aqPoint={aqPoint}
-                windVec={windVec}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </AppScrollArea>
-    </div>
+              <hr className="border-zinc-800 my-2" />
+              {displayStation && (
+                <StationPanel
+                  station={displayStation}
+                  lngLat={selectedPoint.lngLat}
+                  historyDays={historyDays}
+                  historyLoading={historyLoading}
+                  locale={locale}
+                  onExpand={() => setDetent('full')}
+                />
+              )}
+              {selectedPoint.fire && (
+                <FirePanel
+                  fire={selectedPoint.fire}
+                  aqPoint={aqPoint}
+                  windVec={windVec}
+                  locale={locale}
+                />
+              )}
+              {selectedPoint.powerPlant && (
+                <PowerPlantPanel
+                  plant={selectedPoint.powerPlant}
+                  aqPoint={aqPoint}
+                  windVec={windVec}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        )}
+      </BottomSheet>
+    </>
   );
 }
 
@@ -211,6 +282,7 @@ function PanelHeader({
   plantName,
   countryIso3,
   onClose,
+  showClose = true,
 }: {
   panelType: string | null;
   lngLat: [number, number];
@@ -220,6 +292,7 @@ function PanelHeader({
   plantName: string | null;
   countryIso3: string | null;
   onClose: () => void;
+  showClose?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -281,13 +354,15 @@ function PanelHeader({
           {lngLat[1].toFixed(4)}°N {lngLat[0].toFixed(4)}°E
         </p>
       </div>
-      <button
-        onClick={onClose}
-        aria-label={t('infoPanel.dismiss')}
-        className="inline-flex items-center justify-center size-8.5 shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
-      >
-        <XIcon />
-      </button>
+      {showClose && (
+        <button
+          onClick={onClose}
+          aria-label={t('infoPanel.dismiss')}
+          className="inline-flex items-center justify-center size-8.5 shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
+        >
+          <XIcon />
+        </button>
+      )}
     </div>
   );
 }
@@ -353,6 +428,7 @@ function StationPanel({
   historyDays,
   historyLoading,
   locale,
+  onExpand,
 }: {
   station: {
     stationId: string;
@@ -365,6 +441,7 @@ function StationPanel({
   historyDays: StationDayHistory[] | undefined;
   historyLoading: boolean;
   locale: string;
+  onExpand?: () => void;
 }) {
   const { t } = useTranslation();
   const cat = pm25ToCategory(station.pm25);
@@ -392,18 +469,21 @@ function StationPanel({
           </span>
         </Row>
       )}
-      <ExplainButton
-        key={station.stationId}
-        stationId={station.stationId}
-        lat={lngLat[1]}
-        lng={lngLat[0]}
-        rateLimitControl={{
-          value: explainRateLimit,
-          onSet: setExplainRateLimit,
-          onClear: () => setExplainRateLimit(null),
-        }}
-        className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
-      />
+      {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
+      <div onClickCapture={onExpand}>
+        <ExplainButton
+          key={station.stationId}
+          stationId={station.stationId}
+          lat={lngLat[1]}
+          lng={lngLat[0]}
+          rateLimitControl={{
+            value: explainRateLimit,
+            onSet: setExplainRateLimit,
+            onClear: () => setExplainRateLimit(null),
+          }}
+          className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
+        />
+      </div>
       {(historyLoading || historyDays) && (
         <>
           <hr className="border-zinc-800 my-2" />
