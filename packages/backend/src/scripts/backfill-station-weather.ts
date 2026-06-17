@@ -1,12 +1,8 @@
 /**
- * One-time backfill: populates station_weather for all dates in the last 40 days.
- * Run after deploying migration 018_station_weather.sql.
+ * Backfill: populates station_weather for all stations for the last N days (default 40).
+ * Re-run whenever the station list changes or to fill gaps from missed readings.
  *
- * Usage: pnpm --filter backend run backfill:station-weather
- *
- * Station source: station_readings (distinct station_ids with pm25 for each date),
- * not the stations table — this ensures we only pre-compute weather for stations
- * that actually reported on a given date and will appear on the map.
+ * Usage: pnpm --filter backend run backfill:station-weather [days]
  */
 import 'dotenv/config';
 import { supabase } from '../db/client.js';
@@ -70,30 +66,6 @@ console.log(`[backfill] Will attempt ${dates.length} dates (last ${DAYS} days)`)
 
 let totalRows = 0;
 for (const date of dates) {
-  // Get distinct station_ids that reported pm25 on this date.
-  let reportingStationIds: string[];
-  try {
-    const readings = await fetchAllPages<{ station_id: string }>((from, to) =>
-      supabase
-        .from('station_readings')
-        .select('station_id')
-        .gte('measured_at', `${date}T00:00:00Z`)
-        .lte('measured_at', `${date}T23:59:59Z`)
-        .range(from, to),
-    );
-    reportingStationIds = [...new Set(readings.map((r) => r.station_id))];
-  } catch (err) {
-    console.warn(
-      `[backfill] Skipping ${date} (station_readings): ${err instanceof Error ? err.message : String(err)}`,
-    );
-    continue;
-  }
-
-  if (!reportingStationIds.length) {
-    console.warn(`[backfill] Skipping ${date}: no pm25 readings`);
-    continue;
-  }
-
   // Fetch weather grid for this date.
   let grid: {
     lat: number;
@@ -141,10 +113,7 @@ for (const date of dates) {
     relative_humidity_2m: number | null;
   }[] = [];
 
-  for (const stationId of reportingStationIds) {
-    const station = stationMap.get(stationId);
-    if (!station) continue; // no coordinates for this station
-
+  for (const [stationId, station] of stationMap) {
     const snappedLat = snapToGrid(station.lat, SNAP_LAT_MIN);
     const snappedLng = snapToGrid(station.lng, SNAP_LNG_MIN);
     const reading = gridMap.get(`${snappedLat},${snappedLng}`);
@@ -172,7 +141,7 @@ for (const date of dates) {
 
   totalRows += rows.length;
   console.log(
-    `[backfill] ${date}: ${rows.length}/${reportingStationIds.length} reporting stations matched weather (grid: ${grid.length} pts)`,
+    `[backfill] ${date}: ${rows.length}/${stationMap.size} stations matched weather (grid: ${grid.length} pts)`,
   );
 }
 
