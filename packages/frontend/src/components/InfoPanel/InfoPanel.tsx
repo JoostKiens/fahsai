@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { useUIStore } from '@/store/uiStore';
+import { useUIStore, dayToDate, useEffectiveScrubberDays } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
 import { ExplainButton } from '@/components/ExplainButton';
 import { AqiBadge } from './AqiBadge';
@@ -18,11 +18,16 @@ import { useStationHistory } from './useStationHistory';
 import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { WindArrow } from './WindArrow';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { mapRef } from '@/utils/mapRef';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const PANEL_BASE =
   'absolute top-3 right-3 w-[260px] bg-zinc-900 border border-zinc-700/60 rounded-lg z-20 pointer-events-auto shadow-2xl';
+
+// ponytail: tune against real station content on a narrow viewport (≈375px)
+const PEEK_HEIGHT = 232;
 
 export function InfoPanel() {
   const { t, i18n } = useTranslation();
@@ -71,21 +76,56 @@ export function InfoPanel() {
     if (selectedPointRef.current?.fire) setSelectedPoint(null);
   }, [selectedDate, setSelectedPoint]);
 
-  const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
+  const {
+    data: historyDays,
+    isPending: historyLoading,
+    isFetching: historyFetching,
+  } = useStationHistory(stationId);
+
+  // BottomSheet registers its own Escape handler when open=true (covers both mobile and desktop
+  // via the portal), so no separate handler is needed here.
+
+  // Resets to peek on every new selection so the sheet always opens at rest height.
+  const [detent, setDetent] = useState<'peek' | 'full'>('peek');
+  useEffect(() => {
+    setDetent('peek');
+  }, [selectedPoint]);
+
+  // Use visualViewport so fullHeight stays correct when the virtual keyboard
+  // appears / dismisses on mobile (window.innerHeight does not update).
+  const [viewportHeight, setViewportHeight] = useState(
+    () => window.visualViewport?.height ?? window.innerHeight,
+  );
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setViewportHeight(vv.height);
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, []);
+  const fullHeight = Math.round(viewportHeight * 0.75);
+
+  // Auto-pan the map so the selected marker stays above the sheet on mobile.
+  // Desktop uses a floating card (no padding needed); skip on md+ viewports.
+  useEffect(() => {
+    if (window.innerWidth >= 768) return;
+    if (!selectedPoint) {
+      mapRef.current?.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+      return;
+    }
+    const bottom = detent === 'full' ? fullHeight : PEEK_HEIGHT;
+    mapRef.current?.easeTo({
+      padding: { top: 0, right: 0, bottom, left: 0 },
+      center: selectedPoint.lngLat,
+      duration: 300,
+    });
+  }, [selectedPoint, detent, fullHeight]);
 
   const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
   const displayStation =
     selectedPoint?.station && liveAqi
       ? { ...selectedPoint.station, pm25: liveAqi.value, measuredAt: liveAqi.measuredAt }
       : (selectedPoint?.station ?? null);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSelectedPoint(null);
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [setSelectedPoint]);
 
   const panelType = selectedPoint?.fire
     ? 'fire'
@@ -113,90 +153,153 @@ export function InfoPanel() {
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3;
 
-  if (!selectedPoint) {
-    return (
+  const isOpen = !!selectedPoint || !!pendingSelection;
+
+  return (
+    <>
+      {/* Desktop: floating card */}
       <div
         role="region"
         aria-label={t('infoPanel.ariaLabel')}
         className={`hidden md:block ${PANEL_BASE}`}
       >
-        {pendingSelection ? (
-          <PanelSkeleton />
+        {!selectedPoint ? (
+          pendingSelection ? (
+            <PanelSkeleton />
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={TWEEN_ENTER}
+              className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
+            >
+              <CursorClickIcon />
+              <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
+                {t('infoPanel.clickPrompt')}
+              </span>
+            </motion.div>
+          )
         ) : (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={TWEEN_ENTER}
-            className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
-          >
-            <CursorClickIcon />
-            <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
-              {t('infoPanel.clickPrompt')}
-            </span>
-          </motion.div>
+          <div className="overflow-hidden max-h-[calc(100%-1.5rem)]">
+            <AppScrollArea viewportClassName="max-h-[80svh]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={panelType}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+                  exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+                  className="p-3"
+                >
+                  <PanelHeader
+                    panelType={panelType}
+                    lngLat={selectedPoint.lngLat}
+                    placeName={placeName}
+                    geocodeLoading={geocodeLoading}
+                    stationName={displayStation?.stationName ?? null}
+                    plantName={selectedPoint.powerPlant?.name ?? null}
+                    countryIso3={countryIso3}
+                    onClose={() => setSelectedPoint(null)}
+                    showClose={true}
+                  />
+                  <hr className="border-zinc-800 my-2" />
+                  {displayStation && (
+                    <StationPanel
+                      station={displayStation}
+                      lngLat={selectedPoint.lngLat}
+                      historyDays={historyDays}
+                      historyLoading={historyLoading}
+                      historyFetching={historyFetching}
+                      locale={locale}
+                    />
+                  )}
+                  {selectedPoint.fire && (
+                    <FirePanel
+                      fire={selectedPoint.fire}
+                      aqPoint={aqPoint}
+                      windVec={windVec}
+                      locale={locale}
+                    />
+                  )}
+                  {selectedPoint.powerPlant && (
+                    <PowerPlantPanel
+                      plant={selectedPoint.powerPlant}
+                      aqPoint={aqPoint}
+                      windVec={windVec}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </AppScrollArea>
+          </div>
         )}
       </div>
-    );
-  }
 
-  return (
-    <div
-      role="region"
-      aria-label={t('infoPanel.ariaLabel')}
-      className={`${PANEL_BASE} overflow-hidden max-h-[calc(100%-1.5rem)]`}
-    >
-      <AppScrollArea viewportClassName="max-h-[80svh]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={panelType}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
-            exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
-            className="p-3"
-          >
-            <PanelHeader
-              panelType={panelType}
-              lngLat={selectedPoint.lngLat}
-              placeName={placeName}
-              geocodeLoading={geocodeLoading}
-              stationName={displayStation?.stationName ?? null}
-              plantName={selectedPoint.powerPlant?.name ?? null}
-              countryIso3={countryIso3}
-              onClose={() => setSelectedPoint(null)}
-            />
-
-            <hr className="border-zinc-800 my-2" />
-
-            {displayStation && (
-              <StationPanel
-                station={displayStation}
+      {/* Mobile: bottom sheet — all three panel types, unified two-detent */}
+      <BottomSheet
+        open={isOpen}
+        onClose={() => setSelectedPoint(null)}
+        closeAriaLabel={t('infoPanel.dismiss')}
+        detents={{ peekHeight: PEEK_HEIGHT, fullHeight }}
+        activeDetent={detent}
+        onDetentChange={setDetent}
+        showBackdrop={false}
+      >
+        {!selectedPoint ? (
+          <PanelSkeleton />
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={panelType}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+              exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+              className="p-3"
+            >
+              <PanelHeader
+                panelType={panelType}
                 lngLat={selectedPoint.lngLat}
-                historyDays={historyDays}
-                historyLoading={historyLoading}
-                locale={locale}
+                placeName={placeName}
+                geocodeLoading={geocodeLoading}
+                stationName={displayStation?.stationName ?? null}
+                plantName={selectedPoint.powerPlant?.name ?? null}
+                countryIso3={countryIso3}
+                onClose={() => setSelectedPoint(null)}
+                showClose={false}
               />
-            )}
-            {selectedPoint.fire && (
-              <FirePanel
-                fire={selectedPoint.fire}
-                aqPoint={aqPoint}
-                windVec={windVec}
-                locale={locale}
-              />
-            )}
-            {selectedPoint.powerPlant && (
-              <PowerPlantPanel
-                plant={selectedPoint.powerPlant}
-                aqPoint={aqPoint}
-                windVec={windVec}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </AppScrollArea>
-    </div>
+              <hr className="border-zinc-800 my-2" />
+              {displayStation && (
+                <StationPanel
+                  station={displayStation}
+                  lngLat={selectedPoint.lngLat}
+                  historyDays={historyDays}
+                  historyLoading={historyLoading}
+                  historyFetching={historyFetching}
+                  locale={locale}
+                  onExpand={() => setDetent('full')}
+                />
+              )}
+              {selectedPoint.fire && (
+                <FirePanel
+                  fire={selectedPoint.fire}
+                  aqPoint={aqPoint}
+                  windVec={windVec}
+                  locale={locale}
+                />
+              )}
+              {selectedPoint.powerPlant && (
+                <PowerPlantPanel
+                  plant={selectedPoint.powerPlant}
+                  aqPoint={aqPoint}
+                  windVec={windVec}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        )}
+      </BottomSheet>
+    </>
   );
 }
 
@@ -211,6 +314,7 @@ function PanelHeader({
   plantName,
   countryIso3,
   onClose,
+  showClose = true,
 }: {
   panelType: string | null;
   lngLat: [number, number];
@@ -220,6 +324,7 @@ function PanelHeader({
   plantName: string | null;
   countryIso3: string | null;
   onClose: () => void;
+  showClose?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -281,13 +386,15 @@ function PanelHeader({
           {lngLat[1].toFixed(4)}°N {lngLat[0].toFixed(4)}°E
         </p>
       </div>
-      <button
-        onClick={onClose}
-        aria-label={t('infoPanel.dismiss')}
-        className="inline-flex items-center justify-center size-8.5 shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
-      >
-        <XIcon />
-      </button>
+      {showClose && (
+        <button
+          onClick={onClose}
+          aria-label={t('infoPanel.dismiss')}
+          className="inline-flex items-center justify-center size-8.5 shrink-0 -mr-1.5 -mt-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 transition-colors"
+        >
+          <XIcon />
+        </button>
+      )}
     </div>
   );
 }
@@ -352,7 +459,9 @@ function StationPanel({
   lngLat,
   historyDays,
   historyLoading,
+  historyFetching,
   locale,
+  onExpand,
 }: {
   station: {
     stationId: string;
@@ -364,12 +473,35 @@ function StationPanel({
   lngLat: [number, number];
   historyDays: StationDayHistory[] | undefined;
   historyLoading: boolean;
+  historyFetching: boolean;
   locale: string;
+  onExpand?: () => void;
 }) {
   const { t } = useTranslation();
   const cat = pm25ToCategory(station.pm25);
   const explainRateLimit = useUIStore((s) => s.explainRateLimit);
   const setExplainRateLimit = useUIStore((s) => s.setExplainRateLimit);
+  const scrubberDay = useUIStore((s) => s.scrubberDay);
+  const setScrubberDay = useUIStore((s) => s.setScrubberDay);
+  const scrubberDays = useEffectiveScrubberDays();
+  const latestDate = useTimeStore((s) => s.latestDate);
+  const selectedDate = useTimeStore((s) => s.selectedDate);
+
+  // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
+  // Both directions use the same presence check so neither button fires if the station
+  // has no reading on that date.
+  const historyDateSet = new Set(
+    historyDays?.filter((d) => d.readingCount > 0).map((d) => d.date) ?? [],
+  );
+  const prevDate = scrubberDay > 0 ? dayToDate(scrubberDay - 1, latestDate, scrubberDays) : null;
+  const nextDate =
+    scrubberDay < scrubberDays - 1 ? dayToDate(scrubberDay + 1, latestDate, scrubberDays) : null;
+  const canGoPrev = prevDate !== null && historyDateSet.has(prevDate);
+  const canGoNext = nextDate !== null && historyDateSet.has(nextDate);
+  // Chart only shows days up to (and including) the currently selected date.
+  const chartDays = historyDays?.filter((d) => d.date <= selectedDate);
+  const fmtDay = (dateStr: string) =>
+    new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 
   return (
     <>
@@ -390,20 +522,43 @@ function StationPanel({
               }),
             })}
           </span>
+          <div className="md:hidden flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={() => setScrubberDay(scrubberDay - 1)}
+              disabled={!canGoPrev}
+              aria-label={t('infoPanel.prevDay')}
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            >
+              <ChevronLeftIcon />
+              {canGoPrev && prevDate && fmtDay(prevDate)}
+            </button>
+            <button
+              onClick={() => setScrubberDay(scrubberDay + 1)}
+              disabled={!canGoNext}
+              aria-label={t('infoPanel.nextDay')}
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            >
+              {canGoNext && nextDate && fmtDay(nextDate)}
+              <ChevronRightIcon />
+            </button>
+          </div>
         </Row>
       )}
-      <ExplainButton
-        key={station.stationId}
-        stationId={station.stationId}
-        lat={lngLat[1]}
-        lng={lngLat[0]}
-        rateLimitControl={{
-          value: explainRateLimit,
-          onSet: setExplainRateLimit,
-          onClear: () => setExplainRateLimit(null),
-        }}
-        className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
-      />
+      {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
+      <div onClickCapture={onExpand}>
+        <ExplainButton
+          key={station.stationId}
+          stationId={station.stationId}
+          lat={lngLat[1]}
+          lng={lngLat[0]}
+          rateLimitControl={{
+            value: explainRateLimit,
+            onSet: setExplainRateLimit,
+            onClear: () => setExplainRateLimit(null),
+          }}
+          className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
+        />
+      </div>
       {(historyLoading || historyDays) && (
         <>
           <hr className="border-zinc-800 my-2" />
@@ -411,7 +566,15 @@ function StationPanel({
             <p className="text-[11px] text-zinc-300">{t('infoPanel.last5days')}</p>
             <span className="text-[11px] text-zinc-400 font-mono">µg/m³</span>
           </div>
-          {historyLoading || !historyDays ? <ShimmerHistory /> : <History days={historyDays} />}
+          {historyLoading || !chartDays ? (
+            <ShimmerHistory />
+          ) : (
+            <div
+              className={historyFetching ? 'opacity-40 transition-opacity' : 'transition-opacity'}
+            >
+              <History days={chartDays} />
+            </div>
+          )}
         </>
       )}
     </>
@@ -600,6 +763,40 @@ function mapConfidence(raw: string | null): { labelKey: string; color: string } 
 }
 
 // --- Icons ---
+
+function ChevronLeftIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 12L6 8l4-4" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 12l4-4-4-4" />
+    </svg>
+  );
+}
 
 function CursorClickIcon() {
   return (
