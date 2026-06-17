@@ -26,54 +26,23 @@ export async function precomputeStationWeather(
     relative_humidity_2m: number | null;
   }[],
   logPrefix = '[weather-ingest]',
-): Promise<void> {
+): Promise<number> {
   const PAGE_SIZE = 1000;
 
-  // Use station_ids from station_readings for this date — only stations that actually
-  // reported pm25 will appear on the map, so only they need weather pre-computed.
-  const reportingIds = new Set<string>();
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('station_readings')
-      .select('station_id')
-      .gte('measured_at', `${date}T00:00:00Z`)
-      .lte('measured_at', `${date}T23:59:59Z`)
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      console.warn(
-        `${logPrefix} Could not fetch station_readings for pre-computation:`,
-        error.message,
-      );
-      return;
-    }
-    if (!data?.length) break;
-    for (const r of data) reportingIds.add(r.station_id as string);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-
-  if (!reportingIds.size) {
-    console.warn(
-      `${logPrefix} No pm25 readings found for ${date} — skipping station_weather pre-computation`,
-    );
-    return;
-  }
-
-  // Fetch coordinates for the reporting stations.
+  // Fetch coordinates for all known stations — weather is pre-computed regardless of
+  // whether a station reported pm25 that day, so History and explain both get weather
+  // even on days with missing readings.
   const stations: { id: string; lat: number; lng: number }[] = [];
-  from = 0;
+  let from = 0;
   while (true) {
     const { data, error } = await supabase
       .from('stations')
       .select('id, lat, lng')
-      .in('id', [...reportingIds])
       .not('lat', 'is', null)
       .not('lng', 'is', null)
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
-      console.warn(`${logPrefix} Could not fetch station coordinates:`, error.message);
-      return;
+      throw new Error(`${logPrefix} Could not fetch station coordinates: ${error.message}`);
     }
     if (!data?.length) break;
     stations.push(...(data as { id: string; lat: number; lng: number }[]));
@@ -83,7 +52,7 @@ export async function precomputeStationWeather(
 
   if (!stations.length) {
     console.warn(`${logPrefix} No station coordinates found for pre-computation`);
-    return;
+    return 0;
   }
 
   // Build O(1) lookup: key by SNAPPED coords so the map agrees with the station snap,
@@ -123,12 +92,12 @@ export async function precomputeStationWeather(
       .from('station_weather')
       .upsert(rows.slice(i, i + BATCH), { onConflict: 'station_id,date', ignoreDuplicates: false });
     if (upsertError) {
-      console.error(`${logPrefix} station_weather upsert failed:`, upsertError.message);
-      return;
+      throw new Error(`${logPrefix} station_weather upsert failed: ${upsertError.message}`);
     }
   }
 
   console.log(
     `${logPrefix} Pre-computed weather for ${rows.length}/${stations.length} stations → station_weather`,
   );
+  return rows.length;
 }
