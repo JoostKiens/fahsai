@@ -19,6 +19,7 @@ import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { mapRef } from '@/utils/mapRef';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -91,6 +92,22 @@ export function InfoPanel() {
     setDetent('peek');
   }, [selectedPoint]);
   const fullHeight = Math.round(window.innerHeight * 0.75);
+
+  // Auto-pan the map so the selected marker stays above the sheet on mobile.
+  // Desktop uses a floating card (no padding needed); skip on md+ viewports.
+  useEffect(() => {
+    if (window.innerWidth >= 768) return;
+    if (!selectedPoint) {
+      mapRef.current?.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+      return;
+    }
+    const bottom = detent === 'full' ? fullHeight : PEEK_HEIGHT;
+    mapRef.current?.easeTo({
+      padding: { top: 0, right: 0, bottom, left: 0 },
+      center: selectedPoint.lngLat,
+      duration: 300,
+    });
+  }, [selectedPoint, detent, fullHeight]);
 
   const liveAqi = stationId ? (aqData?.find((m) => m.stationId === stationId) ?? null) : null;
   const displayStation =
