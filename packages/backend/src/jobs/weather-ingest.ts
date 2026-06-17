@@ -120,15 +120,18 @@ export async function runWeatherIngest(
   }
   console.log(`[weather-ingest] Persisted ${readings.length} rows to weather_readings`);
 
-  // Pre-compute weather for every active station so the history endpoint can do a
-  // simple station_weather lookup instead of a weather_readings grid snap at query time.
-  await precomputeStationWeather(targetDate, readings);
-
-  // Set Redis directly: the ingest produces the exact value both weather routes serve
-  // verbatim (no join, deduplication, or projection needed), so we can warm both cache
-  // keys here rather than waiting for the first API request to repopulate them.
-  // Only cache complete grids — partial data from a rate-limited run must not poison Redis.
+  // Only act on complete grids — partial data from a rate-limited run must not poison
+  // station_weather rows or the Redis cache.
   if (readings.length >= MIN_COMPLETE_POINTS) {
+    try {
+      await precomputeStationWeather(targetDate, readings);
+    } catch (err) {
+      console.error(
+        `[weather-ingest] station_weather precompute failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
     const windReadings = readings.map((r) => ({
       lat: r.lat,
       lng: r.lng,
