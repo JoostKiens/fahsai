@@ -76,7 +76,11 @@ export function InfoPanel() {
     if (selectedPointRef.current?.fire) setSelectedPoint(null);
   }, [selectedDate, setSelectedPoint]);
 
-  const { data: historyDays, isPending: historyLoading } = useStationHistory(stationId);
+  const {
+    data: historyDays,
+    isPending: historyLoading,
+    isFetching: historyFetching,
+  } = useStationHistory(stationId);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -198,6 +202,7 @@ export function InfoPanel() {
                       lngLat={selectedPoint.lngLat}
                       historyDays={historyDays}
                       historyLoading={historyLoading}
+                      historyFetching={historyFetching}
                       locale={locale}
                     />
                   )}
@@ -262,6 +267,7 @@ export function InfoPanel() {
                   lngLat={selectedPoint.lngLat}
                   historyDays={historyDays}
                   historyLoading={historyLoading}
+                  historyFetching={historyFetching}
                   locale={locale}
                   onExpand={() => setDetent('full')}
                 />
@@ -445,6 +451,7 @@ function StationPanel({
   lngLat,
   historyDays,
   historyLoading,
+  historyFetching,
   locale,
   onExpand,
 }: {
@@ -458,6 +465,7 @@ function StationPanel({
   lngLat: [number, number];
   historyDays: StationDayHistory[] | undefined;
   historyLoading: boolean;
+  historyFetching: boolean;
   locale: string;
   onExpand?: () => void;
 }) {
@@ -469,13 +477,23 @@ function StationPanel({
   const setScrubberDay = useUIStore((s) => s.setScrubberDay);
   const scrubberDays = useEffectiveScrubberDays();
   const latestDate = useTimeStore((s) => s.latestDate);
+  const selectedDate = useTimeStore((s) => s.selectedDate);
 
-  // Prev is safe to enable only when historyDays confirms data exists for that date.
-  // Next only needs the scrubber-bounds check — going toward the present is low-risk.
-  const historyDateSet = new Set(historyDays?.map((d) => d.date) ?? []);
+  // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
+  // Both directions use the same presence check so neither button fires if the station
+  // has no reading on that date.
+  const historyDateSet = new Set(
+    historyDays?.filter((d) => d.readingCount > 0).map((d) => d.date) ?? [],
+  );
   const prevDate = scrubberDay > 0 ? dayToDate(scrubberDay - 1, latestDate, scrubberDays) : null;
+  const nextDate =
+    scrubberDay < scrubberDays - 1 ? dayToDate(scrubberDay + 1, latestDate, scrubberDays) : null;
   const canGoPrev = prevDate !== null && historyDateSet.has(prevDate);
-  const canGoNext = scrubberDay < scrubberDays - 1;
+  const canGoNext = nextDate !== null && historyDateSet.has(nextDate);
+  // Chart only shows days up to (and including) the currently selected date.
+  const chartDays = historyDays?.filter((d) => d.date <= selectedDate);
+  const fmtDay = (dateStr: string) =>
+    new Date(`${dateStr}T12:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 
   return (
     <>
@@ -496,21 +514,23 @@ function StationPanel({
               }),
             })}
           </span>
-          <div className="flex items-center shrink-0">
+          <div className="md:hidden flex items-center gap-0.5 shrink-0">
             <button
               onClick={() => setScrubberDay(scrubberDay - 1)}
               disabled={!canGoPrev}
               aria-label={t('infoPanel.prevDay')}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               <ChevronLeftIcon />
+              {canGoPrev && prevDate && fmtDay(prevDate)}
             </button>
             <button
               onClick={() => setScrubberDay(scrubberDay + 1)}
               disabled={!canGoNext}
               aria-label={t('infoPanel.nextDay')}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
+              {canGoNext && nextDate && fmtDay(nextDate)}
               <ChevronRightIcon />
             </button>
           </div>
@@ -538,7 +558,15 @@ function StationPanel({
             <p className="text-[11px] text-zinc-300">{t('infoPanel.last5days')}</p>
             <span className="text-[11px] text-zinc-400 font-mono">µg/m³</span>
           </div>
-          {historyLoading || !historyDays ? <ShimmerHistory /> : <History days={historyDays} />}
+          {historyLoading || !chartDays ? (
+            <ShimmerHistory />
+          ) : (
+            <div
+              className={historyFetching ? 'opacity-40 transition-opacity' : 'transition-opacity'}
+            >
+              <History days={chartDays} />
+            </div>
+          )}
         </>
       )}
     </>
