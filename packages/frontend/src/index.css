@@ -12,6 +12,28 @@
   }
 }
 
+@media (max-width: 767px) {
+  .mapboxgl-ctrl-bottom-left {
+    bottom: auto;
+    top: 10px;
+    left: 16px;
+    z-index: 1;
+  }
+  .mapboxgl-ctrl-bottom-left .mapboxgl-ctrl {
+    margin: 0;
+  }
+  .mapboxgl-ctrl-bottom-right {
+    top: 10px;
+    right: 16px;
+    bottom: auto;
+    left: 16px;
+    z-index: 2; /* attribution popup above the logo */
+  }
+  .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl {
+    margin: 0;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -27,4 +49,3 @@ body,
   overflow: hidden;
   background-color: #18181b; /* zinc-900 */
 }
-
