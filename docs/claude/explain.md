@@ -82,15 +82,134 @@ asks whether the air mass actually passed near the source, not whether the sourc
 today's wind direction.
 
 Influence formula:
+
 ```
 populationScore = source.population / effectiveDist²
 emissionScore   = (source.emissionProxy × 10_000) / effectiveDist²
 influenceScore  = populationScore + emissionScore
 ```
+
 Influence is computed relative to proximity along the trajectory path (minimum distance to any
 center-trajectory waypoint), not straight-line distance from the station.
 
 Files:
+
 - `packages/backend/src/data/urbanSources.ts` — static data array (do not sync from external source)
 - `packages/backend/src/lib/geo.ts` — `haversineKm`, `bearingDeg`, `compassFromDeg`
 - `packages/backend/src/lib/urbanSources.ts` — `getRelevantUrbanSources()` helper
+
+---
+
+## Editing the prompt
+
+The prompt is shared, permanent surface area. Every instruction you add lives in every
+future request and can silently contradict another instruction. Before changing it, work
+through the principles below, then follow the loop. The goal is a prompt that stays small
+and internally consistent as the case taxonomy grows.
+
+### Principles (read before any prompt edit)
+
+**1. Fix-precedence — change the prompt last.** When output is wrong, diagnose in this
+order and apply the highest fix that resolves it:
+
+| Symptom                                       | Fix location                                        |
+| --------------------------------------------- | --------------------------------------------------- |
+| Wrong case assigned                           | `classify.ts` (classifier)                          |
+| Wrong information reaching the model          | `buildScientificContext.ts` (data / context)        |
+| Case and data correct, model still misbehaves | `buildPrompt.ts` (prompt instruction) — last resort |
+
+Prefer upstream fixes. Computed booleans and context suppression in code cannot contradict
+each other the way two English sentences can. A prompt rule is permanent and global; a
+`firesAreLocal` boolean or a dropped CAMS section is targeted and self-consistent. Reach
+for `buildPrompt.ts` only when the case and data are both correct.
+
+**2. Word budgets.** Universal instructions ≤ 150 words. Per-case section ≤ 100 words.
+Positive instructions only — state what to do, not a growing list of don'ts. If a budget
+is blown, something needs cutting or moving to code, not appending.
+
+**3. One example per case.** `buildExampleBlock` returns **at most one** example, keyed on
+the case (and in some cases additional conditions). The assembled prompt never carries more
+than one. This is a guardrail, not an accident:
+
+- _Bloat:_ adding fixtures never grows the per-request prompt.
+- _Conflict:_ the included example always agrees with the active case instruction — a CLEAN
+  example can never sit next to a FIRE_TRANSPORT rule. The example reinforces the case,
+  never competes with it.
+
+Keep it this way. Never include all goldens, and never key example selection on anything
+`buildExampleBlock` does not already see. `buildExampleBlock` is the source of truth for
+selection logic — do not duplicate its conditions elsewhere.
+
+**4. Conflict audit — run before adding any instruction.**
+
+1. Search the universal rules, the target case section, and the banned-language list for an
+   instruction that already covers this. Edit that one instead of adding a new one.
+2. Check a new banned word does not collide with required vocabulary.
+3. Run `--prompts-only` for the affected case and re-read the _assembled_ prompt end to end,
+   looking for two instructions that pull in opposite directions.
+4. If a rule only matters for one case, it goes in that case's section — never universal.
+
+### Edit + eval loop
+
+1. **Reproduce.** Identify the failing fixture, or add a new one capturing the real-world
+   case. Its `case` field reflects what the case _will be_ after your fix, not what it is now.
+2. **Diagnose** with the fix-precedence table. Apply the highest-up fix that resolves it.
+3. **If touching the prompt,** run the conflict audit first. Prefer editing an existing
+   instruction over adding one.
+4. **Update or write the golden** for the fixture — the hand-written ideal output
+   (see Goldens below).
+5. **Wire the golden** as the case example if it is new.
+6. **Bump `EXPLAIN_CACHE_VERSION`** whenever `buildPrompt.ts` or `buildScientificContext.ts`
+   changes — see "AI Explanation Cache" above.
+7. **Verify, in order:**
+
+   ```bash
+   pnpm --filter backend eval:explain -- --prompts-only   # assembled prompt looks right
+   pnpm --filter backend eval:explain -- --no-stream      # output matches golden, no regressions
+   pnpm typecheck && pnpm lint
+   ```
+
+Eval flags: `--fixture=NN` runs one fixture (saves quota), `--prompts-only` prints the prompt
+without calling Gemini (free, fast), `--no-stream` returns a non-streaming response (cleaner
+diffs). Free tier is 15 RPM; the runner waits 4,500 ms between fixtures, so a full run takes
+~2 minutes.
+
+### Goldens
+
+Goldens live in `eval/golden/*.ts`, one per fixture, exporting a single string:
+
+```ts
+export const golden = `<one or more paragraphs of the ideal explanation>`;
+```
+
+The golden file is the **single source of truth**: the eval compares actual output against it,
+_and_ the prompt imports it as the case example. They cannot drift because they are the same
+string. Never copy golden prose anywhere else, including into this doc — for voice and
+structure, read the real files in `golden/`; do not maintain a second example here.
+
+Wiring a new golden as an example:
+
+```ts
+import { golden as goldenMyCase } from '../scripts/eval/my-fixture.js'
+
+const EXAMPLE_MY_CASE = `<example>\n${goldenMyCase}\n</example>`
+
+// buildExampleBlock returns at most one, keyed on case (+ conditions):
+case 'MY_CASE': return EXAMPLE_MY_CASE
+
+```
+
+A golden is hand-written, never model-generated, and must satisfy the output rules:
+
+- Cause-first: answer "what is causing this reading?" before anything else.
+- No CAMS µg/m³ values — describe origin character in plain language ("clean marine air",
+  "smoke from Myanmar").
+- No fire-pressure score numbers — fire counts and geography only.
+- No specific time windows — "recently", "over the past few days", "for weeks"; never
+  "72 hours" or "14 days".
+- No em-dashes.
+- Integers for PM2.5, always with µg/m³.
+- Fires "have been detected" with a time window — never present continuous.
+- Peers only when they add causal information — omit otherwise; never name individual
+  stations when count > 3.
+- Strictly data-grounded — never cite a number that is not in the fixture's input.
