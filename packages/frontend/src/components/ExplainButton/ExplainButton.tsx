@@ -137,18 +137,18 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
       </button>
 
       {text && (
-        <div className="mt-2 text-[11px] text-zinc-300 leading-relaxed whitespace-pre-line">
+        <div className="mt-2 text-[13px] text-zinc-300 leading-relaxed whitespace-pre-line">
           {parseBoldSegments(sanitizeExplanation(text)).map((seg, i) =>
             seg.bold ? <strong key={i}>{seg.text}</strong> : <span key={i}>{seg.text}</span>,
           )}
         </div>
       )}
 
-      {text && <p className="mt-1 text-[10px] text-zinc-500">{t('explain.disclaimer')}</p>}
+      {text && <p className="mt-1 text-[12px] text-zinc-500">{t('explain.disclaimer')}</p>}
 
-      {msg && <p className="mt-1 text-[10px] text-amber-400">{msg}</p>}
+      {msg && <p className="mt-1 text-[12px] text-amber-400">{msg}</p>}
       {error === 'unavailable' && (
-        <p className="mt-1 text-[10px] text-red-400">{t('explain.unavailable')}</p>
+        <p className="mt-1 text-[12px] text-red-400">{t('explain.unavailable')}</p>
       )}
     </div>
   );

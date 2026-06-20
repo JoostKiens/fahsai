@@ -135,9 +135,9 @@ const AQI_SOFT_BG: RGB[] = [
   [190, 230, 190], // Good
   [250, 232, 145], // Moderate
   [255, 200, 150], // Unhealthy for sensitive groups
-  [255, 175, 175], // Unhealthy
-  [208, 182, 218], // Very unhealthy
-  [218, 170, 190], // Hazardous
+  [235, 80, 80], // Unhealthy
+  [175, 100, 190], // Very unhealthy
+  [200, 70, 100], // Hazardous
 ];
 
 // Dark category-colored text to sit on the soft backgrounds above.

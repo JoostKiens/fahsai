@@ -11,7 +11,7 @@ import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
 
 const MAX_BAR_H = 48;
-const DAY_LABEL_H = 16;
+const DAY_LABEL_H = 20;
 
 const SHIMMER_ROWS: [string, string, string, string][] = [
   ['w-8', 'w-14', 'w-5', 'w-5'],
@@ -30,8 +30,8 @@ export function ShimmerHistory() {
           className="flex flex-col justify-between shrink-0"
           style={{ paddingBottom: `${DAY_LABEL_H}px` }}
         >
-          <Shimmer className="h-[15px] w-5" />
-          <Shimmer className="h-[15px] w-3" />
+          <Shimmer className="h-4.5 w-5" />
+          <Shimmer className="h-4.5 w-3" />
         </div>
         <div
           className="flex items-end gap-[2px] flex-1"
@@ -45,7 +45,7 @@ export function ShimmerHistory() {
                   className="w-full rounded-t-sm animate-pulse [animation-duration:1.2s] bg-zinc-700"
                   style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
                 />
-                <Shimmer className="h-[15px] w-8 mt-1" />
+                <Shimmer className="h-4.5 w-8 mt-1" />
               </div>
             );
           })}
@@ -53,15 +53,15 @@ export function ShimmerHistory() {
       </div>
 
       <div className="mt-3">
-        <Shimmer className="h-[16.5px] w-12 mb-1" />
+        <Shimmer className="h-5 w-12 mb-1" />
         <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] items-center">
           {(['w-0', 'w-8', 'w-7', 'w-8'] as const).map((w, j) => (
-            <Shimmer key={j} className={`h-[15px] ${w}`} />
+            <Shimmer key={j} className={`h-4.5 ${w}`} />
           ))}
           {SHIMMER_ROWS.map((cols, i) => (
             <Fragment key={i}>
               {cols.map((w, j) => (
-                <Shimmer key={j} className={`h-[16.5px] ${w}`} />
+                <Shimmer key={j} className={`h-5 ${w}`} />
               ))}
             </Fragment>
           ))}
@@ -136,7 +136,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
       {/* PM2.5 bar chart */}
       <div className="flex items-stretch gap-1">
         <div
-          className="flex flex-col justify-between text-[10px] text-zinc-500 font-mono text-right shrink-0"
+          className="flex flex-col justify-between text-[11px] text-zinc-500 font-mono text-right shrink-0"
           style={{ paddingBottom: `${DAY_LABEL_H}px` }}
         >
           <span>{Math.round(maxPm25)}</span>
@@ -197,7 +197,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   }}
                 />
                 <span
-                  className={`text-[10px] whitespace-nowrap mt-1 ${readingCount > 0 ? 'text-zinc-400' : 'text-zinc-700'}`}
+                  className={`text-[11px] whitespace-nowrap mt-1 ${readingCount > 0 ? 'text-zinc-400' : 'text-zinc-700'}`}
                 >
                   {formatDateLabel(date)}
                 </span>
@@ -212,15 +212,15 @@ export function History({ days }: { days: StationDayHistory[] }) {
       <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[11px] items-center">
         {/* Column headers */}
         <span />
-        <span className="text-zinc-500 uppercase tracking-wider text-[10px]">
+        <span className="text-zinc-500 uppercase tracking-wider text-[11px]">
           {t('history.wind')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">km/h</span>
         </span>
-        <span className="text-center text-zinc-500 uppercase tracking-wider text-[10px]">
+        <span className="text-center text-zinc-500 uppercase tracking-wider text-[11px]">
           {t('history.rain')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">mm</span>
         </span>
-        <span className="text-center text-zinc-500 uppercase tracking-wider text-[10px]">
+        <span className="text-center text-zinc-500 uppercase tracking-wider text-[11px]">
           {t('history.humidity')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">%</span>
         </span>

@@ -176,7 +176,7 @@ export function InfoPanel() {
               className="flex flex-col items-center justify-center h-25 gap-2 text-zinc-500"
             >
               <CursorClickIcon />
-              <span className="text-[12px] text-zinc-300 text-center leading-snug whitespace-pre-line">
+              <span className="text-[13px] text-zinc-300 text-center leading-snug whitespace-pre-line">
                 {t('infoPanel.clickPrompt')}
               </span>
             </motion.div>
@@ -357,32 +357,32 @@ function PanelHeader({
         {badgeLabel && (
           <div className={`flex items-center gap-1.5 mb-1.5 ${labelCls}`}>
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotCls}`} />
-            <span className="text-[11px] font-medium">{badgeLabel}</span>
+            <span className="text-[12px] font-medium">{badgeLabel}</span>
           </div>
         )}
         {panelType === 'station' && stationName && (
-          <p className="text-[13px] font-semibold text-zinc-100 leading-tight">{stationName}</p>
+          <p className="text-[14px] font-semibold text-zinc-100 leading-tight">{stationName}</p>
         )}
         {panelType === 'powerPlant' && plantName && (
-          <p className="text-[13px] font-semibold text-zinc-100 leading-tight truncate">
+          <p className="text-[14px] font-semibold text-zinc-100 leading-tight truncate">
             {plantName}
           </p>
         )}
         {geocodeLoading ? (
-          <Shimmer className="h-4 w-28 mt-0.5" />
+          <Shimmer className="h-5 w-28 mt-0.5" />
         ) : placeName ? (
           <p
-            className={`truncate flex items-center gap-1 mt-0.5 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[12px] text-zinc-300' : 'text-[13px] font-semibold text-zinc-100'}`}
+            className={`truncate flex items-center gap-1 mt-0.5 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[13px] text-zinc-300' : 'text-[14px] font-semibold text-zinc-100'}`}
           >
             <CountryFlag iso3={countryIso3} />
             <span className="truncate">{placeName}</span>
           </p>
         ) : panelType === 'fire' ? (
-          <p className="flex items-center gap-1 text-[13px] font-semibold text-zinc-100 mt-0.5">
+          <p className="flex items-center gap-1 text-[14px] font-semibold text-zinc-100 mt-0.5">
             <CountryFlag iso3={countryIso3} />
           </p>
         ) : null}
-        <p className="text-[11px] text-zinc-400 font-mono leading-tight mt-0.5">
+        <p className="text-[12px] text-zinc-400 font-mono leading-tight mt-0.5">
           {lngLat[1].toFixed(4)}°N {lngLat[0].toFixed(4)}°E
         </p>
       </div>
@@ -415,12 +415,12 @@ function SecondarySection({
   return (
     <>
       <hr className="border-zinc-800 my-2" />
-      <p className="text-[11px] text-zinc-300 mb-1.5">{t('infoPanel.ambient')}</p>
+      <p className="text-[12px] text-zinc-300 mb-1.5">{t('infoPanel.ambient')}</p>
       {aqPoint && (
         <Row>
           <span className="text-zinc-300">
             {t('infoPanel.pm25')}{' '}
-            <span className="text-zinc-500 text-[10px]" title={t('infoPanel.modelledTitle')}>
+            <span className="text-zinc-500 text-[11px]" title={t('infoPanel.modelledTitle')}>
               {t('infoPanel.modelled')}
             </span>
           </span>
@@ -434,7 +434,7 @@ function SecondarySection({
       {windVec && (
         <Row>
           <span className="text-zinc-300">{t('infoPanel.wind')}</span>
-          <span className="text-[12px] text-zinc-100 font-medium inline-flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[13px] text-zinc-100 font-medium inline-flex items-center gap-1 whitespace-nowrap">
             <WindArrow
               dirDeg={windVec.wind_direction_deg}
               size={11}
@@ -511,7 +511,7 @@ function StationPanel({
       </Row>
       {station.measuredAt && (
         <Row>
-          <span className="text-[11px] text-zinc-400">
+          <span className="text-[12px] text-zinc-400">
             {t('infoPanel.measuredAt', {
               datetime: new Date(station.measuredAt).toLocaleString(locale, {
                 day: 'numeric',
@@ -527,7 +527,7 @@ function StationPanel({
               onClick={() => setScrubberDay(scrubberDay - 1)}
               disabled={!canGoPrev}
               aria-label={t('infoPanel.prevDay')}
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               <ChevronLeftIcon />
               {canGoPrev && prevDate && fmtDay(prevDate)}
@@ -536,7 +536,7 @@ function StationPanel({
               onClick={() => setScrubberDay(scrubberDay + 1)}
               disabled={!canGoNext}
               aria-label={t('infoPanel.nextDay')}
-              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               {canGoNext && nextDate && fmtDay(nextDate)}
               <ChevronRightIcon />
@@ -556,15 +556,15 @@ function StationPanel({
             onSet: setExplainRateLimit,
             onClear: () => setExplainRateLimit(null),
           }}
-          className="block w-full text-center text-[12px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
+          className="block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
         />
       </div>
       {(historyLoading || historyDays) && (
         <>
           <hr className="border-zinc-800 my-2" />
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] text-zinc-300">{t('infoPanel.last5days')}</p>
-            <span className="text-[11px] text-zinc-400 font-mono">µg/m³</span>
+            <p className="text-[12px] text-zinc-300">{t('infoPanel.last5days')}</p>
+            <span className="text-[12px] text-zinc-400 font-mono">µg/m³</span>
           </div>
           {historyLoading || !chartDays ? (
             <ShimmerHistory />
@@ -629,7 +629,7 @@ function FirePanel({
         <span className="text-zinc-100 font-medium">{t(satKey as never)}</span>
       </Row>
       <Row>
-        <span className="text-[11px] text-zinc-400">
+        <span className="text-[12px] text-zinc-400">
           {t('infoPanel.detectedAt', {
             datetime: new Date(fire.detectedAt).toLocaleString(locale, {
               day: 'numeric',
@@ -670,12 +670,12 @@ function PowerPlantPanel({
     <>
       <Row>
         <span className="text-zinc-300">{t('infoPanel.fuel')}</span>
-        <span className="text-[12px] text-zinc-100 font-medium">{plant.fuelType}</span>
+        <span className="text-[13px] text-zinc-100 font-medium">{plant.fuelType}</span>
       </Row>
       {plant.capacityMw !== null && (
         <Row>
           <span className="text-zinc-300">{t('infoPanel.capacity')}</span>
-          <span className="text-[12px] text-zinc-100 font-medium font-mono tabular-nums">
+          <span className="text-[13px] text-zinc-100 font-medium font-mono tabular-nums">
             {Math.round(plant.capacityMw).toLocaleString('en-US')} MW
           </span>
         </Row>
@@ -683,7 +683,7 @@ function PowerPlantPanel({
       {plant.owner && (
         <Row align="start">
           <span className="text-zinc-300 shrink-0">{t('infoPanel.owner')}</span>
-          <span className="text-[12px] text-zinc-100 font-medium text-right text-balance leading-snug max-w-42.5">
+          <span className="text-[13px] text-zinc-100 font-medium text-right text-balance leading-snug max-w-42.5">
             {plant.owner}
           </span>
         </Row>
@@ -691,7 +691,7 @@ function PowerPlantPanel({
       {plant.commissionedYear !== null && (
         <Row>
           <span className="text-zinc-300">{t('infoPanel.built')}</span>
-          <span className="text-[12px] text-zinc-100 font-medium font-mono tabular-nums">
+          <span className="text-[13px] text-zinc-100 font-medium font-mono tabular-nums">
             {plant.commissionedYear}
           </span>
         </Row>
@@ -712,7 +712,7 @@ function Row({
 }) {
   return (
     <motion.div
-      className={`flex justify-between gap-3 text-[12px] py-1 ${align === 'start' ? 'items-start' : 'items-center'}`}
+      className={`flex justify-between gap-3 text-[13px] py-1 ${align === 'start' ? 'items-start' : 'items-center'}`}
     >
       {children}
     </motion.div>
@@ -722,12 +722,12 @@ function Row({
 function PanelSkeleton() {
   return (
     <div className="p-3 flex flex-col gap-2">
-      <Shimmer className="h-3 w-16" />
-      <Shimmer className="h-4 w-36" />
-      <Shimmer className="h-3 w-24 mt-0.5" />
+      <Shimmer className="h-4 w-16" />
+      <Shimmer className="h-5 w-36" />
+      <Shimmer className="h-4 w-24 mt-0.5" />
       <hr className="border-zinc-800 my-1" />
-      <Shimmer className="h-4 w-full" />
-      <Shimmer className="h-4 w-full" />
+      <Shimmer className="h-5 w-full" />
+      <Shimmer className="h-5 w-full" />
     </div>
   );
 }

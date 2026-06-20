@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { pm25ToSoftRgb, pm25ToSoftTextRgb } from '@/utils/aqiColors';
+import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
 
 interface Props {
   value: number;
@@ -9,17 +9,18 @@ interface Props {
 
 export function AqiBadge({ value, category, source = 'measured' }: Props) {
   const { t } = useTranslation();
-  const [br, bg, bb] = pm25ToSoftRgb(value);
-  const [tr, tg, tb] = pm25ToSoftTextRgb(value);
+  const rgb = pm25ToRgb(value);
+  const [br, bg, bb] = rgb;
+  const [cr, cg, cb] = contrastColor(rgb);
   const bgColor = `rgb(${br},${bg},${bb})`;
-  const textColor = `rgb(${tr},${tg},${tb})`;
+  const textColor = `rgb(${cr},${cg},${cb})`;
 
   const style: React.CSSProperties =
     source === 'modelled'
       ? {
           backgroundColor: bgColor,
           color: textColor,
-          backgroundImage: `repeating-linear-gradient(135deg, rgba(${tr},${tg},${tb},0.22) 0 2px, transparent 2px 6px)`,
+          backgroundImage: `repeating-linear-gradient(135deg, rgba(${cr},${cg},${cb},0.22) 0 2px, transparent 2px 6px)`,
         }
       : { backgroundColor: bgColor, color: textColor };
 
@@ -30,14 +31,14 @@ export function AqiBadge({ value, category, source = 'measured' }: Props) {
 
   return (
     <span
-      className="inline-flex items-center gap-2 text-[11px] font-medium pl-2 pr-2.5 py-1 rounded"
+      className="inline-flex items-center gap-2 text-[12px] font-medium pl-2 pr-2.5 py-1 rounded"
       style={style}
       aria-label={ariaLabel}
     >
-      <span className="text-[18px] font-semibold tabular-nums leading-none">
+      <span className="text-[20px] font-semibold tabular-nums leading-none">
         {Math.round(value)}
       </span>
-      <span className="text-[10px] leading-tight max-w-[88px]">{category}</span>
+      <span className="text-[11px] leading-tight max-w-22">{category}</span>
     </span>
   );
 }

@@ -12,7 +12,7 @@ const FIRE_TIERS = [
 ];
 
 function LayerNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] text-zinc-400 leading-tight">{children}</p>;
+  return <p className="text-[12px] text-zinc-400 leading-tight">{children}</p>;
 }
 
 function LayerAttribution({ href, children }: { href: string; children: React.ReactNode }) {
@@ -21,7 +21,7 @@ function LayerAttribution({ href, children }: { href: string; children: React.Re
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-[11px] text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline leading-tight transition-colors"
+      className="text-[12px] text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline leading-tight transition-colors"
     >
       {children}
     </a>
@@ -67,7 +67,7 @@ function SubRow({
       <div className="flex-1">
         <span className="text-[13px] text-zinc-100 font-medium">{label}</span>
         {description && (
-          <p className="text-[11px] text-zinc-400 leading-tight mt-0.5">{description}</p>
+          <p className="text-[12px] text-zinc-400 leading-tight mt-0.5">{description}</p>
         )}
       </div>
       <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
@@ -107,18 +107,18 @@ function AirQualityGroup() {
         <div className="mt-2.5 space-y-1">
           {/* Unit label right-aligned above the range values */}
           <div className="flex justify-end mb-0.5">
-            <span className="text-[11px] text-zinc-400 font-mono">µg/m³</span>
+            <span className="text-[12px] text-zinc-400 font-mono">µg/m³</span>
           </div>
           {AQI_CATEGORIES.map((cat) => (
-            <div key={cat.key} className="flex items-center gap-2">
+            <div key={cat.key} className="flex items-start gap-2">
               <span
-                className="shrink-0 w-2.5 h-2.5 rounded-full"
+                className="shrink-0 w-2.5 h-2.5 rounded-full relative top-0.5"
                 style={{ backgroundColor: `rgb(${cat.rgb[0]},${cat.rgb[1]},${cat.rgb[2]})` }}
               />
-              <span className="flex-1 text-[11px] text-zinc-300 leading-tight">
+              <span className="flex-1 text-[12px] text-zinc-300 leading-tight">
                 {t(cat.key as never)}
               </span>
-              <span className="text-[11px] text-zinc-400 font-mono tabular-nums">{cat.range}</span>
+              <span className="text-[12px] text-zinc-400 font-mono tabular-nums">{cat.range}</span>
             </div>
           ))}
         </div>
@@ -144,7 +144,7 @@ function FiresGroup() {
         <div className="mt-2.5 space-y-1">
           {/* Unit label right-aligned above the range values */}
           <div className="flex justify-end mb-0.5">
-            <span className="text-[11px] text-zinc-400 font-mono">MW</span>
+            <span className="text-[12px] text-zinc-400 font-mono">MW</span>
           </div>
           {FIRE_TIERS.map((tier) => (
             <div key={tier.labelKey} className="flex items-center gap-2">
@@ -159,10 +159,10 @@ function FiresGroup() {
                   />
                 </svg>
               </span>
-              <span className="flex-1 text-[11px] text-zinc-300 leading-tight">
+              <span className="flex-1 text-[12px] text-zinc-300 leading-tight">
                 {t(tier.labelKey)}
               </span>
-              <span className="text-[11px] text-zinc-400 font-mono tabular-nums">{tier.range}</span>
+              <span className="text-[12px] text-zinc-400 font-mono tabular-nums">{tier.range}</span>
             </div>
           ))}
           <div className="mt-2 space-y-0.5">
@@ -221,7 +221,7 @@ function PowerPlantsGroup() {
           {Object.entries(FUEL_COLORS).map(([fuel, color]) => (
             <div key={fuel} className="flex items-center gap-2">
               <DiamondSwatch color={color} />
-              <span className="text-[11px] text-zinc-300">
+              <span className="text-[12px] text-zinc-300">
                 {t(`fuelType.${fuel.toLowerCase()}` as never, { defaultValue: fuel })}
               </span>
             </div>
