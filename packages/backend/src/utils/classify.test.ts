@@ -76,6 +76,18 @@ describe('classifyCase', () => {
     ).not.toBe('PLAUSIBLE_CLEAN');
   });
 
+  it('does not apply coastal override when fire pressure is below threshold (firePressureNorm < 40)', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 25,
+        firePressureNorm: 20,
+        originIsWater: true,
+        relevantSources: [{ isUpwind: true, distKm: 100 }],
+      }),
+    ).toBe('PLAUSIBLE_URBAN_INDUSTRIAL');
+  });
+
   it('does not apply coastal override when origin is not water', () => {
     expect(
       classifyCase({
