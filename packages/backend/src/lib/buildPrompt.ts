@@ -559,10 +559,12 @@ neighbouring stations, no single dominant source.
 - Lead with the air origin character (use ORIGIN CHARACTER in plain language)
   and the seasonal context as the explanation: regional smoke accumulation
   during burning season, or urban background during non-burning months
-- The air may have arrived over the Gulf or other water, but this is not clean
-  marine air. Describe it using ORIGIN CHARACTER (moderately polluted); the
-  reading reflects the season's regional smoke accumulated across the whole
-  area, not fresh sea air
+- If ORIGIN CHARACTER indicates the air arrived over water or coastal areas,
+  make clear this is not clean marine air: regional smoke accumulates across
+  the whole region including over coastal water
+- If LOCAL FIRES shows 50 or fewer detections, do not mention fires at all —
+  not even as background context. If it shows more than 50, frame them briefly
+  as a contributing background factor, not a cause.
 - Do not mention upwind sources — none qualified for this case
 - Do not mention rainfall or dry conditions — this case has no dominant weather
   story. If precipitation is low, it is not the cause; if it is high, this

@@ -147,13 +147,13 @@ selection logic — do not duplicate its conditions elsewhere.
 2. Check a new banned word does not collide with required vocabulary.
 3. Run `--prompts-only` for the affected case and re-read the _assembled_ prompt end to end,
    looking for two instructions that pull in opposite directions. Also check
-   `buildScientificDataBlock` — the `trendSection` string and any other conditional text
+   `buildScientificDataBlock`: the `trendSection` string and any other conditional text
    injected into `<scientific_data>` can carry imperative instructions that override universal
    and case rules. Include the data block in the conflict audit read.
 4. If a rule only matters for one case, it goes in that case's section — never universal.
 5. When the model consistently ignores a prohibition, generic phrasing is rarely the fix.
    Name the exact phrases it produces (`"confirming conditions are similar"`, `"this location
-   benefits from the maritime air"`) — concrete examples in the rule suppress the specific
+   benefits from the maritime air"`) : concrete examples in the rule suppress the specific
    pattern more reliably than an abstract restatement.
 
 ### Edit + eval loop
