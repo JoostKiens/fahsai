@@ -1,0 +1,1 @@
+export const golden = `Air here arrived from far out over the Indian Ocean, clean throughout the journey with no fires and no emission sources along the way. Over 166 mm of rain fell along the route over the past few days, washing the air further before it reached this station.`;

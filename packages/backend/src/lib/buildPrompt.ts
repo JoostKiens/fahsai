@@ -423,9 +423,6 @@ it out.
   obvious.
 - If ORIGIN CHARACTER is "Smoke-loaded" or "Moderately polluted", the contrast
   between origin and clean arrival is the story — include it
-- If highHumidityWarning is true and no dominant cause: add a second paragraph
-  noting humidity as a candidate for over-reading, and note if no peer stations
-  are available to confirm
 - Cite the peer range; where the spread is wide, end on what it implies (local
   variation in how much rain fell), not a restatement
 </instructions>`;

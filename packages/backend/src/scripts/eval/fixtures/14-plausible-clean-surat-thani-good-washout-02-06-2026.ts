@@ -1,0 +1,110 @@
+import type { ExplainFixture } from '../types.js';
+
+export const fixture: ExplainFixture = {
+  id: '14-plausible-clean-surat-thani-good-washout-02-06-2026',
+  case: 'PLAUSIBLE_CLEAN',
+  description:
+    'Good reading (7.5 µg/m³) during monsoon season with 166.7 mm trajectory precipitation — clear washout story. High humidity (95–97%) across recent days with highHumidityWarning true. No fires, no upwind sources, no peer stations. Regression: must NOT produce a humidity/sensor caveat paragraph.',
+  input: {
+    station: {
+      name: 'Environment Agency Section 14, Surat Thani',
+      lat: 9.14,
+      lng: 99.33,
+    },
+    date: '2026-06-02',
+    currentPm25: 7.5,
+    sevenDayAverages: [
+      { date: '2026-05-26', value: 12.3 },
+      { date: '2026-05-27', value: 10.1 },
+      { date: '2026-05-28', value: 8.7 },
+      { date: '2026-05-29', value: 9.4 },
+      { date: '2026-05-30', value: 6.8 },
+      { date: '2026-05-31', value: 5.2 },
+      { date: '2026-06-01', value: 6.1 },
+      { date: '2026-06-02', value: 7.5 },
+    ],
+    weather: {
+      days: [
+        {
+          date: '2026-06-02',
+          wind: { state: 'available', directionDeg: 258, speedKmh: 9.2 },
+          precipitationMm: 5.2,
+          humidity: 95,
+          highHumidityWarning: true,
+        },
+        {
+          date: '2026-06-01',
+          wind: { state: 'available', directionDeg: 247, speedKmh: 11.4 },
+          precipitationMm: 22.4,
+          humidity: 97,
+          highHumidityWarning: true,
+        },
+        {
+          date: '2026-05-31',
+          wind: { state: 'available', directionDeg: 262, speedKmh: 10.7 },
+          precipitationMm: 28.0,
+          humidity: 96,
+          highHumidityWarning: true,
+        },
+        {
+          date: '2026-05-30',
+          wind: { state: 'available', directionDeg: 253, speedKmh: 8.9 },
+          precipitationMm: 9.5,
+          humidity: 95,
+          highHumidityWarning: true,
+        },
+        {
+          date: '2026-05-29',
+          wind: { state: 'available', directionDeg: 270, speedKmh: 7.8 },
+          precipitationMm: 6.7,
+          humidity: 85,
+          highHumidityWarning: false,
+        },
+      ],
+      totalPrecipitationMm: 71.8,
+      trajectoryPrecipitationMm: 166.7,
+    },
+    trajectory: {
+      hoursTraced: 66,
+      memberCount: 5,
+      origin: {
+        lat: 6.2,
+        lng: 91.5,
+        region: 'Indian Ocean',
+        date: '2026-05-31',
+      },
+      corridorWidthKm: 112,
+      meanWindSpeedKmh: 14.6,
+      waypoints: [
+        { lat: 9.1, lng: 99.3, region: 'Thailand' },
+        { lat: 8.8, lng: 98.6, region: 'Thailand' },
+        { lat: 8.2, lng: 97.0, region: 'Andaman Sea' },
+        { lat: 7.0, lng: 95.0, region: 'Andaman Sea' },
+        { lat: 6.2, lng: 91.5, region: 'Indian Ocean' },
+      ],
+      camsAlongPath: [
+        { lat: 8.5, lng: 98.5, date: '2026-06-02', pm25: 8.2 },
+        { lat: 7.5, lng: 96.0, date: '2026-06-01', pm25: 6.8 },
+        { lat: 6.2, lng: 91.5, date: '2026-05-31', pm25: 5.4 },
+      ],
+    },
+    firePressure: {
+      pathScore: 0,
+      pathFireCount: 0,
+      pathFiresByRecency: {
+        last24h: { count: 0, totalFrpMw: 0 },
+        last48h: { count: 0, totalFrpMw: 0 },
+        last72h: { count: 0, totalFrpMw: 0 },
+      },
+      topFires: [],
+      areaScore: 0,
+      areaFireCount: 0,
+      areaTotalFrpMw: 0,
+    },
+    upwindSources: [],
+    peers: null,
+    outlier: null,
+    season: 'monsoon',
+    persistentWind: null,
+  },
+};
