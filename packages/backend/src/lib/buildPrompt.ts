@@ -223,7 +223,7 @@ ${trajectoryStr}`;
 
   const trendSection =
     ctx.trend?.isSignificant === true
-      ? `\nTREND (past week)\n  Direction: ${ctx.trend.direction}\n  Use this to add one closing sentence to your response when it adds context beyond what the user sees in the chart. "Readings have been rising over the past week" or "Conditions have been easing from higher levels earlier this week." Only one sentence. Only when the direction meaningfully changes the interpretation of the current reading.\n`
+      ? `\nTREND (past week)\n  Direction: ${ctx.trend.direction}\n  Mention this only when it reinforces the cause you are describing, such as levels rising alongside sustained dry weather and fires, or levels easing alongside recent rain. Tie it into a sentence about the cause, in this station's own words. Do not end on it as a standalone line and do not use a stock phrase. Omit it when it does not strengthen the causal story.\n`
       : '';
 
   return `
@@ -281,52 +281,41 @@ VOICE: Third person only. "This station", "this area", "conditions here". Never
 "we" or "our".
 
 NUMBERS: Round PM2.5 values to the nearest integer. Always include µg/m³.
-Never cite CAMS modelled values as numbers — the data block contains an ORIGIN
-CHARACTER label; use that in plain language ("clean marine air", "smoke-laden
-air from Myanmar") instead of a modelled µg/m³ figure. CAMS values are
-low-resolution model estimates not visible to the user — citing them alongside
-station readings causes confusion.
+Never cite CAMS modelled values as numbers — use the ORIGIN CHARACTER label in
+plain language instead ("clean marine air", "smoke-laden air from Myanmar").
 
 FIRES: Use "detected" with a time window: "over 1,000 fires have been detected
 along the route over the past few days." Never use present continuous ("fires
-are burning") — it implies simultaneity. Never cite a fire pressure score number.
+are burning"). Never cite a fire pressure score number.
 
 TIME: Never cite specific durations from the data labels ("72 hours", "14
-days", "last 24 hours", "past 5 days"). Use "recently", "over the past few
-days", "for weeks". These are minimum durations — conditions may have persisted
-longer.
+days", "last 24 hours"). Use "recently", "over the past few days", "for weeks".
 
 WHAT NOT TO SAY:
 - Never mention "CAMS", "trajectory", "corridor", "transport", "wind path",
   "particulate matter", "concentration"
-- Never cite a fire pressure score number
-- Never mention what data is absent as an explanation ("no trajectory data
-  available") — simply omit that section
-- Never repeat the station name or PM2.5 value — the user sees these in the
-  UI already
+- Never mention what data is absent as an explanation — simply omit that section
+- Never repeat the station name or PM2.5 value — the user sees these already
 - No em-dashes
 
-DRY CONDITIONS: When zero rainfall and low humidity explain why smoke persists,
-use active voice: "Dry conditions kept the smoke from dispersing. No rain fell
-and humidity dropped as low as X%." Never "left nothing to wash the smoke out."
-
-RAINFALL WASHOUT: State the total mm and the effect: "Over 76 mm of rain fell
-along the route over the past few days, enough to strip most of those particles
-out before arrival." Let the number speak — do not call it "heavy" unless the
-context (monsoon season) makes that characterisation obvious.
-
 PEERS: Include peer context only when it adds causal information:
-- Fire transport: peer distribution confirms this is a regional pattern
-- Outliers: peer readings confirm the anomaly
-- Clean with peers confirming: one sentence maximum, range only
-- When more than 3 peer stations: summarise as range or AQI distribution,
-  never list individual station names
-- When 1 to 2 peer stations: name each with value and distance
-- When peers add nothing to the causal explanation: omit entirely
+- Fire transport: peer distribution shows how widely the smoke has spread
+- Outliers: peer readings establish the anomaly
+- Clean readings: cite the peer range to place this station, one sentence
+- More than 3 peer stations: summarise as range or AQI distribution, never
+  list individual station names
+- 1 to 2 peer stations: name each with value and distance
+- When peers add nothing: omit entirely
 
 SOURCES: Name upwind cities and industrial sources from the tier 1 list when
 they are a plausible cause or useful context. Frame them as adding emissions to
 arriving air, not as waypoints the air passed through.
+
+ENDING: The cause is already stated up front. Do not end by restating it, with
+a generic summary, or with a meta-confirmation ("this confirms/shows that...").
+End on a concrete specific: a named nearby place and what it reads, the
+consequence for people here against those inland, or a peer reading that
+carries an inference. For outliers, end on the verdict.
 </universal_rules>`;
 
 function buildFireTransportLocalSection(areaScore: number, meanWindSpeedKmh: number): string {
@@ -348,8 +337,9 @@ This reading is driven by local fire activity. Lead with fires.
 ${stagnationBullet}
 - Open with the area fire count ("over X fires detected within 75 km of this
   station over recent weeks")${isStagnation ? ' as the lead number — this is the chronic accumulation signal' : ' and the path fire count'}
-- Cite zero rainfall and lowest humidity reading if present, using the active
-  dry-conditions construction
+- Cite zero rainfall and lowest humidity reading if present, using active
+  voice: "Dry conditions kept the smoke from dispersing. No rain fell and
+  humidity dropped as low as X%." Never "left nothing to wash the smoke out."
 - Close with peer distribution if more than 10 stations; name a specific
   nearby city from tier 1 sources if it anchors the regional scale
 
@@ -364,9 +354,12 @@ This reading is driven by fire activity. Lead with fires.
 - Open with the path fire count, origin geography, and direction ("fires
   detected across [region] along the path this air traveled over the past few
   days")
-- Cite zero rainfall and lowest humidity if present
+- Cite zero rainfall and lowest humidity if present, using active voice: "Dry
+  conditions kept the smoke from dispersing. No rain fell and humidity dropped
+  as low as X%." Never "left nothing to wash the smoke out."
 - Name tier 1 upwind urban sources in the peer paragraph as background context
-- Close with peer range or distribution
+- Close with peer distribution anchored to a named nearby place that conveys
+  the scale, not a restatement
 
 Name countries and regions from the trajectory waypoints.
 Use "detected" not "fires burning."`;
@@ -383,10 +376,16 @@ Lead with the air origin character and the upwind sources.
   single event
 - Do not mention fires if LOCAL FIRES shows no significant activity and
   CUMULATIVE FIRE PRESSURE is Low, Moderate, or None
-- Close with peer confirmation (weighted mean and range)
-- If only one peer station: note the gap and the uncertainty honestly ("with
+- If dry conditions are explaining persistence, use active voice: "Dry
+  conditions kept the smoke from dispersing. No rain fell and humidity dropped
+  as low as X%." Never "left nothing to wash the smoke out."
+- With multiple peers, end on the attribution as a consequence of the peer
+  range: the pollution is mostly urban and industrial from the upwind sources,
+  not blown in from distant fires
+- If only one peer station, end on the gap and the uncertainty honestly ("with
   only one reference point it is hard to say whether this is a localised plume
-  or whether conditions here are genuinely more affected")
+  or whether conditions here are genuinely more affected"), with no attribution
+  summary after it
 </instructions>`;
 
 const CLEAN_COASTAL_FIRE_SEASON_SECTION = `<instructions>
@@ -404,8 +403,8 @@ further inland.
 - If fires are present regionally, mention them briefly as the reason
   inland stations are more affected: "fires across [region] are driving
   higher readings further inland"
-- Peer comparison: cite the range and confirm this station is on the cleaner
-  end of what the region is experiencing
+- Peer comparison: cite the range and end on the consequence of the coastal
+  buffer, that this spot stays well below what people inland are breathing
 - Do not mention upwind urban sources as a cause — they add background
   but do not explain why this station is clean
 - Keep to one paragraph
@@ -417,13 +416,18 @@ Lead with the cause of the clean reading — what kept the air clean or washed
 it out.
 
 - Washout story: where the air originated and its character (use ORIGIN
-  CHARACTER), then the rainfall total and its effect
+  CHARACTER), then the rainfall total and its effect. State the total mm and
+  the effect: "Over 76 mm of rain fell along the route over the past few days,
+  enough to strip most of those particles out before arrival." Let the number
+  speak — do not call it "heavy" unless context (monsoon season) makes that
+  obvious.
 - If ORIGIN CHARACTER is "Smoke-loaded" or "Moderately polluted", the contrast
   between origin and clean arrival is the story — include it
 - If highHumidityWarning is true and no dominant cause: add a second paragraph
   noting humidity as a candidate for over-reading, and note if no peer stations
   are available to confirm
-- Close with peer range if available; note spread if wide
+- Cite the peer range; where the spread is wide, end on what it implies (local
+  variation in how much rain fell), not a restatement
 </instructions>`;
 
 const CLEAN_FIRE_SEASON_GOOD_SECTION = `<instructions>
@@ -437,8 +441,9 @@ Do not lead with fires.
 - Frame fires as regional context only: "fires have been detected across
   [region] over recent weeks" — they explain why nearby stations read higher,
   not why this one is clean
-- Close with peer comparison to anchor the contrast (this station reads
-  cleaner than its neighbours)
+- End on the consequence of the washout, that the rain cleared this whole
+  pocket, with the peer reading as the contrast (this station cleaner than its
+  neighbours)
 - Keep to one or two paragraphs
 </instructions>`;
 
@@ -458,7 +463,8 @@ it out.
 - If peak burning season (February to April) and reading is Good or Moderate:
   close with the burning season contrast — this is the most useful fact for
   the reader
-- Peer confirmation as the final sentence if available
+- If a peer is available, end on it tied to the burning-season contrast (clean
+  here while the mainland sits under smoke), not a restatement
 </instructions>`;
 
 function buildOutlierHighSection(ctx: ScientificContext): string {
@@ -553,20 +559,20 @@ neighbouring stations, no single dominant source.
 - Lead with the air origin character (use ORIGIN CHARACTER in plain language)
   and the seasonal context as the explanation: regional smoke accumulation
   during burning season, or urban background during non-burning months
-- If LOCAL FIRES shows 50 or fewer detections, do not mention fires at all —
-  not even as background context. If it shows more than 50, frame them briefly
-  as a contributing background factor, not a cause.
+- The air may have arrived over the Gulf or other water, but this is not clean
+  marine air. Describe it using ORIGIN CHARACTER (moderately polluted); the
+  reading reflects the season's regional smoke accumulated across the whole
+  area, not fresh sea air
 - Do not mention upwind sources — none qualified for this case
 - Do not mention rainfall or dry conditions — this case has no dominant weather
   story. If precipitation is low, it is not the cause; if it is high, this
   case would have classified differently.
-- Confirm the reading is consistent with peers: cite the peer range in one
-  sentence
-- If trend is significant and rising: close with one sentence noting that
-  readings have been building. If no TREND field appears in the data block,
-  do not add a trend sentence.
-- Keep to one paragraph when the story is simple; two only when trend or
-  seasonal context adds meaningful context
+- End on the shared regional level as a concrete fact: cite the peer range as
+  the same band seen across the area, in one sentence
+- If a TREND field appears and is rising: work the rising levels into the cause
+  sentence (for example, that levels have been building through the burning
+  season), not as a separate closing line. If no TREND field appears, do not
+  add a trend sentence.
 </instructions>`;
 
 const UNCLEAR_SECTION = `<instructions>
