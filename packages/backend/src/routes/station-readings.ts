@@ -17,7 +17,7 @@ interface WeatherData {
 
 interface DayData {
   date: string;
-  maxPm25: number;
+  meanPm25: number;
   readingCount: number;
   weather: WeatherData | null;
 }
@@ -257,7 +257,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         const entry = byDay.get(date);
         result.push({
           date,
-          maxPm25: entry?.max ?? 0,
+          // one daily-average row per station per day (OpenAQ /hours/daily), so max() returns that day's mean
+          meanPm25: entry?.max ?? 0,
           readingCount: entry?.count ?? 0,
           weather: weatherByDate.get(date) ?? null,
         });

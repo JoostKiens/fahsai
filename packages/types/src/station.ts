@@ -8,7 +8,7 @@ export interface Station {
 
 export interface StationDayHistory {
   date: string;
-  maxPm25: number;
+  meanPm25: number;
   readingCount: number;
   weather: {
     windSpeedKmh: number | null;

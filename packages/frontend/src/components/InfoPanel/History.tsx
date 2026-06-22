@@ -97,7 +97,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const maxPm25 = Math.max(...days.map((d) => d.maxPm25), 1);
+  const maxPm25 = Math.max(...days.map((d) => d.meanPm25), 1);
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -147,7 +147,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
           className="flex items-end gap-[2px] flex-1"
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
-          {days.map(({ date, maxPm25: val, readingCount }) => {
+          {days.map(({ date, meanPm25: val, readingCount }) => {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
             const [r, g, b] = pm25ToSoftRgb(val);
