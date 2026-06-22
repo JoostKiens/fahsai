@@ -297,6 +297,7 @@ WHAT NOT TO SAY:
 - Never mention what data is absent as an explanation — simply omit that section
 - Never repeat the station name or PM2.5 value — the user sees these already
 - No em-dashes
+- Never attribute a reading to sensor over-reading caused by humidity
 
 PEERS: Include peer context only when it adds causal information:
 - Fire transport: peer distribution shows how widely the smoke has spread
@@ -612,13 +613,6 @@ function buildFireTransportSection(ctx: ScientificContext): string {
 type CleanSubCase = 'washout' | 'coastal' | 'fireSeasonGood' | 'marine';
 
 function cleanSubCase(ctx: ScientificContext): CleanSubCase {
-  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return 'washout';
-  if (
-    ctx.transport !== null &&
-    ctx.transport.trajectory.originIsWater &&
-    ctx.transport.fire.pathScore >= 40
-  )
-    return 'coastal';
   if (
     ctx.currentPm25 <= 12 &&
     ctx.transport !== null &&
@@ -627,6 +621,13 @@ function cleanSubCase(ctx: ScientificContext): CleanSubCase {
     ctx.weatherContext.trajectoryPrecipitationMm > 0
   )
     return 'fireSeasonGood';
+  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return 'washout';
+  if (
+    ctx.transport !== null &&
+    ctx.transport.trajectory.originIsWater &&
+    ctx.transport.fire.pathScore >= 40
+  )
+    return 'coastal';
   return 'marine';
 }
 
