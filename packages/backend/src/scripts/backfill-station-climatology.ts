@@ -189,16 +189,25 @@ for (let si = 0; si < stations.length; si++) {
   const station = stations[si];
   const primarySensorId = station.pm25_sensor_ids[0];
   const allReadings: { bkkDate: string; value: number }[] = [];
+  let downloaded = 0;
+  let errors = 0;
 
   await runWithConcurrency(allDates, CONCURRENCY, async (date) => {
     const url = buildS3Url(station.id, date);
     let csv: string | null;
     try {
       csv = await downloadS3File(url);
-    } catch {
+    } catch (err) {
+      errors++;
+      if (errors <= 3) {
+        console.warn(
+          `[climatology] Download error station=${station.id} date=${date}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       return;
     }
     if (csv === null) return;
+    downloaded++;
 
     const readings = parsePm25Readings(csv, primarySensorId);
     if (readings.length > 0) allReadings.push(...readings);
@@ -283,7 +292,7 @@ for (let si = 0; si < stations.length; si++) {
 
   totalUpserted += rows.length;
   console.log(
-    `[climatology] ${si + 1}/${stations.length} station=${station.id} → ${rows.length} rows (${byDoy.size} days with coverage)`,
+    `[climatology] ${si + 1}/${stations.length} station=${station.id} → ${rows.length} rows (${byDoy.size} days, ${downloaded} files, ${errors} errors)`,
   );
 }
 
