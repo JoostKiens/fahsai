@@ -21,7 +21,7 @@ import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 8;
+const EXPLAIN_CACHE_VERSION = 9;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';

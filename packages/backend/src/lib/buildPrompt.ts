@@ -439,9 +439,9 @@ Do not lead with fires.
 - Frame fires as regional context only: "fires have been detected across
   [region] over recent weeks" — they explain why nearby stations read higher,
   not why this one is clean
-- End on the consequence of the washout, that the rain cleared this whole
-  pocket, with the peer reading as the contrast (this station cleaner than its
-  neighbours)
+- End on the consequence of the washout: the rain cleared this whole pocket
+  before the air arrived; if peers are available, close with the peer reading
+  as the contrast (this station cleaner than its neighbours)
 - Keep to one or two paragraphs
 </instructions>`;
 
