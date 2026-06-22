@@ -299,4 +299,33 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       return reply.header('Cache-Control', cacheControl).send({ stationId, days: result });
     },
   );
+
+  // GET /api/stations/:stationId/climatology
+  // Returns all climatology rows for the station, ordered by (month, day).
+  app.get<{ Params: { stationId: string } }>(
+    '/api/stations/:stationId/climatology',
+    async (req, reply) => {
+      const { stationId } = req.params;
+
+      const { data, error } = await supabase
+        .from('station_climatology')
+        .select('month, day, median_pm25, p25_pm25, p75_pm25, n')
+        .eq('station_id', stationId)
+        .order('month', { ascending: true })
+        .order('day', { ascending: true });
+
+      if (error) throw new Error(`Supabase query failed: ${error.message}`);
+
+      const rows = (data ?? []).map((row) => ({
+        month: row.month as number,
+        day: row.day as number,
+        medianPm25: row.median_pm25 as number,
+        p25Pm25: row.p25_pm25 as number,
+        p75Pm25: row.p75_pm25 as number,
+        n: row.n as number,
+      }));
+
+      return reply.header('Cache-Control', 'public, max-age=21600').send({ data: rows });
+    },
+  );
 }
