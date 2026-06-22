@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Measurement } from '@thailand-aq/types';
+import type { Measurement, ClimatologyStat } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
@@ -20,6 +20,7 @@ interface DayData {
   meanPm25: number;
   readingCount: number;
   weather: WeatherData | null;
+  climatology: ClimatologyStat | null;
 }
 
 interface LatestMeasurement {
@@ -203,9 +204,19 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         .toISOString()
         .slice(0, 10);
 
-      // Single DB round-trip: PM2.5 readings and pre-computed station weather in parallel.
-      // station_weather is populated by weather-ingest; no grid snap needed at query time.
-      const [{ data, error }, { data: weatherData }] = await Promise.all([
+      const startMonth = Number(startDateStr.slice(5, 7));
+      const endMonth = Number(endDateStr.slice(5, 7));
+      const climMonths =
+        startMonth === endMonth
+          ? [startMonth]
+          : startMonth < endMonth
+            ? Array.from({ length: endMonth - startMonth + 1 }, (_, i) => startMonth + i)
+            : [
+                ...Array.from({ length: 12 - startMonth + 1 }, (_, i) => startMonth + i),
+                ...Array.from({ length: endMonth }, (_, i) => i + 1),
+              ];
+
+      const [{ data, error }, { data: weatherData }, { data: climData }] = await Promise.all([
         supabase
           .from('station_readings')
           .select('value, measured_at')
@@ -220,6 +231,11 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           .eq('station_id', stationId)
           .gte('date', startDateStr)
           .lte('date', endDateStr),
+        supabase
+          .from('station_climatology')
+          .select('month, day, median_pm25, p25_pm25, p75_pm25, n')
+          .eq('station_id', stationId)
+          .in('month', climMonths),
       ]);
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
@@ -249,18 +265,31 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         });
       }
 
+      const climByMD = new Map<string, ClimatologyStat>();
+      for (const row of climData ?? []) {
+        climByMD.set(`${row.month}-${row.day}`, {
+          medianPm25: row.median_pm25 as number,
+          p25Pm25: row.p25_pm25 as number,
+          p75Pm25: row.p75_pm25 as number,
+          n: row.n as number,
+        });
+      }
+
       // Build result: oldest-first, from (endDate - days + 1) to endDate
       const result: DayData[] = [];
       for (let i = 0; i < days; i++) {
         const dayUtcMs = startMidnightUtcMs + i * MS_PER_DAY;
         const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
         const entry = byDay.get(date);
+        const m = Number(date.slice(5, 7));
+        const d = Number(date.slice(8, 10));
         result.push({
           date,
           // one daily-average row per station per day (OpenAQ /hours/daily), so max() returns that day's mean
           meanPm25: entry?.max ?? 0,
           readingCount: entry?.count ?? 0,
           weather: weatherByDate.get(date) ?? null,
+          climatology: climByMD.get(`${m}-${d}`) ?? null,
         });
       }
 
