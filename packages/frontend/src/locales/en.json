@@ -133,5 +133,15 @@
   "toast.noCams": "No ambient PM2.5 model data for this date",
   "toast.selectionNotFound": "Shared selection no longer available",
   "infoPanel.prevDay": "Previous day",
-  "infoPanel.nextDay": "Next day"
+  "infoPanel.nextDay": "Next day",
+
+  "infoPanel.climatology.periodEarly": "early {{month}}",
+  "infoPanel.climatology.periodMid": "mid-{{month}}",
+  "infoPanel.climatology.periodLate": "late {{month}}",
+  "infoPanel.climatology.wellAbove": "Well above normal for {{period}}",
+  "infoPanel.climatology.above": "Above normal for {{period}}",
+  "infoPanel.climatology.normal": "Normal for {{period}}",
+  "infoPanel.climatology.below": "Below normal for {{period}}",
+  "infoPanel.climatology.wellBelow": "Well below normal for {{period}}",
+  "infoPanel.climatology.typicalRange": "typically {{low}}–{{high}} µg/m³"
 }

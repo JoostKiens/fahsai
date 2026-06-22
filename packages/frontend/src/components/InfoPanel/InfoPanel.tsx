@@ -487,6 +487,8 @@ function StationPanel({
   const latestDate = useTimeStore((s) => s.latestDate);
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
+  const CLIMATOLOGY_DISPLAY_GATE = 30;
+
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
   // Both directions use the same presence check so neither button fires if the station
   // has no reading on that date.
@@ -544,6 +546,40 @@ function StationPanel({
           </div>
         </Row>
       )}
+      {(() => {
+        const latestDay = chartDays?.[chartDays.length - 1];
+        const clim = latestDay?.climatology;
+        if (!clim || clim.n < CLIMATOLOGY_DISPLAY_GATE || !latestDay.readingCount) return null;
+        const val = latestDay.meanPm25;
+        const iqr = clim.p75Pm25 - clim.p25Pm25;
+        const category =
+          val > clim.p75Pm25 + iqr
+            ? 'wellAbove'
+            : val > clim.p75Pm25
+              ? 'above'
+              : val >= clim.p25Pm25
+                ? 'normal'
+                : val >= clim.p25Pm25 - iqr
+                  ? 'below'
+                  : 'wellBelow';
+        const dayNum = Number(selectedDate.slice(8, 10));
+        const monthName = new Date(selectedDate + 'T00:00:00Z').toLocaleDateString(locale, {
+          month: 'long',
+          timeZone: 'UTC',
+        });
+        const periodKey = dayNum <= 10 ? 'periodEarly' : dayNum <= 20 ? 'periodMid' : 'periodLate';
+        const period = t(`infoPanel.climatology.${periodKey}` as never, { month: monthName });
+        const label = t(`infoPanel.climatology.${category}` as never, { period });
+        const range = t('infoPanel.climatology.typicalRange' as never, {
+          low: Math.round(clim.p25Pm25),
+          high: Math.round(clim.p75Pm25),
+        });
+        return (
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            {label} ({range})
+          </p>
+        );
+      })()}
       {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
       <div onClickCapture={onExpand}>
         <ExplainButton
