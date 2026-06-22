@@ -143,5 +143,7 @@
   "infoPanel.climatology.normal": "ปกติสำหรับ{{period}}",
   "infoPanel.climatology.below": "ต่ำกว่าปกติสำหรับ{{period}}",
   "infoPanel.climatology.wellBelow": "ต่ำกว่าปกติมากสำหรับ{{period}}",
-  "infoPanel.climatology.typicalRange": "ปกติ {{low}}–{{high}} µg/m³"
+  "infoPanel.climatology.typicalRange": "ปกติ {{low}}–{{high}} µg/m³",
+  "infoPanel.climatology.yearCurve": "รูปแบบตามฤดูกาล",
+  "infoPanel.climatology.yearCurveHide": "ซ่อนรูปแบบตามฤดูกาล"
 }

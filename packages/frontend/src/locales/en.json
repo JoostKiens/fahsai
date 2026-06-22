@@ -143,5 +143,7 @@
   "infoPanel.climatology.normal": "Normal for {{period}}",
   "infoPanel.climatology.below": "Below normal for {{period}}",
   "infoPanel.climatology.wellBelow": "Well below normal for {{period}}",
-  "infoPanel.climatology.typicalRange": "typically {{low}}–{{high}} µg/m³"
+  "infoPanel.climatology.typicalRange": "typically {{low}}–{{high}} µg/m³",
+  "infoPanel.climatology.yearCurve": "Seasonal pattern",
+  "infoPanel.climatology.yearCurveHide": "Hide seasonal pattern"
 }

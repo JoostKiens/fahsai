@@ -17,6 +17,8 @@ import { useCamsGrid, useStationReadings, useWind } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
 import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
+import { YearCurve } from './YearCurve';
+import { useStationClimatology } from './useStationClimatology';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { mapRef } from '@/utils/mapRef';
@@ -488,6 +490,8 @@ function StationPanel({
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
   const CLIMATOLOGY_DISPLAY_GATE = 30;
+  const [curveExpanded, setCurveExpanded] = useState(false);
+  const { data: climatologyData } = useStationClimatology(station.stationId, curveExpanded);
 
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
   // Both directions use the same presence check so neither button fires if the station
@@ -609,6 +613,22 @@ function StationPanel({
               className={historyFetching ? 'opacity-40 transition-opacity' : 'transition-opacity'}
             >
               <History days={chartDays} />
+            </div>
+          )}
+          <button
+            onClick={() => setCurveExpanded((v) => !v)}
+            className="text-[11px] text-zinc-500 hover:text-zinc-300 mt-2 transition-colors"
+          >
+            {curveExpanded
+              ? t('infoPanel.climatology.yearCurveHide')
+              : t('infoPanel.climatology.yearCurve')}
+          </button>
+          {curveExpanded && climatologyData && climatologyData.length > 0 && (
+            <div className="mt-1">
+              <YearCurve
+                data={climatologyData}
+                currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
+              />
             </div>
           )}
         </>
