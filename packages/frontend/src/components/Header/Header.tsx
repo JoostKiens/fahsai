@@ -7,6 +7,7 @@ const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
+import { Search } from './Search';
 
 function XIcon() {
   return (
@@ -138,8 +139,8 @@ export function Header() {
           <span className="text-[12px] font-semibold text-zinc-100 truncate">Fahsai</span>
         </div>
 
-        {/* Desktop spacer */}
-        <div className="hidden md:block flex-1" />
+        {/* Desktop search */}
+        <Search />
 
         {/* Desktop right cluster */}
         <div className="hidden md:flex items-center gap-1 shrink-0">
@@ -163,6 +164,7 @@ export function Header() {
 
         {/* Mobile right cluster */}
         <div className="flex md:hidden items-center gap-1 shrink-0">
+          <Search />
           <LanguagePill />
           <HeaderMenu />
         </div>
