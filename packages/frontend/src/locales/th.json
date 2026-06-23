@@ -9,6 +9,12 @@
 
   "about.body": "ฝ้าสัย เป็นโครงการสาธารณะที่ไม่แสวงหากำไร เพื่อแสดงสาเหตุของมลพิษ PM2.5 ในประเทศไทยและประเทศเพื่อนบ้าน",
 
+  "search.placeholder": "ค้นหาสถานีหรือสถานที่…",
+  "search.stations": "สถานี",
+  "search.places": "สถานที่",
+  "search.noResults": "ไม่พบผลลัพธ์",
+  "search.label": "ค้นหา",
+
   "settings.dateRange": "ช่วงวันที่",
 
   "sidebar.ariaLabel": "เลเยอร์แผนที่",
