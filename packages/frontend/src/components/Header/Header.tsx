@@ -164,7 +164,6 @@ export function Header() {
 
         {/* Mobile right cluster */}
         <div className="flex md:hidden items-center gap-1 shrink-0">
-          <Search />
           <LanguagePill />
           <HeaderMenu />
         </div>
