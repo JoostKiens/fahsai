@@ -604,10 +604,12 @@ function StationPanel({
         );
       })()}
       <hr className="border-zinc-800 my-2" />
-      <p className="text-[12px] text-zinc-300 mb-2">
-        {t('infoPanel.baseline.yearCurve')}
-        {baselineYears && ` · ${baselineYears}`}
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[12px] text-zinc-300">
+          {t('infoPanel.baseline.yearCurve')}
+          {baselineYears && ` · ${baselineYears}`}
+        </p>
+      </div>
       {baselineData && baselineData.length > 0 ? (
         <YearCurve
           data={baselineData}

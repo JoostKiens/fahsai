@@ -6,7 +6,7 @@ import { pm25ToRgbLerped } from '@/utils/aqiColors';
 
 const W = 260;
 const H = 140;
-const PAD_L = 30;
+const PAD_L = 22;
 const PAD_R = 4;
 const PAD_T = 10;
 const PAD_B = 24;
