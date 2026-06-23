@@ -1,9 +1,9 @@
 /**
- * Backfill station_climatology: precompute seasonal baseline (median, p25, p75)
+ * Backfill station_baseline: precompute seasonal baseline (median, p25, p75)
  * per calendar day per station from the OpenAQ S3 archive.
  *
  * Usage:
- *   pnpm --filter backend run backfill:station-climatology -- --start=2021 --end=2025
+ *   pnpm --filter backend run backfill:station-baseline -- --start=2021 --end=2025
  *
  * Defaults: last 5 full calendar years.
  * Idempotent — upserts on (station_id, month, day).
@@ -29,7 +29,7 @@ function parseYearArg(flag: string, fallback: number): number {
   if (!arg) return fallback;
   const val = arg.split('=')[1];
   if (!/^\d{4}$/.test(val)) {
-    console.error(`[climatology] Invalid --${flag}: "${val}". Expected YYYY`);
+    console.error(`[baseline] Invalid --${flag}: "${val}". Expected YYYY`);
     process.exit(1);
   }
   return Number(val);
@@ -40,11 +40,11 @@ const startYear = parseYearArg('start', currentYear - 5);
 const endYear = parseYearArg('end', currentYear);
 
 if (startYear > endYear) {
-  console.error(`[climatology] --start (${startYear}) must be ≤ --end (${endYear})`);
+  console.error(`[baseline] --start (${startYear}) must be ≤ --end (${endYear})`);
   process.exit(1);
 }
 
-console.log(`[climatology] Years: ${startYear}–${endYear}`);
+console.log(`[baseline] Years: ${startYear}–${endYear}`);
 
 // --- Helpers ---
 
@@ -173,15 +173,15 @@ const stations = await fetchAllPages<Station>((from, to) =>
 );
 
 if (!stations.length) {
-  console.error('[climatology] No stations found');
+  console.error('[baseline] No stations found');
   process.exit(1);
 }
 
-console.log(`[climatology] ${stations.length} stations with pm25 sensors`);
+console.log(`[baseline] ${stations.length} stations with pm25 sensors`);
 
 const allDates: string[] = [];
 for (let y = startYear; y <= endYear; y++) allDates.push(...datesForYear(y));
-console.log(`[climatology] ${allDates.length} dates to check per station`);
+console.log(`[baseline] ${allDates.length} dates to check per station`);
 
 let totalUpserted = 0;
 
@@ -201,7 +201,7 @@ for (let si = 0; si < stations.length; si++) {
       errors++;
       if (errors <= 3) {
         console.warn(
-          `[climatology] Download error station=${station.id} date=${date}: ${err instanceof Error ? err.message : String(err)}`,
+          `[baseline] Download error station=${station.id} date=${date}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
       return;
@@ -287,7 +287,7 @@ for (let si = 0; si < stations.length; si++) {
     await pRetry(
       async () => {
         const { error } = await supabase
-          .from('station_climatology')
+          .from('station_baseline')
           .upsert(batch, { onConflict: 'station_id,month,day', ignoreDuplicates: false });
         if (error) throw new AbortError(`Upsert failed: ${error.message}`);
       },
@@ -296,16 +296,16 @@ for (let si = 0; si < stations.length; si++) {
         minTimeout: 1000,
         factor: 2,
         onFailedAttempt: (err) =>
-          console.warn(`[climatology] Upsert attempt ${err.attemptNumber} failed: ${err.message}`),
+          console.warn(`[baseline] Upsert attempt ${err.attemptNumber} failed: ${err.message}`),
       },
     );
   }
 
   totalUpserted += rows.length;
   console.log(
-    `[climatology] ${si + 1}/${stations.length} station=${station.id} → ${rows.length} rows (${byDoy.size} days, ${downloaded} files, ${errors} errors)`,
+    `[baseline] ${si + 1}/${stations.length} station=${station.id} → ${rows.length} rows (${byDoy.size} days, ${downloaded} files, ${errors} errors)`,
   );
 }
 
-console.log(`[climatology] Done — ${totalUpserted} total rows upserted`);
+console.log(`[baseline] Done — ${totalUpserted} total rows upserted`);
 process.exit(0);

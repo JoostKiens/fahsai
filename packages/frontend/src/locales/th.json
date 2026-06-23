@@ -135,14 +135,14 @@
   "infoPanel.prevDay": "วันก่อนหน้า",
   "infoPanel.nextDay": "วันถัดไป",
 
-  "infoPanel.climatology.periodEarly": "ต้น{{month}}",
-  "infoPanel.climatology.periodMid": "กลาง{{month}}",
-  "infoPanel.climatology.periodLate": "ปลาย{{month}}",
-  "infoPanel.climatology.wellAbove": "สูงกว่าปกติมากสำหรับ{{period}}",
-  "infoPanel.climatology.above": "สูงกว่าปกติสำหรับ{{period}}",
-  "infoPanel.climatology.normal": "ปกติสำหรับ{{period}}",
-  "infoPanel.climatology.below": "ต่ำกว่าปกติสำหรับ{{period}}",
-  "infoPanel.climatology.wellBelow": "ต่ำกว่าปกติมากสำหรับ{{period}}",
-  "infoPanel.climatology.typicalRange": "ปกติ {{low}}–{{high}} µg/m³",
-  "infoPanel.climatology.yearCurve": "รูปแบบตามฤดูกาล"
+  "infoPanel.baseline.periodEarly": "ต้น{{month}}",
+  "infoPanel.baseline.periodMid": "กลาง{{month}}",
+  "infoPanel.baseline.periodLate": "ปลาย{{month}}",
+  "infoPanel.baseline.wellAbove": "สูงกว่าปกติมากสำหรับ{{period}}",
+  "infoPanel.baseline.above": "สูงกว่าปกติสำหรับ{{period}}",
+  "infoPanel.baseline.normal": "ปกติสำหรับ{{period}}",
+  "infoPanel.baseline.below": "ต่ำกว่าปกติสำหรับ{{period}}",
+  "infoPanel.baseline.wellBelow": "ต่ำกว่าปกติมากสำหรับ{{period}}",
+  "infoPanel.baseline.typicalRange": "ปกติ {{low}}–{{high}} µg/m³",
+  "infoPanel.baseline.yearCurve": "รูปแบบตามฤดูกาล"
 }

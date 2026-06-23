@@ -6,7 +6,7 @@ export interface Station {
   country: string;
 }
 
-import type { ClimatologyStat } from './climatology';
+import type { BaselineStat } from './baseline';
 
 export interface StationDayHistory {
   date: string;
@@ -18,5 +18,5 @@ export interface StationDayHistory {
     precipitationSumMm: number | null;
     relativeHumidity2m: number | null;
   } | null;
-  climatology: ClimatologyStat | null;
+  baseline: BaselineStat | null;
 }

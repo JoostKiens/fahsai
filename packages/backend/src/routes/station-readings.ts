@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Measurement, ClimatologyStat } from '@thailand-aq/types';
+import type { Measurement, BaselineStat } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
@@ -20,7 +20,7 @@ interface DayData {
   meanPm25: number;
   readingCount: number;
   weather: WeatherData | null;
-  climatology: ClimatologyStat | null;
+  baseline: BaselineStat | null;
 }
 
 interface LatestMeasurement {
@@ -206,7 +206,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const startMonth = Number(startDateStr.slice(5, 7));
       const endMonth = Number(endDateStr.slice(5, 7));
-      const climMonths =
+      const baselineMonths =
         startMonth === endMonth
           ? [startMonth]
           : startMonth < endMonth
@@ -216,7 +216,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
                 ...Array.from({ length: endMonth }, (_, i) => i + 1),
               ];
 
-      const [{ data, error }, { data: weatherData }, { data: climData }] = await Promise.all([
+      const [{ data, error }, { data: weatherData }, { data: baselineData }] = await Promise.all([
         supabase
           .from('station_readings')
           .select('value, measured_at')
@@ -232,10 +232,10 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           .gte('date', startDateStr)
           .lte('date', endDateStr),
         supabase
-          .from('station_climatology')
+          .from('station_baseline')
           .select('month, day, median_pm25, p25_pm25, p75_pm25, n')
           .eq('station_id', stationId)
-          .in('month', climMonths),
+          .in('month', baselineMonths),
       ]);
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
@@ -265,9 +265,9 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         });
       }
 
-      const climByMD = new Map<string, ClimatologyStat>();
-      for (const row of climData ?? []) {
-        climByMD.set(`${row.month}-${row.day}`, {
+      const baselineByMD = new Map<string, BaselineStat>();
+      for (const row of baselineData ?? []) {
+        baselineByMD.set(`${row.month}-${row.day}`, {
           medianPm25: row.median_pm25 as number,
           p25Pm25: row.p25_pm25 as number,
           p75Pm25: row.p75_pm25 as number,
@@ -289,7 +289,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           meanPm25: entry?.max ?? 0,
           readingCount: entry?.count ?? 0,
           weather: weatherByDate.get(date) ?? null,
-          climatology: climByMD.get(`${m}-${d}`) ?? null,
+          baseline: baselineByMD.get(`${m}-${d}`) ?? null,
         });
       }
 
@@ -300,15 +300,14 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/stations/:stationId/climatology
-  // Returns all climatology rows for the station, ordered by (month, day).
+  // GET /api/stations/:stationId/baseline
   app.get<{ Params: { stationId: string } }>(
-    '/api/stations/:stationId/climatology',
+    '/api/stations/:stationId/baseline',
     async (req, reply) => {
       const { stationId } = req.params;
 
       const { data, error } = await supabase
-        .from('station_climatology')
+        .from('station_baseline')
         .select('month, day, median_pm25, p25_pm25, p75_pm25, n, min_year, max_year')
         .eq('station_id', stationId)
         .order('month', { ascending: true })

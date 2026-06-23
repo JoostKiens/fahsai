@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ClimatologyDay } from '@thailand-aq/types';
+import type { BaselineDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
 
@@ -27,7 +27,7 @@ export function YearCurve({
   currentPm25,
   selectedDate,
 }: {
-  data: ClimatologyDay[];
+  data: BaselineDay[];
   currentPm25: number | null;
   selectedDate: string;
 }) {

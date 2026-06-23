@@ -18,7 +18,7 @@ import { useStationHistory } from './useStationHistory';
 import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { YearCurve } from './YearCurve';
-import { useStationClimatology } from './useStationClimatology';
+import { useStationBaseline } from './useStationBaseline';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { mapRef } from '@/utils/mapRef';
@@ -489,12 +489,12 @@ function StationPanel({
   const latestDate = useTimeStore((s) => s.latestDate);
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
-  const CLIMATOLOGY_DISPLAY_GATE = 30;
-  const { data: climatologyResp } = useStationClimatology(station.stationId, true);
-  const climatologyData = climatologyResp?.data;
-  const climatologyYears =
-    climatologyResp?.minYear && climatologyResp?.maxYear
-      ? `${climatologyResp.minYear}–${climatologyResp.maxYear}`
+  const BASELINE_DISPLAY_GATE = 30;
+  const { data: baselineResp } = useStationBaseline(station.stationId, true);
+  const baselineData = baselineResp?.data;
+  const baselineYears =
+    baselineResp?.minYear && baselineResp?.maxYear
+      ? `${baselineResp.minYear}–${baselineResp.maxYear}`
       : null;
 
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
@@ -571,18 +571,18 @@ function StationPanel({
       </div>
       {(() => {
         const latestDay = chartDays?.[chartDays.length - 1];
-        const clim = latestDay?.climatology;
-        if (!clim || clim.n < CLIMATOLOGY_DISPLAY_GATE || !latestDay.readingCount) return null;
+        const bl = latestDay?.baseline;
+        if (!bl || bl.n < BASELINE_DISPLAY_GATE || !latestDay.readingCount) return null;
         const val = latestDay.meanPm25;
-        const iqr = clim.p75Pm25 - clim.p25Pm25;
+        const iqr = bl.p75Pm25 - bl.p25Pm25;
         const category =
-          val > clim.p75Pm25 + iqr
+          val > bl.p75Pm25 + iqr
             ? 'wellAbove'
-            : val > clim.p75Pm25
+            : val > bl.p75Pm25
               ? 'above'
-              : val >= clim.p25Pm25
+              : val >= bl.p25Pm25
                 ? 'normal'
-                : val >= clim.p25Pm25 - iqr
+                : val >= bl.p25Pm25 - iqr
                   ? 'below'
                   : 'wellBelow';
         const dayNum = Number(latestDay.date.slice(8, 10));
@@ -591,11 +591,11 @@ function StationPanel({
           timeZone: 'UTC',
         });
         const periodKey = dayNum <= 10 ? 'periodEarly' : dayNum <= 20 ? 'periodMid' : 'periodLate';
-        const period = t(`infoPanel.climatology.${periodKey}` as never, { month: monthName });
-        const label = t(`infoPanel.climatology.${category}` as never, { period });
-        const range = t('infoPanel.climatology.typicalRange' as never, {
-          low: Math.round(clim.p25Pm25),
-          high: Math.round(clim.p75Pm25),
+        const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
+        const label = t(`infoPanel.baseline.${category}` as never, { period });
+        const range = t('infoPanel.baseline.typicalRange' as never, {
+          low: Math.round(bl.p25Pm25),
+          high: Math.round(bl.p75Pm25),
         });
         return (
           <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -605,12 +605,12 @@ function StationPanel({
       })()}
       <hr className="border-zinc-800 my-2" />
       <p className="text-[12px] text-zinc-300 mb-2">
-        {t('infoPanel.climatology.yearCurve')}
-        {climatologyYears && ` · ${climatologyYears}`}
+        {t('infoPanel.baseline.yearCurve')}
+        {baselineYears && ` · ${baselineYears}`}
       </p>
-      {climatologyData && climatologyData.length > 0 ? (
+      {baselineData && baselineData.length > 0 ? (
         <YearCurve
-          data={climatologyData}
+          data={baselineData}
           currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
           selectedDate={selectedDate}
         />
