@@ -574,7 +574,7 @@ function StationPanel({
         const latestDay = chartDays?.[chartDays.length - 1];
         const bl = latestDay?.baseline;
         if (!bl || bl.n < BASELINE_DISPLAY_GATE || !latestDay.readingCount) return null;
-        const category = classifyReading(latestDay.meanPm25, bl);
+        const category = classifyReading(latestDay.pm25, bl);
         const dayNum = Number(latestDay.date.slice(8, 10));
         const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
           month: 'long',
@@ -603,7 +603,7 @@ function StationPanel({
       {baselineData && baselineData.length > 0 ? (
         <YearCurve
           data={baselineData}
-          currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
+          currentPm25={chartDays?.[chartDays.length - 1]?.pm25 ?? null}
           selectedDate={selectedDate}
         />
       ) : (

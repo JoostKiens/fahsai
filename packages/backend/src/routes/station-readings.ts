@@ -17,7 +17,7 @@ interface WeatherData {
 
 interface DayData {
   date: string;
-  meanPm25: number;
+  pm25: number;
   readingCount: number;
   weather: WeatherData | null;
   baseline: BaselineStat | null;
@@ -240,17 +240,21 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
-      // Group readings by Bangkok calendar day (UTC+7)
-      const byDay = new Map<string, { max: number; count: number }>();
+      // Group readings by Bangkok calendar day (UTC+7), keeping the latest reading per day
+      const byDay = new Map<string, { latest: number; latestMs: number; count: number }>();
       for (const row of data ?? []) {
-        const bkkMs = new Date(row.measured_at as string).getTime() + ICT_OFFSET_MS;
+        const measuredMs = new Date(row.measured_at as string).getTime();
+        const bkkMs = measuredMs + ICT_OFFSET_MS;
         const date = new Date(bkkMs).toISOString().slice(0, 10);
         const val = row.value as number;
         const entry = byDay.get(date);
         if (!entry) {
-          byDay.set(date, { max: val, count: 1 });
+          byDay.set(date, { latest: val, latestMs: measuredMs, count: 1 });
         } else {
-          if (val > entry.max) entry.max = val;
+          if (measuredMs > entry.latestMs) {
+            entry.latest = val;
+            entry.latestMs = measuredMs;
+          }
           entry.count++;
         }
       }
@@ -285,8 +289,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         const d = Number(date.slice(8, 10));
         result.push({
           date,
-          // one daily-average row per station per day (OpenAQ /hours/daily), so max() returns that day's mean
-          meanPm25: entry?.max ?? 0,
+          pm25: entry?.latest ?? 0,
           readingCount: entry?.count ?? 0,
           weather: weatherByDate.get(date) ?? null,
           baseline: baselineByMD.get(`${m}-${d}`) ?? null,

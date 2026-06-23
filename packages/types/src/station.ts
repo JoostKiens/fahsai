@@ -10,7 +10,7 @@ import type { BaselineStat } from './baseline';
 
 export interface StationDayHistory {
   date: string;
-  meanPm25: number;
+  pm25: number;
   readingCount: number;
   weather: {
     windSpeedKmh: number | null;
