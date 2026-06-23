@@ -37,7 +37,7 @@ function parseYearArg(flag: string, fallback: number): number {
 
 const currentYear = new Date().getUTCFullYear();
 const startYear = parseYearArg('start', currentYear - 5);
-const endYear = parseYearArg('end', currentYear - 1);
+const endYear = parseYearArg('end', currentYear);
 
 if (startYear > endYear) {
   console.error(`[climatology] --start (${startYear}) must be ≤ --end (${endYear})`);
