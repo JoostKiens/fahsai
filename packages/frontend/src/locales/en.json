@@ -144,6 +144,6 @@
   "infoPanel.climatology.below": "Below normal for {{period}}",
   "infoPanel.climatology.wellBelow": "Well below normal for {{period}}",
   "infoPanel.climatology.typicalRange": "typically {{low}}–{{high}} µg/m³",
-  "infoPanel.climatology.yearCurve": "Seasonal pattern",
+  "infoPanel.climatology.yearCurve": "Seasonal pattern · 2021–2026",
   "infoPanel.climatology.yearCurveHide": "Hide seasonal pattern"
 }
