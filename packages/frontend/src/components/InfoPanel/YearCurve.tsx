@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ClimatologyDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
+import { pm25ToRgbLerped } from '@/utils/aqiColors';
 
 const W = 260;
 const H = 140;
@@ -33,7 +34,7 @@ export function YearCurve({
   const { i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const { bandPath, medianPath, maxVal, yTicks, monthLabels } = useMemo(() => {
+  const { bandPath, medianPath, maxVal, yTicks, monthLabels, gradientStops } = useMemo(() => {
     const maxVal = Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10);
 
     const x = (doy: number) => PAD_L + ((doy - 1) / (YEAR_DAYS - 1)) * PLOT_W;
@@ -54,13 +55,21 @@ export function YearCurve({
     const yTicks: number[] = [];
     for (let v = step; v < maxVal; v += step) yTicks.push(v);
 
+    const gradientStops = sorted.map((d) => {
+      const [r, g, b] = pm25ToRgbLerped(d.medianPm25);
+      return {
+        offset: `${((x(dayOfYear(d.month, d.day)) - PAD_L) / PLOT_W) * 100}%`,
+        color: `rgb(${r},${g},${b})`,
+      };
+    });
+
     const monthLabels = [0, 2, 4, 6, 8, 10].map((i) => {
       const doy = dayOfYear(i + 1, 15);
       const label = new Date(2024, i, 1).toLocaleDateString(locale, { month: 'short' });
       return { x: x(doy), label };
     });
 
-    return { bandPath, medianPath, maxVal, yTicks, monthLabels };
+    return { bandPath, medianPath, maxVal, yTicks, monthLabels, gradientStops };
   }, [data, currentPm25, locale]);
 
   const selMonth = Number(selectedDate.slice(5, 7));
@@ -71,6 +80,20 @@ export function YearCurve({
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden>
+      <defs>
+        <linearGradient
+          id="median-grad"
+          gradientUnits="userSpaceOnUse"
+          x1={PAD_L}
+          y1="0"
+          x2={W - PAD_R}
+          y2="0"
+        >
+          {gradientStops.map((s, i) => (
+            <stop key={i} offset={s.offset} stopColor={s.color} />
+          ))}
+        </linearGradient>
+      </defs>
       {/* Y-axis ticks */}
       {yTicks.map((v) => (
         <g key={v}>
@@ -96,10 +119,10 @@ export function YearCurve({
       ))}
 
       {/* P25–P75 band */}
-      <path d={bandPath} fill="rgba(113,113,122,0.15)" />
+      <path d={bandPath} fill="rgba(113,113,122,0.4)" />
 
       {/* Median line */}
-      <path d={medianPath} fill="none" stroke="#71717a" strokeWidth={1.2} />
+      <path d={medianPath} fill="none" stroke="url(#median-grad)" strokeWidth={1.2} />
 
       {/* Today marker line */}
       <line
@@ -113,7 +136,14 @@ export function YearCurve({
       />
 
       {/* Current reading dot */}
-      {currentPm25 !== null && <circle cx={todayX} cy={yScale(currentPm25)} r={3} fill="#5eead4" />}
+      {currentPm25 !== null && (
+        <circle
+          cx={todayX}
+          cy={yScale(currentPm25)}
+          r={3}
+          fill={`rgb(${pm25ToRgbLerped(currentPm25).join(',')})`}
+        />
+      )}
 
       {/* Month labels */}
       {monthLabels.map(({ x, label }) => (
