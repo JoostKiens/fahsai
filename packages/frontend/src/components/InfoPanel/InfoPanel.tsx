@@ -31,6 +31,7 @@ const PANEL_BASE =
 
 // ponytail: tune against real station content on a narrow viewport (≈375px)
 const PEEK_HEIGHT = 232;
+const BASELINE_DISPLAY_GATE = 30;
 
 export function InfoPanel() {
   const { t, i18n } = useTranslation();
@@ -490,7 +491,6 @@ function StationPanel({
   const latestDate = useTimeStore((s) => s.latestDate);
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
-  const BASELINE_DISPLAY_GATE = 30;
   const { data: baselineResp } = useStationBaseline(station.stationId, true);
   const baselineData = baselineResp?.data;
   const baselineYears =

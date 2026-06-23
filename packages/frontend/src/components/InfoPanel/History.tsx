@@ -156,7 +156,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
             return (
               <div
                 key={date}
-                className="flex flex-col items-center flex-1 relative"
+                className="flex flex-col items-center flex-1"
                 onPointerEnter={(e) => {
                   if (e.pointerType === 'touch' || readingCount === 0) return;
                   const col = e.currentTarget.getBoundingClientRect();
@@ -189,7 +189,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                 }}
               >
                 <div
-                  className="w-full rounded-t-sm relative"
+                  className="w-full rounded-t-sm"
                   style={{
                     height: `${barH}px`,
                     backgroundColor: readingCount > 0 ? `rgb(${r},${g},${b})` : 'transparent',
