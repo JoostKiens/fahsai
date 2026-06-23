@@ -59,12 +59,6 @@ the frontend or run it manually in rapid succession.
 **Schema migrations** — all schema changes use new Supabase migration files. Never modify
 existing migrations.
 
-**Never render the same JSX variable in multiple DOM locations** -- storing JSX in a
-variable and rendering it once is fine. Rendering it in two branches that can both be
-mounted simultaneously (e.g. desktop and mobile layouts) creates two DOM nodes that share
-the same `id`, refs, and ARIA attributes. Use a render function instead so each call
-produces an independent element tree.
-
 **Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
 `vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
 by tests will fail to resolve. Only `type` imports survive because TypeScript erases them
