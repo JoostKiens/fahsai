@@ -121,30 +121,29 @@ export function Search() {
     return () => controller.abort();
   }, [debouncedQuery, language]);
 
-  // Click outside
-  useEffect(() => {
-    if (!isOpen) return;
-    function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setQuery('');
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [isOpen]);
-
-  // Reset active index when query changes
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [query]);
-
   const close = useCallback(() => {
     setQuery('');
     setIsOpen(false);
     setMobileOpen(false);
     setPlaces([]);
   }, []);
+
+  // Click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        close();
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [isOpen, close]);
+
+  // Reset active index when query changes
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [query]);
 
   const selectStation = useCallback(
     (m: LatestMeasurement) => {
@@ -290,7 +289,7 @@ export function Search() {
                       const idx = placeStartIndex + i;
                       return (
                         <button
-                          key={`${p.lng},${p.lat}`}
+                          key={`${p.lng},${p.lat},${i}`}
                           id={`search-option-${idx}`}
                           role="option"
                           aria-selected={activeIndex === idx}
@@ -332,8 +331,10 @@ export function Search() {
 
   return (
     <>
-      {/* Desktop: inline in header */}
-      <div className="hidden md:flex flex-1 justify-center">{renderSearchInput()}</div>
+      {/* Desktop: inline in header (unmount when mobile overlay is open to avoid shared refs) */}
+      <div className="hidden md:flex flex-1 justify-center">
+        {!mobileOpen && renderSearchInput()}
+      </div>
 
       {/* Mobile: toggle button + overlay */}
       {!mobileOpen && (
