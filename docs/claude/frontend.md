@@ -144,6 +144,17 @@ include low-confidence detections.
 
 ---
 
+## AppScrollArea gotcha
+
+`AppScrollArea` (wrapping `@base-ui-components/react` ScrollArea) renders a
+`ScrollArea.Content` div that expands to the intrinsic width of its children.
+When used in absolute-positioned dropdowns or constrained containers, long text
+causes horizontal overflow. Fix: add `w-0 min-w-full overflow-hidden` to the
+content wrapper inside the scroll area, and `overflow-x-hidden` to the
+`viewportClassName` prop.
+
+---
+
 ## Future layers (not in initial scope)
 
 - Burn scars — Sentinel-2 NDVI differencing via Copernicus
