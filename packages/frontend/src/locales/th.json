@@ -133,5 +133,16 @@
   "toast.noCams": "ไม่มีข้อมูลแบบจำลอง PM2.5 บรรยากาศสำหรับวันนี้",
   "toast.selectionNotFound": "ไม่พบรายการที่แชร์มาแล้ว",
   "infoPanel.prevDay": "วันก่อนหน้า",
-  "infoPanel.nextDay": "วันถัดไป"
+  "infoPanel.nextDay": "วันถัดไป",
+
+  "infoPanel.baseline.periodEarly": "ต้น{{month}}",
+  "infoPanel.baseline.periodMid": "กลาง{{month}}",
+  "infoPanel.baseline.periodLate": "ปลาย{{month}}",
+  "infoPanel.baseline.wellAbove": "สูงกว่าปกติมากสำหรับ{{period}}",
+  "infoPanel.baseline.above": "สูงกว่าปกติสำหรับ{{period}}",
+  "infoPanel.baseline.normal": "ปกติสำหรับ{{period}}",
+  "infoPanel.baseline.below": "ต่ำกว่าปกติสำหรับ{{period}}",
+  "infoPanel.baseline.wellBelow": "ต่ำกว่าปกติมากสำหรับ{{period}}",
+  "infoPanel.baseline.typicalRange": "ปกติ {{low}}–{{high}} µg/m³",
+  "infoPanel.baseline.yearCurve": "รูปแบบตามฤดูกาล"
 }

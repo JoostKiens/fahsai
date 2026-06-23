@@ -17,6 +17,9 @@ import { useCamsGrid, useStationReadings, useWind } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
 import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
+import { YearCurve } from './YearCurve';
+import { useStationBaseline } from './useStationBaseline';
+import { classifyReading, dateToPeriodKey } from './baseline';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { mapRef } from '@/utils/mapRef';
@@ -28,6 +31,7 @@ const PANEL_BASE =
 
 // ponytail: tune against real station content on a narrow viewport (≈375px)
 const PEEK_HEIGHT = 232;
+const BASELINE_DISPLAY_GATE = 30;
 
 export function InfoPanel() {
   const { t, i18n } = useTranslation();
@@ -487,6 +491,13 @@ function StationPanel({
   const latestDate = useTimeStore((s) => s.latestDate);
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
+  const { data: baselineResp } = useStationBaseline(station.stationId, true);
+  const baselineData = baselineResp?.data;
+  const baselineYears =
+    baselineResp?.minYear && baselineResp?.maxYear
+      ? `${baselineResp.minYear}–${baselineResp.maxYear}`
+      : null;
+
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
   // Both directions use the same presence check so neither button fires if the station
   // has no reading on that date.
@@ -559,6 +570,45 @@ function StationPanel({
           className="block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
         />
       </div>
+      {(() => {
+        const latestDay = chartDays?.[chartDays.length - 1];
+        const bl = latestDay?.baseline;
+        if (!bl || bl.n < BASELINE_DISPLAY_GATE || !latestDay.readingCount) return null;
+        const category = classifyReading(latestDay.meanPm25, bl);
+        const dayNum = Number(latestDay.date.slice(8, 10));
+        const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
+          month: 'long',
+          timeZone: 'UTC',
+        });
+        const periodKey = dateToPeriodKey(dayNum);
+        const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
+        const label = t(`infoPanel.baseline.${category}` as never, { period });
+        const range = t('infoPanel.baseline.typicalRange' as never, {
+          low: Math.round(bl.p25Pm25),
+          high: Math.round(bl.p75Pm25),
+        });
+        return (
+          <p className="text-[12px] text-zinc-400 mt-0.5">
+            {label} ({range})
+          </p>
+        );
+      })()}
+      <hr className="border-zinc-800 my-2" />
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[12px] text-zinc-300">
+          {t('infoPanel.baseline.yearCurve')}
+          {baselineYears && ` · ${baselineYears}`}
+        </p>
+      </div>
+      {baselineData && baselineData.length > 0 ? (
+        <YearCurve
+          data={baselineData}
+          currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
+          selectedDate={selectedDate}
+        />
+      ) : (
+        <Shimmer className="h-[140px] w-full" />
+      )}
       {(historyLoading || historyDays) && (
         <>
           <hr className="border-zinc-800 my-2" />

@@ -185,12 +185,20 @@ GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
 
 GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
   Returns `days` daily rows (oldest-first) ending on `date` (BKK timezone).
-  Each row: { date, maxPm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
-  precipitationSumMm, relativeHumidity2m } | null }.
-  Single parallel DB round-trip: station_readings + station_weather.
-  No Redis caching — browser Cache-Control + TanStack Query (staleTime: Infinity) handle
+  Each row: { date, meanPm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
+  precipitationSumMm, relativeHumidity2m } | null, baseline: BaselineStat | null }.
+  Parallel DB round-trip: station_readings + station_weather + station_baseline.
+  No Redis caching -- browser Cache-Control + TanStack Query (staleTime: Infinity) handle
   client-side caching. Weather comes from station_weather (pre-computed at ingest time),
-  NOT from weather_readings — do not add weather_readings lookups here.
+  NOT from weather_readings -- do not add weather_readings lookups here.
+
+GET /api/stations/:stationId/baseline
+  Returns all seasonal baseline rows for a station (365 rows, one per calendar day),
+  ordered by (month, day). Each row: { month, day, medianPm25, p25Pm25, p75Pm25, n }.
+  Also returns { minYear, maxYear } from the first row.
+  HTTP Cache-Control: public, max-age=21600 (6h). No Redis layer -- data is near-static,
+  fetched once per station via useStationBaseline (staleTime: Infinity).
+  Backfill: pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
 
 GET /api/stations?bbox=...
   Returns all stations with their available parameters.
@@ -242,7 +250,8 @@ GET /health
 | `GET /api/fires/range`              | —                                                 | —         | Supabase `fire_points`                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/station-readings/latest`  | `station-readings:latest:{param}:{date\|current}` | 7 days    | Supabase `station_readings` (paginated)                    | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/station-readings/history` | —                                                 | —         | Supabase `station_readings`                                | none set                                                        |
-| `GET /api/stations/:id/history`     | —                                                 | —         | Supabase `station_readings` + `station_weather` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
+| `GET /api/stations/:id/history`     | --                                                | --        | Supabase `station_readings` + `station_weather` + `station_baseline` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
+| `GET /api/stations/:id/baseline`   | --                                                | --        | Supabase `station_baseline`                                | `public, max-age=21600`                                         |
 | `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                       | `CACHE_CONTROL_IMMUTABLE`                                       |
@@ -255,8 +264,8 @@ GET /health
 
 - Routes with a Redis key check Redis first; on miss query Supabase, then write back to Redis
   (fire-and-forget for non-blocking routes).
-- `GET /api/stations/:id/history` has **no Redis layer** — 1 parallel DB RTT is fast enough
-  and hit rate is too low to justify the round-trip cost. TanStack Query + Cache-Control handle
-  client-side caching.
+- `GET /api/stations/:id/history` and `GET /api/stations/:id/baseline` have **no Redis layer** --
+  1 parallel DB RTT is fast enough and hit rate is too low to justify the round-trip cost.
+  TanStack Query + Cache-Control handle client-side caching.
 - Only default-bbox requests are Redis-cached for `station-readings/latest`; custom bbox always
   hits Supabase.

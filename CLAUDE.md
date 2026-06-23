@@ -175,6 +175,9 @@ pnpm --filter backend run backfill:station-weather
 # Fire pressure scores (75 km radius, 14-day window — runs automatically as part of station-readings-ingest)
 pnpm --filter backend run backfill:station-fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 
+# Seasonal PM2.5 baseline (median, p25, p75 per calendar day per station from OpenAQ S3 archive)
+pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
+
 pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
 ```

@@ -122,6 +122,20 @@ is needed — do not read `settingsStore.scrubberDays` directly in scrubber-rela
 
 ---
 
+## Station baseline (seasonal pattern)
+
+The station InfoPanel shows a seasonal PM2.5 baseline when data is available:
+
+- **Callout text** -- classifies the current reading vs historical norm ("Above normal for
+  late April, typically 24--44 ug/m3"). Logic in `baseline.ts` (`classifyReading`,
+  `dateToPeriodKey`). Only shown when the baseline has >= 30 data points
+  (`BASELINE_DISPLAY_GATE`).
+- **YearCurve** -- always-visible SVG chart (`YearCurve.tsx`) showing the p25--p75 band,
+  color-graded median line (`pm25ToRgbLerped`), and a current-reading dot. Data fetched
+  via `useStationBaseline` (staleTime: Infinity, ~365 rows, near-static).
+
+---
+
 ## Fire filtering
 
 The `confidence` field is the appropriate field for filtering out noise.

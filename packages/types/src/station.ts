@@ -6,6 +6,8 @@ export interface Station {
   country: string;
 }
 
+import type { BaselineStat } from './baseline';
+
 export interface StationDayHistory {
   date: string;
   meanPm25: number;
@@ -16,4 +18,5 @@ export interface StationDayHistory {
     precipitationSumMm: number | null;
     relativeHumidity2m: number | null;
   } | null;
+  baseline: BaselineStat | null;
 }

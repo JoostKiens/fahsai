@@ -27,6 +27,7 @@
     "backfill:weather": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-weather.ts",
     "backfill:station-fire-pressure": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-station-fire-pressure.ts",
     "backfill:cams-summary": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-cams-summary.ts",
+    "backfill:station-baseline": "node --env-file=.env.local --import=tsx/esm src/scripts/backfill-station-baseline.ts",
     "railway:ingest:fires": "node --import=tsx/esm src/scripts/ingest-fires.ts",
     "railway:ingest:station-readings": "node --import=tsx/esm src/scripts/ingest-station-readings.ts",
     "railway:ingest:station-readings:today": "node --import=tsx/esm src/scripts/ingest-station-readings.ts --today",

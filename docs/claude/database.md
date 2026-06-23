@@ -129,6 +129,22 @@ create table station_fire_pressure (
 );
 create index on station_fire_pressure (date);
 
+-- Seasonal PM2.5 baseline per station per calendar day (030-032).
+-- Precomputed from multi-year OpenAQ S3 archive (windowed median, p25, p75).
+-- Near-static, not pruned. Backfill: pnpm --filter backend run backfill:station-baseline
+create table station_baseline (
+  station_id   text     not null references stations(id),
+  month        smallint not null check (month between 1 and 12),
+  day          smallint not null check (day between 1 and 31),
+  median_pm25  real     not null,
+  p25_pm25     real     not null,
+  p75_pm25     real     not null,
+  n            integer  not null,
+  min_year     smallint,
+  max_year     smallint,
+  primary key (station_id, month, day)
+);
+
 -- Daily nationwide CAMS PM2.5 summary, one row per date (028_cams_daily_summary.sql).
 -- Stores the 95th-percentile PM2.5 across that day's cams_grid; powers the time
 -- scrubber's gradient line chart. Computed during cams-ingest (gated on a complete grid)

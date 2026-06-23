@@ -10,7 +10,7 @@ import { dateLocale } from '@/i18n';
 import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
 
-const MAX_BAR_H = 48;
+const MAX_BAR_H = 72;
 const DAY_LABEL_H = 20;
 
 const SHIMMER_ROWS: [string, string, string, string][] = [
@@ -38,7 +38,7 @@ export function ShimmerHistory() {
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
           {Array.from({ length: 5 }, (_, i) => {
-            const barH = 24 + (i % 3) * 12;
+            const barH = 36 + (i % 3) * 16;
             return (
               <div key={i} className="flex flex-col items-center flex-1">
                 <div
@@ -208,7 +208,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
       </div>
 
       {/* Weather table */}
-      <p className="text-[11px] text-zinc-400 mt-3 mb-1">{t('history.weather')}</p>
+      <p className="text-[12px] text-zinc-300 mt-3 mb-1">{t('history.weather')}</p>
       <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[11px] items-center">
         {/* Column headers */}
         <span />
