@@ -19,6 +19,7 @@ import { dateLocale } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { YearCurve } from './YearCurve';
 import { useStationBaseline } from './useStationBaseline';
+import { classifyReading, dateToPeriodKey } from './baseline';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { mapRef } from '@/utils/mapRef';
@@ -573,24 +574,13 @@ function StationPanel({
         const latestDay = chartDays?.[chartDays.length - 1];
         const bl = latestDay?.baseline;
         if (!bl || bl.n < BASELINE_DISPLAY_GATE || !latestDay.readingCount) return null;
-        const val = latestDay.meanPm25;
-        const iqr = bl.p75Pm25 - bl.p25Pm25;
-        const category =
-          val > bl.p75Pm25 + iqr
-            ? 'wellAbove'
-            : val > bl.p75Pm25
-              ? 'above'
-              : val >= bl.p25Pm25
-                ? 'normal'
-                : val >= bl.p25Pm25 - iqr
-                  ? 'below'
-                  : 'wellBelow';
+        const category = classifyReading(latestDay.meanPm25, bl);
         const dayNum = Number(latestDay.date.slice(8, 10));
         const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
           month: 'long',
           timeZone: 'UTC',
         });
-        const periodKey = dayNum <= 10 ? 'periodEarly' : dayNum <= 20 ? 'periodMid' : 'periodLate';
+        const periodKey = dateToPeriodKey(dayNum);
         const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
         const label = t(`infoPanel.baseline.${category}` as never, { period });
         const range = t('infoPanel.baseline.typicalRange' as never, {
