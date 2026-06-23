@@ -9,8 +9,12 @@ export function useStationClimatology(stationId: string | null, enabled: boolean
     queryFn: async () => {
       const res = await fetch(`${API}/api/stations/${stationId!}/climatology`);
       if (!res.ok) throw new Error(`climatology fetch failed: ${res.status}`);
-      const body = (await res.json()) as { data: ClimatologyDay[] };
-      return body.data;
+      const body = (await res.json()) as {
+        data: ClimatologyDay[];
+        minYear: number | null;
+        maxYear: number | null;
+      };
+      return body;
     },
     staleTime: Infinity,
     enabled: stationId !== null && enabled,

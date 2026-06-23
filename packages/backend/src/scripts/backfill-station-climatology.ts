@@ -223,9 +223,14 @@ for (let si = 0; si < stations.length; si++) {
 
   // Bucket daily means by day-of-year (1–365), folding Feb 29 → Feb 28
   const byDoy = new Map<number, number[]>();
+  let dataMinYear = Infinity;
+  let dataMaxYear = -Infinity;
   for (const [dateStr, values] of byBkkDate) {
     if (values.length < MIN_READINGS_PER_DAY) continue;
     const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const year = Number(dateStr.slice(0, 4));
+    if (year < dataMinYear) dataMinYear = year;
+    if (year > dataMaxYear) dataMaxYear = year;
     let month = Number(dateStr.slice(5, 7));
     let day = Number(dateStr.slice(8, 10));
     if (month === 2 && day === 29) day = 28;
@@ -234,6 +239,8 @@ for (let si = 0; si < stations.length; si++) {
     arr.push(mean);
     byDoy.set(doy, arr);
   }
+
+  const hasYearData = dataMinYear !== Infinity;
 
   // Windowed percentiles for each calendar day
   const rows: {
@@ -244,6 +251,8 @@ for (let si = 0; si < stations.length; si++) {
     p25_pm25: number;
     p75_pm25: number;
     n: number;
+    min_year: number | null;
+    max_year: number | null;
   }[] = [];
 
   for (let targetDoy = 1; targetDoy <= 365; targetDoy++) {
@@ -267,6 +276,8 @@ for (let si = 0; si < stations.length; si++) {
       p25_pm25: Math.round(quantile(pool, 0.25) * 10) / 10,
       p75_pm25: Math.round(quantile(pool, 0.75) * 10) / 10,
       n: pool.length,
+      min_year: hasYearData ? dataMinYear : null,
+      max_year: hasYearData ? dataMaxYear : null,
     });
   }
 

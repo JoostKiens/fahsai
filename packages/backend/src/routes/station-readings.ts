@@ -309,13 +309,14 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const { data, error } = await supabase
         .from('station_climatology')
-        .select('month, day, median_pm25, p25_pm25, p75_pm25, n')
+        .select('month, day, median_pm25, p25_pm25, p75_pm25, n, min_year, max_year')
         .eq('station_id', stationId)
         .order('month', { ascending: true })
         .order('day', { ascending: true });
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
+      const first = data?.[0];
       const rows = (data ?? []).map((row) => ({
         month: row.month as number,
         day: row.day as number,
@@ -325,7 +326,11 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         n: row.n as number,
       }));
 
-      return reply.header('Cache-Control', 'public, max-age=21600').send({ data: rows });
+      return reply.header('Cache-Control', 'public, max-age=21600').send({
+        data: rows,
+        minYear: (first?.min_year as number) ?? null,
+        maxYear: (first?.max_year as number) ?? null,
+      });
     },
   );
 }

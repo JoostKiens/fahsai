@@ -491,7 +491,12 @@ function StationPanel({
 
   const CLIMATOLOGY_DISPLAY_GATE = 30;
   const [curveExpanded, setCurveExpanded] = useState(false);
-  const { data: climatologyData } = useStationClimatology(station.stationId, curveExpanded);
+  const { data: climatologyResp } = useStationClimatology(station.stationId, curveExpanded);
+  const climatologyData = climatologyResp?.data;
+  const climatologyYears =
+    climatologyResp?.minYear && climatologyResp?.maxYear
+      ? `${climatologyResp.minYear}–${climatologyResp.maxYear}`
+      : null;
 
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
   // Both directions use the same presence check so neither button fires if the station
@@ -622,6 +627,7 @@ function StationPanel({
             {curveExpanded
               ? t('infoPanel.climatology.yearCurveHide')
               : t('infoPanel.climatology.yearCurve')}
+            {climatologyYears && ` · ${climatologyYears}`}
           </button>
           {curveExpanded && climatologyData && climatologyData.length > 0 && (
             <div className="mt-1">
