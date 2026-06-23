@@ -566,8 +566,8 @@ function StationPanel({
                 : val >= clim.p25Pm25 - iqr
                   ? 'below'
                   : 'wellBelow';
-        const dayNum = Number(selectedDate.slice(8, 10));
-        const monthName = new Date(selectedDate + 'T00:00:00Z').toLocaleDateString(locale, {
+        const dayNum = Number(latestDay.date.slice(8, 10));
+        const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
           month: 'long',
           timeZone: 'UTC',
         });
@@ -628,6 +628,7 @@ function StationPanel({
               <YearCurve
                 data={climatologyData}
                 currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
+                selectedDate={selectedDate}
               />
             </div>
           )}

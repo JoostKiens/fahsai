@@ -4,11 +4,11 @@ import type { ClimatologyDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
 
 const W = 260;
-const H = 100;
-const PAD_L = 28;
+const H = 140;
+const PAD_L = 30;
 const PAD_R = 4;
-const PAD_T = 8;
-const PAD_B = 18;
+const PAD_T = 10;
+const PAD_B = 24;
 const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
 
@@ -21,17 +21,14 @@ function dayOfYear(month: number, day: number): number {
   return doy + day;
 }
 
-function todayDoy(): number {
-  const now = new Date();
-  return dayOfYear(now.getMonth() + 1, now.getDate());
-}
-
 export function YearCurve({
   data,
   currentPm25,
+  selectedDate,
 }: {
   data: ClimatologyDay[];
   currentPm25: number | null;
+  selectedDate: string;
 }) {
   const { i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
@@ -57,7 +54,7 @@ export function YearCurve({
     const yTicks: number[] = [];
     for (let v = step; v < maxVal; v += step) yTicks.push(v);
 
-    const monthLabels = Array.from({ length: 12 }, (_, i) => {
+    const monthLabels = [0, 2, 4, 6, 8, 10].map((i) => {
       const doy = dayOfYear(i + 1, 15);
       const label = new Date(2024, i, 1).toLocaleDateString(locale, { month: 'short' });
       return { x: x(doy), label };
@@ -66,7 +63,9 @@ export function YearCurve({
     return { bandPath, medianPath, maxVal, yTicks, monthLabels };
   }, [data, currentPm25, locale]);
 
-  const doy = todayDoy();
+  const selMonth = Number(selectedDate.slice(5, 7));
+  const selDay = Number(selectedDate.slice(8, 10));
+  const doy = dayOfYear(selMonth, selDay);
   const todayX = PAD_L + ((doy - 1) / (YEAR_DAYS - 1)) * PLOT_W;
   const yScale = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
 
@@ -87,8 +86,8 @@ export function YearCurve({
             x={PAD_L - 3}
             y={yScale(v) + 3}
             textAnchor="end"
-            className="fill-zinc-600"
-            fontSize={8}
+            className="fill-zinc-500"
+            fontSize={11}
             fontFamily="monospace"
           >
             {v}
@@ -121,10 +120,10 @@ export function YearCurve({
         <text
           key={label}
           x={x}
-          y={H - 3}
+          y={H - 5}
           textAnchor="middle"
-          className="fill-zinc-600"
-          fontSize={7}
+          className="fill-zinc-400"
+          fontSize={11}
         >
           {label}
         </text>
