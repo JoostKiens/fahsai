@@ -588,7 +588,7 @@ function StationPanel({
           high: Math.round(bl.p75Pm25),
         });
         return (
-          <p className="text-[11px] text-zinc-500 mt-0.5">
+          <p className="text-[12px] text-zinc-400 mt-0.5">
             {label} ({range})
           </p>
         );
