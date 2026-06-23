@@ -13,7 +13,8 @@ const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const MAPBOX_GEOCODE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 const BBOX = VIEWPORT_BBOX.join(',');
 const GEOCODE_TYPES = 'locality,place,district,region';
-const MAX_RESULTS = 5;
+const MAX_STATION_RESULTS = 3;
+const MAX_PLACE_RESULTS = 5;
 
 interface PlaceResult {
   name: string;
@@ -27,7 +28,7 @@ export const FUSE_THRESHOLD = 0.2;
 export function buildGeocodeUrl(query: string, language: string): string {
   return (
     `${MAPBOX_GEOCODE}/${encodeURIComponent(query)}.json` +
-    `?bbox=${BBOX}&limit=${MAX_RESULTS}&language=${language}` +
+    `?bbox=${BBOX}&limit=${MAX_PLACE_RESULTS}&language=${language}` +
     `&types=${GEOCODE_TYPES}&access_token=${TOKEN}`
   );
 }
@@ -110,7 +111,7 @@ export function Search() {
 
   const stationResults = useMemo(() => {
     if (query.length < 1) return [];
-    return fuse.search(query, { limit: MAX_RESULTS }).map((r) => r.item);
+    return fuse.search(query, { limit: MAX_STATION_RESULTS }).map((r) => r.item);
   }, [fuse, query]);
 
   const allResults = useMemo(
@@ -192,7 +193,7 @@ export function Search() {
   );
 
   const selectPlace = useCallback((p: PlaceResult) => {
-    mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 13, duration: 800 });
+    mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 11, duration: 800 });
     close();
   }, []);
 
@@ -272,94 +273,93 @@ export function Search() {
       </div>
 
       {showDropdown && (
-        <AppScrollArea
-          className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50 max-h-80"
-          viewportClassName="max-h-80 rounded-[inherit]"
-        >
-          <div id={listboxId} role="listbox">
-            {!hasResults && (
-              <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
-            )}
+        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
+          <AppScrollArea viewportClassName="max-h-80 rounded-[inherit]">
+            <div id={listboxId} role="listbox">
+              {!hasResults && (
+                <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
+              )}
 
-            {stationResults.length > 0 && (
-              <>
-                <p
-                  className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                  role="presentation"
-                >
-                  {t('search.stations')}
-                </p>
-                {stationResults.map((s, i) => {
-                  const idx = stationStartIndex + i;
-                  return (
-                    <button
-                      key={s.stationId}
-                      id={`search-option-${idx}`}
-                      role="option"
-                      aria-selected={activeIndex === idx}
-                      onClick={() => selectStation(s)}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
-                        activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-                      }`}
-                    >
-                      <Pm25Dot value={s.value} />
-                      <span className="flex-1 min-w-0">
-                        <span className="text-zinc-200 truncate block">{s.stationName}</span>
-                        <span className="text-[11px] text-zinc-500">{s.stationId}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
+              {stationResults.length > 0 && (
+                <>
+                  <p
+                    className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
+                    role="presentation"
+                  >
+                    {t('search.stations')}
+                  </p>
+                  {stationResults.map((s, i) => {
+                    const idx = stationStartIndex + i;
+                    return (
+                      <button
+                        key={s.stationId}
+                        id={`search-option-${idx}`}
+                        role="option"
+                        aria-selected={activeIndex === idx}
+                        onClick={() => selectStation(s)}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
+                          activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                        }`}
+                      >
+                        <Pm25Dot value={s.value} />
+                        <span className="flex-1 min-w-0">
+                          <span className="text-zinc-200 truncate block">{s.stationName}</span>
+                          <span className="text-[11px] text-zinc-500">{s.stationId}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
 
-            {places.length > 0 && (
-              <>
-                <p
-                  className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                  role="presentation"
-                >
-                  {t('search.places')}
-                </p>
-                {places.map((p, i) => {
-                  const idx = placeStartIndex + i;
-                  return (
-                    <button
-                      key={`${p.lng},${p.lat}`}
-                      id={`search-option-${idx}`}
-                      role="option"
-                      aria-selected={activeIndex === idx}
-                      onClick={() => selectPlace(p)}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
-                        activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-                      }`}
-                    >
-                      <span className="inline-flex items-center justify-center min-w-8 text-zinc-400">
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                          <circle cx="12" cy="10" r="3" />
-                        </svg>
-                      </span>
-                      <span className="text-zinc-200 truncate flex-1">{p.name}</span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        </AppScrollArea>
+              {places.length > 0 && (
+                <>
+                  <p
+                    className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
+                    role="presentation"
+                  >
+                    {t('search.places')}
+                  </p>
+                  {places.map((p, i) => {
+                    const idx = placeStartIndex + i;
+                    return (
+                      <button
+                        key={`${p.lng},${p.lat}`}
+                        id={`search-option-${idx}`}
+                        role="option"
+                        aria-selected={activeIndex === idx}
+                        onClick={() => selectPlace(p)}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
+                          activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                        }`}
+                      >
+                        <span className="inline-flex items-center justify-center min-w-8 text-zinc-400">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                            <circle cx="12" cy="10" r="3" />
+                          </svg>
+                        </span>
+                        <span className="text-zinc-200 truncate flex-1">{p.name}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </AppScrollArea>
+        </div>
       )}
     </div>
   );
