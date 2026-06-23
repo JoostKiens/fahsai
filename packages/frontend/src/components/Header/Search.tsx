@@ -1,36 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Fuse, { type FuseOptionKey } from 'fuse.js';
+import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
 import { useStationReadings, type LatestMeasurement } from '@/hooks/useStationReadings';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRef } from '@/utils/mapRef';
 import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
-import { VIEWPORT_BBOX } from '@/utils/bbox';
+import { CloseIcon } from './icons';
 import { AppScrollArea } from '@/components/AppScrollArea';
-
-const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const MAPBOX_GEOCODE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
-const BBOX = VIEWPORT_BBOX.join(',');
-const GEOCODE_TYPES = 'locality,place,district,region';
-const MAX_STATION_RESULTS = 3;
-const MAX_PLACE_RESULTS = 5;
+import { FUSE_KEYS, FUSE_THRESHOLD, MAX_STATION_RESULTS, buildGeocodeUrl } from './searchConfig';
 
 interface PlaceResult {
   name: string;
   lng: number;
   lat: number;
-}
-
-export const FUSE_KEYS: FuseOptionKey<LatestMeasurement>[] = ['stationName', 'stationId'];
-export const FUSE_THRESHOLD = 0.2;
-
-export function buildGeocodeUrl(query: string, language: string): string {
-  return (
-    `${MAPBOX_GEOCODE}/${encodeURIComponent(query)}.json` +
-    `?bbox=${BBOX}&limit=${MAX_PLACE_RESULTS}&language=${language}` +
-    `&types=${GEOCODE_TYPES}&access_token=${TOKEN}`
-  );
 }
 
 function SearchIcon() {
@@ -48,24 +31,6 @@ function SearchIcon() {
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   );
 }
@@ -169,10 +134,17 @@ export function Search() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [isOpen]);
 
-  // Reset active index when results change
+  // Reset active index when query changes
   useEffect(() => {
     setActiveIndex(-1);
-  }, [allResults.length]);
+  }, [query]);
+
+  const close = useCallback(() => {
+    setQuery('');
+    setIsOpen(false);
+    setMobileOpen(false);
+    setPlaces([]);
+  }, []);
 
   const selectStation = useCallback(
     (m: LatestMeasurement) => {
@@ -189,20 +161,16 @@ export function Search() {
       mapRef.current?.flyTo({ center: [m.lng, m.lat], zoom: 12, duration: 800 });
       close();
     },
-    [setSelectedPoint],
+    [setSelectedPoint, close],
   );
 
-  const selectPlace = useCallback((p: PlaceResult) => {
-    mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 11, duration: 800 });
-    close();
-  }, []);
-
-  function close() {
-    setQuery('');
-    setIsOpen(false);
-    setMobileOpen(false);
-    setPlaces([]);
-  }
+  const selectPlace = useCallback(
+    (p: PlaceResult) => {
+      mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 11, duration: 800 });
+      close();
+    },
+    [close],
+  );
 
   function selectActive() {
     if (activeIndex < 0 || activeIndex >= allResults.length) return;
@@ -232,74 +200,72 @@ export function Search() {
   const hasResults = allResults.length > 0;
   const showDropdown = isOpen && query.length >= 1;
 
-  const stationStartIndex = 0;
   const placeStartIndex = stationResults.length;
 
-  const input = (
-    <div ref={containerRef} className="relative flex-1 max-w-xs">
-      <div className="relative">
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
-          <SearchIcon />
-        </span>
-        <input
-          ref={inputRef}
-          type="text"
-          role="combobox"
-          aria-expanded={showDropdown && hasResults}
-          aria-controls={listboxId}
-          aria-activedescendant={activeIndex >= 0 ? `search-option-${activeIndex}` : undefined}
-          aria-label={t('search.label')}
-          placeholder={t('search.placeholder')}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => {
-            if (query.length >= 1) setIsOpen(true);
-          }}
-          onKeyDown={onKeyDown}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-md text-[13px] text-zinc-200 placeholder-zinc-500 pl-8 pr-8 py-1.5 outline-none focus:border-zinc-500 transition-colors"
-        />
-        {query && (
-          <button
-            aria-label={t('header.close')}
-            onClick={close}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-          >
-            <XIcon />
-          </button>
-        )}
-      </div>
+  function renderSearchInput() {
+    return (
+      <div ref={containerRef} className="relative flex-1 max-w-xs">
+        <div className="relative">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
+            <SearchIcon />
+          </span>
+          <input
+            ref={inputRef}
+            type="text"
+            role="combobox"
+            aria-expanded={showDropdown && hasResults}
+            aria-controls={listboxId}
+            aria-activedescendant={activeIndex >= 0 ? `search-option-${activeIndex}` : undefined}
+            aria-label={t('search.label')}
+            placeholder={t('search.placeholder')}
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => {
+              if (query.length >= 1) setIsOpen(true);
+            }}
+            onKeyDown={onKeyDown}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-md text-[13px] text-zinc-200 placeholder-zinc-500 pl-8 pr-8 py-1.5 outline-none focus:border-zinc-500 transition-colors"
+          />
+          {query && (
+            <button
+              aria-label={t('header.close')}
+              onClick={close}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
+              <CloseIcon size={14} />
+            </button>
+          )}
+        </div>
 
-      {showDropdown && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
-          <AppScrollArea viewportClassName="max-h-80 overflow-x-hidden rounded-[inherit]">
-            <div id={listboxId} role="listbox" className="w-0 min-w-full overflow-hidden">
-              {!hasResults && (
-                <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
-              )}
+        {showDropdown && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
+            <AppScrollArea viewportClassName="max-h-80 overflow-x-hidden rounded-[inherit]">
+              <div id={listboxId} role="listbox" className="w-0 min-w-full overflow-hidden">
+                {!hasResults && (
+                  <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
+                )}
 
-              {stationResults.length > 0 && (
-                <>
-                  <p
-                    className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                    role="presentation"
-                  >
-                    {t('search.stations')}
-                  </p>
-                  {stationResults.map((s, i) => {
-                    const idx = stationStartIndex + i;
-                    return (
+                {stationResults.length > 0 && (
+                  <>
+                    <p
+                      className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
+                      role="presentation"
+                    >
+                      {t('search.stations')}
+                    </p>
+                    {stationResults.map((s, i) => (
                       <button
                         key={s.stationId}
-                        id={`search-option-${idx}`}
+                        id={`search-option-${i}`}
                         role="option"
-                        aria-selected={activeIndex === idx}
+                        aria-selected={activeIndex === i}
                         onClick={() => selectStation(s)}
-                        onMouseEnter={() => setActiveIndex(idx)}
+                        onMouseEnter={() => setActiveIndex(i)}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] min-w-0 transition-colors ${
-                          activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                          activeIndex === i ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
                         }`}
                       >
                         <Pm25Dot value={s.value} />
@@ -308,66 +274,66 @@ export function Search() {
                           <span className="text-[11px] text-zinc-500">{s.stationId}</span>
                         </span>
                       </button>
-                    );
-                  })}
-                </>
-              )}
+                    ))}
+                  </>
+                )}
 
-              {places.length > 0 && (
-                <>
-                  <p
-                    className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                    role="presentation"
-                  >
-                    {t('search.places')}
-                  </p>
-                  {places.map((p, i) => {
-                    const idx = placeStartIndex + i;
-                    return (
-                      <button
-                        key={`${p.lng},${p.lat}`}
-                        id={`search-option-${idx}`}
-                        role="option"
-                        aria-selected={activeIndex === idx}
-                        onClick={() => selectPlace(p)}
-                        onMouseEnter={() => setActiveIndex(idx)}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] min-w-0 transition-colors ${
-                          activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-                        }`}
-                      >
-                        <span className="inline-flex items-center justify-center min-w-8 text-zinc-400">
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                            <circle cx="12" cy="10" r="3" />
-                          </svg>
-                        </span>
-                        <span className="text-zinc-200 truncate flex-1">{p.name}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-            </div>
-          </AppScrollArea>
-        </div>
-      )}
-    </div>
-  );
+                {places.length > 0 && (
+                  <>
+                    <p
+                      className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
+                      role="presentation"
+                    >
+                      {t('search.places')}
+                    </p>
+                    {places.map((p, i) => {
+                      const idx = placeStartIndex + i;
+                      return (
+                        <button
+                          key={`${p.lng},${p.lat}`}
+                          id={`search-option-${idx}`}
+                          role="option"
+                          aria-selected={activeIndex === idx}
+                          onClick={() => selectPlace(p)}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] min-w-0 transition-colors ${
+                            activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                          }`}
+                        >
+                          <span className="inline-flex items-center justify-center min-w-8 text-zinc-400">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                          </span>
+                          <span className="text-zinc-200 truncate flex-1">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </AppScrollArea>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
       {/* Desktop: inline in header */}
-      <div className="hidden md:flex flex-1 justify-center">{input}</div>
+      <div className="hidden md:flex flex-1 justify-center">{renderSearchInput()}</div>
 
       {/* Mobile: toggle button + overlay */}
       {!mobileOpen && (
@@ -384,13 +350,13 @@ export function Search() {
       )}
       {mobileOpen && (
         <div className="md:hidden absolute inset-x-0 top-0 h-12 bg-zinc-900 flex items-center px-3 gap-2 z-30">
-          {input}
+          {renderSearchInput()}
           <button
             onClick={close}
             aria-label={t('header.close')}
             className="inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
-            <XIcon />
+            <CloseIcon size={14} />
           </button>
         </div>
       )}

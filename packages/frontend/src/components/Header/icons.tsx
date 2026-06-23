@@ -25,6 +25,24 @@ export function GithubIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+export function CloseIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 export function GearIcon({ size = 16 }: { size?: number }) {
   return (
     <svg

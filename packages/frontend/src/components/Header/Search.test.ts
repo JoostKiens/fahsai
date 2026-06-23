@@ -1,20 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import Fuse, { type FuseOptionKey } from 'fuse.js';
+import Fuse from 'fuse.js';
+import type { LatestMeasurement } from '../../hooks/useStationReadings';
+import { FUSE_KEYS, FUSE_THRESHOLD, buildGeocodeUrl } from './searchConfig';
 
-interface StationItem {
-  stationId: string;
-  stationName: string;
-  lat: number;
-  lng: number;
-  country: string | null;
-  value: number;
-  measuredAt: string;
-}
-
-const FUSE_KEYS: FuseOptionKey<StationItem>[] = ['stationName', 'stationId'];
-const FUSE_THRESHOLD = 0.2;
-
-const STATIONS: StationItem[] = [
+const STATIONS: LatestMeasurement[] = [
   {
     stationId: '2174592',
     stationName: 'Chiang Mai City Hall',
@@ -45,7 +34,7 @@ const STATIONS: StationItem[] = [
 ];
 
 function search(query: string) {
-  const fuse = new Fuse<StationItem>(STATIONS, {
+  const fuse = new Fuse<LatestMeasurement>(STATIONS, {
     keys: FUSE_KEYS,
     threshold: FUSE_THRESHOLD,
   });
@@ -94,19 +83,7 @@ describe('station fuzzy search', () => {
   });
 });
 
-describe('geocode URL', () => {
-  const MAPBOX_GEOCODE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
-  const BBOX = '89,1,114,30';
-  const GEOCODE_TYPES = 'locality,place,district,region';
-
-  function buildGeocodeUrl(query: string, language: string): string {
-    return (
-      `${MAPBOX_GEOCODE}/${encodeURIComponent(query)}.json` +
-      `?bbox=${BBOX}&limit=5&language=${language}` +
-      `&types=${GEOCODE_TYPES}&access_token=test`
-    );
-  }
-
+describe('buildGeocodeUrl', () => {
   it('encodes query and includes bbox, language, types', () => {
     const url = buildGeocodeUrl('Chiang Mai', 'en');
     expect(url).toContain('Chiang%20Mai');
