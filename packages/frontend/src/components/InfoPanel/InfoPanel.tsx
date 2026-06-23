@@ -490,8 +490,7 @@ function StationPanel({
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
   const CLIMATOLOGY_DISPLAY_GATE = 30;
-  const [curveExpanded, setCurveExpanded] = useState(false);
-  const { data: climatologyResp } = useStationClimatology(station.stationId, curveExpanded);
+  const { data: climatologyResp } = useStationClimatology(station.stationId, true);
   const climatologyData = climatologyResp?.data;
   const climatologyYears =
     climatologyResp?.minYear && climatologyResp?.maxYear
@@ -555,6 +554,21 @@ function StationPanel({
           </div>
         </Row>
       )}
+      {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
+      <div onClickCapture={onExpand}>
+        <ExplainButton
+          key={station.stationId}
+          stationId={station.stationId}
+          lat={lngLat[1]}
+          lng={lngLat[0]}
+          rateLimitControl={{
+            value: explainRateLimit,
+            onSet: setExplainRateLimit,
+            onClear: () => setExplainRateLimit(null),
+          }}
+          className="block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
+        />
+      </div>
       {(() => {
         const latestDay = chartDays?.[chartDays.length - 1];
         const clim = latestDay?.climatology;
@@ -589,21 +603,20 @@ function StationPanel({
           </p>
         );
       })()}
-      {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}
-      <div onClickCapture={onExpand}>
-        <ExplainButton
-          key={station.stationId}
-          stationId={station.stationId}
-          lat={lngLat[1]}
-          lng={lngLat[0]}
-          rateLimitControl={{
-            value: explainRateLimit,
-            onSet: setExplainRateLimit,
-            onClear: () => setExplainRateLimit(null),
-          }}
-          className="block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
+      <hr className="border-zinc-800 my-2" />
+      <p className="text-[12px] text-zinc-300 mb-2">
+        {t('infoPanel.climatology.yearCurve')}
+        {climatologyYears && ` · ${climatologyYears}`}
+      </p>
+      {climatologyData && climatologyData.length > 0 ? (
+        <YearCurve
+          data={climatologyData}
+          currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
+          selectedDate={selectedDate}
         />
-      </div>
+      ) : (
+        <Shimmer className="h-[140px] w-full" />
+      )}
       {(historyLoading || historyDays) && (
         <>
           <hr className="border-zinc-800 my-2" />
@@ -618,24 +631,6 @@ function StationPanel({
               className={historyFetching ? 'opacity-40 transition-opacity' : 'transition-opacity'}
             >
               <History days={chartDays} />
-            </div>
-          )}
-          <button
-            onClick={() => setCurveExpanded((v) => !v)}
-            className="text-[11px] text-zinc-500 hover:text-zinc-300 mt-2 transition-colors"
-          >
-            {curveExpanded
-              ? t('infoPanel.climatology.yearCurveHide')
-              : t('infoPanel.climatology.yearCurve')}
-            {climatologyYears && ` · ${climatologyYears}`}
-          </button>
-          {curveExpanded && climatologyData && climatologyData.length > 0 && (
-            <div className="mt-1">
-              <YearCurve
-                data={climatologyData}
-                currentPm25={chartDays?.[chartDays.length - 1]?.meanPm25 ?? null}
-                selectedDate={selectedDate}
-              />
             </div>
           )}
         </>

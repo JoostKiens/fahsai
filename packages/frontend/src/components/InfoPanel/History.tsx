@@ -97,11 +97,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const maxPm25 = Math.max(
-    ...days.map((d) => d.meanPm25),
-    ...days.filter((d) => d.climatology).map((d) => d.climatology!.p75Pm25),
-    1,
-  );
+  const maxPm25 = Math.max(...days.map((d) => d.meanPm25), 1);
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -151,7 +147,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
           className="flex items-end gap-[2px] flex-1"
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
-          {days.map(({ date, meanPm25: val, readingCount, climatology: clim }) => {
+          {days.map(({ date, meanPm25: val, readingCount }) => {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
             const [r, g, b] = pm25ToSoftRgb(val);
@@ -192,23 +188,6 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   }
                 }}
               >
-                {clim && (
-                  <>
-                    <div
-                      className="absolute left-0 right-0 bg-zinc-500/15 rounded-sm pointer-events-none"
-                      style={{
-                        top: `${MAX_BAR_H * (1 - clim.p75Pm25 / maxPm25)}px`,
-                        height: `${Math.max(1, MAX_BAR_H * ((clim.p75Pm25 - clim.p25Pm25) / maxPm25))}px`,
-                      }}
-                    />
-                    <div
-                      className="absolute left-0 right-0 border-t border-dashed border-zinc-500/30 pointer-events-none"
-                      style={{
-                        top: `${MAX_BAR_H * (1 - clim.medianPm25 / maxPm25)}px`,
-                      }}
-                    />
-                  </>
-                )}
                 <div
                   className="w-full rounded-t-sm relative"
                   style={{
@@ -229,7 +208,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
       </div>
 
       {/* Weather table */}
-      <p className="text-[11px] text-zinc-400 mt-3 mb-1">{t('history.weather')}</p>
+      <p className="text-[12px] text-zinc-300 mt-3 mb-1">{t('history.weather')}</p>
       <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[11px] items-center">
         {/* Column headers */}
         <span />
