@@ -274,8 +274,8 @@ export function Search() {
 
       {showDropdown && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
-          <AppScrollArea viewportClassName="max-h-80 rounded-[inherit]">
-            <div id={listboxId} role="listbox">
+          <AppScrollArea viewportClassName="max-h-80 overflow-x-hidden rounded-[inherit]">
+            <div id={listboxId} role="listbox" className="w-0 min-w-full overflow-hidden">
               {!hasResults && (
                 <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
               )}
@@ -298,7 +298,7 @@ export function Search() {
                         aria-selected={activeIndex === idx}
                         onClick={() => selectStation(s)}
                         onMouseEnter={() => setActiveIndex(idx)}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] min-w-0 transition-colors ${
                           activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
                         }`}
                       >
@@ -331,7 +331,7 @@ export function Search() {
                         aria-selected={activeIndex === idx}
                         onClick={() => selectPlace(p)}
                         onMouseEnter={() => setActiveIndex(idx)}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] min-w-0 transition-colors ${
                           activeIndex === idx ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
                         }`}
                       >
