@@ -59,6 +59,11 @@ the frontend or run it manually in rapid succession.
 **Schema migrations** — all schema changes use new Supabase migration files. Never modify
 existing migrations.
 
+**Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
+`vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
+by tests will fail to resolve. Only `type` imports survive because TypeScript erases them
+before Vite transforms the module. For test-importable utility files, use relative paths.
+
 **Browser cache + TanStack Query double-caching** — Fastify routes must return
 `Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body
 lets the browser serve that empty body from cache after data arrives, bypassing TanStack's

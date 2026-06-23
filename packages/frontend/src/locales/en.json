@@ -9,6 +9,12 @@
 
   "about.body": "Fahsai is a non-commercial civic project visualising the causes of PM2.5 pollution in Thailand and its neighbours.",
 
+  "search.placeholder": "Search stations or places…",
+  "search.stations": "Stations",
+  "search.places": "Places",
+  "search.noResults": "No results",
+  "search.label": "Search",
+
   "settings.dateRange": "Date range",
 
   "sidebar.ariaLabel": "Map layers",

@@ -5,26 +5,9 @@ import { useUIStore } from '@/store/uiStore';
 
 const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
-import { GearIcon, GithubIcon, InfoIcon } from './icons';
+import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './icons';
 import { LanguagePill } from './LanguagePill';
-
-function XIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  );
-}
+import { Search } from './Search';
 
 function Logo({ size }: { size: number }) {
   return (
@@ -100,7 +83,7 @@ function AppDialog({
               aria-label={t('header.close')}
               className="ml-4 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors ease-out hover:duration-175"
             >
-              <XIcon />
+              <CloseIcon />
             </Dialog.Close>
           </div>
           {children}
@@ -138,8 +121,8 @@ export function Header() {
           <span className="text-[12px] font-semibold text-zinc-100 truncate">Fahsai</span>
         </div>
 
-        {/* Desktop spacer */}
-        <div className="hidden md:block flex-1" />
+        {/* Desktop search */}
+        <Search />
 
         {/* Desktop right cluster */}
         <div className="hidden md:flex items-center gap-1 shrink-0">
