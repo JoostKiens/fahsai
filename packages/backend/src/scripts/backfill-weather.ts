@@ -28,6 +28,7 @@ import {
   WEATHER_LNG_COUNT,
   WEATHER_STEP,
 } from '../utils/computeStationWeather.js';
+import { parseDateFlag } from '../utils/backfill.js';
 
 const LOG = '[backfill-weather]';
 const DB_BATCH_SIZE = 500;
@@ -38,25 +39,8 @@ const MAX_POLLS = 240; // 2 hours
 // If --file is provided the CDS download is skipped entirely.
 const localFile = process.argv.find((a) => a.startsWith('--file='))?.slice(7) ?? null;
 
-// ---------------------------------------------------------------------------
-// Argument parsing
-// ---------------------------------------------------------------------------
-
-function parseDateFlag(flag: string): string {
-  const val = process.argv.find((a) => a.startsWith(`--${flag}=`))?.slice(flag.length + 3);
-  if (!val) {
-    console.error(`${LOG} --${flag} is required (YYYY-MM-DD)`);
-    process.exit(1);
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-    console.error(`${LOG} --${flag}: invalid format "${val}" — expected YYYY-MM-DD`);
-    process.exit(1);
-  }
-  return val;
-}
-
-const startDate = parseDateFlag('start');
-const endDate = parseDateFlag('end');
+const startDate = parseDateFlag('start', LOG);
+const endDate = parseDateFlag('end', LOG);
 
 if (startDate > endDate) {
   console.error(`${LOG} --start (${startDate}) must be ≤ --end (${endDate})`);
