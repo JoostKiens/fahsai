@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { BaselineDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
+import { niceMax } from '@/utils/niceMax';
 
 const W = 260;
 const H = 140;
@@ -36,12 +37,9 @@ export function YearCurve({
   const gradId = `median-grad-${useId()}`;
 
   const { bandPath, medianPath, maxVal, yTicks, monthLabels, gradientStops } = useMemo(() => {
-    const rawMax = Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10);
-    const rough = rawMax / 4;
-    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-    const norm = rough / mag;
-    const step = (norm <= 1.5 ? 1 : norm <= 3 ? 2 : norm <= 7 ? 5 : 10) * mag;
-    const maxVal = Math.ceil(rawMax / step) * step;
+    const { max: maxVal, step } = niceMax(
+      Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10),
+    );
 
     const x = (doy: number) => PAD_L + ((doy - 1) / (YEAR_DAYS - 1)) * PLOT_W;
     const y = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
@@ -83,6 +81,7 @@ export function YearCurve({
   const yScale = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
 
   return (
+    // ponytail: HTML labels use %-positioning tied to the SVG viewBox aspect ratio; breaks if this div gains padding/siblings
     <div className="relative w-full">
       <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" aria-hidden>
         <defs>

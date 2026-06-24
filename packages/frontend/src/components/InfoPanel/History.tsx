@@ -5,6 +5,7 @@ import { TWEEN_ENTER } from '@/utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToRgb, pm25ToSoftRgb } from '@/utils/aqiColors';
+import { niceMax } from '@/utils/niceMax';
 import { degToCompass } from './ambient';
 import { dateLocale } from '@/i18n';
 import { Shimmer } from '@/components/Shimmer';
@@ -42,7 +43,7 @@ export function ShimmerHistory() {
             return (
               <div key={i} className="flex flex-col items-center flex-1">
                 <div
-                  className="w-full rounded-t-sm animate-pulse [animation-duration:1.2s] bg-zinc-700"
+                  className="w-full rounded-t-[5px] animate-pulse [animation-duration:1.2s] bg-zinc-700"
                   style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
                 />
                 <Shimmer className="h-4.5 w-8 mt-1" />
@@ -97,12 +98,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const rawMax = Math.max(...days.map((d) => d.pm25), 1);
-  const rough = rawMax / 4;
-  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-  const norm = rough / mag;
-  const step = (norm <= 1.5 ? 1 : norm <= 3 ? 2 : norm <= 7 ? 5 : 10) * mag;
-  const maxPm25 = Math.ceil(rawMax / step) * step;
+  const maxPm25 = niceMax(Math.max(...days.map((d) => d.pm25), 1)).max;
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
