@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BaselineDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
@@ -33,6 +33,7 @@ export function YearCurve({
 }) {
   const { i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
+  const gradId = `median-grad-${useId()}`;
 
   const { bandPath, medianPath, maxVal, yTicks, monthLabels, gradientStops } = useMemo(() => {
     const maxVal = Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10);
@@ -82,7 +83,7 @@ export function YearCurve({
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden>
       <defs>
         <linearGradient
-          id="median-grad"
+          id={gradId}
           gradientUnits="userSpaceOnUse"
           x1={PAD_L}
           y1="0"
@@ -122,7 +123,7 @@ export function YearCurve({
       <path d={bandPath} fill="rgba(113,113,122,0.4)" />
 
       {/* Median line */}
-      <path d={medianPath} fill="none" stroke="url(#median-grad)" strokeWidth={1.2} />
+      <path d={medianPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={1.2} />
 
       {/* Today marker line */}
       <line
