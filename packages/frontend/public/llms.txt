@@ -1,0 +1,44 @@
+# Fahsai — Thailand Air Quality Map
+
+> Fahsai (Thai: ฟ้าใส, "clear sky") is a free, open-source interactive map showing the causes of seasonal air pollution across Thailand and neighboring countries. It combines satellite fire detection, ground-level PM2.5 measurements, gridded air quality models, wind patterns, and power plant locations on a single map — updated daily.
+
+## What it shows
+
+- **Active fires**: NASA FIRMS VIIRS satellite fire detections, updated daily
+- **PM2.5 air quality**: Ground station readings from OpenAQ (100+ stations across Thailand, Myanmar, Laos, Cambodia)
+- **Gridded PM2.5 model**: Copernicus CAMS data via Open-Meteo, ~11 km resolution
+- **Wind patterns**: Animated wind particle visualization showing atmospheric transport
+- **Power plants**: Coal, gas, and oil power plants from WRI Global Power Plant Database
+- **30-day history**: Time scrubber to explore how fires, wind, and air quality interact over the past month
+
+## Coverage
+
+Thailand, Myanmar, Laos, Cambodia, and parts of Vietnam, Malaysia, Bangladesh, India, and China (bounding box: 89°E–114°E, 1°N–30°N).
+
+## Data sources
+
+- Fire data: NASA FIRMS (firms.modaps.eosdis.nasa.gov) — VIIRS S-NPP satellite
+- Air quality stations: OpenAQ (openaq.org) — CC BY 4.0
+- Gridded PM2.5: Copernicus CAMS via Open-Meteo (open-meteo.com) — CC BY 4.0
+- Wind and weather: Open-Meteo (open-meteo.com) — CC BY 4.0
+- Power plants: WRI Global Power Plant Database (resourcewatch.org) — CC BY 4.0
+
+## Update frequency
+
+All data is ingested daily via scheduled jobs. The map shows the most recent date where fire, station, and CAMS data are all complete (typically available by 06:30 ICT / 23:30 UTC).
+
+## Purpose
+
+Fahsai is a civic and educational project. During Thailand's annual haze season (roughly January–April), PM2.5 levels in northern Thailand regularly exceed WHO guidelines by 5–10x. The fires driving this pollution span national borders. Fahsai makes the connection between fires, wind, and air quality visible and undeniable — without blaming any single country or sector.
+
+## URL
+
+https://fahsai.fyi
+
+## Languages
+
+English and Thai (toggle in-app).
+
+## Creator
+
+Joost Kiens — https://github.com/JoostKiens
