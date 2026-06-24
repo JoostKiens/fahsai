@@ -13,6 +13,7 @@ import { parse } from 'csv-parse/sync';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { buildS3Url, downloadS3File } from '../utils/openaq-s3.js';
+import { fetchAllPages, runWithConcurrency } from '../utils/backfill.js';
 import { ICT_OFFSET_MS } from '@thailand-aq/consts';
 
 const WINDOW = 7;
@@ -47,25 +48,6 @@ if (startYear > endYear) {
 console.log(`[baseline] Years: ${startYear}–${endYear}`);
 
 // --- Helpers ---
-
-async function fetchAllPages<T>(
-  buildQuery: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const all: T[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    if (!data?.length) break;
-    all.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return all;
-}
 
 const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -143,33 +125,18 @@ function parsePm25Readings(
   return results;
 }
 
-// --- Bounded concurrency pool ---
-
-async function runWithConcurrency<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  const queue = [...items];
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift()!;
-      await fn(item);
-    }
-  });
-  await Promise.all(workers);
-}
-
 // --- Main ---
 
 type Station = { id: string; pm25_sensor_ids: number[] };
 
-const stations = await fetchAllPages<Station>((from, to) =>
-  supabase
-    .from('stations')
-    .select('id, pm25_sensor_ids')
-    .filter('pm25_sensor_ids', 'not.eq', '{}')
-    .range(from, to),
+const stations = await fetchAllPages<Station>(
+  (from, to) =>
+    supabase
+      .from('stations')
+      .select('id, pm25_sensor_ids')
+      .filter('pm25_sensor_ids', 'not.eq', '{}')
+      .range(from, to),
+  PAGE_SIZE,
 );
 
 if (!stations.length) {

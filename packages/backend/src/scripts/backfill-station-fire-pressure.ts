@@ -12,25 +12,13 @@ import 'dotenv/config';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
+import { parseDateFlag } from '../utils/backfill.js';
 
 const LOG = '[backfill-station-fire-pressure]';
 const MAX_DAYS = 130;
 
-function parseDateFlag(flag: string): string {
-  const val = process.argv.find((a) => a.startsWith(`--${flag}=`))?.slice(flag.length + 3);
-  if (!val) {
-    console.error(`${LOG} --${flag} is required (YYYY-MM-DD)`);
-    process.exit(1);
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-    console.error(`${LOG} --${flag}: invalid format "${val}" — expected YYYY-MM-DD`);
-    process.exit(1);
-  }
-  return val;
-}
-
-const startDate = parseDateFlag('start');
-const endDate = parseDateFlag('end');
+const startDate = parseDateFlag('start', LOG);
+const endDate = parseDateFlag('end', LOG);
 
 const startMs = new Date(startDate + 'T00:00:00Z').getTime();
 const endMs = new Date(endDate + 'T00:00:00Z').getTime();

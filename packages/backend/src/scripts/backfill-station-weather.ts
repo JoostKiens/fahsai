@@ -7,27 +7,9 @@
 import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const PAGE_SIZE = 1000;
-
-async function fetchAllPages<T>(
-  buildQuery: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const all: T[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    if (!data?.length) break;
-    all.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return all;
-}
 
 const rawArg = process.argv.find((a) => /^\d+$/.test(a));
 const DAYS = rawArg ? parseInt(rawArg, 10) : 40;
@@ -56,14 +38,16 @@ for (const date of dates) {
     relative_humidity_2m: number | null;
   }[];
   try {
-    grid = await fetchAllPages((from, to) =>
-      supabase
-        .from('weather_readings')
-        .select(
-          'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-        )
-        .eq('date', date)
-        .range(from, to),
+    grid = await fetchAllPages(
+      (from, to) =>
+        supabase
+          .from('weather_readings')
+          .select(
+            'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          )
+          .eq('date', date)
+          .range(from, to),
+      PAGE_SIZE,
     );
   } catch (err) {
     console.warn(

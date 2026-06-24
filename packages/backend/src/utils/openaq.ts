@@ -2,8 +2,6 @@ import { DEFAULT_BBOX } from './bbox.js';
 
 const BASE_URL = 'https://api.openaq.org/v3';
 
-export const PARAMETERS = ['pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'] as const;
-
 interface OpenAQSensor {
   id: number;
   parameter: { name: string; units: string };
