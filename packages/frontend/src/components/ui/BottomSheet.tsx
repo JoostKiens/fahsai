@@ -114,7 +114,7 @@ export function BottomSheet({
             style={detents ? { height: detents.fullHeight } : undefined}
           >
             <div
-              className="flex items-center justify-between px-4 pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing shrink-0"
+              className="flex items-start justify-between px-4 pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing shrink-0"
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div className="w-6" />

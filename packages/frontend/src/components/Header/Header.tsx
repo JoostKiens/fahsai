@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useUIStore } from '@/store/uiStore';
 
+export const HEADER_HEIGHT = 48; // keep in sync with h-12 below
 const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
 import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './icons';

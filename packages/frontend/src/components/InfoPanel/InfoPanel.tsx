@@ -22,6 +22,7 @@ import { useStationBaseline } from './useStationBaseline';
 import { classifyReading, dateToPeriodKey } from './baseline';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { HEADER_HEIGHT } from '@/components/Header/Header';
 import { mapRef } from '@/utils/mapRef';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -109,8 +110,8 @@ export function InfoPanel() {
   }, []);
   const fullHeight = Math.round(viewportHeight * 0.75);
 
-  // Auto-pan the map so the selected marker stays above the sheet on mobile.
-  // Desktop uses a floating card (no padding needed); skip on md+ viewports.
+  // Auto-pan the map so the selected marker is centered in the visible area
+  // between the header and the bottom sheet on mobile.
   useEffect(() => {
     if (window.innerWidth >= 768) return;
     if (!selectedPoint) {
@@ -119,7 +120,7 @@ export function InfoPanel() {
     }
     const bottom = detent === 'full' ? fullHeight : PEEK_HEIGHT;
     mapRef.current?.easeTo({
-      padding: { top: 0, right: 0, bottom, left: 0 },
+      padding: { top: HEADER_HEIGHT, right: 0, bottom, left: 0 },
       center: selectedPoint.lngLat,
       duration: 300,
     });
