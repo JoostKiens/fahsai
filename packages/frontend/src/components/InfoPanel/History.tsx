@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 import { TWEEN_ENTER } from '@/utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { pm25ToSoftRgb } from '@/utils/aqiColors';
+import { pm25ToRgb, pm25ToSoftRgb } from '@/utils/aqiColors';
+import { niceMax } from '@/utils/niceMax';
 import { degToCompass } from './ambient';
 import { dateLocale } from '@/i18n';
 import { Shimmer } from '@/components/Shimmer';
@@ -34,7 +35,7 @@ export function ShimmerHistory() {
           <Shimmer className="h-4.5 w-3" />
         </div>
         <div
-          className="flex items-end gap-[2px] flex-1"
+          className="flex items-end gap-1.5 flex-1"
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
           {Array.from({ length: 5 }, (_, i) => {
@@ -42,7 +43,7 @@ export function ShimmerHistory() {
             return (
               <div key={i} className="flex flex-col items-center flex-1">
                 <div
-                  className="w-full rounded-t-sm animate-pulse [animation-duration:1.2s] bg-zinc-700"
+                  className="w-full rounded-t-[5px] animate-pulse [animation-duration:1.2s] bg-zinc-700"
                   style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
                 />
                 <Shimmer className="h-4.5 w-8 mt-1" />
@@ -97,7 +98,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const maxPm25 = Math.max(...days.map((d) => d.pm25), 1);
+  const maxPm25 = niceMax(Math.max(...days.map((d) => d.pm25), 1)).max;
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [activeDate, setActiveDate] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -144,21 +145,23 @@ export function History({ days }: { days: StationDayHistory[] }) {
         </div>
         <div
           ref={chartRef}
-          className="flex items-end gap-[2px] flex-1"
+          className="flex items-end gap-1.5 flex-1"
           style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
         >
           {days.map(({ date, pm25: val, readingCount }) => {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
-            const [r, g, b] = pm25ToSoftRgb(val);
+            const [sr, sg, sb] = pm25ToSoftRgb(val);
+            const [r, g, b] = pm25ToRgb(val);
             const isActive = activeDate === date;
+            const hasData = readingCount > 0;
 
             return (
               <div
                 key={date}
                 className="flex flex-col items-center flex-1"
                 onPointerEnter={(e) => {
-                  if (e.pointerType === 'touch' || readingCount === 0) return;
+                  if (e.pointerType === 'touch' || !hasData) return;
                   const col = e.currentTarget.getBoundingClientRect();
                   setTooltip({
                     value: val,
@@ -173,7 +176,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   setActiveDate(null);
                 }}
                 onPointerDown={(e) => {
-                  if (e.pointerType !== 'touch' || readingCount === 0) return;
+                  if (e.pointerType !== 'touch' || !hasData) return;
                   if (isActive) {
                     setTooltip(null);
                     setActiveDate(null);
@@ -189,15 +192,23 @@ export function History({ days }: { days: StationDayHistory[] }) {
                 }}
               >
                 <div
-                  className="w-full rounded-t-sm"
+                  className="w-full"
                   style={{
                     height: `${barH}px`,
-                    backgroundColor: readingCount > 0 ? `rgb(${r},${g},${b})` : 'transparent',
                     marginTop: `${MAX_BAR_H - barH}px`,
+                    ...(hasData
+                      ? {
+                          background: `linear-gradient(to bottom, rgba(${sr},${sg},${sb},0.5), rgba(${sr},${sg},${sb},0.04))`,
+                          borderLeft: `1px solid rgb(${r},${g},${b})`,
+                          borderTop: `1px solid rgb(${r},${g},${b})`,
+                          borderRight: `1px solid rgb(${r},${g},${b})`,
+                          borderRadius: '5px 5px 0 0',
+                        }
+                      : {}),
                   }}
                 />
                 <span
-                  className={`text-[11px] whitespace-nowrap mt-1 ${readingCount > 0 ? 'text-zinc-400' : 'text-zinc-700'}`}
+                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-500' : 'text-zinc-700'}`}
                 >
                   {formatDateLabel(date)}
                 </span>

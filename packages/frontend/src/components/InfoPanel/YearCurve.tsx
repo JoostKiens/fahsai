@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { BaselineDay } from '@thailand-aq/types';
 import { dateLocale } from '@/i18n';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
+import { niceMax } from '@/utils/niceMax';
 
 const W = 260;
 const H = 140;
@@ -36,7 +37,9 @@ export function YearCurve({
   const gradId = `median-grad-${useId()}`;
 
   const { bandPath, medianPath, maxVal, yTicks, monthLabels, gradientStops } = useMemo(() => {
-    const maxVal = Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10);
+    const { max: maxVal, step } = niceMax(
+      Math.max(...data.map((d) => d.p75Pm25), currentPm25 ?? 0, 10),
+    );
 
     const x = (doy: number) => PAD_L + ((doy - 1) / (YEAR_DAYS - 1)) * PLOT_W;
     const y = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
@@ -51,8 +54,6 @@ export function YearCurve({
 
     const medianPath =
       'M' + sorted.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.medianPm25)}`).join('L');
-
-    const step = maxVal <= 50 ? 10 : maxVal <= 100 ? 25 : 50;
     const yTicks: number[] = [];
     for (let v = step; v < maxVal; v += step) yTicks.push(v);
 
@@ -80,25 +81,27 @@ export function YearCurve({
   const yScale = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden>
-      <defs>
-        <linearGradient
-          id={gradId}
-          gradientUnits="userSpaceOnUse"
-          x1={PAD_L}
-          y1="0"
-          x2={W - PAD_R}
-          y2="0"
-        >
-          {gradientStops.map((s, i) => (
-            <stop key={i} offset={s.offset} stopColor={s.color} />
-          ))}
-        </linearGradient>
-      </defs>
-      {/* Y-axis ticks */}
-      {yTicks.map((v) => (
-        <g key={v}>
+    // ponytail: HTML labels use %-positioning tied to the SVG viewBox aspect ratio; breaks if this div gains padding/siblings
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" aria-hidden>
+        <defs>
+          <linearGradient
+            id={gradId}
+            gradientUnits="userSpaceOnUse"
+            x1={PAD_L}
+            y1="0"
+            x2={W - PAD_R}
+            y2="0"
+          >
+            {gradientStops.map((s, i) => (
+              <stop key={i} offset={s.offset} stopColor={s.color} />
+            ))}
+          </linearGradient>
+        </defs>
+        {/* Y-axis grid lines */}
+        {yTicks.map((v) => (
           <line
+            key={v}
             x1={PAD_L}
             x2={W - PAD_R}
             y1={yScale(v)}
@@ -106,59 +109,65 @@ export function YearCurve({
             stroke="#3f3f46"
             strokeWidth={0.5}
           />
-          <text
-            x={PAD_L - 3}
-            y={yScale(v) + 3}
-            textAnchor="end"
-            className="fill-zinc-500"
-            fontSize={11}
-            fontFamily="monospace"
-          >
-            {v}
-          </text>
-        </g>
+        ))}
+
+        {/* P25–P75 band */}
+        <path d={bandPath} fill="rgba(113,113,122,0.4)" />
+
+        {/* Median line */}
+        <path d={medianPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={1.2} />
+
+        {/* Today marker line */}
+        <line
+          x1={todayX}
+          x2={todayX}
+          y1={PAD_T}
+          y2={PAD_T + PLOT_H}
+          stroke="#5eead4"
+          strokeWidth={0.7}
+          strokeDasharray="3 2"
+        />
+
+        {/* Current reading dot */}
+        {currentPm25 !== null && (
+          <circle
+            cx={todayX}
+            cy={yScale(currentPm25)}
+            r={3}
+            fill={`rgb(${pm25ToRgbLerped(currentPm25).join(',')})`}
+          />
+        )}
+      </svg>
+
+      {/* Y-axis labels (HTML for consistent 11px sizing) */}
+      {yTicks.map((v) => (
+        <span
+          key={v}
+          className="absolute text-[11px] text-zinc-500 font-mono"
+          style={{
+            left: `${((PAD_L - 3) / W) * 100}%`,
+            top: `${(yScale(v) / H) * 100}%`,
+            transform: 'translate(-100%, -50%)',
+          }}
+        >
+          {v}
+        </span>
       ))}
 
-      {/* P25–P75 band */}
-      <path d={bandPath} fill="rgba(113,113,122,0.4)" />
-
-      {/* Median line */}
-      <path d={medianPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={1.2} />
-
-      {/* Today marker line */}
-      <line
-        x1={todayX}
-        x2={todayX}
-        y1={PAD_T}
-        y2={PAD_T + PLOT_H}
-        stroke="#5eead4"
-        strokeWidth={0.7}
-        strokeDasharray="3 2"
-      />
-
-      {/* Current reading dot */}
-      {currentPm25 !== null && (
-        <circle
-          cx={todayX}
-          cy={yScale(currentPm25)}
-          r={3}
-          fill={`rgb(${pm25ToRgbLerped(currentPm25).join(',')})`}
-        />
-      )}
-
-      {/* Month labels */}
+      {/* Month labels (HTML for consistent 11px sizing) */}
       {monthLabels.map(({ x, label }) => (
-        <text
+        <span
           key={label}
-          x={x}
-          y={H - 5}
-          textAnchor="middle"
-          className="fill-zinc-400"
-          fontSize={11}
+          className="absolute text-[11px] text-zinc-500"
+          style={{
+            left: `${(x / W) * 100}%`,
+            top: `${((H - 5) / H) * 100}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
         >
           {label}
-        </text>
+        </span>
       ))}
-    </svg>
+    </div>
   );
 }
