@@ -1,0 +1,7 @@
+ALTER INDEX station_climatology_pkey RENAME TO station_baseline_pkey;
+ALTER TABLE station_baseline
+  RENAME CONSTRAINT station_climatology_station_id_fkey TO station_baseline_station_id_fkey;
+ALTER TABLE station_baseline
+  RENAME CONSTRAINT station_climatology_month_check TO station_baseline_month_check;
+ALTER TABLE station_baseline
+  RENAME CONSTRAINT station_climatology_day_check TO station_baseline_day_check;

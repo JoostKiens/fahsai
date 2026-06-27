@@ -286,7 +286,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
         const entry = byDay.get(date);
         const m = Number(date.slice(5, 7));
-        const d = Number(date.slice(8, 10));
+        let d = Number(date.slice(8, 10));
+        if (m === 2 && d === 29) d = 28;
         result.push({
           date,
           pm25: entry?.latest ?? 0,

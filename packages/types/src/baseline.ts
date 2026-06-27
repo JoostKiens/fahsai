@@ -9,3 +9,9 @@ export interface BaselineDay extends BaselineStat {
   month: number;
   day: number;
 }
+
+export interface BaselineResponse {
+  data: BaselineDay[];
+  minYear: number | null;
+  maxYear: number | null;
+}
