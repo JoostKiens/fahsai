@@ -68,6 +68,10 @@ export function Search() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxId = 'search-listbox';
 
+  useEffect(() => {
+    if (mobileOpen) inputRef.current?.focus();
+  }, [mobileOpen]);
+
   const fuse = useMemo(
     () =>
       new Fuse<LatestMeasurement>(stations ?? [], { keys: FUSE_KEYS, threshold: FUSE_THRESHOLD }),
@@ -226,7 +230,7 @@ export function Search() {
               if (query.length >= 1) setIsOpen(true);
             }}
             onKeyDown={onKeyDown}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-md text-[13px] text-zinc-200 placeholder-zinc-500 pl-8 pr-8 py-1.5 outline-none focus:border-zinc-500 transition-colors"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-md text-base md:text-[13px] text-zinc-200 placeholder-zinc-500 pl-8 pr-8 py-1.5 outline-none focus:border-zinc-500 transition-colors"
           />
           {query && (
             <button
@@ -339,10 +343,7 @@ export function Search() {
       {/* Mobile: toggle button + overlay */}
       {!mobileOpen && (
         <button
-          onClick={() => {
-            setMobileOpen(true);
-            requestAnimationFrame(() => inputRef.current?.focus());
-          }}
+          onClick={() => setMobileOpen(true)}
           aria-label={t('search.label')}
           className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-175"
         >
