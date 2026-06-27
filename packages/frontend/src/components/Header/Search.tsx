@@ -169,10 +169,11 @@ export function Search() {
 
   const selectPlace = useCallback(
     (p: PlaceResult) => {
+      setSelectedPoint(null);
       mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 11, duration: 800 });
       close();
     },
-    [close],
+    [setSelectedPoint, close],
   );
 
   function selectActive() {
