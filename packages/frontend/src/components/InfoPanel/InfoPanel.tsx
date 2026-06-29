@@ -115,7 +115,12 @@ export function InfoPanel() {
   useEffect(() => {
     if (window.innerWidth >= 768) return;
     if (!selectedPoint) {
-      mapRef.current?.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
+      if (!mapRef.current?.isMoving()) {
+        mapRef.current?.easeTo({
+          padding: { top: 0, right: 0, bottom: 0, left: 0 },
+          duration: 300,
+        });
+      }
       return;
     }
     const bottom = detent === 'full' ? fullHeight : PEEK_HEIGHT;
