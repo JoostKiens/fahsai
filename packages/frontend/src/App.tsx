@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from 'sonner';
 import { MapView } from '@/components/Map/MapView';
 import { UIOverlay } from '@/components/UIOverlay';
@@ -73,6 +74,7 @@ function App() {
   return (
     <LatestDateProvider>
       <AppContent />
+      <SpeedInsights />
       {isMobile ? (
         <Toaster
           position="top-center"

@@ -21,6 +21,7 @@
     "@thailand-aq/consts": "workspace:*",
     "@thailand-aq/types": "workspace:*",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "deck.gl": "^9.0.0",
     "fuse.js": "^7.4.2",
     "i18next": "^26.2.0",
