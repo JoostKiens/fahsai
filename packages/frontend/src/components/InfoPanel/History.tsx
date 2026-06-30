@@ -198,7 +198,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                     marginTop: `${MAX_BAR_H - barH}px`,
                     ...(hasData
                       ? {
-                          background: `linear-gradient(to bottom, rgba(${sr},${sg},${sb},0.5), rgba(${sr},${sg},${sb},0.04))`,
+                          background: `linear-gradient(to bottom, rgba(${sr},${sg},${sb},0.7), rgba(${sr},${sg},${sb},0.1))`,
                           borderLeft: `1px solid rgb(${r},${g},${b})`,
                           borderTop: `1px solid rgb(${r},${g},${b})`,
                           borderRight: `1px solid rgb(${r},${g},${b})`,
