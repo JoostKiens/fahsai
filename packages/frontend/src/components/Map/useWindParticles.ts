@@ -18,9 +18,8 @@ const ANIM_SCALE = 0.0015;
 // fast-wind trails from dominating the visual at the expense of animation speed.
 const TRAIL_SPEED_REF_KMH = 13;
 // Maximum alpha for a fresh particle head (0–255). Trail fades linearly to 0.
-// 176 = 220 * 0.8 — reduced to 80% to soften visual intensity.
-const PARTICLE_START_ALPHA = 170;
-const PARTICLE_START_ALPHA_MAX = 240;
+const PARTICLE_START_ALPHA = 230;
+const PARTICLE_START_ALPHA_MAX = 255;
 const BASE_ZOOM = 5.5;
 const ZOOM_PLATEAU = 9;
 // Viewport lng-degree width at BASE_ZOOM on a reference ~1440px desktop — the viewport width
@@ -423,12 +422,12 @@ function spawnParticle({
 // enough to stand out over the CAMS heatmap, and calm enough not to dominate.
 // Order mirrors AQI_CATEGORIES in aqiColors.ts (Good → Hazardous).
 const PARTICLE_COLORS: [number, number, number][] = [
-  [168, 197, 160], // Good              — muted sage
-  [240, 220, 100], // Moderate          — vivid gold
-  [240, 165, 75], // Unhealthy (s)     — vivid orange
-  [255, 120, 115], // Unhealthy         — coral-red (contrast against red CAMS background)
-  [180, 130, 210], // Very unhealthy    — vivid purple
-  [205, 80, 110], // Hazardous         — vivid rose
+  [190, 240, 160], // Good              — brighter sage
+  [255, 240, 110], // Moderate          — vivid gold
+  [255, 185, 70], // Unhealthy (s)     — vivid orange
+  [255, 115, 100], // Unhealthy         — coral-red (contrast against red CAMS background)
+  [210, 130, 245], // Very unhealthy    — vivid purple
+  [240, 80, 120], // Hazardous         — vivid rose
 ];
 
 // Reuses the existing grid constants (same 0.4° step, same origin) to produce
