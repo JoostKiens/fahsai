@@ -91,7 +91,6 @@ create table if not exists weather_readings (
   lat                       float8 not null,
   lng                       float8 not null,
   wind_speed_kmh            float8 not null,  -- daily mean
-  wind_speed_max_kmh        float8,           -- daily maximum
   wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
   precipitation_sum         float8,           -- daily total mm
   relative_humidity_2m      float8,           -- % at 07:00 UTC snapshot
