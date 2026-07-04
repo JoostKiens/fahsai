@@ -38,7 +38,7 @@ const TRAIL_GROWTH_MAX = 2;
 const HEAD_WIDTH = 4;
 const TAIL_WIDTH = 0.5;
 const MIN_AGE_FRAMES = 80;
-const MAX_AGE_FRAMES = 220;
+const MAX_AGE_FRAMES = 360;
 
 // Grid bounds — must match the weather grid constants in openmeteo.ts.
 // 0.4° step, lng 89→114 (63 pts), lat 1→30 (73 pts) = 4,599 points.
