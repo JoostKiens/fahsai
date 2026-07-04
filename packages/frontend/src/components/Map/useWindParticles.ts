@@ -28,6 +28,9 @@ const ZOOM_PLATEAU = 9;
 // consistent regardless of screen width or zoom level.
 const REF_VIEWPORT_DEG_WIDTH = 22;
 const TRAIL_LENGTH_MAX = 35;
+// Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
+const HEAD_WIDTH = 4;
+const TAIL_WIDTH = 0.5;
 const MIN_AGE_FRAMES = 80;
 const MAX_AGE_FRAMES = 220;
 
@@ -249,7 +252,12 @@ export function useWindParticles(
             ] as [number, number, number, number];
           },
           widthUnits: 'pixels',
-          getWidth: 2, // was 1 — 1px stroke can't show rounded joins, tuned further in Step 3
+          // Per-vertex width array (trail[0] is the head): tapers from HEAD_WIDTH down to
+          // TAIL_WIDTH so the tail comes to a point rather than staying a uniform stroke.
+          getWidth: (p) => {
+            const n = p.trail.length;
+            return p.trail.map((_, i) => HEAD_WIDTH - ((HEAD_WIDTH - TAIL_WIDTH) * i) / (n - 1));
+          },
           parameters: { depthCompare: 'always' as const },
           pickable: false,
         });
