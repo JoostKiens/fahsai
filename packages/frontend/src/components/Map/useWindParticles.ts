@@ -62,6 +62,7 @@ interface Particle {
   age: number;
   maxAge: number;
   trail: [number, number][];
+  timestamps: number[]; // ms clock value at which each trail[i] was recorded, newest first
   color: [number, number, number]; // lightened AQI RGB sampled at spawn
 }
 
@@ -91,6 +92,7 @@ export function useWindParticles(
     opacity: config.opacity,
     zoom: BASE_ZOOM,
     viewport: FULL_VIEWPORT,
+    clock: 0,
   });
 
   // Keep config in sync without restarting the animation loop.
@@ -193,8 +195,10 @@ export function useWindParticles(
     function tick(time: number) {
       const dt = lastTime ? Math.min(time - lastTime, 50) : 16.67;
       lastTime = time;
+      stateRef.current.clock += dt;
 
-      const { grid, gridMap, particles, visible, opacity, zoom, viewport } = stateRef.current;
+      const { grid, gridMap, particles, visible, opacity, zoom, viewport, clock } =
+        stateRef.current;
 
       if (!visible || !grid) {
         ov.setProps({ layers: [] });
@@ -215,6 +219,7 @@ export function useWindParticles(
           spawnViewport: viewport,
           gridMap,
           trailLength: dynamicTrailLength,
+          clock,
         });
 
         const layer = new PathLayer<Particle>({
@@ -309,6 +314,7 @@ function stepParticles({
   spawnViewport,
   gridMap,
   trailLength,
+  clock,
 }: {
   particles: Particle[];
   grid: WindGrid;
@@ -316,6 +322,7 @@ function stepParticles({
   spawnViewport: Viewport;
   gridMap: Map<string, number> | null;
   trailLength: number;
+  clock: number;
 }): void {
   for (const p of particles) {
     const [dx, dy] = sampleWind(p.lng, p.lat, grid);
@@ -325,12 +332,14 @@ function stepParticles({
     p.lat += dy * ANIM_SCALE * dtScale;
 
     p.trail.unshift([p.lng, p.lat]);
+    p.timestamps.unshift(clock);
     const speed = Math.sqrt(dx * dx + dy * dy); // == wind_speed_kmh at this cell
     const maxTrail =
       speed > TRAIL_SPEED_REF_KMH
         ? Math.max(2, Math.round(trailLength * Math.sqrt(TRAIL_SPEED_REF_KMH / speed)))
         : trailLength;
     if (p.trail.length > maxTrail) p.trail.length = maxTrail;
+    if (p.timestamps.length > maxTrail) p.timestamps.length = maxTrail;
     p.age++;
 
     // OOB against the full static grid bbox — particles live freely across
@@ -346,6 +355,7 @@ function stepParticles({
       p.age = 0;
       p.maxAge = fresh.maxAge;
       p.trail = [];
+      p.timestamps = [];
       p.color = fresh.color;
     }
   }
@@ -381,6 +391,7 @@ function spawnParticle({
     age: scatterAge ? Math.floor(Math.random() * maxAge) : 0,
     maxAge,
     trail: [],
+    timestamps: [],
     color: sampleSpawnColor({ lng, lat, grid, gridMap }),
   };
 }
