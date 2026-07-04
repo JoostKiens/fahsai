@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { PathLayer } from 'deck.gl';
+import { TripsLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
@@ -222,21 +222,34 @@ export function useWindParticles(
           clock,
         });
 
-        const layer = new PathLayer<Particle>({
+        const fadeWindowMs = dynamicTrailLength * 16.67; // ms-per-point approximation, tuned in Step 3
+
+        const layer = new TripsLayer<Particle>({
           id: 'wind-particles',
           data: particles.filter((p) => p.trail.length >= 2),
           getPath: (p) => p.trail,
-          getColor: (p) =>
+          getTimestamps: (p) => p.timestamps,
+          currentTime: clock,
+          trailLength: fadeWindowMs,
+          fadeTrail: true,
+          capRounded: true,
+          jointRounded: true,
+          getColor: (p) => {
+            // Speed-truncated (fast-wind) trails span less real time than fadeWindowMs, so
+            // TripsLayer's own head-to-tail fade never reaches full transparency for them —
+            // scaling the ceiling by how much of the window the trail actually spans turns
+            // that into a uniformly dim trail instead of a hard-edged cutoff.
+            const span = p.timestamps[0] - p.timestamps[p.timestamps.length - 1];
+            const spanFade = Math.min(1, span / fadeWindowMs);
             // Spreading a [number, number, number] tuple and appending a value yields number[],
             // so an explicit tuple cast is required for Deck.gl's typed color accessor.
-            [...p.color, Math.round(opacity * dynamicAlpha * (1 - p.age / p.maxAge))] as [
-              number,
-              number,
-              number,
-              number,
-            ],
+            return [
+              ...p.color,
+              Math.round(opacity * dynamicAlpha * (1 - p.age / p.maxAge) * spanFade),
+            ] as [number, number, number, number];
+          },
           widthUnits: 'pixels',
-          getWidth: 1,
+          getWidth: 2, // was 1 — 1px stroke can't show rounded joins, tuned further in Step 3
           parameters: { depthCompare: 'always' as const },
           pickable: false,
         });
