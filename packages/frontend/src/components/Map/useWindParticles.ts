@@ -9,6 +9,10 @@ import { PM25_CAT_BREAKPOINTS } from '@/utils/aqiColors';
 
 const PARTICLE_COUNT = 2400;
 const TRAIL_LENGTH = 20;
+// Exponent applied to widthRatio for particle speed: 1 = fully pixel-invariant speed
+// (slows down at high zoom), 0 = speed never eases off with zoom. 0.5 (√) eased off
+// too little and felt too fast when zoomed in; tune between 0.5 and 1.
+const VELOCITY_ZOOM_DAMPING = 0.75;
 // Degrees of movement per frame per km/h of wind speed.
 // Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
 const ANIM_SCALE = 0.0015;
@@ -26,7 +30,10 @@ const ZOOM_PLATEAU = 9;
 // against which ANIM_SCALE was tuned. Used to normalise particle velocity so crossing time stays
 // consistent regardless of screen width or zoom level.
 const REF_VIEWPORT_DEG_WIDTH = 22;
-const TRAIL_LENGTH_MAX = 35;
+// Trails represent a roughly-fixed geographic distance, so their pixel length
+// should grow as you zoom in (more pixels per degree) — capped so it doesn't run
+// away at extreme zoom. Starting guess, tune visually.
+const TRAIL_GROWTH_MAX = 2;
 // Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
 const HEAD_WIDTH = 4;
 const TAIL_WIDTH = 0.5;
@@ -94,6 +101,7 @@ export function useWindParticles(
     opacity: config.opacity,
     zoom: BASE_ZOOM,
     viewport: FULL_VIEWPORT,
+    rawViewportWidth: REF_VIEWPORT_DEG_WIDTH,
     clock: 0,
   });
 
@@ -107,6 +115,7 @@ export function useWindParticles(
     stateRef.current.zoom = map.getZoom();
     const initialViewport = mapViewport(map);
     stateRef.current.viewport = initialViewport;
+    stateRef.current.rawViewportWidth = mapRawViewportWidth(map);
 
     // If wind data arrived before this effect ran (common on mobile, where
     // wind XHRs can resolve before mapbox reports valid bounds), particles
@@ -126,6 +135,7 @@ export function useWindParticles(
       stateRef.current.zoom = map.getZoom();
       const viewport = mapViewport(map);
       stateRef.current.viewport = viewport;
+      stateRef.current.rawViewportWidth = mapRawViewportWidth(map);
       const s2 = stateRef.current;
       reconcileParticleCount({
         particles: s2.particles,
@@ -199,21 +209,38 @@ export function useWindParticles(
       lastTime = time;
       stateRef.current.clock += dt;
 
-      const { grid, gridMap, particles, visible, opacity, zoom, viewport, clock } =
-        stateRef.current;
+      const {
+        grid,
+        gridMap,
+        particles,
+        visible,
+        opacity,
+        zoom,
+        viewport,
+        rawViewportWidth,
+        clock,
+      } = stateRef.current;
 
       if (!visible || !grid) {
         ov.setProps({ layers: [] });
       } else {
-        const [west, , east] = viewport;
-        const dtScale = (dt / 16.67) * ((east - west) / REF_VIEWPORT_DEG_WIDTH);
+        // Both use the raw (unbuffered) visible width, not the padded spawn/OOB
+        // viewport — mapViewport()'s fixed VIEWPORT_BUFFER_DEG pad would otherwise
+        // dominate and stop these ratios from shrinking further at village-level zoom.
+        const widthRatio = rawViewportWidth / REF_VIEWPORT_DEG_WIDTH;
+        const dtScale = (dt / 16.67) * Math.pow(widthRatio, VELOCITY_ZOOM_DAMPING);
         const zoomT = smoothstep(BASE_ZOOM, ZOOM_PLATEAU, zoom);
         const dynamicAlpha = Math.round(
           PARTICLE_START_ALPHA + zoomT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
         );
-        const dynamicTrailLength = Math.round(
-          TRAIL_LENGTH + zoomT * (TRAIL_LENGTH_MAX - TRAIL_LENGTH),
-        );
+        // Each point's movement (dtScale) is already pixel-invariant, so keeping the
+        // point count constant would render a fixed *pixel* trail everywhere. Trails
+        // should instead represent a roughly-fixed *geographic* distance, so point
+        // count grows continuously as the viewport narrows (zooming in) — √-damped
+        // and capped (like the wind-speed trail scaling below) so it can't run away
+        // at extreme zoom the way an uncapped 1/widthRatio growth would.
+        const zoomGrowth = Math.min(TRAIL_GROWTH_MAX, Math.sqrt(1 / Math.max(widthRatio, 0.001)));
+        const dynamicTrailLength = Math.round(TRAIL_LENGTH * Math.max(1, zoomGrowth));
         stepParticles({
           particles,
           grid,
@@ -283,6 +310,16 @@ function mapViewport(map: mapboxgl.Map): Viewport {
     Math.min(GRID_LNG_MAX, b.getEast() + VIEWPORT_BUFFER_DEG),
     Math.min(GRID_LAT_MAX, b.getNorth() + VIEWPORT_BUFFER_DEG),
   ];
+}
+
+// Unbuffered visible width (degrees) — used for zoom-based scale calculations
+// (dtScale, dynamicTrailLength). Unlike `mapViewport`, this must NOT include
+// VIEWPORT_BUFFER_DEG: that fixed-degree pad is negligible at low zoom but
+// dominates at village-level zoom (true width can shrink well below the buffer
+// itself), which would otherwise stop these ratios from continuing to shrink.
+function mapRawViewportWidth(map: mapboxgl.Map): number {
+  const b = map.getBounds();
+  return b ? b.getEast() - b.getWest() : REF_VIEWPORT_DEG_WIDTH;
 }
 
 // ─── particle helpers ─────────────────────────────────────────────────────────
@@ -384,9 +421,17 @@ function stepParticles({
 function viewportParticleCount(viewport: Viewport): number {
   const [west, south, east, north] = viewport;
   const area = (east - west) * (north - south);
+  // `area` shrinks with the square of zoom (both dimensions shrink as you zoom in),
+  // even though on-screen pixel area doesn't — left alone, that silently drops
+  // particle density as you zoom in. Cancel it out the same way dtScale keeps
+  // movement speed pixel-invariant, so density stays roughly constant across zoom
+  // instead (this recovers exactly today's behavior at the reference zoom, since
+  // the compensation factor is 1 there).
+  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / (east - west)) ** 2;
+  const compensatedArea = area * zoomCompensation;
   return Math.max(
     30,
-    Math.min(PARTICLE_COUNT, Math.round((PARTICLE_COUNT * area) / REFERENCE_AREA)),
+    Math.min(PARTICLE_COUNT, Math.round((PARTICLE_COUNT * compensatedArea) / REFERENCE_AREA)),
   );
 }
 
