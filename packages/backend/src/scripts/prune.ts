@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { runPrune } from '../jobs/prune.js';
 
 try {

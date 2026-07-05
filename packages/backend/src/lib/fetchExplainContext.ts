@@ -2,6 +2,7 @@ import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
+import { fetchAllPages } from '../utils/backfill.js';
 import type { WeatherReading } from '@thailand-aq/types';
 import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 const GRID_MIN_COMPLETE = 4000;
@@ -48,52 +49,40 @@ export interface ExplainContext {
   pressureData: { score: number; fire_count: number; total_frp_mw: number } | null;
 }
 
-async function getWindGrid(date: string): Promise<WeatherReading[]> {
-  const cached = await redis.get<WeatherReading[]>(`weather:${date}`);
+async function getCachedGrid<T>(cacheKey: string, fetch: () => Promise<T[]>): Promise<T[]> {
+  const cached = await redis.get<T[]>(cacheKey);
   if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
 
-  const all: WeatherReading[] = [];
-  let offset = 0;
-  while (true) {
-    const { data } = await supabase
-      .from('weather_readings')
-      .select(
-        'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-      )
-      .eq('date', date)
-      .range(offset, offset + GRID_PAGE_SIZE - 1);
-    if (!data?.length) break;
-    all.push(...(data as WeatherReading[]));
-    if (data.length < GRID_PAGE_SIZE) break;
-    offset += GRID_PAGE_SIZE;
-  }
-
+  const all = await fetch();
   if (!all.length) return [];
-  void redis.set(`weather:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
+  void redis.set(cacheKey, all, { ex: HISTORICAL_TTL_SECONDS });
   return all;
 }
 
-async function getCamsGrid(date: string): Promise<CamsPoint[]> {
-  const cached = await redis.get<CamsPoint[]>(`cams:pm25:${date}`);
-  if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
+function getWindGrid(date: string): Promise<WeatherReading[]> {
+  return getCachedGrid(`weather:${date}`, () =>
+    fetchAllPages<WeatherReading>(
+      (from, to) =>
+        supabase
+          .from('weather_readings')
+          .select(
+            'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          )
+          .eq('date', date)
+          .range(from, to),
+      GRID_PAGE_SIZE,
+    ),
+  );
+}
 
-  const all: CamsPoint[] = [];
-  let offset = 0;
-  while (true) {
-    const { data } = await supabase
-      .from('cams_grid')
-      .select('lat, lng, pm25')
-      .eq('date', date)
-      .range(offset, offset + GRID_PAGE_SIZE - 1);
-    if (!data?.length) break;
-    all.push(...(data as CamsPoint[]));
-    if (data.length < GRID_PAGE_SIZE) break;
-    offset += GRID_PAGE_SIZE;
-  }
-
-  if (!all.length) return [];
-  void redis.set(`cams:pm25:${date}`, all, { ex: HISTORICAL_TTL_SECONDS });
-  return all;
+function getCamsGrid(date: string): Promise<CamsPoint[]> {
+  return getCachedGrid(`cams:pm25:${date}`, () =>
+    fetchAllPages<CamsPoint>(
+      (from, to) =>
+        supabase.from('cams_grid').select('lat, lng, pm25').eq('date', date).range(from, to),
+      GRID_PAGE_SIZE,
+    ),
+  );
 }
 
 // Returns null when the station has no readings (→ 404 in the route handler).

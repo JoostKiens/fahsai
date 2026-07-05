@@ -3,7 +3,6 @@
  * Run once to determine backfill range needed.
  * Usage: pnpm --filter backend run check-data-ranges
  */
-import 'dotenv/config';
 import { supabase } from '../db/client.js';
 
 async function minMax(

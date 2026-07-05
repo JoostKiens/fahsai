@@ -8,7 +8,6 @@
  * Defaults: last 5 full calendar years.
  * Idempotent — upserts on (station_id, month, day).
  */
-import 'dotenv/config';
 import { parse } from 'csv-parse/sync';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';

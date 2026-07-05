@@ -12,7 +12,6 @@ export function healthRoutes(app: FastifyInstance): void {
       status: ok ? 'ok' : 'degraded',
       cache: cacheStatus,
       db: dbStatus,
-      queues: {},
     });
   });
 }

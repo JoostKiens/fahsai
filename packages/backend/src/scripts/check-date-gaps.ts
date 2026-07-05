@@ -2,7 +2,6 @@
  * Diagnostic: samples every 7 days to find gaps in derived tables.
  * Usage: pnpm --filter backend run check-date-gaps
  */
-import 'dotenv/config';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 

@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { runWeatherIngest } from '../jobs/weather-ingest.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 

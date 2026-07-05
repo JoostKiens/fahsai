@@ -1,4 +1,5 @@
 import { supabase } from '../db/client.js';
+import { fetchAllPages } from './backfill.js';
 
 export const SNAP_LAT_MIN = 1.0;
 export const SNAP_LNG_MIN = 89.0;
@@ -32,23 +33,16 @@ export async function precomputeStationWeather(
   // Fetch coordinates for all known stations — weather is pre-computed regardless of
   // whether a station reported pm25 that day, so History and explain both get weather
   // even on days with missing readings.
-  const stations: { id: string; lat: number; lng: number }[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('stations')
-      .select('id, lat, lng')
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      throw new Error(`${logPrefix} Could not fetch station coordinates: ${error.message}`);
-    }
-    if (!data?.length) break;
-    stations.push(...(data as { id: string; lat: number; lng: number }[]));
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
+  const stations = await fetchAllPages<{ id: string; lat: number; lng: number }>(
+    (from, to) =>
+      supabase
+        .from('stations')
+        .select('id, lat, lng')
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+        .range(from, to),
+    PAGE_SIZE,
+  );
 
   if (!stations.length) {
     console.warn(`${logPrefix} No station coordinates found for pre-computation`);

@@ -94,10 +94,7 @@
   "fire.daynight.day": "Daytime",
   "fire.daynight.night": "Nighttime",
 
-  "fire.satellite.suomiNpp": "Suomi NPP",
-  "fire.satellite.noaa20": "NOAA-20",
   "fire.satellite.noaa21": "NOAA-21",
-  "fire.satellite.unknown": "Unknown",
 
   "explain.button": "What's causing this?",
   "explain.fetching": "Fetching data…",

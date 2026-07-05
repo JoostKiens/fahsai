@@ -8,6 +8,5 @@ dist/
 *.log
 npm-debug.log*
 pnpm-debug.log*
-.turbo/
 coverage/
 .claude/settings.local.json

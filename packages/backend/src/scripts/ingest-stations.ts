@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { runStationsIngest } from '../jobs/stations-ingest.js';
 
 try {

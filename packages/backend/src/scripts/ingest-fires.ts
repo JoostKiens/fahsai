@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { runFiresIngest } from '../jobs/fires-ingest.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 

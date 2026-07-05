@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import Fastify, { type FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';

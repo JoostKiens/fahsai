@@ -19,6 +19,7 @@ import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { fetchExplainContext } from '../lib/fetchExplainContext.js';
 import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const DAILY_QUOTA_LIMIT = 450;
 const EXPLAIN_CACHE_VERSION = 9;
@@ -252,25 +253,28 @@ export function explainRoutes(app: FastifyInstance): void {
 
       const fireUntil = `${selectedDate}T23:59:59Z`;
       type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
-      const allFireRows: FireRow[] = [];
-      let fireOffset = 0;
       const FIRE_PAGE_SIZE = 1000;
-      while (true) {
-        const { data: firePage } = await supabase
-          .from('fire_points')
-          .select('lat, lng, frp, confidence, detected_at')
-          .gte('detected_at', since72h)
-          .lt('detected_at', fireUntil)
-          .gte('lat', footprintBbox.latMin)
-          .lte('lat', footprintBbox.latMax)
-          .gte('lng', footprintBbox.lngMin)
-          .lte('lng', footprintBbox.lngMax)
-          .order('detected_at', { ascending: false })
-          .range(fireOffset, fireOffset + FIRE_PAGE_SIZE - 1);
-        if (!firePage?.length) break;
-        allFireRows.push(...(firePage as unknown as FireRow[]));
-        if (firePage.length < FIRE_PAGE_SIZE) break;
-        fireOffset += FIRE_PAGE_SIZE;
+      // Degrade gracefully on query failure — a fire-data outage shouldn't fail
+      // the whole rate-limited, quota-tracked /api/explain request.
+      let allFireRows: FireRow[] = [];
+      try {
+        allFireRows = await fetchAllPages<FireRow>(
+          (from, to) =>
+            supabase
+              .from('fire_points')
+              .select('lat, lng, frp, confidence, detected_at')
+              .gte('detected_at', since72h)
+              .lt('detected_at', fireUntil)
+              .gte('lat', footprintBbox.latMin)
+              .lte('lat', footprintBbox.latMax)
+              .gte('lng', footprintBbox.lngMin)
+              .lte('lng', footprintBbox.lngMax)
+              .order('detected_at', { ascending: false })
+              .range(from, to),
+          FIRE_PAGE_SIZE,
+        );
+      } catch (err) {
+        req.log.warn({ err }, 'explain: fire_points query failed, continuing without fire data');
       }
 
       req.log.info(

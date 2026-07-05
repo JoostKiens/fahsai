@@ -12,7 +12,6 @@
  * - Dates that already have ≥ 4,000 rows in weather_readings are skipped.
  * - No Redis writes — the /api/weather route handles cache-on-miss lazily.
  */
-import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import * as fs from 'node:fs';

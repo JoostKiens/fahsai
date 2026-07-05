@@ -16,24 +16,15 @@ export function windCacheKey(date: string): string {
   return `weather:wind:${date}`;
 }
 
-export type RunWeatherIngestOptions = {
-  /** UTC calendar day (YYYY-MM-DD) — passed from HTTP handler so it matches resolved ?date default after awaits. */
-  calendarDayUtc?: string;
-};
-
-export async function runWeatherIngest(
-  date?: string,
-  opts?: RunWeatherIngestOptions,
-): Promise<{ stored: number }> {
+export async function runWeatherIngest(date?: string): Promise<{ stored: number }> {
   // Default to yesterday: the 07:00 UTC wind snapshot hasn't been taken yet when the cron
   // runs at 04:00 UTC, so today's reading would be missing or stale.
-  const today = new Date().toISOString().slice(0, 10);
+  const calendarDayUtc = new Date().toISOString().slice(0, 10);
   const yesterday = (() => {
     const d = new Date();
     d.setUTCDate(d.getUTCDate() - 1);
     return d.toISOString().slice(0, 10);
   })();
-  const calendarDayUtc = opts?.calendarDayUtc ?? today;
   const targetDate = date ?? yesterday;
 
   console.log(`[weather-ingest] Fetching weather grid for ${targetDate} from Open-Meteo...`);

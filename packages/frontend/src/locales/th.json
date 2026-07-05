@@ -94,10 +94,7 @@
   "fire.daynight.day": "กลางวัน",
   "fire.daynight.night": "กลางคืน",
 
-  "fire.satellite.suomiNpp": "Suomi NPP",
-  "fire.satellite.noaa20": "NOAA-20",
   "fire.satellite.noaa21": "NOAA-21",
-  "fire.satellite.unknown": "ไม่ทราบ",
 
   "explain.button": "อะไรทำให้เกิดสิ่งนี้?",
   "explain.fetching": "กำลังดึงข้อมูล…",
