@@ -28,7 +28,7 @@ export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number][
   const cutoffIso = cutoff.toISOString();
   const cutoffDate = cutoffIso.slice(0, 10); // cams_grid.date and friends are type `date`
 
-  const result = {} as Record<(typeof PRUNE_TARGETS)[number]['key'], number>;
+  const entries: [(typeof PRUNE_TARGETS)[number]['key'], number][] = [];
 
   for (const target of PRUNE_TARGETS) {
     const { count, error } = await supabase
@@ -39,8 +39,15 @@ export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number][
     if (error) {
       throw new Error(`Failed to prune ${target.table}: ${error.message}`);
     }
-    result[target.key] = count ?? 0;
+    entries.push([target.key, count ?? 0]);
   }
+
+  // Safe to assert here (not at declaration) — every target above either threw
+  // or contributed an entry, so entries is guaranteed complete at this point.
+  const result = Object.fromEntries(entries) as Record<
+    (typeof PRUNE_TARGETS)[number]['key'],
+    number
+  >;
 
   console.log(
     `[prune] Deleted ${result.firePointsDeleted} fire_points, ${result.measurementsDeleted} station_readings, ${result.aqGridDeleted} cams_grid, ${result.weatherReadingsDeleted} weather_readings, ${result.stationWeatherDeleted} station_weather, ${result.stationFirePressureDeleted} station_fire_pressure, ${result.camsDailySummaryDeleted} cams_daily_summary`,

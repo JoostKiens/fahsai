@@ -49,40 +49,40 @@ export interface ExplainContext {
   pressureData: { score: number; fire_count: number; total_frp_mw: number } | null;
 }
 
-async function getGrid<T>(
-  cacheKey: string,
-  table: string,
-  select: string,
-  date: string,
-): Promise<T[]> {
+async function getCachedGrid<T>(cacheKey: string, fetch: () => Promise<T[]>): Promise<T[]> {
   const cached = await redis.get<T[]>(cacheKey);
   if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
 
-  const all = await fetchAllPages<T>(
-    (from, to) =>
-      supabase.from(table).select(select).eq('date', date).range(from, to) as unknown as Promise<{
-        data: T[] | null;
-        error: { message: string } | null;
-      }>,
-    GRID_PAGE_SIZE,
-  );
-
+  const all = await fetch();
   if (!all.length) return [];
   void redis.set(cacheKey, all, { ex: HISTORICAL_TTL_SECONDS });
   return all;
 }
 
 function getWindGrid(date: string): Promise<WeatherReading[]> {
-  return getGrid<WeatherReading>(
-    `weather:${date}`,
-    'weather_readings',
-    'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
-    date,
+  return getCachedGrid(`weather:${date}`, () =>
+    fetchAllPages<WeatherReading>(
+      (from, to) =>
+        supabase
+          .from('weather_readings')
+          .select(
+            'lat, lng, wind_speed_kmh, wind_direction_deg, precipitation_sum, relative_humidity_2m',
+          )
+          .eq('date', date)
+          .range(from, to),
+      GRID_PAGE_SIZE,
+    ),
   );
 }
 
 function getCamsGrid(date: string): Promise<CamsPoint[]> {
-  return getGrid<CamsPoint>(`cams:pm25:${date}`, 'cams_grid', 'lat, lng, pm25', date);
+  return getCachedGrid(`cams:pm25:${date}`, () =>
+    fetchAllPages<CamsPoint>(
+      (from, to) =>
+        supabase.from('cams_grid').select('lat, lng, pm25').eq('date', date).range(from, to),
+      GRID_PAGE_SIZE,
+    ),
+  );
 }
 
 // Returns null when the station has no readings (→ 404 in the route handler).

@@ -95,30 +95,33 @@ async function processItem(item: { station: Station; date: string }): Promise<vo
   const primarySensorId = station.pm25_sensor_ids[0];
   const url = buildS3Url(station.id, date);
 
-  let csvContent: string | null;
+  let csvContent: string | null = null;
+  let downloadErrored = false;
   try {
     csvContent = await downloadS3File(url);
   } catch (err) {
+    downloadErrored = true;
     errored++;
     console.warn(
       `[backfill-s3] Download error station=${station.id} date=${date}: ${err instanceof Error ? err.message : String(err)}`,
     );
-    return;
   }
 
-  if (csvContent === null) {
-    missing++;
-  } else {
-    downloaded++;
-    const result = computeDailyMean(csvContent, primarySensorId);
-    if (result === null) {
-      console.warn(`[backfill-s3] No valid pm25 data: station=${station.id} date=${date}`);
+  if (!downloadErrored) {
+    if (csvContent === null) {
+      missing++;
     } else {
-      measurementRows.push({
-        station_id: station.id,
-        value: result.value,
-        measured_at: `${date}T00:00:00Z`,
-      });
+      downloaded++;
+      const result = computeDailyMean(csvContent, primarySensorId);
+      if (result === null) {
+        console.warn(`[backfill-s3] No valid pm25 data: station=${station.id} date=${date}`);
+      } else {
+        measurementRows.push({
+          station_id: station.id,
+          value: result.value,
+          measured_at: `${date}T00:00:00Z`,
+        });
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const CACHE_KEY = 'power_plants:geojson';
 
@@ -21,22 +22,21 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
     const cached = await redis.get<object>(CACHE_KEY);
     if (cached !== null) return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
 
-    const allRows: PlantRow[] = [];
-    const PAGE = 1000;
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from('power_plants')
-        .select('id, name, country, fuel_type, capacity_mw, owner, commissioned_year, lat, lng')
-        .order('capacity_mw', { ascending: false, nullsFirst: false })
-        .range(from, from + PAGE - 1);
-
-      if (error) {
-        return reply
-          .status(503)
-          .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
-      }
-      allRows.push(...(data as PlantRow[]));
-      if (data.length < PAGE) break;
+    let allRows: PlantRow[];
+    try {
+      allRows = await fetchAllPages<PlantRow>(
+        (from, to) =>
+          supabase
+            .from('power_plants')
+            .select('id, name, country, fuel_type, capacity_mw, owner, commissioned_year, lat, lng')
+            .order('capacity_mw', { ascending: false, nullsFirst: false })
+            .range(from, to),
+        1000,
+      );
+    } catch {
+      return reply
+        .status(503)
+        .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
     }
 
     if (allRows.length === 0) {

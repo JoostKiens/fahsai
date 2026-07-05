@@ -4,7 +4,7 @@ import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
-import { fetchAllPages } from '../utils/backfill.js';
+import { forEachPage } from '../utils/backfill.js';
 
 const MAX_HISTORY_HOURS = 168; // 7 days
 const CURRENT_DATE_TTL_SECONDS = 3600;
@@ -65,51 +65,57 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         stations: unknown;
       };
 
-      // Paginate past Supabase's 1000-row server-side cap. Ordered DESC so the first
-      // occurrence of each station_id across pages is always its most recent reading.
+      // Paginate past Supabase's 1000-row server-side cap, filtering each page as it
+      // arrives rather than buffering the full result set (some dates span many pages).
+      // Ordered DESC so the first occurrence of each station_id across pages is always
+      // its most recent reading.
       const PAGE_SIZE = 1000;
-      const rows = await fetchAllPages<StationReadingRow>((from, to) => {
-        let query = supabase
-          .from('station_readings')
-          .select('station_id, value, measured_at, stations(id, name, lat, lng, country)')
-          .gte('measured_at', since);
-        if (until !== undefined) query = query.lte('measured_at', until);
-        return query.order('measured_at', { ascending: false }).range(from, to);
-      }, PAGE_SIZE);
-
       const seen = new Set<string>();
       const latest: LatestMeasurement[] = [];
-      for (const row of rows) {
-        const station = row.stations as {
-          id: string;
-          name: string;
-          lat: number;
-          lng: number;
-          country: string | null;
-        } | null;
-        if (!station || station.lat === null || station.lng === null) continue;
-        if (seen.has(row.station_id)) continue;
-        seen.add(row.station_id);
+      await forEachPage<StationReadingRow>(
+        (from, to) => {
+          let query = supabase
+            .from('station_readings')
+            .select('station_id, value, measured_at, stations(id, name, lat, lng, country)')
+            .gte('measured_at', since);
+          if (until !== undefined) query = query.lte('measured_at', until);
+          return query.order('measured_at', { ascending: false }).range(from, to);
+        },
+        PAGE_SIZE,
+        (page) => {
+          for (const row of page) {
+            const station = row.stations as {
+              id: string;
+              name: string;
+              lat: number;
+              lng: number;
+              country: string | null;
+            } | null;
+            if (!station || station.lat === null || station.lng === null) continue;
+            if (seen.has(row.station_id)) continue;
+            seen.add(row.station_id);
 
-        // bbox filter
-        if (
-          station.lat < bbox.south ||
-          station.lat > bbox.north ||
-          station.lng < bbox.west ||
-          station.lng > bbox.east
-        )
-          continue;
+            // bbox filter
+            if (
+              station.lat < bbox.south ||
+              station.lat > bbox.north ||
+              station.lng < bbox.west ||
+              station.lng > bbox.east
+            )
+              continue;
 
-        latest.push({
-          stationId: row.station_id,
-          stationName: station.name,
-          lat: station.lat,
-          lng: station.lng,
-          country: station.country,
-          value: row.value,
-          measuredAt: row.measured_at,
-        });
-      }
+            latest.push({
+              stationId: row.station_id,
+              stationName: station.name,
+              lat: station.lat,
+              lng: station.lng,
+              country: station.country,
+              value: row.value,
+              measuredAt: row.measured_at,
+            });
+          }
+        },
+      );
 
       if (latest.length === 0) {
         return reply.status(404).send({ error: 'No station readings for this date.' });

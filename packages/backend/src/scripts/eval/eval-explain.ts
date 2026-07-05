@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -22,11 +22,8 @@ const ALL_FIXTURES: ExplainFixture[] = await Promise.all(
 );
 
 async function loadGolden(id: string): Promise<string> {
-  try {
-    return ((await import(`./golden/${id}.ts`)) as { golden: string }).golden;
-  } catch {
-    return `[NO GOLDEN: ${id}]`;
-  }
+  if (!existsSync(path.join(DIR, 'golden', `${id}.ts`))) return `[NO GOLDEN: ${id}]`;
+  return ((await import(`./golden/${id}.ts`)) as { golden: string }).golden;
 }
 
 // ----------------------------------------------------------------
