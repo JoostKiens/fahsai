@@ -12,8 +12,6 @@ import {
   pm25ToCategory,
 } from '@/utils/aqiColors';
 
-export { AQI_CATEGORIES };
-
 type Ring = number[][];
 type CountryFeature = {
   geometry: { type: string; coordinates: Ring[] | Ring[][] };

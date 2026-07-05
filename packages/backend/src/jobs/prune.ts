@@ -5,95 +5,45 @@ import { supabase } from '../db/client.js';
 // (projected burning-season peak ~0.42-0.43 GB of the 0.5 GB limit).
 const RETENTION_DAYS = 120;
 
-export async function runPrune(): Promise<{
-  firePointsDeleted: number;
-  measurementsDeleted: number;
-  aqGridDeleted: number;
-  weatherReadingsDeleted: number;
-  stationWeatherDeleted: number;
-  stationFirePressureDeleted: number;
-  camsDailySummaryDeleted: number;
-}> {
+const PRUNE_TARGETS = [
+  { key: 'firePointsDeleted', table: 'fire_points', column: 'detected_at', cutoff: 'iso' },
+  { key: 'measurementsDeleted', table: 'station_readings', column: 'measured_at', cutoff: 'iso' },
+  { key: 'aqGridDeleted', table: 'cams_grid', column: 'date', cutoff: 'date' },
+  { key: 'weatherReadingsDeleted', table: 'weather_readings', column: 'date', cutoff: 'date' },
+  { key: 'stationWeatherDeleted', table: 'station_weather', column: 'date', cutoff: 'date' },
+  {
+    key: 'stationFirePressureDeleted',
+    table: 'station_fire_pressure',
+    column: 'date',
+    cutoff: 'date',
+  },
+  { key: 'camsDailySummaryDeleted', table: 'cams_daily_summary', column: 'date', cutoff: 'date' },
+] as const;
+
+export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number]['key'], number>> {
   console.log(`[prune] Deleting records older than ${RETENTION_DAYS} days...`);
 
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_DAYS);
   const cutoffIso = cutoff.toISOString();
-  const cutoffDate = cutoff.toISOString().slice(0, 10); // cams_grid.date is type `date`
+  const cutoffDate = cutoffIso.slice(0, 10); // cams_grid.date and friends are type `date`
 
-  const { count: firePointsDeleted, error: fireError } = await supabase
-    .from('fire_points')
-    .delete({ count: 'exact' })
-    .lt('detected_at', cutoffIso);
+  const result = {} as Record<(typeof PRUNE_TARGETS)[number]['key'], number>;
 
-  if (fireError) {
-    throw new Error(`Failed to prune fire_points: ${fireError.message}`);
-  }
+  for (const target of PRUNE_TARGETS) {
+    const { count, error } = await supabase
+      .from(target.table)
+      .delete({ count: 'exact' })
+      .lt(target.column, target.cutoff === 'iso' ? cutoffIso : cutoffDate);
 
-  const { count: measurementsDeleted, error: measurementsError } = await supabase
-    .from('station_readings')
-    .delete({ count: 'exact' })
-    .lt('measured_at', cutoffIso);
-
-  if (measurementsError) {
-    throw new Error(`Failed to prune measurements: ${measurementsError.message}`);
-  }
-
-  const { count: aqGridDeleted, error: aqGridError } = await supabase
-    .from('cams_grid')
-    .delete({ count: 'exact' })
-    .lt('date', cutoffDate);
-
-  if (aqGridError) {
-    throw new Error(`Failed to prune cams_grid: ${aqGridError.message}`);
-  }
-
-  const { count: weatherReadingsDeleted, error: weatherError } = await supabase
-    .from('weather_readings')
-    .delete({ count: 'exact' })
-    .lt('date', cutoffDate);
-
-  if (weatherError) {
-    throw new Error(`Failed to prune weather_readings: ${weatherError.message}`);
-  }
-
-  const { count: stationWeatherDeleted, error: stationWeatherError } = await supabase
-    .from('station_weather')
-    .delete({ count: 'exact' })
-    .lt('date', cutoffDate);
-
-  if (stationWeatherError) {
-    throw new Error(`Failed to prune station_weather: ${stationWeatherError.message}`);
-  }
-
-  const { count: stationFirePressureDeleted, error: stationFirePressureError } = await supabase
-    .from('station_fire_pressure')
-    .delete({ count: 'exact' })
-    .lt('date', cutoffDate);
-
-  if (stationFirePressureError) {
-    throw new Error(`Failed to prune station_fire_pressure: ${stationFirePressureError.message}`);
-  }
-
-  const { count: camsDailySummaryDeleted, error: camsDailySummaryError } = await supabase
-    .from('cams_daily_summary')
-    .delete({ count: 'exact' })
-    .lt('date', cutoffDate);
-
-  if (camsDailySummaryError) {
-    throw new Error(`Failed to prune cams_daily_summary: ${camsDailySummaryError.message}`);
+    if (error) {
+      throw new Error(`Failed to prune ${target.table}: ${error.message}`);
+    }
+    result[target.key] = count ?? 0;
   }
 
   console.log(
-    `[prune] Deleted ${firePointsDeleted ?? 0} fire_points, ${measurementsDeleted ?? 0} station_readings, ${aqGridDeleted ?? 0} cams_grid, ${weatherReadingsDeleted ?? 0} weather_readings, ${stationWeatherDeleted ?? 0} station_weather, ${stationFirePressureDeleted ?? 0} station_fire_pressure, ${camsDailySummaryDeleted ?? 0} cams_daily_summary`,
+    `[prune] Deleted ${result.firePointsDeleted} fire_points, ${result.measurementsDeleted} station_readings, ${result.aqGridDeleted} cams_grid, ${result.weatherReadingsDeleted} weather_readings, ${result.stationWeatherDeleted} station_weather, ${result.stationFirePressureDeleted} station_fire_pressure, ${result.camsDailySummaryDeleted} cams_daily_summary`,
   );
-  return {
-    firePointsDeleted: firePointsDeleted ?? 0,
-    measurementsDeleted: measurementsDeleted ?? 0,
-    aqGridDeleted: aqGridDeleted ?? 0,
-    weatherReadingsDeleted: weatherReadingsDeleted ?? 0,
-    stationWeatherDeleted: stationWeatherDeleted ?? 0,
-    stationFirePressureDeleted: stationFirePressureDeleted ?? 0,
-    camsDailySummaryDeleted: camsDailySummaryDeleted ?? 0,
-  };
+  return result;
 }

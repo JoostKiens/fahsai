@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
 

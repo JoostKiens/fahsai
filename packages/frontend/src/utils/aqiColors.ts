@@ -19,46 +19,20 @@ export interface AqiCategory {
   key: string; // i18n translation key — use t(cat.key) at render sites
   range: string; // display string in µg/m³
   rgb: RGB;
-  borderRgb: RGB; // ~20% darker, used for cluster border rings
 }
 
 export const AQI_CATEGORIES: AqiCategory[] = [
-  { label: 'Good', key: 'aqi.good', range: '0–12', rgb: [88, 196, 88], borderRgb: [70, 157, 70] },
-  {
-    label: 'Moderate',
-    key: 'aqi.moderate',
-    range: '12–35',
-    rgb: [240, 210, 50],
-    borderRgb: [192, 168, 40],
-  },
+  { label: 'Good', key: 'aqi.good', range: '0–12', rgb: [88, 196, 88] },
+  { label: 'Moderate', key: 'aqi.moderate', range: '12–35', rgb: [240, 210, 50] },
   {
     label: 'Unhealthy for sensitive groups',
     key: 'aqi.unhealthySensitive',
     range: '35–55',
     rgb: [255, 126, 0],
-    borderRgb: [204, 101, 0],
   },
-  {
-    label: 'Unhealthy',
-    key: 'aqi.unhealthy',
-    range: '55–150',
-    rgb: [255, 0, 0],
-    borderRgb: [204, 0, 0],
-  },
-  {
-    label: 'Very unhealthy',
-    key: 'aqi.veryUnhealthy',
-    range: '150–250',
-    rgb: [143, 63, 151],
-    borderRgb: [114, 50, 121],
-  },
-  {
-    label: 'Hazardous',
-    key: 'aqi.hazardous',
-    range: '250+',
-    rgb: [126, 0, 35],
-    borderRgb: [101, 0, 28],
-  },
+  { label: 'Unhealthy', key: 'aqi.unhealthy', range: '55–150', rgb: [255, 0, 0] },
+  { label: 'Very unhealthy', key: 'aqi.veryUnhealthy', range: '150–250', rgb: [143, 63, 151] },
+  { label: 'Hazardous', key: 'aqi.hazardous', range: '250+', rgb: [126, 0, 35] },
 ];
 
 // Upper PM2.5 breakpoints matching AQI_CATEGORIES order.
@@ -97,18 +71,6 @@ export function pm25ToRgbLerped(pm25: number): RGB {
   return colors[colors.length - 1];
 }
 
-export function pm25ToBorderRgb(pm25: number): RGB {
-  for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
-    if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_CATEGORIES[i].borderRgb;
-  }
-  return AQI_CATEGORIES[AQI_CATEGORIES.length - 1].borderRgb;
-}
-
-export function pm25ToBorderRgba(pm25: number, alpha: number): RGBA {
-  const [r, g, b] = pm25ToBorderRgb(pm25);
-  return [r, g, b, alpha];
-}
-
 export function pm25ToRgba(pm25: number, alpha: number): RGBA {
   const [r, g, b] = pm25ToRgb(pm25);
   return [r, g, b, alpha];
@@ -140,26 +102,9 @@ const AQI_SOFT_BG: RGB[] = [
   [200, 70, 100], // Hazardous
 ];
 
-// Dark category-colored text to sit on the soft backgrounds above.
-const AQI_SOFT_TEXT: RGB[] = [
-  [40, 110, 40], // Good
-  [130, 100, 0], // Moderate
-  [170, 80, 0], // Unhealthy for sensitive groups
-  [170, 0, 0], // Unhealthy
-  [95, 35, 100], // Very unhealthy
-  [110, 0, 30], // Hazardous
-];
-
 export function pm25ToSoftRgb(pm25: number): RGB {
   for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
     if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_SOFT_BG[i];
   }
   return AQI_SOFT_BG[AQI_SOFT_BG.length - 1];
-}
-
-export function pm25ToSoftTextRgb(pm25: number): RGB {
-  for (let i = 0; i < PM25_BREAKPOINTS.length; i++) {
-    if (pm25 <= PM25_BREAKPOINTS[i]) return AQI_SOFT_TEXT[i];
-  }
-  return AQI_SOFT_TEXT[AQI_SOFT_TEXT.length - 1];
 }

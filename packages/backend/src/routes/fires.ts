@@ -4,6 +4,7 @@ import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -71,45 +72,45 @@ export function firesRoutes(app: FastifyInstance): void {
 
 const PAGE_SIZE = 1000;
 
+type FireRow = {
+  id: number;
+  detected_at: string;
+  lat: number;
+  lng: number;
+  frp: number | null;
+  confidence: string | null;
+  daynight: string | null;
+};
+
 async function queryFires(
   start: string,
   end: string,
   bbox: ReturnType<typeof parseBbox>,
 ): Promise<FirePoint[]> {
   const dayAfterEnd = new Date(new Date(end).getTime() + MS_PER_DAY).toISOString().slice(0, 10);
-  const allRows: FirePoint[] = [];
-  let offset = 0;
 
-  while (true) {
-    const { data, error } = await supabase
-      .from('fire_points')
-      .select('id, detected_at, lat, lng, frp, confidence, daynight')
-      .gte('detected_at', `${start}T00:00:00Z`)
-      .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
-      .gte('lat', bbox.south)
-      .lte('lat', bbox.north)
-      .gte('lng', bbox.west)
-      .lte('lng', bbox.east)
-      .range(offset, offset + PAGE_SIZE - 1);
+  const rows = await fetchAllPages<FireRow>(
+    (from, to) =>
+      supabase
+        .from('fire_points')
+        .select('id, detected_at, lat, lng, frp, confidence, daynight')
+        .gte('detected_at', `${start}T00:00:00Z`)
+        .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
+        .gte('lat', bbox.south)
+        .lte('lat', bbox.north)
+        .gte('lng', bbox.west)
+        .lte('lng', bbox.east)
+        .range(from, to),
+    PAGE_SIZE,
+  );
 
-    if (error) throw new Error(`Supabase query failed: ${error.message}`);
-
-    const rows = data ?? [];
-    for (const row of rows) {
-      allRows.push({
-        id: row.id as number,
-        detectedAt: row.detected_at as string,
-        lat: row.lat as number,
-        lng: row.lng as number,
-        frp: row.frp as number | null,
-        confidence: row.confidence as string | null,
-        daynight: row.daynight as string | null,
-      });
-    }
-
-    if (rows.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-
-  return allRows;
+  return rows.map((row) => ({
+    id: row.id,
+    detectedAt: row.detected_at,
+    lat: row.lat,
+    lng: row.lng,
+    frp: row.frp,
+    confidence: row.confidence,
+    daynight: row.daynight,
+  }));
 }

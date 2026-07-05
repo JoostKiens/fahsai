@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { runCamsIngest } from '../jobs/cams-ingest.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 

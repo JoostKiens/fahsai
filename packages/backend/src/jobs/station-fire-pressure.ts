@@ -1,6 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { haversineKm } from '../utils/geo.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const LOG = '[station-fire-pressure]';
 const DB_BATCH_SIZE = 500;
@@ -67,27 +68,20 @@ export async function runStationFirePressure(
     `${LOG} Computing scores for ${targetDate} (window: ${windowStart.slice(0, 10)} – ${new Date(targetMs - 86400_000).toISOString().slice(0, 10)})`,
   );
 
-  const allFires: FireRow[] = [];
-  let offset = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('fire_points')
-      .select('lat, lng, frp')
-      .gte('detected_at', windowStart)
-      .lt('detected_at', windowEnd)
-      .gte('lat', 1)
-      .lte('lat', 30)
-      .gte('lng', 89)
-      .lte('lng', 114)
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) throw new Error(`${LOG} fire_points query failed: ${error.message}`);
-    const rows = (data ?? []) as FireRow[];
-    allFires.push(...rows);
-    if (rows.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
+  const allFires = await fetchAllPages<FireRow>(
+    (from, to) =>
+      supabase
+        .from('fire_points')
+        .select('lat, lng, frp')
+        .gte('detected_at', windowStart)
+        .lt('detected_at', windowEnd)
+        .gte('lat', 1)
+        .lte('lat', 30)
+        .gte('lng', 89)
+        .lte('lng', 114)
+        .range(from, to),
+    PAGE_SIZE,
+  );
 
   console.log(`${LOG} Found ${allFires.length} fire detections in window`);
 

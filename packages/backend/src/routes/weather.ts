@@ -4,49 +4,36 @@ import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
 const MIN_COMPLETE_POINTS = 4000;
 
 async function fetchWeatherFromDb(date: string): Promise<WeatherReading[]> {
-  const all: WeatherReading[] = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('weather_readings')
-      .select(
-        'lat, lng, wind_speed_kmh, wind_direction_deg, relative_humidity_2m, precipitation_sum',
-      )
-      .eq('date', date)
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) throw new Error(`Supabase weather_readings query failed: ${error.message}`);
-    if (!data?.length) break;
-    all.push(...(data as WeatherReading[]));
-    if (data.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return all;
+  return fetchAllPages<WeatherReading>(
+    (from, to) =>
+      supabase
+        .from('weather_readings')
+        .select(
+          'lat, lng, wind_speed_kmh, wind_direction_deg, relative_humidity_2m, precipitation_sum',
+        )
+        .eq('date', date)
+        .range(from, to),
+    PAGE_SIZE,
+  );
 }
 
 async function fetchWindFromDb(date: string): Promise<WindReading[]> {
-  const all: WindReading[] = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('weather_readings')
-      .select('lat, lng, wind_speed_kmh, wind_direction_deg')
-      .eq('date', date)
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) throw new Error(`Supabase weather_readings query failed: ${error.message}`);
-    if (!data?.length) break;
-    all.push(...(data as WindReading[]));
-    if (data.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return all;
+  return fetchAllPages<WindReading>(
+    (from, to) =>
+      supabase
+        .from('weather_readings')
+        .select('lat, lng, wind_speed_kmh, wind_direction_deg')
+        .eq('date', date)
+        .range(from, to),
+    PAGE_SIZE,
+  );
 }
 
 export function weatherRoutes(app: FastifyInstance): void {

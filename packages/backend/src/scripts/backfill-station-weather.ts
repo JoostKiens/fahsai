@@ -4,7 +4,6 @@
  *
  * Usage: pnpm --filter backend run backfill:station-weather [days]
  */
-import 'dotenv/config';
 import { supabase } from '../db/client.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
 import { fetchAllPages } from '../utils/backfill.js';

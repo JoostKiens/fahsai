@@ -4,6 +4,7 @@ import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -18,22 +19,11 @@ const SUMMARY_TTL_SECONDS = 60 * 60; // 1 hour
 const CACHE_CONTROL_SUMMARY = `public, max-age=${SUMMARY_TTL_SECONDS}`;
 
 async function fetchCamsGridFromDb(date: string): Promise<PM25GridPoint[]> {
-  const all: PM25GridPoint[] = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('cams_grid')
-      .select('lat, lng, pm25')
-      .eq('date', date)
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (error) throw new Error(`Supabase cams_grid query failed: ${error.message}`);
-    if (!data?.length) break;
-    all.push(...(data as PM25GridPoint[]));
-    if (data.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return all;
+  return fetchAllPages<PM25GridPoint>(
+    (from, to) =>
+      supabase.from('cams_grid').select('lat, lng, pm25').eq('date', date).range(from, to),
+    PAGE_SIZE,
+  );
 }
 
 export function camsRoutes(app: FastifyInstance): void {

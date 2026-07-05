@@ -12,11 +12,11 @@
  * S3 files are available ≥72h after end of local day, so anything older
  * than ~3 days is safe to backfill. Current-day data still needs the API.
  */
-import 'dotenv/config';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { buildS3Url, downloadS3File, computeDailyMean } from '../utils/openaq-s3.js';
+import { runWithConcurrency } from '../utils/backfill.js';
 
 const BATCH_SIZE = 500;
 const CONCURRENCY = 20;
@@ -88,6 +88,7 @@ const measurementRows: MeasurementRow[] = [];
 let downloaded = 0;
 let missing = 0;
 let errored = 0;
+let processed = 0;
 
 async function processItem(item: { station: Station; date: string }): Promise<void> {
   const { station, date } = item;
@@ -107,49 +108,31 @@ async function processItem(item: { station: Station; date: string }): Promise<vo
 
   if (csvContent === null) {
     missing++;
-    return;
+  } else {
+    downloaded++;
+    const result = computeDailyMean(csvContent, primarySensorId);
+    if (result === null) {
+      console.warn(`[backfill-s3] No valid pm25 data: station=${station.id} date=${date}`);
+    } else {
+      measurementRows.push({
+        station_id: station.id,
+        value: result.value,
+        measured_at: `${date}T00:00:00Z`,
+      });
+    }
   }
 
-  downloaded++;
-  const result = computeDailyMean(csvContent, primarySensorId);
-  if (result === null) {
-    console.warn(`[backfill-s3] No valid pm25 data: station=${station.id} date=${date}`);
-    return;
+  processed++;
+  if (processed % 1000 === 0) {
+    console.log(
+      `[backfill-s3] Progress: ${processed}/${workItems.length} — ` +
+        `${downloaded} downloaded, ${missing} missing, ${errored} errors, ${measurementRows.length} rows collected`,
+    );
   }
-
-  measurementRows.push({
-    station_id: station.id,
-    value: result.value,
-    measured_at: `${date}T00:00:00Z`,
-  });
 }
 
 // Bounded concurrency pool — no rate limit on S3
-async function runWithConcurrency(
-  items: Array<{ station: Station; date: string }>,
-  limit: number,
-): Promise<void> {
-  const queue = [...items];
-  let processed = 0;
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift()!;
-      await processItem(item);
-      processed++;
-      if (processed % 1000 === 0) {
-        console.log(
-          `[backfill-s3] Progress: ${processed}/${items.length} — ` +
-            `${downloaded} downloaded, ${missing} missing, ${errored} errors, ${measurementRows.length} rows collected`,
-        );
-      }
-    }
-  });
-
-  await Promise.all(workers);
-}
-
-await runWithConcurrency(workItems, CONCURRENCY);
+await runWithConcurrency(workItems, CONCURRENCY, processItem);
 
 console.log(
   `[backfill-s3] Downloads done: ${downloaded} files, ${missing} missing (404), ${errored} errors`,

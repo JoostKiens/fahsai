@@ -1,55 +1,33 @@
+import { readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildScientificContext } from '../../lib/buildScientificContext.js';
 import { buildPrompt, GEMINI_MODEL } from '../../lib/buildPrompt.js';
-import { golden as g01 } from './golden/01-plausible-clean-phetbura-garden-31-05-2026.js';
-import { golden as g02 } from './golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
-import { golden as g03 } from './golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
-import { golden as g04 } from './golden/04-outlier-high-kasetsart-university-03-05-2026.js';
-import { golden as g05 } from './golden/05-plausible-urban-industrial-chaloem-19-04-2026.js';
-import { golden as g06 } from './golden/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
-import { golden as g07 } from './golden/07-plausible-urban-industrial-hana-01-04-2026.js';
-import { golden as g08 } from './golden/08-plausible-clean-usu-13-05-2026.js';
-import { golden as g09 } from './golden/09-plausible-clean-narathiwat-marine-11-03-2026.js';
-import { golden as g10 } from './golden/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
-import { golden as g11 } from './golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
-import { golden as g12 } from './golden/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
-import { golden as g13 } from './golden/13-plausible-clean-khong-champasack-30-04-2026.js';
-import { golden as g14 } from './golden/14-plausible-clean-surat-thani-good-washout-02-06-2026.js';
+import type { ExplainFixture } from './types.js';
 
-const GOLDENS: Record<string, string> = {
-  '01-plausible-clean-phetbura-garden-31-05-2026': g01,
-  '02-plausible-fire-transport-wiang-nuea-01-04-2026': g02,
-  '03-outlier-low-kaenoisuksa-school-02-04-2026': g03,
-  '04-outlier-high-kasetsart-university-03-05-2026': g04,
-  '05-plausible-urban-industrial-chaloem-19-04-2026': g05,
-  '06-plausible-clean-ko-yawn-washout-01-04-2026': g06,
-  '07-plausible-urban-industrial-hana-01-04-2026': g07,
-  '08-plausible-clean-usu-13-05-2026': g08,
-  '09-plausible-clean-narathiwat-marine-11-03-2026': g09,
-  '10-plausible-fire-transport-ratchapracha-31-03-2026': g10,
-  '11-plausible-regional-background-chanthaburi-06-04-2026': g11,
-  '12-plausible-clean-coastal-nakhon-nayok-06-04-2026': g12,
-  '13-plausible-clean-khong-champasack-30-04-2026': g13,
-  '14-plausible-clean-surat-thani-good-washout-02-06-2026': g14,
-};
+const DIR = path.dirname(fileURLToPath(import.meta.url));
 
-// Static imports — add new fixtures here as they are created
-import { fixture as f01 } from './fixtures/01-plausible-clean-phetbura-garden-31-05-2026.js';
-import { fixture as f02 } from './fixtures/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
-import { fixture as f03 } from './fixtures/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
-import { fixture as f04 } from './fixtures/04-outlier-high-kasetsart-university-03-05-2026.js';
-import { fixture as f05 } from './fixtures/05-plausible-urban-industrial-chaloem-19-04-2026.js';
-import { fixture as f06 } from './fixtures/06-plausible-clean-ko-yawn-washout-01-04-2026.js';
-import { fixture as f07 } from './fixtures/07-plausible-urban-industrial-hana-01-04-2026.js';
-import { fixture as f08 } from './fixtures/08-plausible-clean-usu-13-05-2026.js';
-import { fixture as f09 } from './fixtures/09-plausible-clean-narathiwat-marine-11-03-2026.js';
-import { fixture as f10 } from './fixtures/10-plausible-fire-transport-ratchapracha-31-03-2026.js';
-import { fixture as f11 } from './fixtures/11-plausible-regional-background-chanthaburi-06-04-2026.js';
-import { fixture as f12 } from './fixtures/12-plausible-clean-coastal-nakhon-nayok-06-04-2026.js';
-import { fixture as f13 } from './fixtures/13-plausible-clean-khong-champasack-30-04-2026.js';
-import { fixture as f14 } from './fixtures/14-plausible-clean-surat-thani-good-washout-02-06-2026.js';
+// Fixtures and their goldens are matched 1:1 by filename — add a pair of files
+// under fixtures/ and golden/ to add a new case, no registration needed here.
+const fixtureFiles = readdirSync(path.join(DIR, 'fixtures'))
+  .filter((f) => f.endsWith('.ts'))
+  .sort();
 
-const ALL_FIXTURES = [f01, f02, f03, f04, f05, f06, f07, f08, f09, f10, f11, f12, f13, f14];
+const ALL_FIXTURES: ExplainFixture[] = await Promise.all(
+  fixtureFiles.map(async (f) => {
+    const mod = (await import(`./fixtures/${f}`)) as { fixture: ExplainFixture };
+    return mod.fixture;
+  }),
+);
+
+async function loadGolden(id: string): Promise<string> {
+  try {
+    return ((await import(`./golden/${id}.ts`)) as { golden: string }).golden;
+  } catch {
+    return `[NO GOLDEN: ${id}]`;
+  }
+}
 
 // ----------------------------------------------------------------
 // CLI flags
@@ -76,10 +54,6 @@ if (!fixtures.length) {
 // ----------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------
-
-function loadGolden(id: string): string {
-  return GOLDENS[id] ?? `[NO GOLDEN: ${id}]`;
-}
 
 async function runExplain(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -125,7 +99,7 @@ for (const fixture of fixtures) {
     continue;
   }
 
-  const golden = loadGolden(fixture.id);
+  const golden = await loadGolden(fixture.id);
 
   if (showPrompt) {
     console.log(SUBDIV);

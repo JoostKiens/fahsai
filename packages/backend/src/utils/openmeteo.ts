@@ -1,5 +1,12 @@
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_HOUR } from '@thailand-aq/consts';
+import {
+  WEATHER_STEP,
+  WEATHER_LNG_MIN,
+  WEATHER_LAT_MIN,
+  WEATHER_LNG_COUNT,
+  WEATHER_LAT_COUNT,
+} from './computeStationWeather.js';
 
 export class OpenMeteoHttpError extends Error {
   constructor(
@@ -14,16 +21,8 @@ export class OpenMeteoHttpError extends Error {
 // ─── Weather grid ─────────────────────────────────────────────────────────────
 //
 // 0.4° grid over bbox [89,1,114,30] — matches the CAMS AQ grid resolution.
-// 63 lng × 73 lat = 4,599 points per date.
-// Math.floor avoids the off-by-one from floating-point imprecision: 25/0.4 = 62.5
-// which Math.round would turn into 63, giving 64 points instead of 63.
-const WEATHER_STEP = 0.4;
-const WEATHER_LNG_MIN = 89;
-const WEATHER_LNG_MAX = 114;
-const WEATHER_LAT_MIN = 1;
-const WEATHER_LAT_MAX = 30;
-const WEATHER_LNG_COUNT = Math.floor((WEATHER_LNG_MAX - WEATHER_LNG_MIN) / WEATHER_STEP) + 1; // 63
-const WEATHER_LAT_COUNT = Math.floor((WEATHER_LAT_MAX - WEATHER_LAT_MIN) / WEATHER_STEP) + 1; // 73
+// 63 lng × 73 lat = 4,599 points per date. Grid constants shared with
+// computeStationWeather.ts so both stay in lockstep.
 
 // 300 locations per batch — the multi-location POST endpoint requires per-location
 // arrays for timezone/start_date/end_date, so payload grows linearly with batch size.

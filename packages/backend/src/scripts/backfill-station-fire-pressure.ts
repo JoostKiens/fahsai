@@ -8,7 +8,6 @@
  * for all active stations (75 km radius). Dates that already have rows are skipped.
  * Max range: 130 days.
  */
-import 'dotenv/config';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';

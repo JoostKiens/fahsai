@@ -165,6 +165,54 @@ export function InfoPanel() {
 
   const isOpen = !!selectedPoint || !!pendingSelection;
 
+  function renderPanelContent(
+    sp: NonNullable<typeof selectedPoint>,
+    showClose: boolean,
+    onExpand?: () => void,
+  ) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={panelType}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
+          exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
+          className="p-3"
+        >
+          <PanelHeader
+            panelType={panelType}
+            lngLat={sp.lngLat}
+            placeName={placeName}
+            geocodeLoading={geocodeLoading}
+            stationName={displayStation?.stationName ?? null}
+            plantName={sp.powerPlant?.name ?? null}
+            countryIso3={countryIso3}
+            onClose={() => setSelectedPoint(null)}
+            showClose={showClose}
+          />
+          <hr className="border-zinc-800 my-2" />
+          {displayStation && (
+            <StationPanel
+              station={displayStation}
+              lngLat={sp.lngLat}
+              historyDays={historyDays}
+              historyLoading={historyLoading}
+              historyFetching={historyFetching}
+              locale={locale}
+              onExpand={onExpand}
+            />
+          )}
+          {sp.fire && (
+            <FirePanel fire={sp.fire} aqPoint={aqPoint} windVec={windVec} locale={locale} />
+          )}
+          {sp.powerPlant && (
+            <PowerPlantPanel plant={sp.powerPlant} aqPoint={aqPoint} windVec={windVec} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
   return (
     <>
       {/* Desktop: floating card */}
@@ -194,53 +242,7 @@ export function InfoPanel() {
         ) : (
           <div className="overflow-hidden max-h-[calc(100%-1.5rem)]">
             <AppScrollArea viewportClassName="max-h-[80svh]">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={panelType}
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
-                  exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
-                  className="p-3"
-                >
-                  <PanelHeader
-                    panelType={panelType}
-                    lngLat={selectedPoint.lngLat}
-                    placeName={placeName}
-                    geocodeLoading={geocodeLoading}
-                    stationName={displayStation?.stationName ?? null}
-                    plantName={selectedPoint.powerPlant?.name ?? null}
-                    countryIso3={countryIso3}
-                    onClose={() => setSelectedPoint(null)}
-                    showClose={true}
-                  />
-                  <hr className="border-zinc-800 my-2" />
-                  {displayStation && (
-                    <StationPanel
-                      station={displayStation}
-                      lngLat={selectedPoint.lngLat}
-                      historyDays={historyDays}
-                      historyLoading={historyLoading}
-                      historyFetching={historyFetching}
-                      locale={locale}
-                    />
-                  )}
-                  {selectedPoint.fire && (
-                    <FirePanel
-                      fire={selectedPoint.fire}
-                      aqPoint={aqPoint}
-                      windVec={windVec}
-                      locale={locale}
-                    />
-                  )}
-                  {selectedPoint.powerPlant && (
-                    <PowerPlantPanel
-                      plant={selectedPoint.powerPlant}
-                      aqPoint={aqPoint}
-                      windVec={windVec}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
+              {renderPanelContent(selectedPoint, true)}
             </AppScrollArea>
           </div>
         )}
@@ -259,54 +261,7 @@ export function InfoPanel() {
         {!selectedPoint ? (
           <PanelSkeleton />
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={panelType}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0, transition: TWEEN_ENTER }}
-              exit={{ opacity: 0, y: -6, transition: TWEEN_EXIT }}
-              className="p-3"
-            >
-              <PanelHeader
-                panelType={panelType}
-                lngLat={selectedPoint.lngLat}
-                placeName={placeName}
-                geocodeLoading={geocodeLoading}
-                stationName={displayStation?.stationName ?? null}
-                plantName={selectedPoint.powerPlant?.name ?? null}
-                countryIso3={countryIso3}
-                onClose={() => setSelectedPoint(null)}
-                showClose={false}
-              />
-              <hr className="border-zinc-800 my-2" />
-              {displayStation && (
-                <StationPanel
-                  station={displayStation}
-                  lngLat={selectedPoint.lngLat}
-                  historyDays={historyDays}
-                  historyLoading={historyLoading}
-                  historyFetching={historyFetching}
-                  locale={locale}
-                  onExpand={() => setDetent('full')}
-                />
-              )}
-              {selectedPoint.fire && (
-                <FirePanel
-                  fire={selectedPoint.fire}
-                  aqPoint={aqPoint}
-                  windVec={windVec}
-                  locale={locale}
-                />
-              )}
-              {selectedPoint.powerPlant && (
-                <PowerPlantPanel
-                  plant={selectedPoint.powerPlant}
-                  aqPoint={aqPoint}
-                  windVec={windVec}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          renderPanelContent(selectedPoint, false, () => setDetent('full'))
         )}
       </BottomSheet>
     </>
