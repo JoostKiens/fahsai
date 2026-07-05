@@ -9,10 +9,6 @@ import { PM25_CAT_BREAKPOINTS } from '@/utils/aqiColors';
 
 const PARTICLE_COUNT = 2400;
 const TRAIL_LENGTH = 20;
-// Exponent applied to widthRatio for particle speed: 1 = fully pixel-invariant speed
-// (slows down at high zoom), 0 = speed never eases off with zoom. 0.5 (√) eased off
-// too little and felt too fast when zoomed in; tune between 0.5 and 1.
-const VELOCITY_ZOOM_DAMPING = 0.75;
 // Degrees of movement per frame per km/h of wind speed.
 // Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
 const ANIM_SCALE = 0.0015;
@@ -32,6 +28,11 @@ const PARTICLE_START_ALPHA_MAX = 255;
 // empirically against the current raw-width-based formulas, so treat this value as
 // a tuning reference point rather than an exact physical viewport measurement.
 const REF_VIEWPORT_DEG_WIDTH = 22;
+// Container width (CSS px) REF_VIEWPORT_DEG_WIDTH was originally calibrated against — used to
+// derive REF_PIXELS_PER_DEGREE below, the pixels-per-degree ratio velocity is normalised to so
+// on-screen speed stays constant across zoom levels and container/screen widths.
+const REF_CONTAINER_WIDTH_PX = 1440;
+const REF_PIXELS_PER_DEGREE = REF_CONTAINER_WIDTH_PX / REF_VIEWPORT_DEG_WIDTH;
 // Exponent applied to (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) for particle density:
 // 2 = fully cancels the natural quadratic area shrinkage when zooming in (density stays
 // flat/constant instead of dropping), 0 = no compensation at all (density drops with the
@@ -39,6 +40,15 @@ const REF_VIEWPORT_DEG_WIDTH = 22;
 // sparse when zoomed in). Starting guess between the two extremes; tune visually so density
 // keeps dropping smoothly through the middle zoom range instead of plateauing there.
 const DENSITY_ZOOM_EXPONENT = 1.5;
+// The density formula above is already saturating PARTICLE_COUNT's flat cap by ~zoom 10 (its
+// uncapped value keeps growing well past it all the way to village-level zoom), so without a
+// boost, particle count stops increasing from zoom ~10 all the way to the deepest zoom-in.
+// MAX_PARTICLE_COUNT phases in a higher ceiling as rawViewportWidth shrinks from
+// HIGH_ZOOM_WIDTH_DEG (~zoom 10-11, where the flat cap starts biting) down to
+// HIGH_ZOOM_WIDTH_FLOOR_DEG (~zoom 15, village level), leaving zoom 10-11 untouched.
+const HIGH_ZOOM_WIDTH_DEG = 1;
+const HIGH_ZOOM_WIDTH_FLOOR_DEG = 0.1;
+const MAX_PARTICLE_COUNT = 2800;
 // Trails represent a roughly-fixed geographic distance, so their pixel length
 // should grow as you zoom in (more pixels per degree) — capped so it doesn't run
 // away at extreme zoom. Starting guess, tune visually.
@@ -131,6 +141,7 @@ export function useWindParticles(
     opacity: config.opacity,
     viewport: FULL_VIEWPORT,
     rawViewportWidth: REF_VIEWPORT_DEG_WIDTH,
+    containerWidthPx: REF_CONTAINER_WIDTH_PX,
     clock: 0,
     avgDt: 16.67, // rolling average frame time (ms) — tracks the real device refresh rate
   });
@@ -146,6 +157,7 @@ export function useWindParticles(
     stateRef.current.viewport = initialViewport;
     const initialRawWidth = mapRawViewportWidth(map);
     stateRef.current.rawViewportWidth = initialRawWidth;
+    stateRef.current.containerWidthPx = mapContainerWidthPx(map);
 
     // If wind data arrived before this effect ran (common on mobile, where
     // wind XHRs can resolve before mapbox reports valid bounds), particles
@@ -167,6 +179,7 @@ export function useWindParticles(
       stateRef.current.viewport = viewport;
       const rawWidth = mapRawViewportWidth(map);
       stateRef.current.rawViewportWidth = rawWidth;
+      stateRef.current.containerWidthPx = mapContainerWidthPx(map);
       const s2 = stateRef.current;
       reconcileParticleCount({
         particles: s2.particles,
@@ -178,9 +191,14 @@ export function useWindParticles(
     };
     map.on('zoom', onMove);
     map.on('move', onMove);
+    // Mapbox GL auto-resizes on container size changes (internal ResizeObserver) and fires
+    // 'resize' — but not 'move'/'zoom' — when only the container size changes at a fixed
+    // center/zoom, which would otherwise leave containerWidthPx stale until the next pan/zoom.
+    map.on('resize', onMove);
     return () => {
       map.off('zoom', onMove);
       map.off('move', onMove);
+      map.off('resize', onMove);
     };
   }, [map]);
 
@@ -263,6 +281,7 @@ export function useWindParticles(
         opacity,
         viewport,
         rawViewportWidth,
+        containerWidthPx,
         clock,
         avgDt,
       } = stateRef.current;
@@ -273,8 +292,14 @@ export function useWindParticles(
         // Both use the raw (unbuffered) visible width, not the padded spawn/OOB
         // viewport — mapViewport()'s fixed VIEWPORT_BUFFER_DEG pad would otherwise
         // dominate and stop these ratios from shrinking further at village-level zoom.
+        // widthRatio still drives trail-length/alpha ramping (zoomGrowth) below.
         const widthRatio = rawViewportWidth / REF_VIEWPORT_DEG_WIDTH;
-        const dtScale = (dt / 16.67) * Math.pow(widthRatio, VELOCITY_ZOOM_DAMPING);
+        // Degrees-per-frame scale that keeps on-screen pixel speed constant across zoom and
+        // container width: exact inverse of how much pixels-per-degree has changed since the
+        // reference calibration (REF_PIXELS_PER_DEGREE).
+        const pixelsPerDegree = containerWidthPx / rawViewportWidth;
+        const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
+        const dtScale = (dt / 16.67) * velocityScale;
         // Each point's movement (dtScale) is already pixel-invariant, so keeping the
         // point count constant would render a fixed *pixel* trail everywhere. Trails
         // should instead represent a roughly-fixed *geographic* distance, so point
@@ -373,6 +398,12 @@ function mapViewport(map: mapboxgl.Map): Viewport {
 function mapRawViewportWidth(map: mapboxgl.Map): number {
   const b = map.getBounds();
   return b ? b.getEast() - b.getWest() : REF_VIEWPORT_DEG_WIDTH;
+}
+
+// Real container width (CSS px) — used to derive an exact pixels-per-degree ratio for velocity,
+// instead of assuming the REF_CONTAINER_WIDTH_PX the reference calibration was tuned against.
+function mapContainerWidthPx(map: mapboxgl.Map): number {
+  return map.getContainer().clientWidth || REF_CONTAINER_WIDTH_PX;
 }
 
 // ─── particle helpers ─────────────────────────────────────────────────────────
@@ -488,10 +519,14 @@ function viewportParticleCount(viewport: Viewport, rawViewportWidth: number): nu
   // dominates at village-level zoom and would otherwise distort this at high zoom.
   const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) ** DENSITY_ZOOM_EXPONENT;
   const compensatedArea = area * zoomCompensation;
-  return Math.max(
-    30,
-    Math.min(PARTICLE_COUNT, Math.round((PARTICLE_COUNT * compensatedArea) / REFERENCE_AREA)),
+  const rawCount = (PARTICLE_COUNT * compensatedArea) / REFERENCE_AREA;
+  const highZoomT = clamp(
+    (HIGH_ZOOM_WIDTH_DEG - rawViewportWidth) / (HIGH_ZOOM_WIDTH_DEG - HIGH_ZOOM_WIDTH_FLOOR_DEG),
+    0,
+    1,
   );
+  const cap = PARTICLE_COUNT + highZoomT * (MAX_PARTICLE_COUNT - PARTICLE_COUNT);
+  return Math.round(clamp(rawCount, 30, cap));
 }
 
 function spawnParticle({
