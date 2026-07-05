@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { PathLayer } from 'deck.gl';
+import { TripsLayer } from 'deck.gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
@@ -18,18 +18,50 @@ const ANIM_SCALE = 0.0015;
 // fast-wind trails from dominating the visual at the expense of animation speed.
 const TRAIL_SPEED_REF_KMH = 13;
 // Maximum alpha for a fresh particle head (0–255). Trail fades linearly to 0.
-// 176 = 220 * 0.8 — reduced to 80% to soften visual intensity.
-const PARTICLE_START_ALPHA = 170;
-const PARTICLE_START_ALPHA_MAX = 240;
-const BASE_ZOOM = 5.5;
-const ZOOM_PLATEAU = 9;
-// Viewport lng-degree width at BASE_ZOOM on a reference ~1440px desktop — the viewport width
-// against which ANIM_SCALE was tuned. Used to normalise particle velocity so crossing time stays
-// consistent regardless of screen width or zoom level.
+const PARTICLE_START_ALPHA = 180;
+const PARTICLE_START_ALPHA_MAX = 255;
+// Reference raw viewport width (degrees) used to normalise zoom-dependent scaling
+// (particle velocity, trail length, particle density) so behavior stays consistent
+// regardless of screen width or zoom level. Originally measured against the padded
+// (buffered) viewport at a ~1440px desktop reference, back when dtScale used that
+// padded width directly; VELOCITY_ZOOM_DAMPING and TRAIL_GROWTH_MAX were tuned
+// empirically against the current raw-width-based formulas, so treat this value as
+// a tuning reference point rather than an exact physical viewport measurement.
 const REF_VIEWPORT_DEG_WIDTH = 22;
-const TRAIL_LENGTH_MAX = 35;
+// Container width (CSS px) REF_VIEWPORT_DEG_WIDTH was originally calibrated against — used to
+// derive REF_PIXELS_PER_DEGREE below, the pixels-per-degree ratio velocity is normalised to so
+// on-screen speed stays constant across zoom levels and container/screen widths.
+const REF_CONTAINER_WIDTH_PX = 1440;
+const REF_PIXELS_PER_DEGREE = REF_CONTAINER_WIDTH_PX / REF_VIEWPORT_DEG_WIDTH;
+// Exponent applied to (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) for particle density:
+// 2 = fully cancels the natural quadratic area shrinkage when zooming in (density stays
+// flat/constant instead of dropping), 0 = no compensation at all (density drops with the
+// raw, uncompensated square of zoom — the original, pre-tuning behavior, which read as too
+// sparse when zoomed in). Starting guess between the two extremes; tune visually so density
+// keeps dropping smoothly through the middle zoom range instead of plateauing there.
+const DENSITY_ZOOM_EXPONENT = 1.5;
+// The density formula above is already saturating PARTICLE_COUNT's flat cap by ~zoom 10 (its
+// uncapped value keeps growing well past it all the way to village-level zoom), so without a
+// boost, particle count stops increasing from zoom ~10 all the way to the deepest zoom-in.
+// MAX_PARTICLE_COUNT phases in a higher ceiling as rawViewportWidth shrinks from
+// HIGH_ZOOM_WIDTH_DEG (~zoom 10-11, where the flat cap starts biting) down to
+// HIGH_ZOOM_WIDTH_FLOOR_DEG (~zoom 15, village level), leaving zoom 10-11 untouched.
+const HIGH_ZOOM_WIDTH_DEG = 1;
+const HIGH_ZOOM_WIDTH_FLOOR_DEG = 0.1;
+const MAX_PARTICLE_COUNT = 2800;
+// Trails represent a roughly-fixed geographic distance, so their pixel length
+// should grow as you zoom in (more pixels per degree) — capped so it doesn't run
+// away at extreme zoom. Starting guess, tune visually.
+const TRAIL_GROWTH_MAX = 2;
+// Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
+const HEAD_WIDTH = 4;
+const TAIL_WIDTH = 0.5;
+// `clock` and particle timestamps are read by TripsLayer as 32-bit floats on the GPU,
+// which lose ms precision above 2^24 (~4.66h of continuous accumulation). Rebasing every
+// 10 minutes of real time keeps values far below that ceiling for the life of the tab.
+const CLOCK_REBASE_MS = 600_000;
 const MIN_AGE_FRAMES = 80;
-const MAX_AGE_FRAMES = 220;
+const MAX_AGE_FRAMES = 320;
 
 // Grid bounds — must match the weather grid constants in openmeteo.ts.
 // 0.4° step, lng 89→114 (63 pts), lat 1→30 (73 pts) = 4,599 points.
@@ -62,6 +94,8 @@ interface Particle {
   age: number;
   maxAge: number;
   trail: [number, number][];
+  timestamps: number[]; // ms clock value at which each trail[i] was recorded, newest first
+  maxTrail: number; // current wind-speed-based point-count cap, set each step in stepParticles
   color: [number, number, number]; // lightened AQI RGB sampled at spawn
 }
 
@@ -72,6 +106,22 @@ type WindGrid = Float32Array; // [dx0, dy0, dx1, dy1, ...]
 type Viewport = [west: number, south: number, east: number, north: number];
 
 const FULL_VIEWPORT: Viewport = [GRID_LNG_MIN, GRID_LAT_MIN, GRID_LNG_MAX, GRID_LAT_MAX];
+
+// Width-taper array only depends on trail point count n (HEAD_WIDTH/TAIL_WIDTH are fixed),
+// and many particles share the same n at a given zoom/wind speed — memoized per n instead
+// of allocating a fresh array for every particle on every animation frame.
+const widthTaperCache = new Map<number, number[]>();
+function widthTaper(n: number): number[] {
+  let taper = widthTaperCache.get(n);
+  if (!taper) {
+    taper = Array.from(
+      { length: n },
+      (_, i) => HEAD_WIDTH - ((HEAD_WIDTH - TAIL_WIDTH) * i) / (n - 1),
+    );
+    widthTaperCache.set(n, taper);
+  }
+  return taper;
+}
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -89,8 +139,11 @@ export function useWindParticles(
     gridMap: null as Map<string, number> | null,
     visible: config.visible,
     opacity: config.opacity,
-    zoom: BASE_ZOOM,
     viewport: FULL_VIEWPORT,
+    rawViewportWidth: REF_VIEWPORT_DEG_WIDTH,
+    containerWidthPx: REF_CONTAINER_WIDTH_PX,
+    clock: 0,
+    avgDt: 16.67, // rolling average frame time (ms) — tracks the real device refresh rate
   });
 
   // Keep config in sync without restarting the animation loop.
@@ -100,9 +153,11 @@ export function useWindParticles(
   // Track map zoom/viewport for particle spawning and OOB culling.
   useEffect(() => {
     if (!map) return;
-    stateRef.current.zoom = map.getZoom();
     const initialViewport = mapViewport(map);
     stateRef.current.viewport = initialViewport;
+    const initialRawWidth = mapRawViewportWidth(map);
+    stateRef.current.rawViewportWidth = initialRawWidth;
+    stateRef.current.containerWidthPx = mapContainerWidthPx(map);
 
     // If wind data arrived before this effect ran (common on mobile, where
     // wind XHRs can resolve before mapbox reports valid bounds), particles
@@ -113,28 +168,37 @@ export function useWindParticles(
       reconcileParticleCount({
         particles: s.particles,
         viewport: initialViewport,
+        rawViewportWidth: initialRawWidth,
         grid: s.grid,
         gridMap: s.gridMap,
       });
     }
 
     const onMove = () => {
-      stateRef.current.zoom = map.getZoom();
       const viewport = mapViewport(map);
       stateRef.current.viewport = viewport;
+      const rawWidth = mapRawViewportWidth(map);
+      stateRef.current.rawViewportWidth = rawWidth;
+      stateRef.current.containerWidthPx = mapContainerWidthPx(map);
       const s2 = stateRef.current;
       reconcileParticleCount({
         particles: s2.particles,
         viewport,
+        rawViewportWidth: rawWidth,
         grid: s2.grid,
         gridMap: s2.gridMap,
       });
     };
     map.on('zoom', onMove);
     map.on('move', onMove);
+    // Mapbox GL auto-resizes on container size changes (internal ResizeObserver) and fires
+    // 'resize' — but not 'move'/'zoom' — when only the container size changes at a fixed
+    // center/zoom, which would otherwise leave containerWidthPx stale until the next pan/zoom.
+    map.on('resize', onMove);
     return () => {
       map.off('zoom', onMove);
       map.off('move', onMove);
+      map.off('resize', onMove);
     };
   }, [map]);
 
@@ -176,6 +240,7 @@ export function useWindParticles(
     stateRef.current.grid = buildGrid(wind);
     stateRef.current.particles = initParticles({
       viewport: stateRef.current.viewport,
+      rawViewportWidth: stateRef.current.rawViewportWidth,
       grid: stateRef.current.grid,
       gridMap: stateRef.current.gridMap,
     });
@@ -193,20 +258,64 @@ export function useWindParticles(
     function tick(time: number) {
       const dt = lastTime ? Math.min(time - lastTime, 50) : 16.67;
       lastTime = time;
+      stateRef.current.clock += dt;
+      // Rebase periodically to keep clock (and every particle's timestamps) far below
+      // the float32 precision ceiling TripsLayer reads them at on the GPU — shifting
+      // both by the same amount preserves every timestamp's relative age exactly.
+      if (stateRef.current.clock > CLOCK_REBASE_MS) {
+        const rebaseDelta = stateRef.current.clock;
+        stateRef.current.clock = 0;
+        for (const p of stateRef.current.particles) {
+          for (let i = 0; i < p.timestamps.length; i++) p.timestamps[i] -= rebaseDelta;
+        }
+      }
+      // Exponential moving average of real frame time — used instead of a hardcoded
+      // 16.67 (60fps) so fadeWindowMs matches actual device refresh rate.
+      stateRef.current.avgDt = stateRef.current.avgDt * 0.9 + dt * 0.1;
 
-      const { grid, gridMap, particles, visible, opacity, zoom, viewport } = stateRef.current;
+      const {
+        grid,
+        gridMap,
+        particles,
+        visible,
+        opacity,
+        viewport,
+        rawViewportWidth,
+        containerWidthPx,
+        clock,
+        avgDt,
+      } = stateRef.current;
 
       if (!visible || !grid) {
         ov.setProps({ layers: [] });
       } else {
-        const [west, , east] = viewport;
-        const dtScale = (dt / 16.67) * ((east - west) / REF_VIEWPORT_DEG_WIDTH);
-        const zoomT = smoothstep(BASE_ZOOM, ZOOM_PLATEAU, zoom);
+        // Both use the raw (unbuffered) visible width, not the padded spawn/OOB
+        // viewport — mapViewport()'s fixed VIEWPORT_BUFFER_DEG pad would otherwise
+        // dominate and stop these ratios from shrinking further at village-level zoom.
+        // widthRatio still drives trail-length/alpha ramping (zoomGrowth) below.
+        const widthRatio = rawViewportWidth / REF_VIEWPORT_DEG_WIDTH;
+        // Degrees-per-frame scale that keeps on-screen pixel speed constant across zoom and
+        // container width: exact inverse of how much pixels-per-degree has changed since the
+        // reference calibration (REF_PIXELS_PER_DEGREE).
+        const pixelsPerDegree = containerWidthPx / rawViewportWidth;
+        const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
+        const dtScale = (dt / 16.67) * velocityScale;
+        // Each point's movement (dtScale) is already pixel-invariant, so keeping the
+        // point count constant would render a fixed *pixel* trail everywhere. Trails
+        // should instead represent a roughly-fixed *geographic* distance, so point
+        // count grows continuously as the viewport narrows (zooming in) — √-damped
+        // and capped (like the wind-speed trail scaling below) so it can't run away
+        // at extreme zoom the way an uncapped 1/widthRatio growth would. Clamped here
+        // (not just at its point of use) so the [1, TRAIL_GROWTH_MAX] invariant holds
+        // for zoomGrowth itself.
+        const zoomGrowth = clamp(Math.sqrt(1 / Math.max(widthRatio, 0.001)), 1, TRAIL_GROWTH_MAX);
+        const dynamicTrailLength = Math.round(TRAIL_LENGTH * zoomGrowth);
+        // Derived from the same zoomGrowth signal driving trail length (not a separate,
+        // device-independent zoom curve) so alpha and trail length reach "fully ramped"
+        // at the same apparent zoom regardless of screen/container size.
+        const rampT = (zoomGrowth - 1) / (TRAIL_GROWTH_MAX - 1);
         const dynamicAlpha = Math.round(
-          PARTICLE_START_ALPHA + zoomT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
-        );
-        const dynamicTrailLength = Math.round(
-          TRAIL_LENGTH + zoomT * (TRAIL_LENGTH_MAX - TRAIL_LENGTH),
+          PARTICLE_START_ALPHA + rampT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
         );
         stepParticles({
           particles,
@@ -215,23 +324,44 @@ export function useWindParticles(
           spawnViewport: viewport,
           gridMap,
           trailLength: dynamicTrailLength,
+          clock,
         });
 
-        const layer = new PathLayer<Particle>({
+        // Uses the observed avgDt (not a hardcoded 60fps assumption) so the fade window
+        // matches how much real time dynamicTrailLength points actually span on this device.
+        const fadeWindowMs = dynamicTrailLength * avgDt;
+
+        const layer = new TripsLayer<Particle>({
           id: 'wind-particles',
           data: particles.filter((p) => p.trail.length >= 2),
           getPath: (p) => p.trail,
-          getColor: (p) =>
+          getTimestamps: (p) => p.timestamps,
+          currentTime: clock,
+          trailLength: fadeWindowMs,
+          fadeTrail: true,
+          capRounded: true,
+          jointRounded: true,
+          getColor: (p) => {
+            // Speed-truncated (fast-wind) trails span less real time than fadeWindowMs, so
+            // TripsLayer's own head-to-tail fade never reaches full transparency for them —
+            // scaling the ceiling by how much of the window the trail actually spans turns
+            // that into a uniformly dim trail instead of a hard-edged cutoff. Only applies once
+            // the trail has actually filled up to its speed-based cap (p.maxTrail) — a trail
+            // that's still growing from a fresh spawn hasn't had time to fade yet either, and
+            // is already correctly rendered by TripsLayer's own per-vertex fade on its own.
+            const span = p.timestamps[0] - p.timestamps[p.timestamps.length - 1];
+            const spanFade = p.trail.length >= p.maxTrail ? Math.min(1, span / fadeWindowMs) : 1;
             // Spreading a [number, number, number] tuple and appending a value yields number[],
             // so an explicit tuple cast is required for Deck.gl's typed color accessor.
-            [...p.color, Math.round(opacity * dynamicAlpha * (1 - p.age / p.maxAge))] as [
-              number,
-              number,
-              number,
-              number,
-            ],
+            return [
+              ...p.color,
+              Math.round(opacity * dynamicAlpha * (1 - p.age / p.maxAge) * spanFade),
+            ] as [number, number, number, number];
+          },
           widthUnits: 'pixels',
-          getWidth: 1,
+          // Per-vertex width array (trail[0] is the head): tapers from HEAD_WIDTH down to
+          // TAIL_WIDTH so the tail comes to a point rather than staying a uniform stroke.
+          getWidth: (p) => widthTaper(p.trail.length),
           parameters: { depthCompare: 'always' as const },
           pickable: false,
         });
@@ -260,6 +390,22 @@ function mapViewport(map: mapboxgl.Map): Viewport {
   ];
 }
 
+// Unbuffered visible width (degrees) — used for zoom-based scale calculations
+// (dtScale, dynamicTrailLength). Unlike `mapViewport`, this must NOT include
+// VIEWPORT_BUFFER_DEG: that fixed-degree pad is negligible at low zoom but
+// dominates at village-level zoom (true width can shrink well below the buffer
+// itself), which would otherwise stop these ratios from continuing to shrink.
+function mapRawViewportWidth(map: mapboxgl.Map): number {
+  const b = map.getBounds();
+  return b ? b.getEast() - b.getWest() : REF_VIEWPORT_DEG_WIDTH;
+}
+
+// Real container width (CSS px) — used to derive an exact pixels-per-degree ratio for velocity,
+// instead of assuming the REF_CONTAINER_WIDTH_PX the reference calibration was tuned against.
+function mapContainerWidthPx(map: mapboxgl.Map): number {
+  return map.getContainer().clientWidth || REF_CONTAINER_WIDTH_PX;
+}
+
 // ─── particle helpers ─────────────────────────────────────────────────────────
 
 // Resize an existing particle array in-place to match the count implied by
@@ -268,15 +414,17 @@ function mapViewport(map: mapboxgl.Map): Viewport {
 function reconcileParticleCount({
   particles,
   viewport,
+  rawViewportWidth,
   grid,
   gridMap,
 }: {
   particles: Particle[];
   viewport: Viewport;
+  rawViewportWidth: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
 }): void {
-  const target = viewportParticleCount(viewport);
+  const target = viewportParticleCount(viewport, rawViewportWidth);
   if (particles.length < target) {
     for (let i = particles.length; i < target; i++) {
       particles.push(spawnParticle({ viewport, grid, gridMap, scatterAge: true }));
@@ -288,14 +436,16 @@ function reconcileParticleCount({
 
 function initParticles({
   viewport,
+  rawViewportWidth,
   grid,
   gridMap,
 }: {
   viewport: Viewport;
+  rawViewportWidth: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
 }): Particle[] {
-  const count = viewportParticleCount(viewport);
+  const count = viewportParticleCount(viewport, rawViewportWidth);
   // scatterAge=true distributes initial ages so they don't all fade out simultaneously
   return Array.from({ length: count }, () =>
     spawnParticle({ viewport, grid, gridMap, scatterAge: true }),
@@ -309,6 +459,7 @@ function stepParticles({
   spawnViewport,
   gridMap,
   trailLength,
+  clock,
 }: {
   particles: Particle[];
   grid: WindGrid;
@@ -316,6 +467,7 @@ function stepParticles({
   spawnViewport: Viewport;
   gridMap: Map<string, number> | null;
   trailLength: number;
+  clock: number;
 }): void {
   for (const p of particles) {
     const [dx, dy] = sampleWind(p.lng, p.lat, grid);
@@ -325,12 +477,15 @@ function stepParticles({
     p.lat += dy * ANIM_SCALE * dtScale;
 
     p.trail.unshift([p.lng, p.lat]);
+    p.timestamps.unshift(clock);
     const speed = Math.sqrt(dx * dx + dy * dy); // == wind_speed_kmh at this cell
     const maxTrail =
       speed > TRAIL_SPEED_REF_KMH
         ? Math.max(2, Math.round(trailLength * Math.sqrt(TRAIL_SPEED_REF_KMH / speed)))
         : trailLength;
     if (p.trail.length > maxTrail) p.trail.length = maxTrail;
+    if (p.timestamps.length > maxTrail) p.timestamps.length = maxTrail;
+    p.maxTrail = maxTrail;
     p.age++;
 
     // OOB against the full static grid bbox — particles live freely across
@@ -346,18 +501,32 @@ function stepParticles({
       p.age = 0;
       p.maxAge = fresh.maxAge;
       p.trail = [];
+      p.timestamps = [];
       p.color = fresh.color;
     }
   }
 }
 
-function viewportParticleCount(viewport: Viewport): number {
+function viewportParticleCount(viewport: Viewport, rawViewportWidth: number): number {
   const [west, south, east, north] = viewport;
   const area = (east - west) * (north - south);
-  return Math.max(
-    30,
-    Math.min(PARTICLE_COUNT, Math.round((PARTICLE_COUNT * area) / REFERENCE_AREA)),
+  // `area` shrinks with the square of zoom (both dimensions shrink as you zoom in), even
+  // though on-screen pixel area doesn't. DENSITY_ZOOM_EXPONENT controls how much of that
+  // shrinkage gets cancelled — softer than full (2) so density keeps dropping smoothly
+  // through the middle zoom range instead of plateauing, but gentler than none (0) so it
+  // doesn't thin out as aggressively as the original, uncompensated behavior. Uses
+  // rawViewportWidth (unbuffered), not the padded viewport's (east-west) — that padding
+  // dominates at village-level zoom and would otherwise distort this at high zoom.
+  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) ** DENSITY_ZOOM_EXPONENT;
+  const compensatedArea = area * zoomCompensation;
+  const rawCount = (PARTICLE_COUNT * compensatedArea) / REFERENCE_AREA;
+  const highZoomT = clamp(
+    (HIGH_ZOOM_WIDTH_DEG - rawViewportWidth) / (HIGH_ZOOM_WIDTH_DEG - HIGH_ZOOM_WIDTH_FLOOR_DEG),
+    0,
+    1,
   );
+  const cap = PARTICLE_COUNT + highZoomT * (MAX_PARTICLE_COUNT - PARTICLE_COUNT);
+  return Math.round(clamp(rawCount, 30, cap));
 }
 
 function spawnParticle({
@@ -381,6 +550,8 @@ function spawnParticle({
     age: scatterAge ? Math.floor(Math.random() * maxAge) : 0,
     maxAge,
     trail: [],
+    timestamps: [],
+    maxTrail: TRAIL_LENGTH, // overwritten by stepParticles before this particle ever renders
     color: sampleSpawnColor({ lng, lat, grid, gridMap }),
   };
 }
@@ -391,12 +562,12 @@ function spawnParticle({
 // enough to stand out over the CAMS heatmap, and calm enough not to dominate.
 // Order mirrors AQI_CATEGORIES in aqiColors.ts (Good → Hazardous).
 const PARTICLE_COLORS: [number, number, number][] = [
-  [168, 197, 160], // Good              — muted sage
-  [240, 220, 100], // Moderate          — vivid gold
-  [240, 165, 75], // Unhealthy (s)     — vivid orange
-  [255, 120, 115], // Unhealthy         — coral-red (contrast against red CAMS background)
-  [180, 130, 210], // Very unhealthy    — vivid purple
-  [205, 80, 110], // Hazardous         — vivid rose
+  [190, 240, 160], // Good              — brighter sage
+  [255, 240, 110], // Moderate          — vivid gold
+  [255, 185, 70], // Unhealthy (s)     — vivid orange
+  [255, 115, 100], // Unhealthy         — coral-red (contrast against red CAMS background)
+  [210, 130, 245], // Very unhealthy    — vivid purple
+  [240, 80, 120], // Hazardous         — vivid rose
 ];
 
 // Reuses the existing grid constants (same 0.4° step, same origin) to produce
@@ -494,9 +665,4 @@ function buildGrid(data: WindReading[]): WindGrid {
     grid[base + 1] = Math.cos(travelRad) * v.wind_speed_kmh; // dy (north positive)
   }
   return grid;
-}
-
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
 }
