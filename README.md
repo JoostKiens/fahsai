@@ -4,7 +4,7 @@
 
 ---
 
-![Thailand Air Quality Map showing fires, PM2.5 heatmap, and wind patterns over Southeast Asia](docs/assets/img/app-screenshot-2026-05-21.png)
+![Thailand Air Quality Map showing fires, PM2.5 heatmap, and wind patterns over Southeast Asia](docs/assets/img/app-screenshot-2026-07-05.png)
 
 ---
 
