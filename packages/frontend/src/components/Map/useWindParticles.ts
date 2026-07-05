@@ -32,6 +32,13 @@ const PARTICLE_START_ALPHA_MAX = 255;
 // empirically against the current raw-width-based formulas, so treat this value as
 // a tuning reference point rather than an exact physical viewport measurement.
 const REF_VIEWPORT_DEG_WIDTH = 22;
+// Exponent applied to (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) for particle density:
+// 2 = fully cancels the natural quadratic area shrinkage when zooming in (density stays
+// flat/constant instead of dropping), 0 = no compensation at all (density drops with the
+// raw, uncompensated square of zoom — the original, pre-tuning behavior, which read as too
+// sparse when zoomed in). Starting guess between the two extremes; tune visually so density
+// keeps dropping smoothly through the middle zoom range instead of plateauing there.
+const DENSITY_ZOOM_EXPONENT = 1.5;
 // Trails represent a roughly-fixed geographic distance, so their pixel length
 // should grow as you zoom in (more pixels per degree) — capped so it doesn't run
 // away at extreme zoom. Starting guess, tune visually.
@@ -472,15 +479,14 @@ function stepParticles({
 function viewportParticleCount(viewport: Viewport, rawViewportWidth: number): number {
   const [west, south, east, north] = viewport;
   const area = (east - west) * (north - south);
-  // `area` shrinks with the square of zoom (both dimensions shrink as you zoom in),
-  // even though on-screen pixel area doesn't — left alone, that silently drops
-  // particle density as you zoom in. Cancel it out the same way dtScale keeps
-  // movement speed pixel-invariant, so density stays roughly constant across zoom
-  // instead (this recovers exactly today's behavior at the reference zoom, since
-  // the compensation factor is 1 there). Uses rawViewportWidth (unbuffered), not the
-  // padded viewport's (east-west) — that padding dominates at village-level zoom and
-  // would otherwise stop this compensation from continuing to scale, same as dtScale.
-  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) ** 2;
+  // `area` shrinks with the square of zoom (both dimensions shrink as you zoom in), even
+  // though on-screen pixel area doesn't. DENSITY_ZOOM_EXPONENT controls how much of that
+  // shrinkage gets cancelled — softer than full (2) so density keeps dropping smoothly
+  // through the middle zoom range instead of plateauing, but gentler than none (0) so it
+  // doesn't thin out as aggressively as the original, uncompensated behavior. Uses
+  // rawViewportWidth (unbuffered), not the padded viewport's (east-west) — that padding
+  // dominates at village-level zoom and would otherwise distort this at high zoom.
+  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) ** DENSITY_ZOOM_EXPONENT;
   const compensatedArea = area * zoomCompensation;
   return Math.max(
     30,
