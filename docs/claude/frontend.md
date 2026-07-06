@@ -7,7 +7,7 @@
 | PM2.5 heatmap | `BitmapLayer` + `MaskExtension` | CAMS grid, 0.4° cells, bilinearly interpolated onto 630×730 px canvas, clipped to land via `SolidPolygonLayer` mask (`sea-land-mask.json`) |
 | PM2.5 stations | `ScatterplotLayer` | OpenAQ ground stations, colored by `aqiColor(d.value)`, 5px radius |
 | Fire points | 3× `ScatterplotLayer` (additive blend) | Outer glow / mid halo / inner core rings; pixel radius scales with zoom (1–3 px base); intensity from `brightTi4`; low-confidence at 50% opacity |
-| Wind particles | Animated `PathLayer` (non-interleaved overlay) | 1500 particles, bilinear interpolation, TRAIL_LENGTH=10, rAF loop |
+| Wind particles | Animated `TripsLayer` (comet-tail fade, non-interleaved overlay) | 2400 base particles (up to 2800 at deep zoom), bilinear interpolation, TRAIL_LENGTH=20, rAF loop |
 | Power plants | `IconLayer` | Canvas atlas (96×32 diamond icons), Coal/Gas/Oil fuel types, 24px fixed size, hover tooltip |
 
 **Why `BitmapLayer` not `HeatmapLayer` for PM2.5:** `HeatmapLayer` normalizes weights relative
