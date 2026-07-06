@@ -321,3 +321,10 @@ Prefer the simplest solution that meets the stated requirements; do not over-eng
 Before implementing, give me a numbered plan broken into independently-committable steps so we can stop cleanly between them.
 
 Before changing the schema or ingest logic, ask me any clarifying questions about replace-vs-append semantics and downstream query impact.
+
+When deduplicating scattered call sites into a shared helper (e.g. a pagination or retry
+utility), audit each site's original error-handling contract (throw vs. silent-degrade vs.
+custom error response) and any per-item bookkeeping on error paths before assuming the
+shared helper's default behavior is a safe drop-in. Silently turning a silent-degrade path
+into an uncaught throw, or dropping a counter increment on an error branch, are regressions
+that type-checking and existing tests won't catch.
