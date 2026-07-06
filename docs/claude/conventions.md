@@ -37,10 +37,20 @@ compared against `windDirectionDeg`. Implementation: `packages/backend/src/lib/u
 
 **Supabase 1000-row default cap** — PostgREST silently truncates results at 1000 rows.
 Any query that could return more than 1000 rows MUST use `.range(from, to)` pagination.
-Affected queries:
-- `station-readings/latest` — paginated (PAGE_SIZE=1000 loop)
-- `weather-ingest` station and station_readings fetches — paginated
-- `backfill-station-weather` script — paginated
+Use the shared helpers in `packages/backend/src/utils/backfill.ts` rather than hand-rolling
+a pagination loop — despite the filename, they're used across routes, cron jobs, and
+one-off scripts, not just backfills:
+- `fetchAllPages<T>(buildQuery, pageSize)` — fetches every page into memory, returns `T[]`.
+  Use for anything that needs the full result set at once (most cases).
+- `forEachPage<T>(buildQuery, pageSize, onPage)` — streams one page at a time without
+  buffering the full result set. Use this instead of `fetchAllPages` when the original
+  logic filtered/deduped per page (e.g. `station-readings/latest`'s bbox + dedup pass) —
+  collapsing a streaming filter into "fetch everything, then filter" multiplies peak memory
+  by however many rows get filtered out, which matters on hot, live-traffic routes.
+
+Both throw on any Supabase error. If a call site's original behavior was to degrade
+gracefully or return a specific error response instead of throwing, wrap the call in its
+own `try/catch` rather than letting the shared helper's throw propagate uncaught.
 
 Setting `.limit(N)` where N > 1000 does NOT bypass the server cap; only `.range()` does.
 
