@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BottomSheet } from '@/components/ui/BottomSheet';
+import { BottomSheet } from '@/components/BottomSheet';
 import { LayerGroups } from '@/components/Sidebar';
 
 export function SidebarToggleFAB() {

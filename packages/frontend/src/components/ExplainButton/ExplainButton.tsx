@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useExplain } from './useExplain';
 import type { RateLimit } from './useExplain';
 import { useTimeStore } from '@/store/timeStore';
-import { sanitizeExplanation, parseBoldSegments } from './sanitize';
+import { sanitizeExplanation, parseBoldSegments } from './utils.sanitize';
 
 interface RateLimitControl {
   value: RateLimit | null;

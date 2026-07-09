@@ -1,7 +1,7 @@
 import { Menu } from '@base-ui-components/react/menu';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store/uiStore';
-import { GearIcon, GithubIcon, InfoIcon } from './icons';
+import { GearIcon, GithubIcon, InfoIcon } from './Icons';
 
 const TRIGGER_CLS =
   'inline-flex items-center justify-center w-8 h-8 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors ease-out hover:duration-175';

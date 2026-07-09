@@ -33,7 +33,33 @@ compared against `windDirectionDeg`. Implementation: `packages/backend/src/lib/u
 
 ---
 
+## Frontend component structure
+
+**Barrel files (`index.ts`)** are only justified when they re-export 2+ things consumed
+by 2+ external files (e.g. `Sidebar/index.ts` re-exports `Sidebar` and `LayerGroups` for
+`App.tsx` and `SidebarToggleFAB.tsx`). A barrel with one export and one consumer is pure
+indirection with no payoff — delete it and import the file directly instead.
+
+**Single-file component directories** get flattened to `components/` root instead of
+wrapped in their own folder (e.g. `BottomSheet.tsx`, `HintPill.tsx`, `SidebarToggleFAB.tsx`,
+`ErrorBoundary.tsx`, `UIOverlay.tsx`, `Shimmer.tsx`, `AppScrollArea.tsx`). A directory is
+only justified once a component has co-located siblings (test, hook, helper).
+
+**Icon components** default to inline and unexported, private to the single file that
+uses them (e.g. `XIcon` in `BottomSheet.tsx`, `CursorClickIcon` in `HintPill.tsx`). Only
+extract to a shared file when a set of icons is genuinely reused by 2+ consumers (e.g.
+`Header/Icons.tsx`, used by `Header.tsx`, `HeaderMenu.tsx`, `Search.tsx`). A shared icon
+file is PascalCase, since it holds components — not `icons.tsx`.
+
+---
+
 ## Key constraints and gotchas
+
+**`git mv` case-only renames on macOS** — renaming a file to a different casing only
+(e.g. `icons.tsx` → `Icons.tsx`) requires a two-step move (`git mv icons.tsx icons.tsx.tmp`
+then `git mv icons.tsx.tmp Icons.tsx`) because macOS's default case-insensitive filesystem
+treats the two names as the same path. A direct `git mv icons.tsx Icons.tsx` can silently
+no-op or leave git confused about the rename.
 
 **Supabase 1000-row default cap** — PostgREST silently truncates results at 1000 rows.
 Any query that could return more than 1000 rows MUST use `.range(from, to)` pagination.

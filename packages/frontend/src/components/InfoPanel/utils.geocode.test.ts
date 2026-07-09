@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { reverseGeocode } from './geocode.js';
+import { reverseGeocode } from './utils.geocode.js';
 
 function makeMapboxResponse(context: { id: string; text: string; short_code?: string }[]) {
   return {

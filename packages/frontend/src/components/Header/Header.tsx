@@ -6,7 +6,7 @@ import { useUIStore } from '@/store/uiStore';
 export const HEADER_HEIGHT = 48; // keep in sync with h-12 below
 const SCRUBBER_RANGE_OPTIONS = [30, 60, 90] as const;
 import { HeaderMenu } from './HeaderMenu';
-import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './icons';
+import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './Icons';
 import { LanguagePill } from './LanguagePill';
 import { Search } from './Search';
 

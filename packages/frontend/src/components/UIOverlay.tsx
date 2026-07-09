@@ -1,7 +1,7 @@
 import { SidebarReopenButton } from './Sidebar';
-import { SidebarToggleFAB } from './SidebarToggleFAB/SidebarToggleFAB';
+import { SidebarToggleFAB } from './SidebarToggleFAB';
 import { InfoPanel } from './InfoPanel/InfoPanel';
-import { HintPill } from './HintPill/HintPill';
+import { HintPill } from './HintPill';
 import { ErrorBoundary } from './ErrorBoundary';
 
 export function UIOverlay() {

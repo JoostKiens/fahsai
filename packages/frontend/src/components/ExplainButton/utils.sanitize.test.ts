@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeExplanation, parseBoldSegments } from './sanitize.js';
+import { sanitizeExplanation, parseBoldSegments } from './utils.sanitize.js';
 
 describe('sanitizeExplanation', () => {
   it('passes plain text through unchanged', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import Fuse from 'fuse.js';
 import type { LatestMeasurement } from '../../hooks/useStationReadings';
-import { FUSE_KEYS, FUSE_THRESHOLD, buildGeocodeUrl } from './searchConfig';
+import { FUSE_KEYS, FUSE_THRESHOLD, buildGeocodeUrl } from './utils.search-config';
 
 const STATIONS: LatestMeasurement[] = [
   {

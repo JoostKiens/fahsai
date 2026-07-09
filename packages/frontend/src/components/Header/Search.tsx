@@ -6,9 +6,14 @@ import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRef } from '@/utils/mapRef';
 import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
-import { CloseIcon } from './icons';
+import { CloseIcon } from './Icons';
 import { AppScrollArea } from '@/components/AppScrollArea';
-import { FUSE_KEYS, FUSE_THRESHOLD, MAX_STATION_RESULTS, buildGeocodeUrl } from './searchConfig';
+import {
+  FUSE_KEYS,
+  FUSE_THRESHOLD,
+  MAX_STATION_RESULTS,
+  buildGeocodeUrl,
+} from './utils.search-config';
 
 interface PlaceResult {
   name: string;

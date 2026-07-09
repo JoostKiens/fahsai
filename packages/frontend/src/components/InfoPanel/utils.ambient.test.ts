@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { degToCompass, findNearestAQPoint, findNearestWind } from './ambient.js';
+import { degToCompass, findNearestAQPoint, findNearestWind } from './utils.ambient.js';
 import type { PM25GridPoint, WindReading } from '@thailand-aq/types';
 
 describe('degToCompass', () => {
