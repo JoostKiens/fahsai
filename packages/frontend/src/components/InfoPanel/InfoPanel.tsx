@@ -15,7 +15,7 @@ import { CountryFlag, alpha2ToIso3 } from './CountryFlag';
 import { findNearestAQPoint, findNearestWind, degToCompass } from './utils.ambient';
 import { useCamsGrid, useStationReadings, useWind } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
-import { dateLocale } from '@/i18n';
+import { dateLocale, toDisplayYear } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { YearCurve } from './YearCurve';
 import { useStationBaseline } from './useStationBaseline';
@@ -444,7 +444,7 @@ function StationPanel({
   locale: string;
   onExpand?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const cat = pm25ToCategory(station.pm25);
   const explainRateLimit = useUIStore((s) => s.explainRateLimit);
   const setExplainRateLimit = useUIStore((s) => s.setExplainRateLimit);
@@ -458,7 +458,7 @@ function StationPanel({
   const baselineData = baselineResp?.data;
   const baselineYears =
     baselineResp?.minYear && baselineResp?.maxYear
-      ? `${baselineResp.minYear}–${baselineResp.maxYear}`
+      ? `${toDisplayYear(baselineResp.minYear, i18n.language)}–${toDisplayYear(baselineResp.maxYear, i18n.language)}`
       : null;
 
   // historyDays covers selectedDate-4 through selectedDate+1 (6 rows, see useStationHistory).
