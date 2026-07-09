@@ -326,10 +326,12 @@ function PanelHeader({
           </div>
         )}
         {panelType === 'station' && stationName && (
-          <p className="text-[14px] font-semibold text-zinc-100 leading-tight">{stationName}</p>
+          <p className="text-[14px] font-semibold text-zinc-100 leading-tight wrap-break-word">
+            {stationName}
+          </p>
         )}
         {panelType === 'powerPlant' && plantName && (
-          <p className="text-[14px] font-semibold text-zinc-100 leading-tight truncate">
+          <p className="text-[14px] font-semibold text-zinc-100 leading-tight wrap-break-word">
             {plantName}
           </p>
         )}
@@ -337,10 +339,10 @@ function PanelHeader({
           <Shimmer className="h-5 w-28 mt-0.5" />
         ) : placeName ? (
           <p
-            className={`truncate flex items-center gap-1 mt-0.5 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[13px] text-zinc-300' : 'text-[14px] font-semibold text-zinc-100'}`}
+            className={`flex items-start gap-1 mt-0.5 ${panelType === 'station' || panelType === 'powerPlant' ? 'text-[13px] text-zinc-300' : 'text-[14px] font-semibold text-zinc-100'}`}
           >
-            <CountryFlag iso3={countryIso3} />
-            <span className="truncate">{placeName}</span>
+            <CountryFlag iso3={countryIso3} className="mt-1" />
+            <span className="min-w-0 wrap-break-word">{placeName}</span>
           </p>
         ) : panelType === 'fire' ? (
           <p className="flex items-center gap-1 text-[14px] font-semibold text-zinc-100 mt-0.5">
