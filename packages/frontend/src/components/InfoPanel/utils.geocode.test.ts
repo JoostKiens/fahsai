@@ -32,7 +32,7 @@ describe('reverseGeocode', () => {
       ]),
     );
 
-    const result = await reverseGeocode(98.99, 18.79, 'pk.test');
+    const result = await reverseGeocode(98.99, 18.79, 'pk.test', 'en');
     expect(result.placeName).toBe('Chiang Mai · Chiang Mai Province');
     expect(result.countryAlpha2).toBe('th');
   });
@@ -47,14 +47,14 @@ describe('reverseGeocode', () => {
       ]),
     );
 
-    const result = await reverseGeocode(100.5, 13.75, 'pk.test');
+    const result = await reverseGeocode(100.5, 13.75, 'pk.test', 'en');
     expect(result.placeName).toBe('Bangkok');
   });
 
   it('returns null fields when response has no features', async () => {
     mockFetch({ features: [] });
 
-    const result = await reverseGeocode(0.0, 0.0, 'pk.test');
+    const result = await reverseGeocode(0.0, 0.0, 'pk.test', 'en');
     expect(result.placeName).toBeNull();
     expect(result.countryAlpha2).toBeNull();
   });
@@ -62,7 +62,7 @@ describe('reverseGeocode', () => {
   it('returns null fields and caches the error on network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
-    const result = await reverseGeocode(1.0, 1.0, 'pk.test');
+    const result = await reverseGeocode(1.0, 1.0, 'pk.test', 'en');
     expect(result.placeName).toBeNull();
     expect(result.countryAlpha2).toBeNull();
   });
@@ -70,7 +70,7 @@ describe('reverseGeocode', () => {
   it('returns null fields when response is not ok', async () => {
     mockFetch({}, false);
 
-    const result = await reverseGeocode(2.0, 2.0, 'pk.test');
+    const result = await reverseGeocode(2.0, 2.0, 'pk.test', 'en');
     expect(result.placeName).toBeNull();
     expect(result.countryAlpha2).toBeNull();
   });
@@ -89,9 +89,34 @@ describe('reverseGeocode', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     // Use coordinates that won't collide with other tests (unique to 3dp)
-    await reverseGeocode(98.388, 7.882, 'pk.test');
-    await reverseGeocode(98.388, 7.882, 'pk.test');
+    await reverseGeocode(98.388, 7.882, 'pk.test', 'en');
+    await reverseGeocode(98.388, 7.882, 'pk.test', 'en');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes the language query param in the request URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(makeMapboxResponse([])),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await reverseGeocode(99.111, 8.222, 'pk.test', 'th');
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('language=th'));
+  });
+
+  it('does not serve a cached result across different languages', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(makeMapboxResponse([])),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await reverseGeocode(99.222, 8.333, 'pk.test', 'en');
+    await reverseGeocode(99.222, 8.333, 'pk.test', 'th');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

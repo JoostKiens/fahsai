@@ -9,14 +9,15 @@ export async function reverseGeocode(
   lng: number,
   lat: number,
   accessToken: string,
+  language: string,
 ): Promise<GeocodeResult> {
-  const key = `${lng.toFixed(3)},${lat.toFixed(3)}`;
+  const key = `${lng.toFixed(3)},${lat.toFixed(3)},${language}`;
   if (cache.has(key)) return cache.get(key)!;
 
   try {
     const res = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
-        `?types=locality,place,district&limit=1&access_token=${accessToken}`,
+        `?types=locality,place,district&limit=1&language=${language}&access_token=${accessToken}`,
     );
     if (!res.ok) throw new Error('geocode failed');
     const data = (await res.json()) as {

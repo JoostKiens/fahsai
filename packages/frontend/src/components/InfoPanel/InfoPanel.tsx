@@ -60,13 +60,13 @@ export function InfoPanel() {
     setPlaceName(null);
     setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
-    void reverseGeocode(lng, lat, TOKEN)
+    void reverseGeocode(lng, lat, TOKEN, i18n.language)
       .then(({ placeName: name, countryAlpha2 }) => {
         setPlaceName(name);
         setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
       })
       .finally(() => setGeocodeLoading(false));
-  }, [coordKey]);
+  }, [coordKey, i18n.language]);
 
   const stationId = selectedPoint?.station?.stationId ?? null;
   useEffect(() => {
