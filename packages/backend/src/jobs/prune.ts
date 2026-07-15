@@ -1,9 +1,10 @@
 import { supabase } from '../db/client.js';
 
 // Retention policy: 90-day max scrubber window + 7-day Explain history buffer
-// + timezone/prune-timing buffer, raised to 120 days for DB-size headroom
-// (projected burning-season peak ~0.42-0.43 GB of the 0.5 GB limit).
-const RETENTION_DAYS = 120;
+// + timezone/prune-timing buffer, raised to 140 days for DB-size headroom
+// (projected burning-season peak ~0.46 GB of the 0.5 GB limit — see
+// docs/claude/database.md for the per-table breakdown this is based on).
+const RETENTION_DAYS = 140;
 
 const PRUNE_TARGETS = [
   { key: 'firePointsDeleted', table: 'fire_points', column: 'detected_at', cutoff: 'iso' },
