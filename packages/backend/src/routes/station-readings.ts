@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import type { Measurement, BaselineStat } from '@thailand-aq/types';
+import type { BaselineStat } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { forEachPage } from '../utils/backfill.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const MAX_HISTORY_HOURS = 168; // 7 days
 const CURRENT_DATE_TTL_SECONDS = 3600;
@@ -22,6 +23,12 @@ interface DayData {
   readingCount: number;
   weather: WeatherData | null;
   baseline: BaselineStat | null;
+}
+
+interface Measurement {
+  stationId: string;
+  value: number;
+  measuredAt: string;
 }
 
 interface LatestMeasurement {
@@ -188,9 +195,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       }
 
       // Anchor the window to the requested end date (BKK); default to today BKK.
-      const endDateStr =
-        req.query.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
-      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const endDateStr = req.query.date ?? bangkokDateString();
+      const todayBkk = bangkokDateString();
       const isHistorical = endDateStr < todayBkk;
 
       const [yr, mo, dy] = endDateStr.split('-').map(Number);
@@ -246,8 +252,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const byDay = new Map<string, { latest: number; latestMs: number; count: number }>();
       for (const row of data ?? []) {
         const measuredMs = new Date(row.measured_at as string).getTime();
-        const bkkMs = measuredMs + ICT_OFFSET_MS;
-        const date = new Date(bkkMs).toISOString().slice(0, 10);
+        const date = bangkokDateString(measuredMs);
         const val = row.value as number;
         const entry = byDay.get(date);
         if (!entry) {
@@ -285,7 +290,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const result: DayData[] = [];
       for (let i = 0; i < days; i++) {
         const dayUtcMs = startMidnightUtcMs + i * MS_PER_DAY;
-        const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
+        const date = bangkokDateString(dayUtcMs);
         const entry = byDay.get(date);
         const m = Number(date.slice(5, 7));
         let d = Number(date.slice(8, 10));

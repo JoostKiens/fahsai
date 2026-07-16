@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
@@ -9,8 +10,6 @@ const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-
 // Repeated 429s after waiting for reset means the hourly quota is exhausted.
 // Continuing would risk a temporary or permanent ban from OpenAQ.
 const CONSECUTIVE_429_ABORT = 5;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runStationReadingsIngest(date?: string): Promise<{
   sensorsQueried: number;

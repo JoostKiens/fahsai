@@ -1,7 +1,7 @@
 import type { RawExplainData, Season, FixtureUpwindSource } from '../scripts/eval/types.js';
 import type { StationWeatherRecord } from './fetchExplainContext.js';
 import type { PeerAnalysis } from './analyzePeers.js';
-import { ICT_OFFSET_MS } from '@thailand-aq/consts';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 type SourceInput = {
   name: string;
@@ -131,9 +131,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
   // Daily averages grouped by BKK calendar day
   const dailyMap = new Map<string, number[]>();
   for (const row of stationReadings) {
-    const bkkDate = new Date(new Date(row.measured_at).getTime() + ICT_OFFSET_MS)
-      .toISOString()
-      .slice(0, 10);
+    const bkkDate = bangkokDateString(new Date(row.measured_at));
     if (!dailyMap.has(bkkDate)) dailyMap.set(bkkDate, []);
     dailyMap.get(bkkDate)!.push(row.value);
   }

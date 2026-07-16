@@ -1,9 +1,10 @@
 import pRetry, { AbortError } from 'p-retry';
-import { ICT_OFFSET_MS, MS_PER_DAY } from '@thailand-aq/consts';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const DB_BATCH_SIZE = 500;
 // Full weather grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
@@ -19,14 +20,14 @@ export function windCacheKey(date: string): string {
 
 // Bangkok calendar day (Asia/Bangkok) — the yesterdayBkk default this job normally targets.
 export function getYesterdayBkk(): string {
-  return new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY).toISOString().slice(0, 10);
+  return bangkokDateString(Date.now() - MS_PER_DAY);
 }
 
 export async function runWeatherIngest(date?: string): Promise<{ stored: number }> {
   // Default to yesterday (Bangkok calendar day): the 14:00 BKK snapshot for today
   // (BKK) doesn't exist yet when the cron runs (02:00/04:00 UTC = 09:00/11:00 BKK,
   // both before 14:00 BKK), so always request the prior, fully-elapsed BKK day.
-  const calendarDayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+  const calendarDayBkk = bangkokDateString();
   const targetDate = date ?? getYesterdayBkk();
 
   console.log(`[weather-ingest] Fetching weather grid for ${targetDate} from Open-Meteo...`);

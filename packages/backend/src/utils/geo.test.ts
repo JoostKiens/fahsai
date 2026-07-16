@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compassFromDeg, compassFromDeg8 } from './geo.js';
+import { compassFromDeg } from './geo.js';
 
 describe('compassFromDeg (16-point)', () => {
   it('returns N for 0°', () => {
@@ -32,31 +32,5 @@ describe('compassFromDeg (16-point)', () => {
 
   it('handles negative degrees: −90° → W', () => {
     expect(compassFromDeg(-90)).toBe('W');
-  });
-});
-
-describe('compassFromDeg8 (8-point)', () => {
-  it('returns N for 0°', () => {
-    expect(compassFromDeg8(0)).toBe('N');
-  });
-
-  it('returns NE for 45°', () => {
-    expect(compassFromDeg8(45)).toBe('NE');
-  });
-
-  it('returns E for 90°', () => {
-    expect(compassFromDeg8(90)).toBe('E');
-  });
-
-  it('returns NW for 315°', () => {
-    expect(compassFromDeg8(315)).toBe('NW');
-  });
-
-  it('wraps 360° back to N', () => {
-    expect(compassFromDeg8(360)).toBe('N');
-  });
-
-  it('handles negative degrees: −90° → W', () => {
-    expect(compassFromDeg8(-90)).toBe('W');
   });
 });

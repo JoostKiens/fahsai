@@ -99,8 +99,11 @@ existing migrations.
 `station_fire_pressure` `date` columns are Bangkok calendar days (Asia/Bangkok), not UTC days.
 Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UTC-day fetch
 sums `precipitation_sum` over the wrong 24h window). Don't reintroduce `timezone: 'UTC'` or an
-ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the `ICT_OFFSET_MS`
-idiom instead (see `getYesterdayBkk()` in `weather-ingest.ts`/`cams-ingest.ts`).
+ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use
+`bangkokDateString()` from `packages/backend/src/utils/bkkDate.ts` to convert an instant to its
+Bangkok calendar day (see `getYesterdayBkk()` in `weather-ingest.ts`/`cams-ingest.ts`). Only
+fall back to manual `ICT_OFFSET_MS` arithmetic when you need a UTC millisecond instant (e.g. a
+query range boundary), not a date string, since `Intl.DateTimeFormat` only produces the latter.
 
 The `weather-today`/`weather-fallback`/`cams`/`cams-fallback`/`station-fire-pressure` cron
 times in `packages/backend/railway/*.json` all currently fire before 17:00 UTC (or, for the

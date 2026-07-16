@@ -8,3 +8,4 @@ export { useUrlSync } from './useUrlSync';
 export { useSelectionHydration } from './useSelectionHydration';
 export { useDataNotifications } from './useDataNotifications';
 export { usePm25Timeline } from './usePm25Timeline';
+export { useLatestDate } from './useLatestDate';

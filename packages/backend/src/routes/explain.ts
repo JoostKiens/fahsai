@@ -17,6 +17,7 @@ import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildScientificContext } from '../lib/buildScientificContext.js';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { fetchExplainContext } from '../lib/fetchExplainContext.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 import { fetchAllPages } from '../utils/backfill.js';
@@ -130,7 +131,7 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       }
 
-      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const todayBkk = bangkokDateString();
       const quotaKey = `explain:quota:${todayBkk}`;
       const count = await redis.incr(quotaKey);
       if (count === 1) await redis.expire(quotaKey, 86400);
@@ -142,8 +143,7 @@ export function explainRoutes(app: FastifyInstance): void {
           .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + MS_PER_DAY });
       }
 
-      const selectedDate =
-        req.body.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const selectedDate = req.body.date ?? bangkokDateString();
       const normalizedLang = lang ?? 'en';
 
       if (EXPLAIN_CACHE_ENABLED) {

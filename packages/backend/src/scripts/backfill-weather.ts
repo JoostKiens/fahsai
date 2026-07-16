@@ -14,6 +14,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { setTimeout as sleep } from 'node:timers/promises';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -140,7 +141,7 @@ async function pollCdsJob(jobId: string): Promise<string> {
   console.log(`${LOG} Polling CDS job ${jobId} every ${POLL_INTERVAL_MS / 1000}s (max 2h)...`);
 
   for (let poll = 0; poll < MAX_POLLS; poll++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    await sleep(POLL_INTERVAL_MS);
 
     const resp = await fetch(`${CDS_API_BASE}/retrieve/v1/jobs/${jobId}`, {
       headers: cdsHeaders(),

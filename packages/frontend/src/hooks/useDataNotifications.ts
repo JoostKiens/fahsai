@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useFires } from './useFires';
@@ -8,6 +8,17 @@ import { useCamsGrid } from './useCamsGrid';
 import { useTimeStore, selectIsSettled } from '@/store/timeStore';
 
 type ToastId = string | number;
+
+function showGapToastOnce(
+  idRef: MutableRefObject<ToastId | null>,
+  isSettled: boolean,
+  isSuccess: boolean,
+  isEmpty: boolean,
+  message: string,
+): void {
+  if (!isSettled || !isSuccess || idRef.current !== null) return;
+  if (isEmpty) idRef.current = toast(message, { duration: Infinity });
+}
 
 export function useDataNotifications() {
   const { t } = useTranslation();
@@ -26,49 +37,36 @@ export function useDataNotifications() {
 
   // Dismiss all active gap toasts when the date changes
   useEffect(() => {
-    if (firesId.current !== null) {
-      toast.dismiss(firesId.current);
-      firesId.current = null;
-    }
-    if (stationId.current !== null) {
-      toast.dismiss(stationId.current);
-      stationId.current = null;
-    }
-    if (windId.current !== null) {
-      toast.dismiss(windId.current);
-      windId.current = null;
-    }
-    if (camsId.current !== null) {
-      toast.dismiss(camsId.current);
-      camsId.current = null;
+    for (const idRef of [firesId, stationId, windId, camsId]) {
+      if (idRef.current !== null) {
+        toast.dismiss(idRef.current);
+        idRef.current = null;
+      }
     }
   }, [selectedDate]);
 
-  useEffect(() => {
-    if (!isSettled || !fires.isSuccess || firesId.current !== null) return;
-    if (fires.data.length === 0) {
-      firesId.current = toast(t('toast.noFires'), { duration: Infinity });
-    }
-  }, [isSettled, fires.isSuccess, fires.data, t]);
+  const firesEmpty = fires.data?.length === 0;
+  useEffect(
+    () => showGapToastOnce(firesId, isSettled, fires.isSuccess, firesEmpty, t('toast.noFires')),
+    [isSettled, fires.isSuccess, firesEmpty, t],
+  );
 
-  useEffect(() => {
-    if (!isSettled || !aqi.isSuccess || stationId.current !== null) return;
-    if (aqi.data.length === 0) {
-      stationId.current = toast(t('toast.noStationReadings'), { duration: Infinity });
-    }
-  }, [isSettled, aqi.isSuccess, aqi.data, t]);
+  const aqiEmpty = aqi.data?.length === 0;
+  useEffect(
+    () =>
+      showGapToastOnce(stationId, isSettled, aqi.isSuccess, aqiEmpty, t('toast.noStationReadings')),
+    [isSettled, aqi.isSuccess, aqiEmpty, t],
+  );
 
-  useEffect(() => {
-    if (!isSettled || !wind.isSuccess || windId.current !== null) return;
-    if (wind.data.length === 0) {
-      windId.current = toast(t('toast.noWind'), { duration: Infinity });
-    }
-  }, [isSettled, wind.isSuccess, wind.data, t]);
+  const windEmpty = wind.data?.length === 0;
+  useEffect(
+    () => showGapToastOnce(windId, isSettled, wind.isSuccess, windEmpty, t('toast.noWind')),
+    [isSettled, wind.isSuccess, windEmpty, t],
+  );
 
-  useEffect(() => {
-    if (!isSettled || !cams.isSuccess || camsId.current !== null) return;
-    if (cams.data.length === 0) {
-      camsId.current = toast(t('toast.noCams'), { duration: Infinity });
-    }
-  }, [isSettled, cams.isSuccess, cams.data, t]);
+  const camsEmpty = cams.data?.length === 0;
+  useEffect(
+    () => showGapToastOnce(camsId, isSettled, cams.isSuccess, camsEmpty, t('toast.noCams')),
+    [isSettled, cams.isSuccess, camsEmpty, t],
+  );
 }

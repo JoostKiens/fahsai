@@ -3,7 +3,7 @@ import { fetchAllPages } from './backfill.js';
 
 export const SNAP_LAT_MIN = 1.0;
 export const SNAP_LNG_MIN = 89.0;
-export const SNAP_STEP = 0.4;
+const SNAP_STEP = 0.4;
 export const WEATHER_STEP = 0.4;
 export const WEATHER_LNG_MIN = 89;
 export const WEATHER_LAT_MIN = 1;

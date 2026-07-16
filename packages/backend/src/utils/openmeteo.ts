@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_HOUR } from '@thailand-aq/consts';
 import {
@@ -129,7 +130,7 @@ async function fetchWeatherBatch(
     }
     console.warn(`[openmeteo] waiting ${Math.round(delayMs / 1000)}s: ${delaySource}`);
 
-    await new Promise((r) => setTimeout(r, delayMs));
+    await sleep(delayMs);
   }
 
   if (!res || !res.ok) {
@@ -195,7 +196,7 @@ export async function fetchWeatherGridForDate(
     console.log(`[openmeteo] weather batch ${i + 1}/${batches.length} (${b.lats.length} points)`);
     const readings = await fetchWeatherBatch(b.lats, b.lngs, date, isToday);
     results.push(...readings);
-    if (i < batches.length - 1) await new Promise((r) => setTimeout(r, WEATHER_BATCH_PAUSE_MS));
+    if (i < batches.length - 1) await sleep(WEATHER_BATCH_PAUSE_MS);
   }
 
   return results;
@@ -283,7 +284,7 @@ async function fetchAQBatch(
       `[openmeteo] 429 on AQ batch (attempt ${attempt + 1}/${AQ_RETRY_DELAYS_MS.length}), source=${delaySource}, waiting ${Math.round(delay / 1000)}s...`,
     );
     if (delay === 0) break;
-    await new Promise((r) => setTimeout(r, delay));
+    await sleep(delay);
   }
 
   if (!res?.ok) {
@@ -341,7 +342,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
 
   const results: PM25GridPoint[] = [];
   for (let i = 0; i < batches.length; i += AQ_BATCH_CONCURRENCY) {
-    if (i > 0) await new Promise((r) => setTimeout(r, AQ_BATCH_PAUSE_MS));
+    if (i > 0) await sleep(AQ_BATCH_PAUSE_MS);
     const chunk = batches.slice(i, i + AQ_BATCH_CONCURRENCY);
     console.log(
       `[openmeteo] AQ batch ${i + 1}/${batches.length} (${chunk.reduce((n, b) => n + b.lats.length, 0)} points)`,
@@ -362,7 +363,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
             console.warn(
               `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
             );
-            await new Promise((r) => setTimeout(r, AQ_BATCH_CONNECT_RETRY_DELAY_MS));
+            await sleep(AQ_BATCH_CONNECT_RETRY_DELAY_MS);
           }
         }
         throw new Error('[openmeteo] unreachable');

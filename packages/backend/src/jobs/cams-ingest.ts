@@ -1,9 +1,10 @@
 import pRetry, { AbortError } from 'p-retry';
-import { ICT_OFFSET_MS, MS_PER_DAY } from '@thailand-aq/consts';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAirQualityGrid, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
@@ -11,7 +12,7 @@ const MIN_COMPLETE_POINTS = 4000;
 
 // Bangkok calendar day (Asia/Bangkok) — the yesterdayBkk default this job normally targets.
 export function getYesterdayBkk(): string {
-  return new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY).toISOString().slice(0, 10);
+  return bangkokDateString(Date.now() - MS_PER_DAY);
 }
 
 export async function runCamsIngest(date?: string): Promise<{ stored: number }> {

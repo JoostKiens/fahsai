@@ -19,7 +19,7 @@ export function useUrlSync() {
   // Language is expressed by the path (/th/ vs /), not a query param.
   useEffect(() => {
     // Wait until the real latest date is known before writing the URL. Otherwise the optimistic
-    // default (Bangkok-yesterday) gets stamped into ?date= and LatestDateProvider misreads its
+    // default (Bangkok-yesterday) gets stamped into ?date= and useLatestDate misreads its
     // own guess as a user-supplied future date, firing a spurious "date not available" toast.
     if (!latestDateResolved) return;
     const t = setTimeout(() => {

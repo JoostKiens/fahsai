@@ -56,7 +56,6 @@ export function createFiresLayer(
   opacity: number,
   zoom: number,
   onClick: (info: PickingInfo) => void,
-  radiusScale = 1,
 ): Layer[] {
   const baseRadius = baseRadiusForZoom(zoom);
   return RINGS.map(
@@ -68,7 +67,6 @@ export function createFiresLayer(
         getPosition: (d) => [d.lng, d.lat],
         radiusUnits: 'pixels',
         getRadius: (d) => ring.mult * baseRadius * intensityMultiplier(d),
-        radiusScale,
         getFillColor: (d) => ringColor(ring, d),
         updateTriggers: { getRadius: baseRadius },
         parameters: ADDITIVE_BLEND,

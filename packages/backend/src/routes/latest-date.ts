@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { ICT_OFFSET_MS, MS_PER_DAY } from '@thailand-aq/consts';
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis } from '../cache/client.js';
 import { supabase } from '../db/client.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const CACHE_KEY = 'latest-complete-date';
 const CACHE_TTL_SECONDS = 30 * 60; // 30 min — refreshes well within the daily ingest window
@@ -19,10 +20,8 @@ export function latestDateRoutes(app: FastifyInstance): void {
     const now = Date.now();
 
     for (let offset = 1; offset <= LOOKBACK_DAYS; offset++) {
-      const date = new Date(now + ICT_OFFSET_MS - offset * MS_PER_DAY).toISOString().slice(0, 10);
-      const nextDate = new Date(now + ICT_OFFSET_MS - (offset - 1) * MS_PER_DAY)
-        .toISOString()
-        .slice(0, 10);
+      const date = bangkokDateString(now - offset * MS_PER_DAY);
+      const nextDate = bangkokDateString(now - (offset - 1) * MS_PER_DAY);
 
       const [aqResult, fireResult, measResult, windResult] = await Promise.all([
         supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),
