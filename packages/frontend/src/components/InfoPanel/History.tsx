@@ -161,7 +161,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                 key={date}
                 className="flex flex-col items-center flex-1"
                 onPointerEnter={(e) => {
-                  if (e.pointerType === 'touch' || !hasData) return;
+                  if (e.pointerType !== 'mouse' || !hasData) return;
                   const col = e.currentTarget.getBoundingClientRect();
                   setTooltip({
                     value: val,
@@ -171,12 +171,12 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   setActiveDate(date);
                 }}
                 onPointerLeave={(e) => {
-                  if (e.pointerType === 'touch') return;
+                  if (e.pointerType !== 'mouse') return;
                   setTooltip(null);
                   setActiveDate(null);
                 }}
                 onPointerDown={(e) => {
-                  if (e.pointerType !== 'touch' || !hasData) return;
+                  if (e.pointerType === 'mouse' || !hasData) return;
                   if (isActive) {
                     setTooltip(null);
                     setActiveDate(null);
