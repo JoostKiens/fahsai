@@ -77,7 +77,7 @@ type TooltipState = { value: number; x: number; y: number } | null;
 function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
   return createPortal(
     <div
-      className="fixed z-10 pointer-events-none"
+      className="fixed z-60 pointer-events-none"
       style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 6px))' }}
     >
       <motion.div
