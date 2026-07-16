@@ -56,16 +56,23 @@ export function computeStationFirePressureScores(
   });
 }
 
+// 14-day trailing window anchored at Bangkok midnight for `targetDate` (a BKK calendar day).
+export function bkkMidnightWindow(targetDate: string): { windowStart: string; windowEnd: string } {
+  const targetMs = new Date(targetDate + 'T00:00:00+07:00').getTime();
+  return {
+    windowStart: new Date(targetMs - WINDOW_DAYS * 86400_000).toISOString(),
+    windowEnd: new Date(targetDate + 'T00:00:00+07:00').toISOString(),
+  };
+}
+
 export async function runStationFirePressure(
   targetDate: string,
   stations: Station[],
 ): Promise<{ upserted: number }> {
-  const targetMs = new Date(targetDate + 'T00:00:00Z').getTime();
-  const windowStart = new Date(targetMs - WINDOW_DAYS * 86400_000).toISOString();
-  const windowEnd = new Date(targetDate + 'T00:00:00Z').toISOString();
+  const { windowStart, windowEnd } = bkkMidnightWindow(targetDate);
 
   console.log(
-    `${LOG} Computing scores for ${targetDate} (window: ${windowStart.slice(0, 10)} – ${new Date(targetMs - 86400_000).toISOString().slice(0, 10)})`,
+    `${LOG} Computing scores for ${targetDate} (window: ${windowStart.slice(0, 10)} – ${new Date(new Date(windowEnd).getTime() - 86400_000).toISOString().slice(0, 10)})`,
   );
 
   const allFires = await fetchAllPages<FireRow>(

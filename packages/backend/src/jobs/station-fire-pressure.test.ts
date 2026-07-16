@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 // throwing when SUPABASE_* env vars are absent in the test environment.
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 
-import { computeStationFirePressureScores } from './station-fire-pressure.js';
+import { computeStationFirePressureScores, bkkMidnightWindow } from './station-fire-pressure.js';
 
 const RADIUS_KM = 75;
 const STATION = { id: 'st1', lat: 15.0, lng: 100.0 };
@@ -61,5 +61,20 @@ describe('computeStationFirePressureScores', () => {
     const farResult = results.find((r) => r.stationId === 'far')!;
     expect(nearResult.fireCount).toBe(1);
     expect(farResult.fireCount).toBe(0);
+  });
+});
+
+describe('bkkMidnightWindow', () => {
+  it('anchors windowEnd at Bangkok midnight, not UTC midnight', () => {
+    const { windowEnd } = bkkMidnightWindow('2026-07-16');
+    // BKK midnight on 2026-07-16 is 2026-07-15T17:00:00.000Z, not the UTC-midnight
+    // 2026-07-16T00:00:00.000Z the pre-fix window used.
+    expect(windowEnd).toBe('2026-07-15T17:00:00.000Z');
+  });
+
+  it('spans exactly 14 days between windowStart and windowEnd', () => {
+    const { windowStart, windowEnd } = bkkMidnightWindow('2026-07-16');
+    const spanDays = (Date.parse(windowEnd) - Date.parse(windowStart)) / 86_400_000;
+    expect(spanDays).toBe(14);
   });
 });

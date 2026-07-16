@@ -1,15 +1,11 @@
+import { ICT_OFFSET_MS, MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
 
 const LOG = '[station-fire-pressure-ingest]';
 
 const targetDate =
-  process.argv[2] ??
-  (() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() - 1);
-    return d.toISOString().slice(0, 10);
-  })();
+  process.argv[2] ?? new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY).toISOString().slice(0, 10);
 
 const { data, error } = await supabase
   .from('stations')

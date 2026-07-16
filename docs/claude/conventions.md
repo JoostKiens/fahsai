@@ -95,6 +95,21 @@ the frontend or run it manually in rapid succession.
 **Schema migrations** — all schema changes use new Supabase migration files. Never modify
 existing migrations.
 
+**Ingest date semantics**: `weather_readings`, `station_weather`, `cams_grid`, and
+`station_fire_pressure` `date` columns are Bangkok calendar days (Asia/Bangkok), not UTC days.
+Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UTC-day fetch
+sums `precipitation_sum` over the wrong 24h window). Don't reintroduce `timezone: 'UTC'` or an
+ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the `ICT_OFFSET_MS`
+idiom instead (see `getYesterdayBkk()` in `weather-ingest.ts`/`cams-ingest.ts`).
+
+The `weather-today`/`weather-fallback`/`cams`/`cams-fallback`/`station-fire-pressure` cron
+times in `packages/backend/railway/*.json` all currently fire before 17:00 UTC (or, for the
+`cams`/`cams-fallback` pair, at a time whose Bangkok-yesterday still resolves to the same date
+their old UTC-based calc used), so BKK-today equals UTC-today at every run and `getYesterdayBkk()`
+returns the same date the pre-fix UTC calc would have. If any of these cron times are ever
+moved, re-derive which Bangkok day `getYesterdayBkk()` resolves to at the new run time before
+assuming the schedule still targets the intended date.
+
 **Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
 `vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
 by tests will fail to resolve. Only `type` imports survive because TypeScript erases them

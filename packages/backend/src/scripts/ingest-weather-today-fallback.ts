@@ -1,13 +1,9 @@
 import { supabase } from '../db/client.js';
-import { runWeatherIngest } from '../jobs/weather-ingest.js';
+import { runWeatherIngest, getYesterdayBkk } from '../jobs/weather-ingest.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 const MIN_COMPLETE_POINTS = 4000;
-const yesterday = (() => {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-})();
+const yesterday = getYesterdayBkk();
 
 try {
   const { count, error } = await supabase

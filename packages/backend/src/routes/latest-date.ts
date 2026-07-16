@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { MS_PER_DAY } from '@thailand-aq/consts';
+import { ICT_OFFSET_MS, MS_PER_DAY } from '@thailand-aq/consts';
 import { redis } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 
@@ -19,21 +19,23 @@ export function latestDateRoutes(app: FastifyInstance): void {
     const now = Date.now();
 
     for (let offset = 1; offset <= LOOKBACK_DAYS; offset++) {
-      const date = new Date(now - offset * MS_PER_DAY).toISOString().slice(0, 10);
-      const nextDate = new Date(now - (offset - 1) * MS_PER_DAY).toISOString().slice(0, 10);
+      const date = new Date(now + ICT_OFFSET_MS - offset * MS_PER_DAY).toISOString().slice(0, 10);
+      const nextDate = new Date(now + ICT_OFFSET_MS - (offset - 1) * MS_PER_DAY)
+        .toISOString()
+        .slice(0, 10);
 
       const [aqResult, fireResult, measResult, windResult] = await Promise.all([
         supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),
         supabase
           .from('fire_points')
           .select('*', { count: 'exact', head: true })
-          .gte('detected_at', `${date}T00:00:00Z`)
-          .lt('detected_at', `${nextDate}T00:00:00Z`),
+          .gte('detected_at', `${date}T00:00:00+07:00`)
+          .lt('detected_at', `${nextDate}T00:00:00+07:00`),
         supabase
           .from('station_readings')
           .select('*', { count: 'exact', head: true })
-          .gte('measured_at', `${date}T00:00:00Z`)
-          .lt('measured_at', `${nextDate}T00:00:00Z`),
+          .gte('measured_at', `${date}T00:00:00+07:00`)
+          .lt('measured_at', `${nextDate}T00:00:00+07:00`),
         supabase
           .from('weather_readings')
           .select('*', { count: 'exact', head: true })
