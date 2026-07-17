@@ -2,8 +2,10 @@
 """
 Read an ERA5 file (GRIB or NetCDF) from CDS and emit NDJSON to stdout.
 Usage: python3 era5-parse.py <path>
+       python3 era5-parse.py --selftest   (sanity-checks the Bangkok-day bucketing logic)
 
-Output — one JSON line per (date, lat, lng):
+Output — one JSON line per (date, lat, lng), where `date` is a Bangkok calendar day
+(Asia/Bangkok, UTC+7, no DST) — matches weather_readings.date, not a UTC calendar day:
   {"date": "2025-01-15", "lat": 15.0, "lng": 100.25, "u10": 2.3, "v10": -1.1, "r": 75.0, "tp_mm": 2.5}
 
 Variables expected:
@@ -144,13 +146,86 @@ def load_netcdf(path: str):
 
 
 # ---------------------------------------------------------------------------
-# Main processing
+# Bangkok-day bucketing
 # ---------------------------------------------------------------------------
+
+def bkk_date(t) -> str:
+    """Bangkok calendar date (Asia/Bangkok, UTC+7, no DST) for a UTC pd.Timestamp."""
+    import pandas as pd
+    return (t + pd.Timedelta(hours=7)).strftime('%Y-%m-%d')
+
+
+def compute_hourly_tp(sorted_tp_times: list, tp_idx: dict, tp) -> dict:
+    """
+    Per-timestamp 1-hour precipitation increment (metres), computed once globally in
+    UTC run order. ERA5 tp is accumulated from the start of each 12-hour forecast run
+    (resets at 00:00/12:00 UTC; the first step of each run, 01:00/13:00 UTC, already
+    equals the 1-hour increment). Must run globally, not per-Bangkok-day-bucket — a
+    Bangkok day (00:00-24:00 BKK = 17:00 UTC to 17:00 UTC) never starts on a run-reset
+    boundary, so resetting the "previous step" tracker per bucket would corrupt the
+    first hour of every Bangkok day.
+    """
+    hourly: dict = {}
+    prev_tp = None
+    prev_hour = None
+    for t in sorted_tp_times:
+        cur = tp[tp_idx[t]]
+        if t.hour in (1, 13) or prev_hour is None:
+            hourly[t] = np.where(cur >= 0, cur, 0.0)
+        else:
+            diff = cur - prev_tp
+            hourly[t] = np.where(diff >= 0, diff, 0.0)
+        prev_tp = cur
+        prev_hour = t.hour
+    return hourly
+
+
+def _selftest() -> None:
+    """Assertion-based sanity check for compute_hourly_tp + bkk_date. No fixtures,
+    no external files — run with: python3 era5-parse.py --selftest"""
+    import pandas as pd
+
+    # Synthetic single-run ERA5 tp series (metres, cumulative within the run), one
+    # 1x1 grid cell, straddling a Bangkok midnight (17:00 UTC) that is NOT a run-reset
+    # boundary (the run started at 13:00 UTC, so 17:00 UTC is 4 hours into the run).
+    hours = [13, 14, 15, 16, 17, 18, 19]
+    cum_m = [0.0015, 0.0030, 0.0045, 0.0060, 0.0075, 0.0090, 0.0105]
+    times = [pd.Timestamp(f'2025-01-15T{h:02d}:00:00') for h in hours]
+    tp = np.array([[[v]] for v in cum_m])  # shape (T, 1, 1)
+    tp_idx = {t: i for i, t in enumerate(times)}
+
+    hourly = compute_hourly_tp(sorted(times), tp_idx, tp)
+
+    # Every real increment is 0.0015 m — including hour 17, the first hour of the
+    # Bangkok day starting at 17:00 UTC, which is NOT a run-reset boundary. A naive
+    # per-Bangkok-day reset would instead read hour 17's raw cumulative value (0.0075 m)
+    # as if it were a fresh 1-hour increment — 5x too high.
+    for t in times:
+        assert abs(float(hourly[t][0][0]) - 0.0015) < 1e-9, f'{t}: {hourly[t]}'
+
+    # Bangkok-day bucketing: hours 13-16 UTC fall in BKK day 2025-01-15 (14:00-23:00 BKK);
+    # hours 17-19 UTC fall in BKK day 2025-01-16 (00:00-02:00 BKK, next day).
+    assert bkk_date(pd.Timestamp('2025-01-15T16:00:00')) == '2025-01-15'
+    assert bkk_date(pd.Timestamp('2025-01-15T17:00:00')) == '2025-01-16'
+
+    # Sum this synthetic slice's contribution to BKK day 2025-01-16 (hours 17-19 only,
+    # not the full day) — correct total is 3 * 0.0015 = 0.0045 m, not the ~0.010 m a
+    # naive per-bucket-reset implementation would produce.
+    bkk_day_2 = [t for t in times if bkk_date(t) == '2025-01-16']
+    total = sum(float(hourly[t][0][0]) for t in bkk_day_2)
+    assert abs(total - 0.0045) < 1e-9, total
+
+    print('[era5-parse] selftest OK', file=sys.stderr)
+
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: era5-parse.py <path>", file=sys.stderr)
+        print("Usage: era5-parse.py <path> | era5-parse.py --selftest", file=sys.stderr)
         sys.exit(1)
+
+    if sys.argv[1] == '--selftest':
+        _selftest()
+        return
 
     path = sys.argv[1]
     fmt  = 'GRIB' if is_grib(path) else 'NetCDF'
@@ -166,19 +241,21 @@ def main() -> None:
     instant_idx = {t: i for i, t in enumerate(times_instant)}
     tp_idx      = {t: i for i, t in enumerate(times_tp)}
 
-    # Group all timestamps by calendar date (UTC)
-    import pandas as pd
+    sorted_tp_times = sorted(t for t in times_tp if t in tp_idx)
+    hourly_tp = compute_hourly_tp(sorted_tp_times, tp_idx, tp)
+
+    # Group all timestamps by Bangkok calendar date — matches weather_readings.date.
     all_times = sorted(set(times_instant) | set(times_tp))
     date_to_times: dict[str, list] = defaultdict(list)
     for t in all_times:
-        date_to_times[t.strftime('%Y-%m-%d')].append(t)
+        date_to_times[bkk_date(t)].append(t)
 
     total_records = 0
 
     for date_str in sorted(date_to_times.keys()):
         day_times = date_to_times[date_str]
 
-        # --- Wind and humidity at 07:00 UTC ---
+        # --- Wind and humidity at 07:00 UTC (= 14:00 BKK) ---
         t07 = next((t for t in day_times if t.hour == 7 and t in instant_idx), None)
         if t07 is None:
             print(f"[era5-parse] WARNING: no 07:00 UTC instant data for {date_str} — skipping",
@@ -190,31 +267,11 @@ def main() -> None:
         v10_07 = v10[idx07]
         rh_07  = rh[idx07] if rh.shape[0] > idx07 else np.full_like(u10_07, np.nan)
 
-        # --- Daily precipitation: sum of hourly increments ---
-        # ERA5 tp is accumulated from the start of each 12-hour forecast run
-        # (resets at 00:00 and 12:00 UTC). The first valid step of each run
-        # (01:00 and 13:00 UTC) already equals the 1-hour increment.
+        # --- Daily precipitation: sum this Bangkok day's already-computed hourly increments ---
         tp_daily = np.zeros((len(lats), len(lngs)))
-        prev_tp   = None
-        prev_hour = None
-
-        day_tp_times = sorted(t for t in day_times if t in tp_idx)
-        for t in day_tp_times:
-            cur = tp[tp_idx[t]]
-            if t.hour in (1, 13) or prev_hour is None:
-                # First step of a forecast run — value IS the increment
-                tp_daily += np.where(cur >= 0, cur, 0.0)
-            else:
-                diff = cur - prev_tp
-                tp_daily += np.where(diff >= 0, diff, 0.0)
-            prev_tp   = cur
-            prev_hour = t.hour
-
-        # Include 00:00 of the following day if present (last step of the 12:00 UTC run)
-        next_day_00 = pd.Timestamp(date_str) + pd.Timedelta(days=1)
-        if next_day_00 in tp_idx and prev_tp is not None:
-            diff = tp[tp_idx[next_day_00]] - prev_tp
-            tp_daily += np.where(diff >= 0, diff, 0.0)
+        for t in day_times:
+            if t in hourly_tp:
+                tp_daily += hourly_tp[t]
 
         tp_mm = tp_daily * 1000.0  # metres → mm
 

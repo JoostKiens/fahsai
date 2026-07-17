@@ -1,8 +1,8 @@
 # Shared TypeScript types (`packages/types`)
 
 Types live in `packages/types/src/` and are imported by both frontend and backend.
-`AQIReading` (earlier design) is gone -- the current model is `Station` + `Measurement`.
-Key files: `measurement.ts`, `station.ts`, `baseline.ts`, `fire.ts`, `wind.ts`, `aq.ts`.
+`AQIReading` (earlier design) is gone -- the current model is built around `Station`.
+Key files: `station.ts`, `baseline.ts`, `fire.ts`, `wind.ts`, `aq.ts`.
 
 ```typescript
 // fire.ts
@@ -31,16 +31,6 @@ export interface Station {
   isMobile:   boolean;
   isMonitor:  boolean | null;
   parameters: string[];
-}
-
-// measurement.ts
-export interface Measurement {
-  stationId:  string;
-  sensorId:   number;
-  parameter:  string;   // 'pm25' | 'pm10' | 'no2' | 'o3' | 'so2' | 'co' | 'bc'
-  value:      number;
-  unit:       string;   // 'µg/m³', 'ppm', etc.
-  measuredAt: string;   // ISO 8601
 }
 
 export interface AQICategory {

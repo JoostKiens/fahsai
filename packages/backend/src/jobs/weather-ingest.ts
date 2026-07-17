@@ -1,10 +1,9 @@
 import pRetry, { AbortError } from 'p-retry';
-import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
-import { bangkokDateString } from '../utils/bkkDate.js';
+import { bangkokDateString, getYesterdayBkk } from '../utils/bkkDate.js';
 
 const DB_BATCH_SIZE = 500;
 // Full weather grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
@@ -16,11 +15,6 @@ export function weatherCacheKey(date: string): string {
 
 export function windCacheKey(date: string): string {
   return `weather:wind:${date}`;
-}
-
-// Bangkok calendar day (Asia/Bangkok) — the yesterdayBkk default this job normally targets.
-export function getYesterdayBkk(): string {
-  return bangkokDateString(Date.now() - MS_PER_DAY);
 }
 
 export async function runWeatherIngest(date?: string): Promise<{ stored: number }> {

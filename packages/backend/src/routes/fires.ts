@@ -5,6 +5,7 @@ import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokMidnightIso } from '../utils/bkkDate.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -94,8 +95,8 @@ async function queryFires(
       supabase
         .from('fire_points')
         .select('id, detected_at, lat, lng, frp, confidence, daynight')
-        .gte('detected_at', `${start}T00:00:00Z`)
-        .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
+        .gte('detected_at', bangkokMidnightIso(start))
+        .lt('detected_at', bangkokMidnightIso(dayAfterEnd))
         .gte('lat', bbox.south)
         .lte('lat', bbox.north)
         .gte('lng', bbox.west)

@@ -28,8 +28,10 @@ with a manually computed `+ 180` at the call site — put any new use case insid
 **In the frontend** (`InfoPanel.tsx`) use `degToCompass(windVec.directionDeg)` (no `+ 180`)
 and prefix the label with "from" in the UI string.
 
-**Urban pollution source upwind detection** uses the bearing FROM the station TO the source
-compared against `windDirectionDeg`. Implementation: `packages/backend/src/lib/urbanSources.ts`.
+**Urban pollution source upwind detection** checks proximity to the back-trajectory ensemble
+(a source is upwind if it falls within the corridor of any trajectory member), not a bearing
+check against `windDirectionDeg`. Implementation: inline in `packages/backend/src/routes/explain.ts`
+(see `docs/claude/explain.md`).
 
 ---
 
@@ -101,7 +103,9 @@ Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UT
 sums `precipitation_sum` over the wrong 24h window). Don't reintroduce `timezone: 'UTC'` or an
 ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use
 `bangkokDateString()` from `packages/backend/src/utils/bkkDate.ts` to convert an instant to its
-Bangkok calendar day (see `getYesterdayBkk()` in `weather-ingest.ts`/`cams-ingest.ts`). Only
+Bangkok calendar day, and the same file's `getYesterdayBkk()` for the common "yesterday BKK"
+default (used by `weather-ingest.ts`, `cams-ingest.ts`, and `ingest-station-fire-pressure.ts`).
+Only
 fall back to manual `ICT_OFFSET_MS` arithmetic when you need a UTC millisecond instant (e.g. a
 query range boundary), not a date string, since `Intl.DateTimeFormat` only produces the latter.
 

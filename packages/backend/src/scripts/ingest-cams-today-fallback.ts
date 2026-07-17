@@ -1,5 +1,6 @@
 import { supabase } from '../db/client.js';
-import { runCamsIngest, getYesterdayBkk } from '../jobs/cams-ingest.js';
+import { runCamsIngest } from '../jobs/cams-ingest.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 const MIN_COMPLETE_POINTS = 4000;

@@ -2,6 +2,8 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { haversineKm } from '../utils/geo.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { offsetDate } from '../utils/trajectory.js';
+import { bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 
 const LOG = '[station-fire-pressure]';
 const DB_BATCH_SIZE = 500;
@@ -58,10 +60,10 @@ export function computeStationFirePressureScores(
 
 // 14-day trailing window anchored at Bangkok midnight for `targetDate` (a BKK calendar day).
 export function bkkMidnightWindow(targetDate: string): { windowStart: string; windowEnd: string } {
-  const targetMs = new Date(targetDate + 'T00:00:00+07:00').getTime();
+  const targetMs = bangkokMidnightUtcMs(targetDate);
   return {
     windowStart: new Date(targetMs - WINDOW_DAYS * 86400_000).toISOString(),
-    windowEnd: new Date(targetDate + 'T00:00:00+07:00').toISOString(),
+    windowEnd: new Date(targetMs).toISOString(),
   };
 }
 
@@ -72,7 +74,7 @@ export async function runStationFirePressure(
   const { windowStart, windowEnd } = bkkMidnightWindow(targetDate);
 
   console.log(
-    `${LOG} Computing scores for ${targetDate} (window: ${windowStart.slice(0, 10)} – ${new Date(new Date(windowEnd).getTime() - 86400_000).toISOString().slice(0, 10)})`,
+    `${LOG} Computing scores for ${targetDate} (window: ${offsetDate(targetDate, -WINDOW_DAYS)} – ${offsetDate(targetDate, -1)})`,
   );
 
   const allFires = await fetchAllPages<FireRow>(

@@ -1,11 +1,10 @@
-import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
-import { bangkokDateString } from '../utils/bkkDate.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 
 const LOG = '[station-fire-pressure-ingest]';
 
-const targetDate = process.argv[2] ?? bangkokDateString(Date.now() - MS_PER_DAY);
+const targetDate = process.argv[2] ?? getYesterdayBkk();
 
 const { data, error } = await supabase
   .from('stations')

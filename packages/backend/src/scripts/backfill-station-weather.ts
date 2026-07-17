@@ -4,9 +4,11 @@
  *
  * Usage: pnpm --filter backend run backfill:station-weather [days]
  */
+import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const PAGE_SIZE = 1000;
 
@@ -17,12 +19,11 @@ if (isNaN(DAYS) || DAYS < 1) {
   process.exit(1);
 }
 
-// Generate dates for the last N days (weather_readings retention window is 120 days).
+// Generate Bangkok calendar days for the last N days (weather_readings retention window is
+// 120 days, and weather_readings.date is a Bangkok calendar day, not a UTC one).
 const dates: string[] = [];
 for (let i = DAYS - 1; i >= 0; i--) {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - i);
-  dates.push(d.toISOString().slice(0, 10));
+  dates.push(bangkokDateString(Date.now() - i * MS_PER_DAY));
 }
 console.log(`[backfill] Will attempt ${dates.length} dates (last ${DAYS} days)`);
 
