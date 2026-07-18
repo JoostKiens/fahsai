@@ -135,3 +135,11 @@ own cache layer entirely. Equally, `queryFn` fetches should pass `{ cache: 'no-c
 the browser never acts as a secondary cache on top of TanStack. Omitting either fix produces
 silent stale-data bugs that only appear in the window between an empty-then-filled data state
 (e.g. post-migration before backfill completes).
+
+**Redis cache staleness across boundary-changing migrations**: routes that cache immutable
+historical data (`fires.ts`, `station-readings.ts`, `weather-ingest.ts`, `cams-ingest.ts`) use
+a 7-day TTL (`HISTORICAL_TTL_SECONDS`). If a migration changes a route's query-boundary
+semantics (e.g. UTC day to Bangkok day), entries cached before deploy keep serving the old
+boundary until they naturally expire. Accept this as a self-healing transition cost rather than
+versioning cache keys, unless immediate consistency is required, in which case flush the
+affected keys manually post-deploy.
