@@ -29,6 +29,7 @@ import {
   WEATHER_STEP,
 } from '../utils/computeStationWeather.js';
 import { parseDateFlag } from '../utils/backfill.js';
+import { offsetDate } from '../utils/trajectory.js';
 
 const LOG = '[backfill-weather]';
 const DB_BATCH_SIZE = 500;
@@ -354,7 +355,9 @@ try {
     ncPath = localFile;
     console.log(`${LOG} Using local file: ${ncPath}`);
   } else {
-    const jobId = await submitCdsJob(dates);
+    // Bangkok-day bucketing needs the UTC day before --start too (its 17:00-23:59 UTC hours
+    // are the first Bangkok day's 00:00-06:59) — request one extra buffer day from CDS.
+    const jobId = await submitCdsJob([offsetDate(startDate, -1), ...dates]);
     const downloadUrl = await pollCdsJob(jobId);
     ncPath = path.join(os.tmpdir(), `era5-${jobId}.nc`);
     await downloadNetcdf(downloadUrl, ncPath);

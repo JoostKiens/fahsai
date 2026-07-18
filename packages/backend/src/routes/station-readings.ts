@@ -289,7 +289,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const result: DayData[] = [];
       for (let i = 0; i < days; i++) {
         const dayUtcMs = startMidnightUtcMs + i * MS_PER_DAY;
-        const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
+        const date = bangkokDateString(dayUtcMs);
         const entry = byDay.get(date);
         const m = Number(date.slice(5, 7));
         let d = Number(date.slice(8, 10));

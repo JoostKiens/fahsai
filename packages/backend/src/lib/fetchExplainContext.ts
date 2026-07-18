@@ -3,8 +3,9 @@ import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 import type { WeatherReading } from '@thailand-aq/types';
-import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
+import { MS_PER_DAY, MS_PER_HOUR } from '@thailand-aq/consts';
 const GRID_MIN_COMPLETE = 4000;
 const GRID_PAGE_SIZE = 1000;
 
@@ -90,8 +91,7 @@ export async function fetchExplainContext(
   stationId: string,
   selectedDate: string,
 ): Promise<ExplainContext | null> {
-  const [yr, mo, dy] = selectedDate.split('-').map(Number);
-  const anchorEndMs = Date.UTC(yr, mo - 1, dy) - ICT_OFFSET_MS + MS_PER_DAY;
+  const anchorEndMs = bangkokMidnightUtcMs(offsetDate(selectedDate, 1));
 
   const since7d = new Date(anchorEndMs - 8 * MS_PER_DAY).toISOString();
   const since24h = new Date(anchorEndMs - 24 * MS_PER_HOUR).toISOString();

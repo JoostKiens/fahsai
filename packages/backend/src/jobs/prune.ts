@@ -1,4 +1,5 @@
 import { supabase } from '../db/client.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 // Retention policy: 90-day max scrubber window + 7-day Explain history buffer
 // + timezone/prune-timing buffer, raised to 140 days for DB-size headroom
@@ -27,7 +28,8 @@ export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number][
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - RETENTION_DAYS);
   const cutoffIso = cutoff.toISOString();
-  const cutoffDate = cutoffIso.slice(0, 10); // cams_grid.date and friends are type `date`
+  // cams_grid.date and friends are Bangkok calendar days, not UTC — use the BKK day here too.
+  const cutoffDate = bangkokDateString(cutoff);
 
   const entries: [(typeof PRUNE_TARGETS)[number]['key'], number][] = [];
 

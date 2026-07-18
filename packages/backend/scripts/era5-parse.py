@@ -180,6 +180,15 @@ def compute_hourly_tp(sorted_tp_times: list, tp_idx: dict, tp) -> dict:
     return hourly
 
 
+def sum_daily_tp(day_times: list, hourly_tp: dict, shape: tuple) -> np.ndarray:
+    """Sum a Bangkok day's already-computed hourly precipitation increments."""
+    tp_daily = np.zeros(shape)
+    for t in day_times:
+        if t in hourly_tp:
+            tp_daily += hourly_tp[t]
+    return tp_daily
+
+
 def _selftest() -> None:
     """Assertion-based sanity check for compute_hourly_tp + bkk_date. No fixtures,
     no external files — run with: python3 era5-parse.py --selftest"""
@@ -209,10 +218,12 @@ def _selftest() -> None:
     assert bkk_date(pd.Timestamp('2025-01-15T17:00:00')) == '2025-01-16'
 
     # Sum this synthetic slice's contribution to BKK day 2025-01-16 (hours 17-19 only,
-    # not the full day) — correct total is 3 * 0.0015 = 0.0045 m, not the ~0.010 m a
-    # naive per-bucket-reset implementation would produce.
+    # not the full day) via the same sum_daily_tp() main() uses — correct total is
+    # 3 * 0.0015 = 0.0045 m, not the ~0.010 m a naive per-bucket-reset implementation
+    # would produce.
     bkk_day_2 = [t for t in times if bkk_date(t) == '2025-01-16']
-    total = sum(float(hourly[t][0][0]) for t in bkk_day_2)
+    tp_daily = sum_daily_tp(bkk_day_2, hourly, (1, 1))
+    total = float(tp_daily[0][0])
     assert abs(total - 0.0045) < 1e-9, total
 
     print('[era5-parse] selftest OK', file=sys.stderr)
@@ -241,7 +252,7 @@ def main() -> None:
     instant_idx = {t: i for i, t in enumerate(times_instant)}
     tp_idx      = {t: i for i, t in enumerate(times_tp)}
 
-    sorted_tp_times = sorted(t for t in times_tp if t in tp_idx)
+    sorted_tp_times = sorted(times_tp)
     hourly_tp = compute_hourly_tp(sorted_tp_times, tp_idx, tp)
 
     # Group all timestamps by Bangkok calendar date — matches weather_readings.date.
@@ -268,11 +279,7 @@ def main() -> None:
         rh_07  = rh[idx07] if rh.shape[0] > idx07 else np.full_like(u10_07, np.nan)
 
         # --- Daily precipitation: sum this Bangkok day's already-computed hourly increments ---
-        tp_daily = np.zeros((len(lats), len(lngs)))
-        for t in day_times:
-            if t in hourly_tp:
-                tp_daily += hourly_tp[t]
-
+        tp_daily = sum_daily_tp(day_times, hourly_tp, (len(lats), len(lngs)))
         tp_mm = tp_daily * 1000.0  # metres → mm
 
         # --- Emit NDJSON ---
