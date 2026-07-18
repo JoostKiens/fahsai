@@ -8,9 +8,11 @@ export function useStationHistory(stationId: string | null) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   // Fetch one extra day ahead so canGoNext can use the same historyDateSet check as canGoPrev.
   // The chart filters to days ≤ selectedDate; the +1 row is only used for availability.
+  // Uses UTC throughout (parse + setUTCDate) so the +1 day is not affected by the browser's
+  // local timezone.
   const nextDay = (() => {
-    const d = new Date(`${selectedDate}T12:00:00`);
-    d.setDate(d.getDate() + 1);
+    const d = new Date(`${selectedDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
     return d.toISOString().slice(0, 10);
   })();
   const query = useQuery({

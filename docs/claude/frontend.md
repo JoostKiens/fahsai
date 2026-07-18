@@ -65,12 +65,14 @@ function).
 
 ```typescript
 // layerStore.ts
+type LayerId = 'aqGrid' | 'aqStations' | 'fires' | 'wind' | 'powerPlants';
+
 interface LayerStore {
   layers: {
-    pm25:        { visible: boolean; opacity: number };
+    aqGrid:      { visible: boolean; opacity: number };
+    aqStations:  { visible: boolean; opacity: number };
     fires:       { visible: boolean; opacity: number };
     wind:        { visible: boolean; opacity: number };
-    burnScars:   { visible: boolean; opacity: number };
     powerPlants: { visible: boolean; opacity: number }; // default off
   };
   toggleLayer: (id: LayerId) => void;
