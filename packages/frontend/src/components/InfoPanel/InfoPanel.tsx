@@ -475,7 +475,11 @@ function StationPanel({
   // Chart only shows days up to (and including) the currently selected date.
   const chartDays = historyDays?.filter((d) => d.date <= selectedDate);
   const fmtDay = (dateStr: string) =>
-    new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(locale, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    });
 
   return (
     <>

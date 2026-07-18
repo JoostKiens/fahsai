@@ -10,7 +10,6 @@ interface LayerState {
 interface LayerStore {
   layers: Record<LayerId, LayerState>;
   toggleLayer: (id: LayerId) => void;
-  setOpacity: (id: LayerId, opacity: number) => void;
 }
 
 const ON: LayerState = { visible: true, opacity: 1.0 };
@@ -28,13 +27,6 @@ export const useLayerStore = create<LayerStore>((set) => ({
       layers: {
         ...state.layers,
         [id]: { ...state.layers[id], visible: !state.layers[id].visible },
-      },
-    })),
-  setOpacity: (id, opacity) =>
-    set((state) => ({
-      layers: {
-        ...state.layers,
-        [id]: { ...state.layers[id], opacity },
       },
     })),
 }));

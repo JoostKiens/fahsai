@@ -28,8 +28,10 @@ with a manually computed `+ 180` at the call site — put any new use case insid
 **In the frontend** (`InfoPanel.tsx`) use `degToCompass(windVec.directionDeg)` (no `+ 180`)
 and prefix the label with "from" in the UI string.
 
-**Urban pollution source upwind detection** uses the bearing FROM the station TO the source
-compared against `windDirectionDeg`. Implementation: `packages/backend/src/lib/urbanSources.ts`.
+**Urban pollution source upwind detection** checks proximity to the back-trajectory ensemble
+(a source is upwind if it falls within the corridor of any trajectory member), not a bearing
+check against `windDirectionDeg`. Implementation: inline in `packages/backend/src/routes/explain.ts`
+(see `docs/claude/explain.md`).
 
 ---
 
@@ -95,6 +97,32 @@ the frontend or run it manually in rapid succession.
 **Schema migrations** — all schema changes use new Supabase migration files. Never modify
 existing migrations.
 
+**Ingest date semantics**: `weather_readings`, `station_weather`, `cams_grid`, and
+`station_fire_pressure` `date` columns are Bangkok calendar days (Asia/Bangkok), not UTC days.
+Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UTC-day fetch
+sums `precipitation_sum` over the wrong 24h window). Don't reintroduce `timezone: 'UTC'` or an
+ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the helpers in
+`packages/backend/src/utils/bkkDate.ts` instead:
+- `bangkokDateString(instant)` converts an instant to its Bangkok calendar day string.
+- `getYesterdayBkk()` is the common "yesterday BKK" default (used by `weather-ingest.ts`,
+  `cams-ingest.ts`, `station-readings-ingest.ts`, and `ingest-station-fire-pressure.ts`).
+- `bangkokMidnightIso(dateStr)` converts a BKK date string to its midnight instant as an ISO
+  string (`${dateStr}T00:00:00+07:00`), for query range boundaries (e.g. `fires.ts`, `explain.ts`).
+- `bangkokMidnightUtcMs(dateStr)` does the same, as epoch ms (e.g. `station-readings.ts`'s
+  `/history` route, `fetchExplainContext.ts`).
+
+Only fall back to manual `ICT_OFFSET_MS` arithmetic when none of the above fit and you need a
+UTC millisecond instant, not a date string, since `Intl.DateTimeFormat` only produces the latter.
+
+The `weather-today`/`weather-fallback`/`cams`/`cams-fallback`/`station-fire-pressure`/
+`station-readings-today`/`station-readings` cron times in `packages/backend/railway/*.json`
+all currently fire before 17:00 UTC (or, for the `cams`/`cams-fallback` and
+`station-readings-today`/`station-readings` pairs, at a time whose Bangkok-yesterday still
+resolves to the same date their old UTC-based calc used), so BKK-today equals UTC-today at
+every run and `getYesterdayBkk()` returns the same date the pre-fix UTC calc would have. If any
+of these cron times are ever moved, re-derive which Bangkok day `getYesterdayBkk()` resolves to
+at the new run time before assuming the schedule still targets the intended date.
+
 **Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
 `vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
 by tests will fail to resolve. Only `type` imports survive because TypeScript erases them
@@ -107,3 +135,11 @@ own cache layer entirely. Equally, `queryFn` fetches should pass `{ cache: 'no-c
 the browser never acts as a secondary cache on top of TanStack. Omitting either fix produces
 silent stale-data bugs that only appear in the window between an empty-then-filled data state
 (e.g. post-migration before backfill completes).
+
+**Redis cache staleness across boundary-changing migrations**: routes that cache immutable
+historical data (`fires.ts`, `station-readings.ts`, `weather-ingest.ts`, `cams-ingest.ts`) use
+a 7-day TTL (`HISTORICAL_TTL_SECONDS`). If a migration changes a route's query-boundary
+semantics (e.g. UTC day to Bangkok day), entries cached before deploy keep serving the old
+boundary until they naturally expire. Accept this as a self-healing transition cost rather than
+versioning cache keys, unless immediate consistency is required, in which case flush the
+affected keys manually post-deploy.

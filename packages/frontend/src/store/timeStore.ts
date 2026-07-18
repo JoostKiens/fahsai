@@ -2,15 +2,11 @@ import { create } from 'zustand';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 
 interface TimeStore {
-  latestDate: string; // always a valid YYYY-MM-DD; starts as yesterday ICT, updated by LatestDateProvider
-  latestDateResolved: boolean; // false until LatestDateProvider receives the real value from the API
+  latestDate: string; // always a valid YYYY-MM-DD; starts as yesterday ICT, updated by useLatestDate
+  latestDateResolved: boolean; // false until useLatestDate receives the real value from the API
   selectedDate: string; // YYYY-MM-DD
-  rangeMode: boolean;
-  rangeStart: string;
-  rangeEnd: string;
   setLatestDate: (date: string) => void;
   setDate: (date: string) => void;
-  setRange: (start: string, end: string) => void;
 }
 
 export const yesterdayICT = new Date(Date.now() + ICT_OFFSET_MS - MS_PER_DAY)
@@ -32,12 +28,8 @@ export const useTimeStore = create<TimeStore>((set) => ({
   latestDate: yesterdayICT,
   latestDateResolved: false,
   selectedDate: initialDate,
-  rangeMode: false,
-  rangeStart: initialDate,
-  rangeEnd: initialDate,
   setLatestDate: (date) => set({ latestDate: date, latestDateResolved: true }),
   setDate: (date) => set({ selectedDate: date }),
-  setRange: (start, end) => set({ rangeMode: true, rangeStart: start, rangeEnd: end }),
 }));
 
 // True once the real latestDate is known from the API AND selectedDate is within the valid range.

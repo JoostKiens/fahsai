@@ -1,13 +1,10 @@
 import { supabase } from '../db/client.js';
 import { runWeatherIngest } from '../jobs/weather-ingest.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 
 const MIN_COMPLETE_POINTS = 4000;
-const yesterday = (() => {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-})();
+const yesterday = getYesterdayBkk();
 
 try {
   const { count, error } = await supabase
@@ -25,7 +22,7 @@ try {
   }
 
   console.log(`[weather-fallback] only ${count ?? 0} rows for ${yesterday} — running ingest`);
-  const result = await runWeatherIngest();
+  const result = await runWeatherIngest(yesterday);
   console.log('[weather-fallback] done', result);
   process.exit(0);
 } catch (err) {

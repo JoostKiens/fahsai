@@ -74,6 +74,9 @@ create index if not exists power_plants_location_idx on power_plants using gist(
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
 -- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)
+-- `date` is a Bangkok calendar day (Asia/Bangkok): Open-Meteo is queried with
+-- timezone=Asia/Bangkok so start_date/end_date and the hourly average window
+-- both cover 00:00-24:00 BKK, not UTC.
 -- Pruned after 140 days. Redis (cams:pm25:{date}, TTL 7d) is the hot cache.
 create table if not exists cams_grid (
   date  date    not null,
@@ -84,16 +87,17 @@ create table if not exists cams_grid (
 );
 create index if not exists cams_grid_date_idx on cams_grid (date);
 
--- Weather grid (Open-Meteo, snapshot at 07:00 UTC = 14:00 BKK)
+-- Weather grid (Open-Meteo, snapshot at 14:00 BKK / Asia/Bangkok)
+-- `date` is a Bangkok calendar day for the same reason as cams_grid above.
 -- Pruned after 140 days. Redis (weather:{date}, TTL 7d) is the hot cache.
 create table if not exists weather_readings (
   date                      date   not null,
   lat                       float8 not null,
   lng                       float8 not null,
   wind_speed_kmh            float8 not null,  -- daily mean
-  wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 07:00 UTC
-  precipitation_sum         float8,           -- daily total mm
-  relative_humidity_2m      float8,           -- % at 07:00 UTC snapshot
+  wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 14:00 BKK
+  precipitation_sum         float8,           -- daily total mm (Bangkok calendar day, 00:00–24:00 BKK)
+  relative_humidity_2m      float8,           -- % at 14:00 BKK snapshot
   primary key (date, lat, lng)
 );
 create index if not exists weather_readings_date_idx on weather_readings (date);
@@ -101,8 +105,10 @@ create index if not exists weather_readings_date_idx on weather_readings (date);
 create index if not exists weather_readings_lat_lng_date_idx on weather_readings (lat, lng, date);
 
 -- Pre-computed weather per station per day (migration 018_station_weather.sql)
--- Populated by weather-ingest after the grid is stored.
--- The history endpoint queries this directly — no weather_readings lookup at request time.
+-- Populated by weather-ingest after the grid is stored. `date` is a Bangkok
+-- calendar day, matching weather_readings (the /history route joins pm2.5,
+-- itself binned by BKK day, against this table by the same date key).
+-- The history endpoint queries this directly (no weather_readings lookup at request time).
 -- Station source: distinct station_ids from station_readings for that date.
 -- Pruned after 140 days by the prune job.
 create table if not exists station_weather (
@@ -115,7 +121,9 @@ create table if not exists station_weather (
   PRIMARY KEY (station_id, date)   -- leading station_id optimises the history query
 );
 
--- Fire pressure scores (75 km radius, 14-day rolling window)
+-- Fire pressure scores (75 km radius, 14-day rolling window, anchored at Bangkok
+-- midnight; `date` is a Bangkok calendar day, matching weather_readings/cams_grid
+-- since fetchExplainContext.ts joins all three by the same date key)
 -- Computed by station-readings-ingest (pass 1) for all active stations.
 -- Pruned after 140 days by the prune job.
 create table station_fire_pressure (

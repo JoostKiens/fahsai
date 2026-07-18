@@ -14,6 +14,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { setTimeout as sleep } from 'node:timers/promises';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -28,6 +29,7 @@ import {
   WEATHER_STEP,
 } from '../utils/computeStationWeather.js';
 import { parseDateFlag } from '../utils/backfill.js';
+import { offsetDate } from '../utils/trajectory.js';
 
 const LOG = '[backfill-weather]';
 const DB_BATCH_SIZE = 500;
@@ -140,7 +142,7 @@ async function pollCdsJob(jobId: string): Promise<string> {
   console.log(`${LOG} Polling CDS job ${jobId} every ${POLL_INTERVAL_MS / 1000}s (max 2h)...`);
 
   for (let poll = 0; poll < MAX_POLLS; poll++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    await sleep(POLL_INTERVAL_MS);
 
     const resp = await fetch(`${CDS_API_BASE}/retrieve/v1/jobs/${jobId}`, {
       headers: cdsHeaders(),
@@ -353,7 +355,9 @@ try {
     ncPath = localFile;
     console.log(`${LOG} Using local file: ${ncPath}`);
   } else {
-    const jobId = await submitCdsJob(dates);
+    // Bangkok-day bucketing needs the UTC day before --start too (its 17:00-23:59 UTC hours
+    // are the first Bangkok day's 00:00-06:59) — request one extra buffer day from CDS.
+    const jobId = await submitCdsJob([offsetDate(startDate, -1), ...dates]);
     const downloadUrl = await pollCdsJob(jobId);
     ncPath = path.join(os.tmpdir(), `era5-${jobId}.nc`);
     await downloadNetcdf(downloadUrl, ncPath);

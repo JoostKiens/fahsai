@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import type { FirePoint } from '@thailand-aq/types';
-import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokMidnightIso } from '../utils/bkkDate.js';
+import { offsetDate } from '../utils/trajectory.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -87,15 +88,15 @@ async function queryFires(
   end: string,
   bbox: ReturnType<typeof parseBbox>,
 ): Promise<FirePoint[]> {
-  const dayAfterEnd = new Date(new Date(end).getTime() + MS_PER_DAY).toISOString().slice(0, 10);
+  const dayAfterEnd = offsetDate(end, 1);
 
   const rows = await fetchAllPages<FireRow>(
     (from, to) =>
       supabase
         .from('fire_points')
         .select('id, detected_at, lat, lng, frp, confidence, daynight')
-        .gte('detected_at', `${start}T00:00:00Z`)
-        .lt('detected_at', `${dayAfterEnd}T00:00:00Z`)
+        .gte('detected_at', bangkokMidnightIso(start))
+        .lt('detected_at', bangkokMidnightIso(dayAfterEnd))
         .gte('lat', bbox.south)
         .lte('lat', bbox.north)
         .gte('lng', bbox.west)

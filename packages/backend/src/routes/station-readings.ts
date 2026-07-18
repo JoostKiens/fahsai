@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import type { Measurement, BaselineStat } from '@thailand-aq/types';
+import type { BaselineStat } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { forEachPage } from '../utils/backfill.js';
+import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
+import { offsetDate } from '../utils/trajectory.js';
 
 const MAX_HISTORY_HOURS = 168; // 7 days
 const CURRENT_DATE_TTL_SECONDS = 3600;
@@ -22,6 +24,12 @@ interface DayData {
   readingCount: number;
   weather: WeatherData | null;
   baseline: BaselineStat | null;
+}
+
+interface Measurement {
+  stationId: string;
+  value: number;
+  measuredAt: string;
 }
 
 interface LatestMeasurement {
@@ -52,11 +60,11 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
           return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
       }
 
-      // Date-specific window or rolling 24h
+      // Date-specific window (Bangkok calendar day) or rolling 24h
       const since = date
-        ? `${date}T00:00:00Z`
+        ? bangkokMidnightIso(date)
         : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const until = date ? `${date}T23:59:59Z` : undefined;
+      const until = date ? bangkokMidnightIso(offsetDate(date, 1)) : undefined;
 
       type StationReadingRow = {
         station_id: string;
@@ -78,7 +86,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
             .from('station_readings')
             .select('station_id, value, measured_at, stations(id, name, lat, lng, country)')
             .gte('measured_at', since);
-          if (until !== undefined) query = query.lte('measured_at', until);
+          if (until !== undefined) query = query.lt('measured_at', until);
           return query.order('measured_at', { ascending: false }).range(from, to);
         },
         PAGE_SIZE,
@@ -188,23 +196,18 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       }
 
       // Anchor the window to the requested end date (BKK); default to today BKK.
-      const endDateStr =
-        req.query.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
-      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const endDateStr = req.query.date ?? bangkokDateString();
+      const todayBkk = bangkokDateString();
       const isHistorical = endDateStr < todayBkk;
 
-      const [yr, mo, dy] = endDateStr.split('-').map(Number);
-      // UTC ms of BKK midnight for the end date (BKK midnight = UTC date - 7h)
-      const endMidnightUtcMs = Date.UTC(yr, mo - 1, dy) - ICT_OFFSET_MS;
+      const endMidnightUtcMs = bangkokMidnightUtcMs(endDateStr);
       const startMidnightUtcMs = endMidnightUtcMs - (days - 1) * MS_PER_DAY;
 
       const since = new Date(startMidnightUtcMs).toISOString();
       const until = new Date(endMidnightUtcMs + MS_PER_DAY).toISOString(); // exclusive
 
       // BKK calendar start date for weather query
-      const startDateStr = new Date(Date.UTC(yr, mo - 1, dy) - (days - 1) * MS_PER_DAY)
-        .toISOString()
-        .slice(0, 10);
+      const startDateStr = bangkokDateString(startMidnightUtcMs);
 
       const startMonth = Number(startDateStr.slice(5, 7));
       const endMonth = Number(endDateStr.slice(5, 7));
@@ -246,8 +249,9 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const byDay = new Map<string, { latest: number; latestMs: number; count: number }>();
       for (const row of data ?? []) {
         const measuredMs = new Date(row.measured_at as string).getTime();
-        const bkkMs = measuredMs + ICT_OFFSET_MS;
-        const date = new Date(bkkMs).toISOString().slice(0, 10);
+        // Per-row hot path: cheap arithmetic instead of bangkokDateString's Intl call
+        // (Thailand has no DST, so the fixed +7h offset is exact here).
+        const date = new Date(measuredMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
         const val = row.value as number;
         const entry = byDay.get(date);
         if (!entry) {
@@ -285,7 +289,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const result: DayData[] = [];
       for (let i = 0; i < days; i++) {
         const dayUtcMs = startMidnightUtcMs + i * MS_PER_DAY;
-        const date = new Date(dayUtcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
+        const date = bangkokDateString(dayUtcMs);
         const entry = byDay.get(date);
         const m = Number(date.slice(5, 7));
         let d = Number(date.slice(8, 10));

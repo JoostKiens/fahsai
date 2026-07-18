@@ -74,17 +74,12 @@ interface LayerStore {
     powerPlants: { visible: boolean; opacity: number }; // default off
   };
   toggleLayer: (id: LayerId) => void;
-  setOpacity:  (id: LayerId, opacity: number) => void;
 }
 
 // timeStore.ts
 interface TimeStore {
   selectedDate: string; // YYYY-MM-DD, default: today
-  rangeMode:    boolean; // false = single day, true = range
-  rangeStart:   string;
-  rangeEnd:     string;
-  setDate:  (date: string) => void;
-  setRange: (start: string, end: string) => void;
+  setDate: (date: string) => void;
 }
 ```
 
@@ -111,7 +106,7 @@ rehydrated automatically on app load — no manual `useEffect` needed.
 **Session scrubber expansion (`sessionScrubberDays`):**
 `uiStore` holds a `sessionScrubberDays: number | null` field (never persisted). When the
 app loads with a `?date=` URL param that falls outside the user's stored `scrubberDays`
-window but within 90 days, `LatestDateProvider` sets `sessionScrubberDays = 90` so the
+window but within 90 days, `useLatestDate` sets `sessionScrubberDays = 90` so the
 linked date is reachable. Dates beyond 90 days still clamp with a toast. The user's stored
 preference is never modified. Use `useEffectiveScrubberDays()` (hook) or
 `getEffectiveScrubberDays()` (non-hook) from `uiStore.ts` wherever the active window size

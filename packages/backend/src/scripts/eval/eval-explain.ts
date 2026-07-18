@@ -1,5 +1,6 @@
 import { readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildScientificContext } from '../../lib/buildScientificContext.js';
@@ -123,7 +124,7 @@ for (const fixture of fixtures) {
   }
 
   if (fixtures.indexOf(fixture) < fixtures.length - 1) {
-    await new Promise((resolve) => setTimeout(resolve, INTER_FIXTURE_DELAY_MS));
+    await sleep(INTER_FIXTURE_DELAY_MS);
   }
 }
 

@@ -41,9 +41,3 @@ export function compassFromDeg(deg: number): string {
   ];
   return dirs[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
-
-// 8-point compass — used for urban source bearing labels
-export function compassFromDeg8(deg: number): string {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
-}

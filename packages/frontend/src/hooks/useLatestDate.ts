@@ -8,15 +8,14 @@ import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
 const MAX_DAYS = 90;
+const API = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * Fetches the latest complete date from the API and pushes it into the time store.
  * Also does the one-time initialisation of the scrubber position from the URL date param,
  * deferred until the real latestDate is known so the range boundaries are correct.
  */
-const API = import.meta.env.VITE_API_BASE_URL;
-
-export function LatestDateProvider({ children }: { children: React.ReactNode }) {
+export function useLatestDate(): void {
   const { t } = useTranslation();
   const { data: latestDate } = useQuery({
     queryKey: ['latest-date'],
@@ -65,6 +64,4 @@ export function LatestDateProvider({ children }: { children: React.ReactNode }) 
       toast(t('scrubber.dateNotAvailable'));
     }
   }, [latestDate, setLatestDate, setScrubberDay, setSessionScrubberDays]);
-
-  return <>{children}</>;
 }

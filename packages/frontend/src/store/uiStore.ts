@@ -40,7 +40,6 @@ export interface PendingSelection {
 interface UIStore {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
-  toggleSidebar: () => void;
   selectedPoint: SelectedPoint | null;
   setSelectedPoint: (point: SelectedPoint | null) => void;
   pendingSelection: PendingSelection | null;
@@ -85,7 +84,6 @@ function initialScrubberDayFromUrl(): number {
 export const useUIStore = create<UIStore>((set, get) => ({
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   selectedPoint: null,
   // Any explicit selection (or dismissal) supersedes a not-yet-resolved URL hydration.
   setSelectedPoint: (p) =>

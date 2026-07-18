@@ -1,15 +1,10 @@
 import { supabase } from '../db/client.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 
 const LOG = '[station-fire-pressure-ingest]';
 
-const targetDate =
-  process.argv[2] ??
-  (() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() - 1);
-    return d.toISOString().slice(0, 10);
-  })();
+const targetDate = process.argv[2] ?? getYesterdayBkk();
 
 const { data, error } = await supabase
   .from('stations')

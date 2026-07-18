@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_HOUR } from '@thailand-aq/consts';
 import {
@@ -34,12 +35,12 @@ const WEATHER_BATCH_SIZE = 300;
 // 10 batches × 5 s = ~50 s total run time.
 const WEATHER_BATCH_PAUSE_MS = 5_000;
 
-// 07:00 UTC = 14:00 BKK — peak daytime convective mixing, best for smoke transport
-const HISTORICAL_HOUR_UTC = 7;
+// 14:00 BKK — peak daytime convective mixing, best for smoke transport
+const HISTORICAL_HOUR_BKK = 14;
 
 export type FetchWeatherGridOptions = {
-  /** UTC calendar day (YYYY-MM-DD) — decides forecast vs archive API. */
-  calendarDayUtc: string;
+  /** Bangkok calendar day (Asia/Bangkok, YYYY-MM-DD) — decides forecast vs archive API. */
+  calendarDayBkk: string;
 };
 
 interface OpenMeteoWeatherResult {
@@ -81,7 +82,7 @@ async function fetchWeatherBatch(
     daily: ['precipitation_sum'],
     start_date: lats.map(() => date),
     end_date: lats.map(() => date),
-    timezone: lats.map(() => 'UTC'),
+    timezone: lats.map(() => 'Asia/Bangkok'),
     wind_speed_unit: 'kmh',
   });
 
@@ -129,7 +130,7 @@ async function fetchWeatherBatch(
     }
     console.warn(`[openmeteo] waiting ${Math.round(delayMs / 1000)}s: ${delaySource}`);
 
-    await new Promise((r) => setTimeout(r, delayMs));
+    await sleep(delayMs);
   }
 
   if (!res || !res.ok) {
@@ -148,7 +149,7 @@ async function fetchWeatherBatch(
   // (e.g. 13.7999997 instead of 13.8). Storing the requested coordinates keeps the DB
   // consistent with what our snap formula computes at query time.
   return results.map((loc, i) => {
-    const idx = targetHourIndex(loc.hourly.time, date, HISTORICAL_HOUR_UTC);
+    const idx = targetHourIndex(loc.hourly.time, HISTORICAL_HOUR_BKK);
     return {
       lat: lats[i],
       lng: lngs[i],
@@ -164,7 +165,7 @@ export async function fetchWeatherGridForDate(
   date: string,
   options: FetchWeatherGridOptions,
 ): Promise<WeatherReading[]> {
-  const isToday = date === options.calendarDayUtc;
+  const isToday = date === options.calendarDayBkk;
 
   // Build flat list of all grid points
   const allLats: number[] = [];
@@ -195,7 +196,7 @@ export async function fetchWeatherGridForDate(
     console.log(`[openmeteo] weather batch ${i + 1}/${batches.length} (${b.lats.length} points)`);
     const readings = await fetchWeatherBatch(b.lats, b.lngs, date, isToday);
     results.push(...readings);
-    if (i < batches.length - 1) await new Promise((r) => setTimeout(r, WEATHER_BATCH_PAUSE_MS));
+    if (i < batches.length - 1) await sleep(WEATHER_BATCH_PAUSE_MS);
   }
 
   return results;
@@ -249,7 +250,7 @@ async function fetchAQBatch(
     hourly: 'pm2_5',
     start_date: date,
     end_date: date,
-    timezone: 'UTC',
+    timezone: 'Asia/Bangkok',
   });
 
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality?${params.toString()}`;
@@ -283,7 +284,7 @@ async function fetchAQBatch(
       `[openmeteo] 429 on AQ batch (attempt ${attempt + 1}/${AQ_RETRY_DELAYS_MS.length}), source=${delaySource}, waiting ${Math.round(delay / 1000)}s...`,
     );
     if (delay === 0) break;
-    await new Promise((r) => setTimeout(r, delay));
+    await sleep(delay);
   }
 
   if (!res?.ok) {
@@ -341,7 +342,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
 
   const results: PM25GridPoint[] = [];
   for (let i = 0; i < batches.length; i += AQ_BATCH_CONCURRENCY) {
-    if (i > 0) await new Promise((r) => setTimeout(r, AQ_BATCH_PAUSE_MS));
+    if (i > 0) await sleep(AQ_BATCH_PAUSE_MS);
     const chunk = batches.slice(i, i + AQ_BATCH_CONCURRENCY);
     console.log(
       `[openmeteo] AQ batch ${i + 1}/${batches.length} (${chunk.reduce((n, b) => n + b.lats.length, 0)} points)`,
@@ -362,7 +363,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
             console.warn(
               `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
             );
-            await new Promise((r) => setTimeout(r, AQ_BATCH_CONNECT_RETRY_DELAY_MS));
+            await sleep(AQ_BATCH_CONNECT_RETRY_DELAY_MS);
           }
         }
         throw new Error('[openmeteo] unreachable');
@@ -379,31 +380,16 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
 
 // ─── Shared time helpers ──────────────────────────────────────────────────────
 
-// Find the index of the latest past hour in the time array
-function parseOpenMeteoUtcMs(time: string): number {
-  if (/[Zz]|[+-]\d{2}(?::?\d{2})?$/.test(time)) {
-    return Date.parse(time);
-  }
-  return Date.parse(`${time}Z`);
-}
-
-// Pick the hourly slot closest to the target UTC instant (handles :00 vs :00:00, ms, Z).
-function targetHourIndex(times: string[], date: string, hourUtc: number): number {
-  if (times.length === 0) return 0;
-  const parts = date.split('-');
-  const y = Number(parts[0]);
-  const mo = Number(parts[1]);
-  const d = Number(parts[2]);
-  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
-    return 0;
-  }
-  const targetMs = Date.UTC(y, mo - 1, d, hourUtc, 0, 0);
+// With timezone=Asia/Bangkok, Open-Meteo returns wall-clock-labeled hourly.time
+// strings with no offset (e.g. "2026-07-16T14:00") — request and response share
+// one named zone, so hour matching is a plain string comparison, no epoch math.
+export function targetHourIndex(times: string[], hour: number): number {
   let best = 0;
   let bestDiff = Number.POSITIVE_INFINITY;
   for (let i = 0; i < times.length; i++) {
-    const tMs = parseOpenMeteoUtcMs(times[i]);
-    if (Number.isNaN(tMs)) continue;
-    const diff = Math.abs(tMs - targetMs);
+    const match = /T(\d{2}):/.exec(times[i]);
+    if (!match) continue;
+    const diff = Math.abs(Number(match[1]) - hour);
     if (diff < bestDiff) {
       bestDiff = diff;
       best = i;

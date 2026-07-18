@@ -96,7 +96,7 @@ Files:
 
 - `packages/backend/src/data/urbanSources.ts` — static data array (do not sync from external source)
 - `packages/backend/src/lib/geo.ts` — `haversineKm`, `bearingDeg`, `compassFromDeg`
-- `packages/backend/src/lib/urbanSources.ts` — `getRelevantUrbanSources()` helper
+- `packages/backend/src/routes/explain.ts` (cone-check upwind detection against the trajectory ensemble)
 
 ---
 

@@ -16,8 +16,7 @@ interface Props {
   lat: number;
   lng: number;
   rateLimitControl: RateLimitControl;
-  /** Override the button element's className (replaces the default ghost-button style). */
-  className?: string;
+  className: string;
 }
 
 function formatCountdown(ms: number): { value: number; unit: 'minutes' | 'seconds' } {
@@ -117,22 +116,11 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
     return t('explain.rateLimitQuota');
   }
 
-  const defaultButtonClass = [
-    'w-full text-[11px] font-medium py-1 px-2 rounded border transition-colors ease-out hover:duration-175',
-    isDisabled
-      ? 'border-zinc-700 text-zinc-600 bg-transparent cursor-not-allowed'
-      : 'border-teal-800 text-teal-400 bg-teal-950 hover:bg-teal-900',
-  ].join(' ');
-
   const msg = rateLimitMessage();
 
   return (
     <div className="mt-2">
-      <button
-        onClick={handleClick}
-        disabled={isDisabled}
-        className={className ?? defaultButtonClass}
-      >
+      <button onClick={handleClick} disabled={isDisabled} className={className}>
         {label}
       </button>
 

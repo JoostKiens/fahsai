@@ -121,6 +121,10 @@ station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily aver
   ingest-station-readings                               net; overwrites any partial values pass 1 wrote
                                                         before all stations had reported
                                                         (ignoreDuplicates: false)
+                                                        Despite the "TODAY"/"YESTERDAY" labels,
+                                                        both passes resolve to the same Bangkok
+                                                        calendar date under this schedule; pass 2
+                                                        is a same-day overwrite, not a different day.
 
 weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
   ingest-weather-today                            07:00 UTC snapshot via forecast API (NWP model

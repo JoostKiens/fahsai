@@ -7,8 +7,7 @@ import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { Header } from '@/components/Header/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useDataNotifications, useUrlSync, useSelectionHydration } from '@/hooks';
-import { LatestDateProvider } from '@/providers/LatestDateProvider';
+import { useDataNotifications, useUrlSync, useSelectionHydration, useLatestDate } from '@/hooks';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -22,6 +21,7 @@ function useIsMobile() {
 }
 
 function AppContent() {
+  useLatestDate();
   useDataNotifications();
   useUrlSync();
   useSelectionHydration();
@@ -72,7 +72,7 @@ function AppContent() {
 function App() {
   const isMobile = useIsMobile();
   return (
-    <LatestDateProvider>
+    <>
       <AppContent />
       <SpeedInsights />
       {isMobile ? (
@@ -85,7 +85,7 @@ function App() {
       ) : (
         <Toaster position="bottom-right" offset={{ bottom: 82, right: 12 }} theme="light" />
       )}
-    </LatestDateProvider>
+    </>
   );
 }
 

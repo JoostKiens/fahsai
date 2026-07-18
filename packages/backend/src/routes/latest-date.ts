@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis } from '../cache/client.js';
 import { supabase } from '../db/client.js';
+import { bangkokDateString, bangkokMidnightIso } from '../utils/bkkDate.js';
 
 const CACHE_KEY = 'latest-complete-date';
 const CACHE_TTL_SECONDS = 30 * 60; // 30 min — refreshes well within the daily ingest window
@@ -19,21 +20,23 @@ export function latestDateRoutes(app: FastifyInstance): void {
     const now = Date.now();
 
     for (let offset = 1; offset <= LOOKBACK_DAYS; offset++) {
-      const date = new Date(now - offset * MS_PER_DAY).toISOString().slice(0, 10);
-      const nextDate = new Date(now - (offset - 1) * MS_PER_DAY).toISOString().slice(0, 10);
+      const date = bangkokDateString(now - offset * MS_PER_DAY);
+      const nextDate = bangkokDateString(now - (offset - 1) * MS_PER_DAY);
+      const dayStart = bangkokMidnightIso(date);
+      const dayEnd = bangkokMidnightIso(nextDate);
 
       const [aqResult, fireResult, measResult, windResult] = await Promise.all([
         supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),
         supabase
           .from('fire_points')
           .select('*', { count: 'exact', head: true })
-          .gte('detected_at', `${date}T00:00:00Z`)
-          .lt('detected_at', `${nextDate}T00:00:00Z`),
+          .gte('detected_at', dayStart)
+          .lt('detected_at', dayEnd),
         supabase
           .from('station_readings')
           .select('*', { count: 'exact', head: true })
-          .gte('measured_at', `${date}T00:00:00Z`)
-          .lt('measured_at', `${nextDate}T00:00:00Z`),
+          .gte('measured_at', dayStart)
+          .lt('measured_at', dayEnd),
         supabase
           .from('weather_readings')
           .select('*', { count: 'exact', head: true })

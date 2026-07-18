@@ -1,7 +1,9 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchSensorDailyAverage } from '../utils/openaq.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
@@ -9,8 +11,6 @@ const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-
 // Repeated 429s after waiting for reset means the hourly quota is exhausted.
 // Continuing would risk a temporary or permanent ban from OpenAQ.
 const CONSECUTIVE_429_ABORT = 5;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runStationReadingsIngest(date?: string): Promise<{
   sensorsQueried: number;
@@ -22,13 +22,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   // Default to yesterday: the OpenAQ endpoint uses BKK (+07:00) day boundaries, so a complete
   // 24-hour average for "day D" isn't available until 17:00 UTC on day D. Running at 04:00 UTC
   // means today's BKK day is only ~11 hours old — fetch yesterday instead.
-  const targetDate =
-    date ??
-    (() => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - 1);
-      return d.toISOString().slice(0, 10);
-    })();
+  const targetDate = date ?? getYesterdayBkk();
 
   const { data: stationRows, error: stationsError } = await supabase
     .from('stations')

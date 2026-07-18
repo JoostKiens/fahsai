@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import { DEFAULT_BBOX } from './bbox.js';
 
 const BASE_URL = 'https://api.openaq.org/v3';
@@ -56,8 +57,6 @@ export interface SensorFetchResult {
   rateLimitRemaining: number | null; // x-ratelimit-remaining
   rateLimitResetMs: number | null; // x-ratelimit-reset × 1000 (Unix ms)
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function extractPm25SensorIds(location: OpenAQLocation): number[] {
   return location.sensors.filter((s) => s.parameter.name === 'pm25').map((s) => s.id);

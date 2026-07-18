@@ -1,5 +1,3 @@
-import { haversineKm, bearingDeg } from '../utils/geo.js';
-
 export interface WindGridPoint {
   lat: number;
   lng: number;
@@ -140,6 +138,3 @@ export function traceEnsemble(
     meanWindSpeedKmh,
   };
 }
-
-// Re-export for consumers that want these alongside trajectory types
-export { haversineKm, bearingDeg };

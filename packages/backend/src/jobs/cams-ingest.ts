@@ -3,19 +3,14 @@ import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAirQualityGrid, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
+import { getYesterdayBkk } from '../utils/bkkDate.js';
 
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
 
 export async function runCamsIngest(date?: string): Promise<{ stored: number }> {
-  const targetDate =
-    date ??
-    (() => {
-      const d = new Date();
-      d.setUTCDate(d.getUTCDate() - 1);
-      return d.toISOString().slice(0, 10);
-    })();
+  const targetDate = date ?? getYesterdayBkk();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
     throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);

@@ -10,13 +10,19 @@ import { haversineKm, bearingDeg, compassFromDeg } from '../utils/geo.js';
 import { computeFirePressureNorm } from '../utils/firePressure.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
-import { traceEnsemble, nearestGridPoint, TRAJECTORY_STEPS } from '../utils/trajectory.js';
+import {
+  traceEnsemble,
+  nearestGridPoint,
+  offsetDate,
+  TRAJECTORY_STEPS,
+} from '../utils/trajectory.js';
 import type { WindGridPoint } from '../utils/trajectory.js';
 import type { WeatherReading } from '@thailand-aq/types';
 import { MS_PER_DAY, MS_PER_HOUR, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildScientificContext } from '../lib/buildScientificContext.js';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { fetchExplainContext } from '../lib/fetchExplainContext.js';
+import { bangkokDateString, bangkokMidnightIso } from '../utils/bkkDate.js';
 import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 import { fetchAllPages } from '../utils/backfill.js';
@@ -130,7 +136,7 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       }
 
-      const todayBkk = new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const todayBkk = bangkokDateString();
       const quotaKey = `explain:quota:${todayBkk}`;
       const count = await redis.incr(quotaKey);
       if (count === 1) await redis.expire(quotaKey, 86400);
@@ -142,8 +148,7 @@ export function explainRoutes(app: FastifyInstance): void {
           .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + MS_PER_DAY });
       }
 
-      const selectedDate =
-        req.body.date ?? new Date(Date.now() + ICT_OFFSET_MS).toISOString().slice(0, 10);
+      const selectedDate = req.body.date ?? bangkokDateString();
       const normalizedLang = lang ?? 'en';
 
       if (EXPLAIN_CACHE_ENABLED) {
@@ -251,7 +256,7 @@ export function explainRoutes(app: FastifyInstance): void {
       // Fire query (depends on trajectory footprint)
       // ----------------------------------------------------------------
 
-      const fireUntil = `${selectedDate}T23:59:59Z`;
+      const fireUntil = bangkokMidnightIso(offsetDate(selectedDate, 1));
       type FireRow = { lat: number; lng: number; frp: number | null; detected_at: string };
       const FIRE_PAGE_SIZE = 1000;
       // Degrade gracefully on query failure — a fire-data outage shouldn't fail

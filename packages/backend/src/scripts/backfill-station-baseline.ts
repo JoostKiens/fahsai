@@ -13,7 +13,7 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { buildS3Url, downloadS3File } from '../utils/openaq-s3.js';
 import { fetchAllPages, runWithConcurrency } from '../utils/backfill.js';
-import { ICT_OFFSET_MS } from '@thailand-aq/consts';
+import { bangkokDateString } from '../utils/bkkDate.js';
 
 const WINDOW = 7;
 const MIN_READINGS_PER_DAY = 18;
@@ -118,7 +118,7 @@ function parsePm25Readings(
     if (!Number.isFinite(val) || val < 0) continue;
     const utcMs = new Date(row.datetime).getTime();
     if (isNaN(utcMs)) continue;
-    const bkkDate = new Date(utcMs + ICT_OFFSET_MS).toISOString().slice(0, 10);
+    const bkkDate = bangkokDateString(utcMs);
     results.push({ bkkDate, value: val });
   }
   return results;
