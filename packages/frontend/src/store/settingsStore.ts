@@ -13,7 +13,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
-      scrubberDays: 60,
+      scrubberDays: 120,
       setScrubberDays: (days) => set({ scrubberDays: days }),
       language: null,
       setLanguage: (lang) => set({ language: lang }),
@@ -27,8 +27,9 @@ export const useSettingsStore = create<SettingsStore>()(
           state = { ...state, language: null };
         }
         if (version < 3) {
-          // Max scrubber window reduced from 120 to 90 days.
-          if ((state.scrubberDays ?? 0) > 90) state = { ...state, scrubberDays: 90 };
+          // Pre-v3 state may still carry the old 120-day value. 120 is a valid
+          // option again, so restore it instead of clamping to 90.
+          if ((state.scrubberDays ?? 0) > 90) state = { ...state, scrubberDays: 120 };
         }
         return state as SettingsStore;
       },

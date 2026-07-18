@@ -7,7 +7,7 @@ import { useTimeStore } from '@/store/timeStore';
 import { useUIStore } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
-const MAX_DAYS = 90;
+const MAX_DAYS = 120;
 const API = import.meta.env.VITE_API_BASE_URL;
 
 /**
@@ -47,21 +47,21 @@ export function useLatestDate(): void {
     const scrubberDays = useSettingsStore.getState().scrubberDays;
     const latestMs = new Date(latestDate + 'T00:00:00Z').getTime();
     const oldestMs = latestMs - (scrubberDays - 1) * MS_PER_DAY;
-    const oldest90Ms = latestMs - (MAX_DAYS - 1) * MS_PER_DAY;
+    const oldestMaxMs = latestMs - (MAX_DAYS - 1) * MS_PER_DAY;
     const urlMs = new Date(urlDate + 'T00:00:00Z').getTime();
     if (!isFinite(urlMs)) return;
 
     if (urlMs >= oldestMs && urlMs <= latestMs) {
       const day = Math.round((latestMs - urlMs) / MS_PER_DAY);
       setScrubberDay(scrubberDays - 1 - day);
-    } else if (urlMs >= oldest90Ms && urlMs <= latestMs) {
-      // Within 90 days but outside user's current window — expand for this session only.
+    } else if (urlMs >= oldestMaxMs && urlMs <= latestMs) {
+      // Within MAX_DAYS but outside user's current window — expand for this session only.
       setSessionScrubberDays(MAX_DAYS);
       const daysBack = Math.round((latestMs - urlMs) / MS_PER_DAY);
       setScrubberDay(MAX_DAYS - 1 - daysBack);
     } else {
-      setScrubberDay(urlMs < oldest90Ms ? 0 : scrubberDays - 1);
+      setScrubberDay(urlMs < oldestMaxMs ? 0 : scrubberDays - 1);
       toast(t('scrubber.dateNotAvailable'));
     }
-  }, [latestDate, setLatestDate, setScrubberDay, setSessionScrubberDays]);
+  }, [latestDate, setLatestDate, setScrubberDay, setSessionScrubberDays, t]);
 }
