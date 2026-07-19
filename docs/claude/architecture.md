@@ -113,9 +113,6 @@ station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids f
   ingest-station-readings-today                         daily averages for TODAY via /hours/daily;
                                                         BKK day closes 16:59 UTC — 6h processing buffer;
                                                         station_readings visible by ~23:30 UTC (06:30 BKK).
-                                                        A second phase at the end of this job computes 75 km
-                                                        radius area fire pressure scores for all active stations
-                                                        and upserts to station_fire_pressure.
 
 station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily averages for YESTERDAY as safety
   ingest-station-readings                               net; overwrites any partial values pass 1 wrote
@@ -125,6 +122,25 @@ station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily aver
                                                         both passes resolve to the same Bangkok
                                                         calendar date under this schedule; pass 2
                                                         is a same-day overwrite, not a different day.
+
+station-fire-pressure-ingest — daily (30 4 * * *)      its own Railway cron (station-fire-pressure.json),
+  ingest-station-fire-pressure                          not part of station-readings-ingest. Computes 75 km
+                                                        radius fire pressure scores for all active stations
+                                                        and upserts to station_fire_pressure for YESTERDAY.
+                                                        Scheduled 30 min after station-readings-ingest pass 2
+                                                        so pass 2's overwrite has landed first.
+
+station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (station-baseline.json). Fills
+  ingest-station-baseline                               in station_baseline rows that don't exist yet (e.g. a
+                                                        newer station whose curve stops mid-year), using only
+                                                        that year's station_readings values (no S3 access) for
+                                                        the day-of-year ± 7 window around yesterday. Must run
+                                                        after station-readings-ingest pass 2, since it reads
+                                                        yesterday's value straight from station_readings.
+                                                        Rows the last full backfill already computed (with a
+                                                        proper multi-year pool) are left untouched, not
+                                                        recomputed from a single year's data. A full re-backfill
+                                                        (backfill:station-baseline) remains manual/one-off.
 
 weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
   ingest-weather-today                            07:00 UTC snapshot via forecast API (NWP model
@@ -199,10 +215,12 @@ GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
 GET /api/stations/:stationId/baseline
   Returns all seasonal baseline rows for a station (365 rows, one per calendar day),
   ordered by (month, day). Each row: { month, day, medianPm25, p25Pm25, p75Pm25, n }.
-  Also returns { minYear, maxYear } from the first row.
+  Also returns { minYear, maxYear } aggregated (min/max) across all rows, since individual
+  rows can carry different ranges once the daily gap-fill job creates single-year rows.
   HTTP Cache-Control: public, max-age=21600 (6h). No Redis layer -- data is near-static,
   fetched once per station via useStationBaseline (staleTime: Infinity).
-  Backfill: pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
+  Kept fresh day-to-day by the station-baseline-ingest cron (see above); full re-backfill
+  is manual: pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
 
 GET /api/stations?bbox=...
   Returns all stations with their available parameters.

@@ -143,3 +143,24 @@ semantics (e.g. UTC day to Bangkok day), entries cached before deploy keep servi
 boundary until they naturally expire. Accept this as a self-healing transition cost rather than
 versioning cache keys, unless immediate consistency is required, in which case flush the
 affected keys manually post-deploy.
+
+**Windowed-pool fetch range must double the window** — when computing a rolling ±W window
+statistic (e.g. `station_baseline`'s `WINDOW = 7`) for a *range* of target values rather than
+a single one, the data you fetch must span the target range padded by `±W` on each side, not
+just `±W` around a single center point. If N target values span `[t0, t1]`, the raw data
+needed spans `[t0 - W, t1 + W]` — fetching only `±W` around the range's center starves the
+pool for target values at the edges.
+
+**Folding multiple source keys onto one bucket accumulates, never overwrites** — when
+multiple real values fold onto the same derived key (e.g. `station-baseline.ts` folds a
+leap year's Feb 29 onto day 28), push onto an array (`Map<K, V[]>`) rather than
+`Map.set(key, value)` (`Map<K, V>`). A plain `.set()` silently drops all but the last value
+written for that key.
+
+**Prefer already-ingested data over re-fetching an external source** — before adding an
+incremental/daily job that re-fetches from an external archive or API to keep a derived
+table fresh, check whether the same data is already sitting in one of our own tables from
+an existing daily ingest job. `station_baseline`'s daily upkeep (`ingest-station-baseline.ts`)
+originally re-fetched the OpenAQ S3 archive for the current year, mirroring the historical
+backfill's approach — but `station_readings` already had that exact data from the nightly
+pm25 ingest, making the S3 call entirely redundant.
