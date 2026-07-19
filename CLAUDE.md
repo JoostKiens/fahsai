@@ -315,6 +315,12 @@ When a spec or assets are referenced, read the local spec/asset files first — 
 
 When querying or backfilling Supabase/Postgres data, set explicit time-bound upper limits and add retry handling (e.g., pRetry) to long-running backfill scripts. See `docs/claude/conventions.md` for the Supabase 1000-row pagination gotcha.
 
+**This applies to every Supabase query that could plausibly return more than 1000 rows, not
+just scripts named `backfill-*`.** A daily incremental/ingest script querying `stations`,
+`station_readings`, or any other growing table needs the same `fetchAllPages`/`.range()`
+treatment — one such script shipped without it and silently truncated in production before
+being caught in review.
+
 ## 8. Debugging Approach
 
 Do not make overconfident claims about root causes (e.g., calling something a 'core bug' or assuming data storage/refetch behavior) without verifying against the actual code or data first.
