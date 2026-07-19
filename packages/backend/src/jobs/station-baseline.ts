@@ -103,10 +103,12 @@ export interface RunStationBaselineOptions {
   /** Rows to (re)compute; omit for a full backfill of all 365 days. */
   targetDoys?: number[];
   /**
-   * stationId -> (day-of-year -> daily mean pm25) sourced from `station_readings` for the
-   * current year. Only meaningful when `targetDoys` is set.
+   * stationId -> (day-of-year -> daily mean pm25 values) sourced from `station_readings` for
+   * the current year. An array per day-of-year since Feb 29 folds onto Feb 28 in a leap year,
+   * so both readings must contribute rather than one overwriting the other. Only meaningful
+   * when `targetDoys` is set.
    */
-  currentYearReadings?: Map<string, Map<number, number>>;
+  currentYearReadings?: Map<string, Map<number, number[]>>;
   /** Calendar year `currentYearReadings` values belong to, for stamping min_year/max_year. */
   currentYear?: number;
   /**
@@ -127,6 +129,12 @@ export async function runStationBaseline(
   const { stations, years, targetDoys, currentYearReadings, currentYear, existingDoys } = options;
   const doysToWrite = targetDoys ?? Array.from({ length: 365 }, (_, i) => i + 1);
 
+  const allDates: string[] = [];
+  for (const year of years) allDates.push(...datesForYear(year));
+  if (allDates.length > 0) {
+    console.log(`[baseline] ${allDates.length} dates to check per station`);
+  }
+
   let totalUpserted = 0;
 
   for (let si = 0; si < stations.length; si++) {
@@ -135,9 +143,6 @@ export async function runStationBaseline(
     const allReadings: { bkkDate: string; value: number }[] = [];
     let downloaded = 0;
     let errors = 0;
-
-    const allDates: string[] = [];
-    for (const year of years) allDates.push(...datesForYear(year));
 
     await runWithConcurrency(allDates, CONCURRENCY, async (date) => {
       const url = buildS3Url(station.id, date);
@@ -189,9 +194,9 @@ export async function runStationBaseline(
 
     const currentYearByDoy = currentYearReadings?.get(station.id);
     if (currentYearByDoy && currentYearByDoy.size > 0) {
-      for (const [doy, value] of currentYearByDoy) {
+      for (const [doy, values] of currentYearByDoy) {
         const arr = byDoy.get(doy) ?? [];
-        arr.push(value);
+        arr.push(...values);
         byDoy.set(doy, arr);
       }
       if (currentYear !== undefined) {

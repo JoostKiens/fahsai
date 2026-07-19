@@ -215,7 +215,8 @@ GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
 GET /api/stations/:stationId/baseline
   Returns all seasonal baseline rows for a station (365 rows, one per calendar day),
   ordered by (month, day). Each row: { month, day, medianPm25, p25Pm25, p75Pm25, n }.
-  Also returns { minYear, maxYear } from the first row.
+  Also returns { minYear, maxYear } aggregated (min/max) across all rows, since individual
+  rows can carry different ranges once the daily gap-fill job creates single-year rows.
   HTTP Cache-Control: public, max-age=21600 (6h). No Redis layer -- data is near-static,
   fetched once per station via useStationBaseline (staleTime: Infinity).
   Kept fresh day-to-day by the station-baseline-ingest cron (see above); full re-backfill

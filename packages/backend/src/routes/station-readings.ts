@@ -325,7 +325,6 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
-      const first = data?.[0];
       const rows = (data ?? []).map((row) => ({
         month: row.month as number,
         day: row.day as number,
@@ -335,10 +334,20 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         n: row.n as number,
       }));
 
+      // Individual rows can now carry different min_year/max_year (the daily gap-fill job
+      // may create a single-year row while other rows still carry a full multi-year range),
+      // so aggregate across all rows rather than trusting just the first.
+      const minYears = (data ?? [])
+        .map((row) => row.min_year as number | null)
+        .filter((y): y is number => y !== null);
+      const maxYears = (data ?? [])
+        .map((row) => row.max_year as number | null)
+        .filter((y): y is number => y !== null);
+
       return reply.header('Cache-Control', 'public, max-age=21600').send({
         data: rows,
-        minYear: (first?.min_year as number) ?? null,
-        maxYear: (first?.max_year as number) ?? null,
+        minYear: minYears.length > 0 ? Math.min(...minYears) : null,
+        maxYear: maxYears.length > 0 ? Math.max(...maxYears) : null,
       });
     },
   );
