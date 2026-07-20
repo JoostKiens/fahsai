@@ -454,7 +454,10 @@ function StationPanel({
   const latestDate = useTimeStore((s) => s.latestDate);
   const selectedDate = useTimeStore((s) => s.selectedDate);
 
-  const { data: baselineResp } = useStationBaseline(station.stationId, true);
+  const { data: baselineResp, isPending: baselineLoading } = useStationBaseline(
+    station.stationId,
+    true,
+  );
   const baselineData = baselineResp?.data;
   const baselineYears =
     baselineResp?.minYear && baselineResp?.maxYear
@@ -537,29 +540,6 @@ function StationPanel({
           className="block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175"
         />
       </div>
-      {(() => {
-        const latestDay = chartDays?.[chartDays.length - 1];
-        const bl = latestDay?.baseline;
-        if (!bl || bl.n < BASELINE_DISPLAY_GATE || !latestDay.readingCount) return null;
-        const category = classifyReading(latestDay.pm25, bl);
-        const dayNum = Number(latestDay.date.slice(8, 10));
-        const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
-          month: 'long',
-          timeZone: 'UTC',
-        });
-        const periodKey = dateToPeriodKey(dayNum);
-        const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
-        const label = t(`infoPanel.baseline.${category}` as never, { period });
-        const range = t('infoPanel.baseline.typicalRange' as never, {
-          low: Math.round(bl.p25Pm25),
-          high: Math.round(bl.p75Pm25),
-        });
-        return (
-          <p className="text-[12px] text-zinc-400 mt-0.5">
-            {label} ({range})
-          </p>
-        );
-      })()}
       <hr className="border-zinc-800 my-2" />
       <div className="flex items-center justify-between mb-2">
         <p className="text-[12px] text-zinc-300">
@@ -567,6 +547,40 @@ function StationPanel({
           {baselineYears && ` · ${baselineYears}`}
         </p>
       </div>
+      {historyLoading || baselineLoading ? (
+        <Shimmer className="h-8 w-full -mt-1.5 mb-2" />
+      ) : (
+        (() => {
+          const latestDay = chartDays?.[chartDays.length - 1];
+          if (!latestDay?.readingCount) return null;
+          const bl = latestDay.baseline;
+          if (!bl || bl.n < BASELINE_DISPLAY_GATE) {
+            return (
+              <p className="text-[12px] text-zinc-400 -mt-1.5 mb-2">
+                {t('infoPanel.baseline.limitedHistory')}
+              </p>
+            );
+          }
+          const category = classifyReading(latestDay.pm25, bl);
+          const dayNum = Number(latestDay.date.slice(8, 10));
+          const monthName = new Date(latestDay.date + 'T00:00:00Z').toLocaleDateString(locale, {
+            month: 'long',
+            timeZone: 'UTC',
+          });
+          const periodKey = dateToPeriodKey(dayNum);
+          const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
+          const label = t(`infoPanel.baseline.${category}` as never, { period });
+          const range = t('infoPanel.baseline.typicalRange' as never, {
+            low: Math.round(bl.p25Pm25),
+            high: Math.round(bl.p75Pm25),
+          });
+          return (
+            <p className="text-[12px] text-zinc-400 -mt-1.5 mb-2">
+              {label} ({range})
+            </p>
+          );
+        })()
+      )}
       {baselineData && baselineData.length > 0 ? (
         <YearCurve
           data={baselineData}

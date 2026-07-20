@@ -147,5 +147,6 @@
   "infoPanel.baseline.below": "ต่ำกว่าปกติสำหรับ{{period}}",
   "infoPanel.baseline.wellBelow": "ต่ำกว่าปกติมากสำหรับ{{period}}",
   "infoPanel.baseline.typicalRange": "ปกติ {{low}}–{{high}} µg/m³",
-  "infoPanel.baseline.yearCurve": "รูปแบบตามฤดูกาล"
+  "infoPanel.baseline.yearCurve": "รูปแบบตามฤดูกาล",
+  "infoPanel.baseline.limitedHistory": "ข้อมูลสำหรับช่วงเวลานี้ของปียังมีน้อย — การเปรียบเทียบนี้อาจไม่แม่นยำนัก"
 }

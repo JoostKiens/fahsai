@@ -147,5 +147,6 @@
   "infoPanel.baseline.below": "Below normal for {{period}}",
   "infoPanel.baseline.wellBelow": "Well below normal for {{period}}",
   "infoPanel.baseline.typicalRange": "typically {{low}}–{{high}} µg/m³",
-  "infoPanel.baseline.yearCurve": "Seasonal pattern"
+  "infoPanel.baseline.yearCurve": "Seasonal pattern",
+  "infoPanel.baseline.limitedHistory": "Limited data for this time of year so far — this comparison may be less reliable."
 }
