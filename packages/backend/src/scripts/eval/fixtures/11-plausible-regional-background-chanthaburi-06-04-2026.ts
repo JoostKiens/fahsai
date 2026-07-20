@@ -117,6 +117,7 @@ export const fixture: ExplainFixture = {
     },
     outlier: null,
     season: 'peak_burning',
+    baseline: null,
     persistentWind: {
       directionDeg: 225,
       label: 'SW',

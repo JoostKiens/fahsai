@@ -184,6 +184,7 @@ export const fixture: ExplainFixture = {
     },
     outlier: null,
     season: 'peak_burning',
+    baseline: null,
     persistentWind: {
       directionDeg: 256, // circular mean of WSW(247), W(270), W(270), W(270), W(270) ≈ W/WSW
       label: 'WSW',

@@ -224,6 +224,7 @@ export const fixture: ExplainFixture = {
     // 48.3 ÷ 31.7 = 1.52× — elevated outlier note present, not strong outlier
     outlier: null,
     season: 'peak_burning',
+    baseline: null,
     persistentWind: {
       directionDeg: 196,
       label: 'SSW',

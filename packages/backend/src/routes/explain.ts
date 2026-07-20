@@ -28,7 +28,7 @@ import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 import { fetchAllPages } from '../utils/backfill.js';
 
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 9;
+const EXPLAIN_CACHE_VERSION = 10;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
@@ -199,6 +199,7 @@ export function explainRoutes(app: FastifyInstance): void {
         camsD1,
         camsD2,
         pressureData,
+        baseline,
       } = ctx;
 
       const latestPm25 = stationReadings[0].value;
@@ -523,6 +524,8 @@ export function explainRoutes(app: FastifyInstance): void {
         outlier: peers.isStrongOutlier
           ? { direction: peers.isHighOutlier ? 'high' : 'low', ratio: peers.outlierRatio ?? 0 }
           : null,
+
+        baseline,
 
         persistentWind: persistentWind
           ? {

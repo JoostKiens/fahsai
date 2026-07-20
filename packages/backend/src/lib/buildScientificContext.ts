@@ -3,6 +3,8 @@ import { classifyCase } from '../utils/classify.js';
 import type { ClassifyParams } from '../utils/classify.js';
 import type { ExplainCase } from '../routes/explain.js';
 import type { RawExplainData, FixtureUpwindSource } from '../scripts/eval/types.js';
+import { BASELINE_DISPLAY_GATE, classifyReading, dateToPeriodKey } from '@thailand-aq/types';
+import type { BaselineCategory, PeriodKey } from '@thailand-aq/types';
 
 // Re-export for buildPrompt.ts
 export type { ExplainCase };
@@ -137,6 +139,15 @@ export interface ScientificContext {
     | null;
 
   seasonContext: string;
+
+  // null when baseline data is thin (n < BASELINE_DISPLAY_GATE) or the reading is
+  // normal for the season — the model never needs to be told a reading is unremarkable
+  stationBaseline: {
+    category: Exclude<BaselineCategory, 'normal'>;
+    typicalLow: number;
+    typicalHigh: number;
+    periodLabel: string;
+  } | null;
 }
 
 const WATER_REGION_KEYWORDS = [
@@ -152,6 +163,12 @@ const WATER_REGION_KEYWORDS = [
   'south china',
   'bengal',
 ];
+
+const PERIOD_LABEL_PREFIX: Record<PeriodKey, string> = {
+  periodEarly: 'early ',
+  periodMid: 'mid-',
+  periodLate: 'late ',
+};
 
 // ----------------------------------------------------------------
 // Internal helpers
@@ -198,6 +215,31 @@ function computeTrend(
     return peak > 0 && (peak - latest) / peak > 0.25;
   })();
   return { direction, isSignificant };
+}
+
+function periodLabel(date: string): string {
+  const dayOfMonth = Number(date.slice(8, 10));
+  const monthName = new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  return `${PERIOD_LABEL_PREFIX[dateToPeriodKey(dayOfMonth)]}${monthName}`;
+}
+
+function computeStationBaseline(
+  baseline: RawExplainData['baseline'],
+  date: string,
+  currentPm25: number,
+): ScientificContext['stationBaseline'] {
+  if (!baseline || baseline.n < BASELINE_DISPLAY_GATE) return null;
+  const category = classifyReading(currentPm25, baseline);
+  if (category === 'normal') return null;
+  return {
+    category,
+    typicalLow: baseline.p25Pm25,
+    typicalHigh: baseline.p75Pm25,
+    periodLabel: periodLabel(date),
+  };
 }
 
 function computeSourceTiers(
@@ -391,6 +433,8 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         : { type: 'LOW' as const, ratio: raw.outlier.ratio }
       : null;
 
+  const stationBaseline = computeStationBaseline(raw.baseline, raw.date, raw.currentPm25);
+
   return {
     station: raw.station,
     currentPm25: raw.currentPm25,
@@ -418,5 +462,6 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     peers,
     outlier,
     seasonContext,
+    stationBaseline,
   };
 }
