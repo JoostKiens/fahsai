@@ -48,9 +48,12 @@ if (targetMonth === 2 && targetDay === 29) targetDay = 28;
 const newDoy = dayOfYear(targetMonth, targetDay);
 const currentYear = Number(targetDate.slice(0, 4));
 
-// Rows this run may write: yesterday's day-of-year ± WINDOW.
+// Rows this run may write: yesterday's day-of-year and the WINDOW days before it. Never
+// days after yesterday -- those haven't happened yet this year, so for a "gap" station
+// (no multi-year backfill yet) a forward-looking target would compute a "baseline" for a
+// future date purely from an echo of the last few real days, not an actual measurement.
 const targetDoys: number[] = [];
-for (let offset = -WINDOW; offset <= WINDOW; offset++) {
+for (let offset = -WINDOW; offset <= 0; offset++) {
   let doy = newDoy + offset;
   if (doy < 1) doy += 365;
   if (doy > 365) doy -= 365;
