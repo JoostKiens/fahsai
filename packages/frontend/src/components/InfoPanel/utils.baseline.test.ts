@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyReading, dateToPeriodKey } from './utils.baseline';
+import { classifyReading, dateToPeriodKey } from '@thailand-aq/types';
 import type { BaselineStat } from '@thailand-aq/types';
 
 const bl: BaselineStat = { p25Pm25: 20, p75Pm25: 40, medianPm25: 30, n: 100 };

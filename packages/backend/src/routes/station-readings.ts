@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import type { BaselineStat } from '@thailand-aq/types';
+import type { BaselineStat, BaselineRow } from '@thailand-aq/types';
+import { mapBaselineRow } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
@@ -277,12 +278,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const baselineByMD = new Map<string, BaselineStat>();
       for (const row of baselineData ?? []) {
-        baselineByMD.set(`${row.month}-${row.day}`, {
-          medianPm25: row.median_pm25 as number,
-          p25Pm25: row.p25_pm25 as number,
-          p75Pm25: row.p75_pm25 as number,
-          n: row.n as number,
-        });
+        baselineByMD.set(`${row.month}-${row.day}`, mapBaselineRow(row as BaselineRow));
       }
 
       // Build result: oldest-first, from (endDate - days + 1) to endDate
@@ -328,10 +324,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const rows = (data ?? []).map((row) => ({
         month: row.month as number,
         day: row.day as number,
-        medianPm25: row.median_pm25 as number,
-        p25Pm25: row.p25_pm25 as number,
-        p75Pm25: row.p75_pm25 as number,
-        n: row.n as number,
+        ...mapBaselineRow(row as BaselineRow),
       }));
 
       // Individual rows can now carry different min_year/max_year (the daily gap-fill job

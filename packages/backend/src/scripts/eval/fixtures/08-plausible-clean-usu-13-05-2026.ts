@@ -105,6 +105,7 @@ export const fixture: ExplainFixture = {
     peers: null,
     outlier: null,
     season: 'monsoon',
+    baseline: null,
     persistentWind: null, // wind data missing for May 12, insufficient for consistency check
   },
 };

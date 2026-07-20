@@ -183,6 +183,7 @@ export const fixture: ExplainFixture = {
     // 37.1 ÷ 18.8 = 1.97× — elevated outlier note present but below 2.0× strong threshold
     outlier: null,
     season: 'peak_burning',
+    baseline: null,
     persistentWind: {
       directionDeg: 128, // circular mean of ESE(112), SE(135), SE(135) ≈ SE
       label: 'SE',

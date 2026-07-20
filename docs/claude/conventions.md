@@ -57,6 +57,25 @@ file is PascalCase, since it holds components — not `icons.tsx`.
 
 ## Key constraints and gotchas
 
+**Workspace packages need `"type": "module"` before their first real export** — a
+`packages/*/package.json` without `"type": "module"` is harmless as long as the package
+only has type-only exports (interfaces, type aliases erase at compile time, so there's no
+runtime module to load). The moment it gains a real value export (a function or `const`),
+Node's `require(esm)` cycle detection under tsx (Node 22.17/22.19) breaks, with a misleading
+error that depends on the import graph shape — either `SyntaxError: ... does not provide an
+export named X` or `ERR_REQUIRE_CYCLE_MODULE`, neither of which points at the missing field.
+Add `"type": "module"` when a package gets its first runtime export, not after chasing the
+error (`packages/types` hit this when `classifyReading` moved in).
+
+**Known debt: several `fetchExplainContext.ts` queries never check `.error`** —
+`peerRowsResult`, `stationWeatherRows`, `pressureResult`, and `baselineResult` in
+`packages/backend/src/lib/fetchExplainContext.ts` all read `.data` directly without checking
+`.error` (only `stationRows.error` is checked, and thrown). A DB/RLS failure on any of these
+degrades silently and identically to "no data for this station" — with no log line to tell the
+two apart. This predates the `station_baseline` addition and spans multiple queries, so fix it
+as one file-wide pass adding error logging to all four, not query-by-query as each one happens
+to get touched by an unrelated feature.
+
 **`git mv` case-only renames on macOS** — renaming a file to a different casing only
 (e.g. `icons.tsx` → `Icons.tsx`) requires a two-step move (`git mv icons.tsx icons.tsx.tmp`
 then `git mv icons.tsx.tmp Icons.tsx`) because macOS's default case-insensitive filesystem

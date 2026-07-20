@@ -85,6 +85,7 @@ export const fixture: ExplainFixture = {
     },
     outlier: { direction: 'high', ratio: 4.5 },
     season: 'monsoon',
+    baseline: null,
     // Wind shifted ESE → S → WSW over 3 days — not consistent
     persistentWind: null,
   },

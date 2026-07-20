@@ -1,4 +1,5 @@
 import type { ExplainCase } from '../../routes/explain'; // or wherever you define the union
+import type { BaselineStat } from '@thailand-aq/types';
 
 // ----------------------------------------------------------------
 // Sub-types
@@ -153,6 +154,8 @@ export interface RawExplainData {
   outlier: FixtureOutlier | null; // null when reading is within normal peer range
 
   season: Season;
+
+  baseline: BaselineStat | null;
 
   persistentWind: {
     directionDeg: number;

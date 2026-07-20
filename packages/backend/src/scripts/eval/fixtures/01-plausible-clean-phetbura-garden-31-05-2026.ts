@@ -194,6 +194,7 @@ export const fixture: ExplainFixture = {
     // 8.6 ÷ 15.2 = 0.57× — below peers but above the 0.4× strong outlier threshold
     outlier: null,
     season: 'monsoon',
+    baseline: null,
     persistentWind: {
       directionDeg: 164,
       label: 'SSE',

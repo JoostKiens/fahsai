@@ -89,6 +89,7 @@ export const fixture: ExplainFixture = {
     },
     outlier: { direction: 'low', ratio: 0.1 },
     season: 'peak_burning',
+    baseline: null,
     persistentWind: null, // wind shifted from W to SE — not consistent
   },
 };

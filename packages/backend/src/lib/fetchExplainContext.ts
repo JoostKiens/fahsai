@@ -4,7 +4,8 @@ import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { bangkokMidnightUtcMs } from '../utils/bkkDate.js';
-import type { WeatherReading } from '@thailand-aq/types';
+import type { WeatherReading, BaselineStat, BaselineRow } from '@thailand-aq/types';
+import { mapBaselineRow } from '@thailand-aq/types';
 import { MS_PER_DAY, MS_PER_HOUR } from '@thailand-aq/consts';
 const GRID_MIN_COMPLETE = 4000;
 const GRID_PAGE_SIZE = 1000;
@@ -48,6 +49,7 @@ export interface ExplainContext {
   camsD1: CamsPoint[];
   camsD2: CamsPoint[];
   pressureData: { score: number; fire_count: number; total_frp_mw: number } | null;
+  baseline: BaselineStat | null;
 }
 
 async function getCachedGrid<T>(cacheKey: string, fetch: () => Promise<T[]>): Promise<T[]> {
@@ -103,6 +105,8 @@ export async function fetchExplainContext(
   const d2 = offsetDate(selectedDate, -2);
   const d3 = offsetDate(selectedDate, -3);
   const d4 = offsetDate(selectedDate, -4);
+  const d0Month = Number(d0.slice(5, 7));
+  const d0Day = Number(d0.slice(8, 10));
 
   const [
     stationRows,
@@ -115,6 +119,7 @@ export async function fetchExplainContext(
     camsD1,
     camsD2,
     pressureResult,
+    baselineResult,
   ] = await Promise.all([
     supabase
       .from('station_readings')
@@ -153,6 +158,14 @@ export async function fetchExplainContext(
       .eq('station_id', stationId)
       .eq('date', d0)
       .maybeSingle(),
+
+    supabase
+      .from('station_baseline')
+      .select('median_pm25, p25_pm25, p75_pm25, n')
+      .eq('station_id', stationId)
+      .eq('month', d0Month)
+      .eq('day', d0Day)
+      .maybeSingle(),
   ]);
 
   if (stationRows.error) throw new Error(stationRows.error.message);
@@ -165,6 +178,10 @@ export async function fetchExplainContext(
   for (const row of (stationWeatherRows.data ?? []) as StationWeatherRecord[]) {
     stationWeatherByDate.set(row.date, row);
   }
+
+  const baseline: BaselineStat | null = baselineResult.data
+    ? mapBaselineRow(baselineResult.data as BaselineRow)
+    : null;
 
   return {
     anchorEndMs,
@@ -192,5 +209,6 @@ export async function fetchExplainContext(
       fire_count: number;
       total_frp_mw: number;
     } | null,
+    baseline,
   };
 }

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
+import { BASELINE_DISPLAY_GATE, classifyReading, dateToPeriodKey } from '@thailand-aq/types';
 import { useUIStore, dayToDate, useEffectiveScrubberDays } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
 import { ExplainButton } from '@/components/ExplainButton/ExplainButton';
@@ -19,7 +20,6 @@ import { dateLocale, toDisplayYear } from '@/i18n';
 import { History, ShimmerHistory } from './History';
 import { YearCurve } from './YearCurve';
 import { useStationBaseline } from './useStationBaseline';
-import { classifyReading, dateToPeriodKey } from './utils.baseline';
 import { WindArrow } from './WindArrow';
 import { BottomSheet } from '@/components/BottomSheet';
 import { HEADER_HEIGHT } from '@/components/Header/Header';
@@ -32,7 +32,6 @@ const PANEL_BASE =
 
 // ponytail: tune against real station content on a narrow viewport (≈375px)
 const PEEK_HEIGHT = 232;
-const BASELINE_DISPLAY_GATE = 30;
 
 export function InfoPanel() {
   const { t, i18n } = useTranslation();

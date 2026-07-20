@@ -2,6 +2,7 @@ import type { RawExplainData, Season, FixtureUpwindSource } from '../scripts/eva
 import type { StationWeatherRecord } from './fetchExplainContext.js';
 import type { PeerAnalysis } from './analyzePeers.js';
 import { bangkokDateString } from '../utils/bkkDate.js';
+import type { BaselineStat } from '@thailand-aq/types';
 
 type SourceInput = {
   name: string;
@@ -53,6 +54,7 @@ export interface BuildRawExplainDataInput {
   upwindSources: SourceInput[];
   peers: PeerAnalysis;
   outlier: { direction: 'high' | 'low'; ratio: number } | null;
+  baseline: BaselineStat | null;
 
   persistentWind: {
     directionDeg: number;
@@ -125,6 +127,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
     upwindSources,
     peers,
     outlier,
+    baseline,
     persistentWind,
   } = input;
 
@@ -217,6 +220,8 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
     outlier: outlier ? { direction: outlier.direction, ratio: outlierRatio ?? 0 } : null,
 
     season: getSeason(selectedDate),
+
+    baseline,
 
     persistentWind: persistentWind
       ? {

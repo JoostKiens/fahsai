@@ -1,5 +1,6 @@
 import type { ScientificContext, TierSource } from './buildScientificContext.js';
 import { pm25Cat, firePressureLabel } from './buildScientificContext.js';
+import type { BaselineCategory } from '@thailand-aq/types';
 import { golden as goldenFireTransport } from '../scripts/eval/golden/02-plausible-fire-transport-wiang-nuea-01-04-2026.js';
 import { golden as goldenOutlierLow } from '../scripts/eval/golden/03-outlier-low-kaenoisuksa-school-02-04-2026.js';
 import { golden as goldenOutlierHigh } from '../scripts/eval/golden/04-outlier-high-kasetsart-university-03-05-2026.js';
@@ -23,6 +24,23 @@ function sourceDetail(s: TierSource): string {
   if (s.type === 'city') return `pop. ${((s.population ?? 0) / 1e6).toFixed(1)}M`;
   if (s.type === 'industrial') return 'industrial zone';
   return `${s.capacityMw ?? '?'} MW ${s.type.replace('_plant', '')} plant`;
+}
+
+const BASELINE_CATEGORY_PHRASE: Record<Exclude<BaselineCategory, 'normal'>, string> = {
+  wellAbove: 'well above normal',
+  above: 'above normal',
+  below: 'below normal',
+  wellBelow: 'well below normal',
+};
+
+function stationBaselineLine(baseline: ScientificContext['stationBaseline']): string {
+  if (!baseline) return '';
+  const { typicalLow, typicalHigh, periodLabel, category } = baseline;
+  return `\nSTATION SEASONAL BASELINE: Typically ${Math.round(typicalLow)}–${Math.round(typicalHigh)} µg/m³ for ${periodLabel} — today's reading is ${BASELINE_CATEGORY_PHRASE[category]}
+  Work this into the cause you are describing, in this station's own words — it
+  shows how unusual today's level is for this station specifically, distinct
+  from the regional SEASONAL CONTEXT above it. Do not present it as a second,
+  separate explanation.\n`;
 }
 
 // ----------------------------------------------------------------
@@ -233,7 +251,7 @@ CURRENT PM2.5: ${ctx.currentPm25.toFixed(1)} µg/m³ — ${ctx.aqiCategory}
 CASE: ${ctx.explainCase}
 DATE: ${ctx.date} (UTC+7)
 SEASONAL CONTEXT: ${ctx.seasonContext}
-
+${stationBaselineLine(ctx.stationBaseline)}
 7-DAY DAILY AVERAGES
 ${dailyLines}
 

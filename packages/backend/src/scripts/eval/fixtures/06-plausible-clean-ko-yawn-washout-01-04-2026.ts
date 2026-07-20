@@ -127,6 +127,7 @@ export const fixture: ExplainFixture = {
     // Not a strong outlier — 21.9 vs weighted mean 23.5 = 0.93×
     outlier: null,
     season: 'peak_burning',
+    baseline: null,
     // Wind shifted significantly — WSW, E, WSW — not consistent enough
     persistentWind: null,
   },

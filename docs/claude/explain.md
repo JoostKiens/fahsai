@@ -100,6 +100,52 @@ Files:
 
 ---
 
+## Station seasonal baseline
+
+When `station_baseline` has ≥ `BASELINE_DISPLAY_GATE` (30, from `@thailand-aq/types`) samples
+for the request's month/day, `buildScientificContext.ts` classifies today's reading against
+the station's own p25/p75 history (`classifyReading`, also from `@thailand-aq/types` — shared
+with the frontend's `InfoPanel` baseline callout, not reimplemented). This is a second,
+complementary seasonal signal alongside the calendar-only `SEASONAL CONTEXT`: one explains
+regional timing, the other says whether this station's own history looks normal today.
+
+**Suppressed at the data layer, not by prompt instruction.** `stationBaseline` is `null` both
+when the sample count is too low *and* when the reading classifies as `normal` for the season.
+A `normal` reading is deliberately never passed through non-null with a "stay silent"
+instruction attached — that would rely on model compliance for something the null-check
+omission pattern (same as `persistentWind`/`transport`) already guarantees structurally. See
+the fix-precedence principle below: fix wrong or unnecessary information reaching the model at
+the data layer, not the prompt.
+
+This `null` is deliberately overloaded — unlike `trend`, which stays non-null and exposes the
+same kind of distinction via a separate `isSignificant` boolean, `stationBaseline` collapses
+"no baseline history for this station" and "history exists but today is unremarkable" into the
+same value. That's an intentional trade for the guarantee above, not an oversight — don't
+"restore" the distinction by splitting the null into two states unless a real downstream
+consumer (logging, an eval assertion) actually needs it.
+
+**Wording is intentionally not shared with the frontend.** `buildScientificContext.ts`'s
+`periodLabel()` and `buildPrompt.ts`'s `BASELINE_CATEGORY_PHRASE` re-derive text that has an
+equivalent in `InfoPanel.tsx` / `en.json`'s `infoPanel.baseline.*` keys (period prefixes,
+category adjectives). This isn't the drift risk it looks like: the frontend strings are
+i18n-templated UI copy shown verbatim to a user, while the backend strings are fixed-English
+prompt fragments the model is instructed to paraphrase, not quote — unifying them would mean
+either dragging i18n into the backend or a hardcoded English map into the frontend. Same
+reasoning as the pre-existing `AQI_LABELS` duplication a few lines up. Leave the two copies
+separate; this is a known, accepted parallel, not an oversight to "fix" by extracting a shared
+formatter.
+
+**Data alone was not enough.** Adding the `STATION SEASONAL BASELINE` line to
+`<scientific_data>` did not change model behavior on its own — a live `--no-stream` eval run
+on a fixture with the field present showed Gemini ignoring it entirely. Only after adding a
+short instruction next to the line (mirroring `trendSection`'s pattern: instruction text
+embedded in the data block itself, so it only costs prompt words on requests where the field
+is actually present, instead of growing the already-over-budget `UNIVERSAL_RULES`) did the
+model incorporate it. Concrete evidence for the "case and data correct, model still misbehaves
+→ `buildPrompt.ts` last resort" row of the fix-precedence table below.
+
+---
+
 ## Editing the prompt
 
 The prompt is shared, permanent surface area. Every instruction you add lives in every
