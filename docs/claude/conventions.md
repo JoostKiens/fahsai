@@ -35,6 +35,29 @@ check against `windDirectionDeg`. Implementation: inline in `packages/backend/sr
 
 ---
 
+## Wind particle density — never use raw viewport width as a zoom signal
+
+`packages/frontend/src/components/Map/useWindParticles.ts` derives particle count, trail
+length, and trail alpha from `rawViewportWidth` (`map.getBounds()` east-west span, in
+degrees). `rawViewportWidth` equals `containerWidthPx × degreesPerPixel(zoom)` — it is **not**
+a pure zoom signal. A narrow/mobile container reads as "zoomed in further" to any formula
+keyed on `rawViewportWidth` alone, even at the exact same zoom as a wide desktop container.
+
+Any zoom-dependent scaling in that file (particle density, trail length/alpha, or future
+additions) must go through `zoomOnlyWidth(rawViewportWidth, containerWidthPx)` — which strips
+the container-width contribution back out — or use `map.getZoom()` directly. Never compare
+`rawViewportWidth` against a fixed threshold to decide "is the user zoomed in."
+
+This exact bug has shipped **twice**: `bf2f3f2`/`a4816ce` established width-independent
+density via `viewportParticleCount()`'s area-proportional scaling, then `41295e3` (tuned by
+`164b529`/`53452be`) silently reintroduced it by adding a `zoomCompensation` multiplier and
+`MAX_PARTICLE_COUNT` high-zoom ceiling keyed off raw `rawViewportWidth`, undoing the earlier
+fix through an unrelated code path. `viewportParticleCount` and `dynamicTrailParams` are
+exported and covered by `useWindParticles.test.ts` specifically to catch a third regression —
+keep those tests passing if you touch the density or trail-length/alpha formulas.
+
+---
+
 ## Frontend component structure
 
 **Barrel files (`index.ts`)** are only justified when they re-export 2+ things consumed

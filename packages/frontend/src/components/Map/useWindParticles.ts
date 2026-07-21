@@ -157,7 +157,8 @@ export function useWindParticles(
     stateRef.current.viewport = initialViewport;
     const initialRawWidth = mapRawViewportWidth(map);
     stateRef.current.rawViewportWidth = initialRawWidth;
-    stateRef.current.containerWidthPx = mapContainerWidthPx(map);
+    const initialContainerWidthPx = mapContainerWidthPx(map);
+    stateRef.current.containerWidthPx = initialContainerWidthPx;
 
     // If wind data arrived before this effect ran (common on mobile, where
     // wind XHRs can resolve before mapbox reports valid bounds), particles
@@ -169,6 +170,7 @@ export function useWindParticles(
         particles: s.particles,
         viewport: initialViewport,
         rawViewportWidth: initialRawWidth,
+        containerWidthPx: initialContainerWidthPx,
         grid: s.grid,
         gridMap: s.gridMap,
       });
@@ -179,12 +181,14 @@ export function useWindParticles(
       stateRef.current.viewport = viewport;
       const rawWidth = mapRawViewportWidth(map);
       stateRef.current.rawViewportWidth = rawWidth;
-      stateRef.current.containerWidthPx = mapContainerWidthPx(map);
+      const containerWidthPx = mapContainerWidthPx(map);
+      stateRef.current.containerWidthPx = containerWidthPx;
       const s2 = stateRef.current;
       reconcileParticleCount({
         particles: s2.particles,
         viewport,
         rawViewportWidth: rawWidth,
+        containerWidthPx,
         grid: s2.grid,
         gridMap: s2.gridMap,
       });
@@ -241,6 +245,7 @@ export function useWindParticles(
     stateRef.current.particles = initParticles({
       viewport: stateRef.current.viewport,
       rawViewportWidth: stateRef.current.rawViewportWidth,
+      containerWidthPx: stateRef.current.containerWidthPx,
       grid: stateRef.current.grid,
       gridMap: stateRef.current.gridMap,
     });
@@ -289,34 +294,16 @@ export function useWindParticles(
       if (!visible || !grid) {
         ov.setProps({ layers: [] });
       } else {
-        // Both use the raw (unbuffered) visible width, not the padded spawn/OOB
-        // viewport — mapViewport()'s fixed VIEWPORT_BUFFER_DEG pad would otherwise
-        // dominate and stop these ratios from shrinking further at village-level zoom.
-        // widthRatio still drives trail-length/alpha ramping (zoomGrowth) below.
-        const widthRatio = rawViewportWidth / REF_VIEWPORT_DEG_WIDTH;
         // Degrees-per-frame scale that keeps on-screen pixel speed constant across zoom and
         // container width: exact inverse of how much pixels-per-degree has changed since the
         // reference calibration (REF_PIXELS_PER_DEGREE).
         const pixelsPerDegree = containerWidthPx / rawViewportWidth;
         const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
         const dtScale = (dt / 16.67) * velocityScale;
-        // Each point's movement (dtScale) is already pixel-invariant, so keeping the
-        // point count constant would render a fixed *pixel* trail everywhere. Trails
-        // should instead represent a roughly-fixed *geographic* distance, so point
-        // count grows continuously as the viewport narrows (zooming in) — √-damped
-        // and capped (like the wind-speed trail scaling below) so it can't run away
-        // at extreme zoom the way an uncapped 1/widthRatio growth would. Clamped here
-        // (not just at its point of use) so the [1, TRAIL_GROWTH_MAX] invariant holds
-        // for zoomGrowth itself.
-        const zoomGrowth = clamp(Math.sqrt(1 / Math.max(widthRatio, 0.001)), 1, TRAIL_GROWTH_MAX);
-        const dynamicTrailLength = Math.round(TRAIL_LENGTH * zoomGrowth);
-        // Derived from the same zoomGrowth signal driving trail length (not a separate,
-        // device-independent zoom curve) so alpha and trail length reach "fully ramped"
-        // at the same apparent zoom regardless of screen/container size.
-        const rampT = (zoomGrowth - 1) / (TRAIL_GROWTH_MAX - 1);
-        const dynamicAlpha = Math.round(
-          PARTICLE_START_ALPHA + rampT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
-        );
+        const { trailLength: dynamicTrailLength, alpha: dynamicAlpha } = dynamicTrailParams({
+          rawViewportWidth,
+          containerWidthPx,
+        });
         stepParticles({
           particles,
           grid,
@@ -395,6 +382,10 @@ function mapViewport(map: mapboxgl.Map): Viewport {
 // VIEWPORT_BUFFER_DEG: that fixed-degree pad is negligible at low zoom but
 // dominates at village-level zoom (true width can shrink well below the buffer
 // itself), which would otherwise stop these ratios from continuing to shrink.
+// This value alone conflates zoom with container pixel width — never use it directly
+// as a zoom signal. Any new zoom-dependent calculation must go through
+// zoomOnlyWidth(rawViewportWidth, containerWidthPx) first; see the "wind particle
+// density" gotcha in docs/claude/conventions.md.
 function mapRawViewportWidth(map: mapboxgl.Map): number {
   const b = map.getBounds();
   return b ? b.getEast() - b.getWest() : REF_VIEWPORT_DEG_WIDTH;
@@ -406,6 +397,17 @@ function mapContainerWidthPx(map: mapboxgl.Map): number {
   return map.getContainer().clientWidth || REF_CONTAINER_WIDTH_PX;
 }
 
+// rawViewportWidth conflates zoom with container pixel width (it equals
+// containerWidthPx × degreesPerPixel(zoom)), so it's not safe to use directly as a
+// zoom signal — a narrow/mobile container reads as "zoomed in further" even at the
+// same zoom as desktop. This strips the container-width contribution back out,
+// leaving a signal that depends only on zoom. See "wind particle density" gotcha in
+// docs/claude/conventions.md; this exact bug has regressed twice (bf2f3f2/a4816ce,
+// then 41295e3).
+function zoomOnlyWidth(rawViewportWidth: number, containerWidthPx: number): number {
+  return rawViewportWidth * (REF_CONTAINER_WIDTH_PX / containerWidthPx);
+}
+
 // ─── particle helpers ─────────────────────────────────────────────────────────
 
 // Resize an existing particle array in-place to match the count implied by
@@ -415,16 +417,18 @@ function reconcileParticleCount({
   particles,
   viewport,
   rawViewportWidth,
+  containerWidthPx,
   grid,
   gridMap,
 }: {
   particles: Particle[];
   viewport: Viewport;
   rawViewportWidth: number;
+  containerWidthPx: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
 }): void {
-  const target = viewportParticleCount(viewport, rawViewportWidth);
+  const target = viewportParticleCount({ viewport, rawViewportWidth, containerWidthPx });
   if (particles.length < target) {
     for (let i = particles.length; i < target; i++) {
       particles.push(spawnParticle({ viewport, grid, gridMap, scatterAge: true }));
@@ -437,15 +441,17 @@ function reconcileParticleCount({
 function initParticles({
   viewport,
   rawViewportWidth,
+  containerWidthPx,
   grid,
   gridMap,
 }: {
   viewport: Viewport;
   rawViewportWidth: number;
+  containerWidthPx: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
 }): Particle[] {
-  const count = viewportParticleCount(viewport, rawViewportWidth);
+  const count = viewportParticleCount({ viewport, rawViewportWidth, containerWidthPx });
   // scatterAge=true distributes initial ages so they don't all fade out simultaneously
   return Array.from({ length: count }, () =>
     spawnParticle({ viewport, grid, gridMap, scatterAge: true }),
@@ -507,26 +513,68 @@ function stepParticles({
   }
 }
 
-function viewportParticleCount(viewport: Viewport, rawViewportWidth: number): number {
+export function viewportParticleCount({
+  viewport,
+  rawViewportWidth,
+  containerWidthPx,
+}: {
+  viewport: Viewport;
+  rawViewportWidth: number;
+  containerWidthPx: number;
+}): number {
   const [west, south, east, north] = viewport;
   const area = (east - west) * (north - south);
+  // zoomWidth (not rawViewportWidth) so this reflects actual zoom, not container width —
+  // see zoomOnlyWidth().
+  const zoomWidth = zoomOnlyWidth(rawViewportWidth, containerWidthPx);
   // `area` shrinks with the square of zoom (both dimensions shrink as you zoom in), even
   // though on-screen pixel area doesn't. DENSITY_ZOOM_EXPONENT controls how much of that
   // shrinkage gets cancelled — softer than full (2) so density keeps dropping smoothly
   // through the middle zoom range instead of plateauing, but gentler than none (0) so it
   // doesn't thin out as aggressively as the original, uncompensated behavior. Uses
-  // rawViewportWidth (unbuffered), not the padded viewport's (east-west) — that padding
+  // zoomWidth (unbuffered), not the padded viewport's (east-west) — that padding
   // dominates at village-level zoom and would otherwise distort this at high zoom.
-  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / rawViewportWidth) ** DENSITY_ZOOM_EXPONENT;
+  const zoomCompensation = (REF_VIEWPORT_DEG_WIDTH / zoomWidth) ** DENSITY_ZOOM_EXPONENT;
   const compensatedArea = area * zoomCompensation;
   const rawCount = (PARTICLE_COUNT * compensatedArea) / REFERENCE_AREA;
   const highZoomT = clamp(
-    (HIGH_ZOOM_WIDTH_DEG - rawViewportWidth) / (HIGH_ZOOM_WIDTH_DEG - HIGH_ZOOM_WIDTH_FLOOR_DEG),
+    (HIGH_ZOOM_WIDTH_DEG - zoomWidth) / (HIGH_ZOOM_WIDTH_DEG - HIGH_ZOOM_WIDTH_FLOOR_DEG),
     0,
     1,
   );
   const cap = PARTICLE_COUNT + highZoomT * (MAX_PARTICLE_COUNT - PARTICLE_COUNT);
   return Math.round(clamp(rawCount, 30, cap));
+}
+
+export function dynamicTrailParams({
+  rawViewportWidth,
+  containerWidthPx,
+}: {
+  rawViewportWidth: number;
+  containerWidthPx: number;
+}): { trailLength: number; alpha: number } {
+  // Uses zoomOnlyWidth (not rawViewportWidth) so trail length/alpha reflect actual
+  // zoom, not container width — otherwise narrow/mobile screens render longer,
+  // brighter trails than desktop at the same zoom. See zoomOnlyWidth().
+  const widthRatio = zoomOnlyWidth(rawViewportWidth, containerWidthPx) / REF_VIEWPORT_DEG_WIDTH;
+  // Each point's movement (dtScale, computed separately for velocity) is already
+  // pixel-invariant, so keeping the point count constant would render a fixed *pixel*
+  // trail everywhere. Trails should instead represent a roughly-fixed *geographic*
+  // distance, so point count grows continuously as the viewport narrows (zooming in) —
+  // √-damped and capped (like the wind-speed trail scaling in stepParticles) so it can't
+  // run away at extreme zoom the way an uncapped 1/widthRatio growth would. Clamped here
+  // (not just at its point of use) so the [1, TRAIL_GROWTH_MAX] invariant holds for
+  // zoomGrowth itself.
+  const zoomGrowth = clamp(Math.sqrt(1 / Math.max(widthRatio, 0.001)), 1, TRAIL_GROWTH_MAX);
+  const trailLength = Math.round(TRAIL_LENGTH * zoomGrowth);
+  // Derived from the same zoomGrowth signal driving trail length (not a separate,
+  // device-independent zoom curve) so alpha and trail length reach "fully ramped"
+  // at the same apparent zoom regardless of screen/container size.
+  const rampT = (zoomGrowth - 1) / (TRAIL_GROWTH_MAX - 1);
+  const alpha = Math.round(
+    PARTICLE_START_ALPHA + rampT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
+  );
+  return { trailLength, alpha };
 }
 
 function spawnParticle({
