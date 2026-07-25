@@ -1,21 +1,26 @@
 # Use cases — who uses Fahsai and why
 
-Revised July 2026, following research into Thai government platforms in this space
-(see "on the horizon" — no direct government equivalent exists; see below for why
-that matters to positioning).
+Revised July 2026, following research into Thai government platforms in this space,
+**and corrected August 2026** after identifying that SERVIR's Southeast Asia Air
+Quality Tracker (aq-tracker-servir.adpc.net) already has feature parity on layers
+(wind, modeled PM2.5, ground stations, fires) — see "Context: the competitive
+landscape" below for what actually differentiates Fahsai now.
 
 **Not a target audience:** general public / tourists. Existing Thai government tools
 (Check Phoon, Air4Thai) already serve the "should I wear a mask today" use case well.
 Fahsai's value is in cross-border attribution and historical/scientific context, not
 personal daily-decision-making.
 
-**Core throughline:** every persona below has the same underlying problem — data
-produced by a single national government agency is politically loaded and can be
-dismissed as biased by the other countries involved (Thailand, Myanmar, Laos,
-Cambodia). Fahsai's value proposition in every case is **neutrality + cross-border
-completeness in one place**. No announced or existing government platform can
-replicate this by definition, since each is produced by a party with a stake in the
-blame narrative.
+**Core throughline (revised):** every persona below shares the same underlying
+problem — data produced by a single national government agency is politically loaded
+and can be dismissed as biased by the other countries involved (Thailand, Myanmar,
+Laos, Cambodia). Fahsai's original pitch was "neutrality + cross-border completeness
+in one place, which no government platform can replicate by definition." That claim
+no longer fully holds: SERVIR's tracker (NASA/USAID + ADPC + Thai PCD) already
+combines fire, wind, and PM2.5 layers publicly, with credible institutional backing.
+Fahsai's actual differentiation is now **UX clarity + historical/baseline context +
+causal explanation** — see below — not layer coverage or "nobody else combines
+these" as previously framed.
 
 ---
 
@@ -122,18 +127,45 @@ politically loaded and can be dismissed as biased by the other countries involve
 
 ---
 
-## Context: why no government tool fills this gap
+## Context: the competitive landscape (corrected August 2026)
 
-Research into Thai government platforms (July 2026) found no direct government
-equivalent to Fahsai. The closest is "One Map" (Ministry of Digital Economy and
-Society, announced April 2026) — but as reported it is domestic-only, internal/
-government-facing, and has no explicit wind-pattern layer. Existing tools split
-the functions Fahsai unifies: GISTDA leads on satellite hotspots (regional in
-scope), PCD leads on ground PM2.5 (mostly domestic), and the Mekong Air Quality
-Explorer (PCD + USAID + NASA/SERVIR-ADPC) is the closest existing cross-border
-PM2.5 tool but lacks Fahsai's combined fire + wind + PM2.5 public visualization
-and source-attribution framing.
+Research into Thai government platforms (July 2026) found no domestic government
+equivalent to Fahsai. The closest domestic tool is "One Map" (Ministry of Digital
+Economy and Society, announced April 2026) — as reported it is domestic-only,
+internal/government-facing, and has no explicit wind-pattern layer.
 
-This reinforces rather than undermines the persona list above: every listed user
-needs cross-border completeness and neutrality that no single-government tool can
-offer by construction.
+**Correction:** the original version of this doc also claimed no tool publicly
+combined fire + wind + PM2.5 in one cross-border view. That's wrong. SERVIR's
+Southeast Asia Air Quality Tracker (aq-tracker-servir.adpc.net) — the expansion of
+the PCD/USAID/NASA/SERVIR-ADPC Mekong Air Quality Explorer — already does this:
+modeled PM2.5 heatmap, wind streamlines, fire hotspots (red markers), and station
+readings, all in one public map covering mainland Southeast Asia and beyond. So
+layer-coverage parity already exists from a credible, government-affiliated source.
+
+**What actually differentiates Fahsai from SERVIR's tracker, based on direct
+comparison:**
+
+- **UX clarity.** SERVIR's tracker is functional but visually dense — overlapping
+  numbered station circles, no visible historical scrubber, cluttered unlabeled
+  legend. This is a real, non-cosmetic gap for personas needing something scannable
+  fast (journalists on deadline, provincial officials checking daily).
+- **Historical scrubber + seasonal baseline.** No evidence SERVIR's tracker supports
+  "is this normal for late April" — Fahsai's per-station climatology (median,
+  p25–p75 bands) is a distinct capability, not a UX variant.
+- **"Explain This" causal reasoning.** An LLM-generated plain-language explanation
+  tied to back-trajectory + fire-pressure scoring has no equivalent spotted in
+  SERVIR's tracker.
+- **Institutional entanglement, cuts both ways.** SERVIR is NASA/USAID/ADPC/PCD —
+  credible for a diplomat wanting "official" data, but not indie/civic-neutral in
+  the way a single non-affiliated developer's tool is. For the NGO/advocacy persona
+  specifically, zero institutional entanglement may still be a genuine advantage.
+- **Continuity risk favors Fahsai.** SERVIR's operational continuity was flagged as
+  uncertain given 2025 USAID funding disruptions (not independently reconfirmed for
+  2026). A tool exposed to US foreign-aid funding volatility is a real reason a
+  journalist or NGO might prefer one that isn't.
+
+**Roadmap implication:** this weakens the case for prioritizing spatial-resolution
+work (which mostly closes a layer/precision gap SERVIR may already not have,
+pending a closer look at its actual resolution) relative to doubling down on UX
+clarity, the historical/baseline feature, and causal explanation — the things
+SERVIR's tracker doesn't appear to have regardless of layer parity.
