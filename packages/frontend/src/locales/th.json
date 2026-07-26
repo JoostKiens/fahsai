@@ -70,6 +70,7 @@
   "infoPanel.wind": "ลม",
   "infoPanel.windFrom": "จาก {{direction}} · {{speed}} กม./ชม.",
   "infoPanel.measuredAt": "วัดเมื่อ {{datetime}}",
+  "infoPanel.provider": "ผู้ให้ข้อมูล: {{name}}",
   "infoPanel.detectedAt": "ตรวจพบเมื่อ {{datetime}}",
   "infoPanel.last5days": "5 วันล่าสุด · PM2.5",
   "infoPanel.intensity": "ความเข้มข้น",

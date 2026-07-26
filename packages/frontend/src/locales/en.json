@@ -70,6 +70,7 @@
   "infoPanel.wind": "Wind",
   "infoPanel.windFrom": "from {{direction}} · {{speed}} km/h",
   "infoPanel.measuredAt": "Measured at {{datetime}}",
+  "infoPanel.provider": "Data provider: {{name}}",
   "infoPanel.detectedAt": "Detected at {{datetime}}",
   "infoPanel.last5days": "Last 5 days · PM2.5",
   "infoPanel.intensity": "Intensity",

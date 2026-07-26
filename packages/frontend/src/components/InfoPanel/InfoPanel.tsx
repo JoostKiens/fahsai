@@ -433,6 +433,7 @@ function StationPanel({
     stationId: string;
     stationName: string;
     country: string | null;
+    provider: string[] | null;
     pm25: number;
     measuredAt: string;
   };
@@ -522,6 +523,13 @@ function StationPanel({
               <ChevronRightIcon />
             </button>
           </div>
+        </Row>
+      )}
+      {station.provider && station.provider.length > 0 && (
+        <Row>
+          <span className="text-[12px] text-zinc-400">
+            {t('infoPanel.provider', { name: station.provider.join(', ') })}
+          </span>
         </Row>
       )}
       {/* onClickCapture fires before ExplainButton's own handler, expanding the sheet first */}

@@ -13,6 +13,7 @@ const station: SelectedPoint = {
     stationId: 'th-123',
     stationName: 'Bangkok Center',
     country: 'TH',
+    provider: null,
     pm25: 42,
     measuredAt: '2026-03-15T10:00:00Z',
   },

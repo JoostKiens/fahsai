@@ -39,6 +39,7 @@ interface LatestMeasurement {
   lat: number;
   lng: number;
   country: string | null;
+  provider: string[] | null;
   value: number;
   measuredAt: string;
 }
@@ -85,7 +86,9 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         (from, to) => {
           let query = supabase
             .from('station_readings')
-            .select('station_id, value, measured_at, stations(id, name, lat, lng, country)')
+            .select(
+              'station_id, value, measured_at, stations(id, name, lat, lng, country, provider)',
+            )
             .gte('measured_at', since);
           if (until !== undefined) query = query.lt('measured_at', until);
           return query.order('measured_at', { ascending: false }).range(from, to);
@@ -99,6 +102,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
               lat: number;
               lng: number;
               country: string | null;
+              provider: string[] | null;
             } | null;
             if (!station || station.lat === null || station.lng === null) continue;
             if (seen.has(row.station_id)) continue;
@@ -119,6 +123,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
               lat: station.lat,
               lng: station.lng,
               country: station.country,
+              provider: station.provider,
               value: row.value,
               measuredAt: row.measured_at,
             });
