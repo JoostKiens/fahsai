@@ -54,6 +54,7 @@ export function useSelectionHydration() {
           stationId: m.stationId,
           stationName: m.stationName,
           country: m.country,
+          provider: m.provider,
           pm25: m.value,
           measuredAt: m.measuredAt,
         },

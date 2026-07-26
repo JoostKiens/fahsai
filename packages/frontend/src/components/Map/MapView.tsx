@@ -249,6 +249,7 @@ export function MapView() {
           stationId: d.stationId,
           stationName: d.stationName,
           country: d.country,
+          provider: d.provider,
           pm25: d.value,
           measuredAt: d.measuredAt,
         },

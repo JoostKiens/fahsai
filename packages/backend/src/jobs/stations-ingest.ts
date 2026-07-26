@@ -29,6 +29,7 @@ export async function runStationsIngest(): Promise<{
       lng: loc.coordinates!.longitude,
       country: loc.country?.code ?? null,
       pm25_sensor_ids: extractPm25SensorIds(loc),
+      provider: loc.provider?.name ?? null,
     }));
 
   await pRetry(

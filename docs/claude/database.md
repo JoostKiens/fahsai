@@ -27,7 +27,7 @@ create table stations (
   name             text not null,
   location         geography(Point, 4326),
   country          text,               -- 'TH', 'MM', 'LA', 'KH'
-  provider         text,               -- e.g. 'PCD Thailand'
+  provider         text,               -- OpenAQ provider name for this location, e.g. 'PCD Thailand'
   is_mobile        boolean default false,
   is_monitor       boolean,            -- true = reference grade, false = low-cost sensor
   parameters       text[],             -- array of parameters this station measures
