@@ -24,7 +24,7 @@ export function stationsRoutes(app: FastifyInstance): void {
       lat: row.lat as number,
       lng: row.lng as number,
       country: (row.country as string | null) ?? '',
-      provider: row.provider as string[] | null,
+      provider: row.provider as string | null,
     }));
 
     return reply.send({ data: stations });

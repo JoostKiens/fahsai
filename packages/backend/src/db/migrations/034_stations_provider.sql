@@ -1,2 +1,2 @@
 ALTER TABLE public.stations
-  ADD COLUMN provider text[];
+  ADD COLUMN provider text;

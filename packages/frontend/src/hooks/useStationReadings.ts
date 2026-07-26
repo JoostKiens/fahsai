@@ -10,7 +10,7 @@ export interface LatestMeasurement {
   lat: number;
   lng: number;
   country: string | null;
-  provider: string[] | null;
+  provider: string | null;
   value: number;
   measuredAt: string;
 }

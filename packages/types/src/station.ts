@@ -4,7 +4,7 @@ export interface Station {
   lat: number;
   lng: number;
   country: string;
-  provider: string[] | null;
+  provider: string | null;
 }
 
 import type { BaselineStat } from './baseline';

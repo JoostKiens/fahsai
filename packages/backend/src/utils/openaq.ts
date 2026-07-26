@@ -14,7 +14,7 @@ export interface OpenAQLocation {
   name: string | null;
   coordinates: { latitude: number; longitude: number } | null;
   country: { code: string } | null;
-  providers: { name: string }[] | undefined;
+  provider: { name: string } | null | undefined;
   isMobile: boolean;
   isMonitor: boolean | null;
   sensors: OpenAQSensor[];

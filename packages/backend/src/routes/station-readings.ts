@@ -39,7 +39,7 @@ interface LatestMeasurement {
   lat: number;
   lng: number;
   country: string | null;
-  provider: string[] | null;
+  provider: string | null;
   value: number;
   measuredAt: string;
 }
@@ -102,7 +102,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
               lat: number;
               lng: number;
               country: string | null;
-              provider: string[] | null;
+              provider: string | null;
             } | null;
             if (!station || station.lat === null || station.lng === null) continue;
             if (seen.has(row.station_id)) continue;

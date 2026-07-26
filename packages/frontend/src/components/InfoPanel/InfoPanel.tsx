@@ -433,7 +433,7 @@ function StationPanel({
     stationId: string;
     stationName: string;
     country: string | null;
-    provider: string[] | null;
+    provider: string | null;
     pm25: number;
     measuredAt: string;
   };
@@ -525,10 +525,10 @@ function StationPanel({
           </div>
         </Row>
       )}
-      {station.provider && station.provider.length > 0 && (
+      {station.provider && (
         <Row>
           <span className="text-[12px] text-zinc-400">
-            {t('infoPanel.provider', { name: station.provider.join(', ') })}
+            {t('infoPanel.provider', { name: station.provider })}
           </span>
         </Row>
       )}

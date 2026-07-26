@@ -16,7 +16,7 @@ export interface SelectedPoint {
     stationId: string;
     stationName: string;
     country: string | null;
-    provider: string[] | null;
+    provider: string | null;
     pm25: number;
     measuredAt: string;
   };
