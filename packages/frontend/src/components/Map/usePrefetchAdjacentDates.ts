@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { FirePoint, WindReading, PM25GridColumns } from '@thailand-aq/types';
+import type { FirePoint, WindReading, PM25GridColumns, PM25GridPoint } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
 import type { LatestMeasurement } from '@/hooks';
 import { staleTimeForArray } from '@/utils/queryHelpers';
-import { zipGridColumns } from '@/utils/camsColumns';
+import { parseCamsGridResponse } from '@/utils/camsColumns';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -52,7 +52,8 @@ export function usePrefetchAdjacentDates() {
           const res = await fetch(`${API}/api/cams?date=${date}`);
           if (res.status === 404) return [];
           if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
-          return zipGridColumns(((await res.json()) as { data: PM25GridColumns }).data);
+          const { data } = (await res.json()) as { data: PM25GridColumns | PM25GridPoint[] };
+          return parseCamsGridResponse(data);
         },
         staleTime: Infinity,
       });
