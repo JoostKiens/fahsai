@@ -7,8 +7,11 @@ type RGBA = [number, number, number, number];
 
 const AQ_LNG_MAX = AQ_LNG_MIN + (AQ_LNG_COUNT - 1) * AQ_STEP;
 const AQ_LAT_MAX = AQ_LAT_MIN + (AQ_LAT_COUNT - 1) * AQ_STEP;
-const CANVAS_W = AQ_LNG_COUNT * 10; // 630
-const CANVAS_H = AQ_LAT_COUNT * 10; // 730
+// Fixed output resolution, independent of source grid density — a denser
+// grid (e.g. GEMS, or CAMS at native 0.1°) should sharpen interpolation
+// within this canvas, not enlarge it.
+const CANVAS_W = 630;
+const CANVAS_H = 730;
 const HEATMAP_ALPHA = 55;
 
 const BITMAP_WEST = AQ_LNG_MIN - AQ_STEP / 2;
