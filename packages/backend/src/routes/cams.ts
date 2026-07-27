@@ -5,6 +5,7 @@ import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { nearestGridPoint } from '../utils/trajectory.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -26,6 +27,21 @@ async function fetchCamsGridFromDb(date: string): Promise<PM25GridPoint[]> {
   );
 }
 
+async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
+  let points = await redis.get<PM25GridPoint[]>(`cams:pm25:${date}`);
+
+  if (!points?.length || points.length < MIN_COMPLETE_POINTS) {
+    points = await fetchCamsGridFromDb(date);
+
+    // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
+    if (points.length >= MIN_COMPLETE_POINTS) {
+      await redis.set(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
+    }
+  }
+
+  return points;
+}
+
 export function camsRoutes(app: FastifyInstance): void {
   // GET /api/cams?date=YYYY-MM-DD&bbox=west,south,east,north
   app.get<{ Querystring: { date?: string; bbox?: string } }>('/api/cams', async (req, reply) => {
@@ -35,21 +51,12 @@ export function camsRoutes(app: FastifyInstance): void {
       return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
     }
 
-    let points = await redis.get<PM25GridPoint[]>(`cams:pm25:${date}`);
+    const points = await getCamsGridForDate(date);
 
-    if (!points?.length || points.length < MIN_COMPLETE_POINTS) {
-      points = await fetchCamsGridFromDb(date);
-
-      if (!points.length) {
-        return reply
-          .status(404)
-          .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
-      }
-
-      // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
-      if (points.length >= MIN_COMPLETE_POINTS) {
-        await redis.set(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
-      }
+    if (!points.length) {
+      return reply
+        .status(404)
+        .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
     }
 
     const bbox = parseBbox(rawBbox);
@@ -59,6 +66,38 @@ export function camsRoutes(app: FastifyInstance): void {
 
     return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
   });
+
+  // GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
+  // Returns the single nearest grid point — used by InfoPanel so it doesn't need
+  // to fetch the full grid just to look up one point.
+  app.get<{ Querystring: { date?: string; lat?: string; lng?: string } }>(
+    '/api/cams/nearest',
+    async (req, reply) => {
+      const { date, lat: rawLat, lng: rawLng } = req.query;
+
+      if (!date || !DATE_RE.test(date)) {
+        return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
+      }
+
+      const lat = Number(rawLat);
+      const lng = Number(rawLng);
+      if (!rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return reply.status(400).send({ error: 'lat and lng params required (numeric)' });
+      }
+
+      const points = await getCamsGridForDate(date);
+
+      if (!points.length) {
+        return reply
+          .status(404)
+          .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
+      }
+
+      return reply
+        .header('Cache-Control', CACHE_CONTROL_IMMUTABLE)
+        .send({ data: nearestGridPoint(lat, lng, points) });
+    },
+  );
 
   // GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
   // Daily p95 PM2.5 time series powering the scrubber gradient line chart.

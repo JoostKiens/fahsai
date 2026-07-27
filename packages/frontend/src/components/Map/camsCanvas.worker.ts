@@ -1,14 +1,10 @@
 /// <reference lib="webworker" />
 import type { PM25GridPoint } from '@thailand-aq/types';
+import { AQ_STEP, AQ_LNG_MIN, AQ_LAT_MIN, AQ_LNG_COUNT, AQ_LAT_COUNT } from '@thailand-aq/consts';
 import { pm25ToRgba } from '@/utils/aqiColors';
 
 type RGBA = [number, number, number, number];
 
-const AQ_STEP = 0.4;
-const AQ_LNG_MIN = 89.0;
-const AQ_LAT_MIN = 1.0;
-const AQ_LNG_COUNT = 63;
-const AQ_LAT_COUNT = 73;
 const AQ_LNG_MAX = AQ_LNG_MIN + (AQ_LNG_COUNT - 1) * AQ_STEP;
 const AQ_LAT_MAX = AQ_LAT_MIN + (AQ_LAT_COUNT - 1) * AQ_STEP;
 const CANVAS_W = AQ_LNG_COUNT * 10; // 630

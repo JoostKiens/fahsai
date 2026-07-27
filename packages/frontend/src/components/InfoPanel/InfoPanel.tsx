@@ -13,8 +13,8 @@ import { reverseGeocode } from './utils.geocode';
 import { AppScrollArea } from '@/components/AppScrollArea';
 import { Shimmer } from '@/components/Shimmer';
 import { CountryFlag, alpha2ToIso3 } from './CountryFlag';
-import { findNearestAQPoint, findNearestWind, degToCompass } from './utils.ambient';
-import { useCamsGrid, useStationReadings, useWind } from '@/hooks';
+import { findNearestWind, degToCompass } from './utils.ambient';
+import { useStationReadings, useWind, useNearestCamsPoint } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
 import { dateLocale, toDisplayYear } from '@/i18n';
 import { History, ShimmerHistory } from './History';
@@ -40,7 +40,6 @@ export function InfoPanel() {
   const selectedPoint = useUIStore((s) => s.selectedPoint);
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
   const pendingSelection = useUIStore((s) => s.pendingSelection);
-  const { data: aqGrid } = useCamsGrid();
   const { data: aqData } = useStationReadings();
   const { data: wind } = useWind();
 
@@ -144,10 +143,14 @@ export function InfoPanel() {
         ? 'powerPlant'
         : null;
 
-  const aqPoint =
-    selectedPoint && aqGrid
-      ? findNearestAQPoint(aqGrid, selectedPoint.lngLat[0], selectedPoint.lngLat[1])
-      : null;
+  // Only fire/power-plant panels show ambient PM2.5 — skip the lookup for stations,
+  // which have their own live AQI, so a station click doesn't hit this endpoint for nothing.
+  const wantsAqPoint = panelType === 'fire' || panelType === 'powerPlant';
+  const { data: aqPoint = null } = useNearestCamsPoint(
+    selectedDate,
+    wantsAqPoint ? (selectedPoint?.lngLat[1] ?? null) : null,
+    wantsAqPoint ? (selectedPoint?.lngLat[0] ?? null) : null,
+  );
   const windVec =
     selectedPoint && wind
       ? findNearestWind(wind, selectedPoint.lngLat[0], selectedPoint.lngLat[1])

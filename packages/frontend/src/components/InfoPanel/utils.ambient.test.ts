@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { degToCompass, findNearestAQPoint, findNearestWind } from './utils.ambient.js';
-import type { PM25GridPoint, WindReading } from '@thailand-aq/types';
+import { degToCompass, findNearestWind } from './utils.ambient.js';
+import type { WindReading } from '@thailand-aq/types';
 
 describe('degToCompass', () => {
   it('returns N for 0°', () => {
@@ -33,32 +33,6 @@ describe('degToCompass', () => {
 
   it('wraps 382.5° to NNE', () => {
     expect(degToCompass(382.5)).toBe('NNE');
-  });
-});
-
-describe('findNearestAQPoint', () => {
-  const grid: PM25GridPoint[] = [
-    { lat: 10, lng: 100, pm25: 15 },
-    { lat: 15, lng: 100, pm25: 30 },
-    { lat: 10, lng: 105, pm25: 50 },
-  ];
-
-  it('returns null for an empty grid', () => {
-    expect(findNearestAQPoint([], 100, 10)).toBeNull();
-  });
-
-  it('returns the single point when grid has one entry', () => {
-    expect(findNearestAQPoint([grid[0]], 999, 999)).toEqual(grid[0]);
-  });
-
-  it('returns the closest point by Euclidean distance', () => {
-    // Query at (lng=100, lat=10) — exactly on grid[0]
-    expect(findNearestAQPoint(grid, 100, 10)).toEqual(grid[0]);
-  });
-
-  it('picks the point closest in longitude', () => {
-    // Query at (lng=104, lat=10) — closer to grid[2] (lng=105) than grid[0] (lng=100)
-    expect(findNearestAQPoint(grid, 104, 10)).toEqual(grid[2]);
   });
 });
 

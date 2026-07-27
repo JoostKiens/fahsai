@@ -2,6 +2,7 @@ export { useFires } from './useFires';
 export { useStationReadings } from './useStationReadings';
 export type { LatestMeasurement } from './useStationReadings';
 export { useCamsGrid } from './useCamsGrid';
+export { useNearestCamsPoint } from './useNearestCamsPoint';
 export { useWind } from './useWind';
 export { usePowerPlants } from './usePowerPlants';
 export { useUrlSync } from './useUrlSync';
