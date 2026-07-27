@@ -143,10 +143,13 @@ export function InfoPanel() {
         ? 'powerPlant'
         : null;
 
+  // Only fire/power-plant panels show ambient PM2.5 — skip the lookup for stations,
+  // which have their own live AQI, so a station click doesn't hit this endpoint for nothing.
+  const wantsAqPoint = panelType === 'fire' || panelType === 'powerPlant';
   const { data: aqPoint = null } = useNearestCamsPoint(
     selectedDate,
-    selectedPoint?.lngLat[1] ?? null,
-    selectedPoint?.lngLat[0] ?? null,
+    wantsAqPoint ? (selectedPoint?.lngLat[1] ?? null) : null,
+    wantsAqPoint ? (selectedPoint?.lngLat[0] ?? null) : null,
   );
   const windVec =
     selectedPoint && wind

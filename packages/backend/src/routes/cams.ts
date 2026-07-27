@@ -5,6 +5,7 @@ import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { nearestGridPoint } from '../utils/trajectory.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -39,19 +40,6 @@ async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
   }
 
   return points;
-}
-
-function findNearestPoint(points: PM25GridPoint[], lat: number, lng: number): PM25GridPoint {
-  let best = points[0];
-  let bestDist = Infinity;
-  for (const p of points) {
-    const d = (p.lat - lat) ** 2 + (p.lng - lng) ** 2;
-    if (d < bestDist) {
-      bestDist = d;
-      best = p;
-    }
-  }
-  return best;
 }
 
 export function camsRoutes(app: FastifyInstance): void {
@@ -107,7 +95,7 @@ export function camsRoutes(app: FastifyInstance): void {
 
       return reply
         .header('Cache-Control', CACHE_CONTROL_IMMUTABLE)
-        .send({ data: findNearestPoint(points, lat, lng) });
+        .send({ data: nearestGridPoint(lat, lng, points) });
     },
   );
 

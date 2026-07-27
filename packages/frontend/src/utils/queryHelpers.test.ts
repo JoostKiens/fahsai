@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { staleTimeForArray } from './queryHelpers.js';
+import { staleTimeForArray, staleTimeForNullable } from './queryHelpers.js';
 
 const FIVE_MIN_MS = 5 * 60 * 1000;
 
@@ -18,5 +18,19 @@ describe('staleTimeForArray', () => {
 
   it('returns 5 minutes when data is undefined', () => {
     expect(staleTimeForArray({ state: {} })).toBe(FIVE_MIN_MS);
+  });
+});
+
+describe('staleTimeForNullable', () => {
+  it('returns Infinity for a non-null object', () => {
+    expect(staleTimeForNullable({ state: { data: { pm25: 12 } } })).toBe(Infinity);
+  });
+
+  it('returns 5 minutes when data is null', () => {
+    expect(staleTimeForNullable({ state: { data: null } })).toBe(FIVE_MIN_MS);
+  });
+
+  it('returns 5 minutes when data is undefined', () => {
+    expect(staleTimeForNullable({ state: {} })).toBe(FIVE_MIN_MS);
   });
 });

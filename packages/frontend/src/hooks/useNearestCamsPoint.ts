@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { PM25GridPoint } from '@thailand-aq/types';
+import { staleTimeForNullable } from '@/utils/queryHelpers';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -12,7 +13,7 @@ export function useNearestCamsPoint(date: string, lat: number | null, lng: numbe
       if (!res.ok) throw new Error(`cams nearest fetch failed: ${res.status}`);
       return ((await res.json()) as { data: PM25GridPoint }).data;
     },
-    staleTime: Infinity, // historical CAMS grid data is immutable after ingestion
+    staleTime: staleTimeForNullable,
     enabled: lat !== null && lng !== null,
   });
 }

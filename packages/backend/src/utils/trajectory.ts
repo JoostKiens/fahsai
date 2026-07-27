@@ -35,8 +35,12 @@ export function offsetDate(dateStr: string, days: number): string {
   return new Date(Date.UTC(yr, mo - 1, dy + days)).toISOString().slice(0, 10);
 }
 
-/** Returns nearest WindGridPoint to (lat, lng) in a grid array */
-export function nearestGridPoint(lat: number, lng: number, grid: WindGridPoint[]): WindGridPoint {
+/** Returns the nearest point to (lat, lng) in any {lat,lng}-shaped grid array */
+export function nearestGridPoint<T extends { lat: number; lng: number }>(
+  lat: number,
+  lng: number,
+  grid: T[],
+): T {
   let best = grid[0];
   let bestD = (best.lat - lat) ** 2 + (best.lng - lng) ** 2;
   for (const p of grid.slice(1)) {
