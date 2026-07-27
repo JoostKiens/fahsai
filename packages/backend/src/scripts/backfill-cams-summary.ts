@@ -6,15 +6,17 @@
  *
  * For each date in the range, reads that day's cams_grid PM2.5 values and stores the
  * 95th percentile (the value that powers the scrubber gradient line chart). Dates that already
- * have a cams_daily_summary row are skipped. Max range: 120 days.
+ * have a cams_daily_summary row are skipped. Max range: matches prune.ts RETENTION_DAYS,
+ * since no cams_grid data survives past that window anyway.
  */
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
+import { RETENTION_DAYS } from '../jobs/prune.js';
 import { computeP95, upsertCamsDailySummary } from '../jobs/cams-summary.js';
 import { parseDateFlag, fetchAllPages } from '../utils/backfill.js';
 
 const LOG = '[backfill-cams-summary]';
-const MAX_DAYS = 120;
+const MAX_DAYS = RETENTION_DAYS;
 const PAGE_SIZE = 1000;
 // Must match cams-ingest MIN_COMPLETE_POINTS — only store p95 from complete grids.
 const MIN_COMPLETE_POINTS = 4000;

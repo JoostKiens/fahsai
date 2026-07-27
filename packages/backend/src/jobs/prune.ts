@@ -5,7 +5,7 @@ import { bangkokDateString } from '../utils/bkkDate.js';
 // + timezone/prune-timing buffer, raised to 140 days for DB-size headroom
 // (projected burning-season peak ~0.46 GB of the 0.5 GB limit — see
 // docs/claude/database.md for the per-table breakdown this is based on).
-const RETENTION_DAYS = 140;
+export const RETENTION_DAYS = 140;
 
 const PRUNE_TARGETS = [
   { key: 'firePointsDeleted', table: 'fire_points', column: 'detected_at', cutoff: 'iso' },

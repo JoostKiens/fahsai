@@ -3,6 +3,7 @@ import type { PM25DailySummary, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
+import { RETENTION_DAYS } from '../jobs/prune.js';
 import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { nearestGridPoint } from '../utils/trajectory.js';
@@ -14,8 +15,9 @@ const PAGE_SIZE = 1000;
 // so a rate-limited partial ingest never poisons the hot cache.
 const MIN_COMPLETE_POINTS = 4000;
 
-// Daily summary covers at most the scrubber window; cap the range as a guard.
-const MAX_SUMMARY_DAYS = 120;
+// Daily summary covers at most the scrubber window; cap matches prune.ts RETENTION_DAYS,
+// since no cams_daily_summary row survives past that window anyway.
+const MAX_SUMMARY_DAYS = RETENTION_DAYS;
 // The newest day's p95 is recomputed each ingest, so this series is not immutable.
 const SUMMARY_TTL_SECONDS = 60 * 60; // 1 hour
 const CACHE_CONTROL_SUMMARY = `public, max-age=${SUMMARY_TTL_SECONDS}`;

@@ -6,15 +6,17 @@
  *
  * For each date in the range, computes 14-day trailing window fire pressure scores
  * for all active stations (75 km radius). Dates that already have rows are skipped.
- * Max range: 130 days.
+ * Max range: matches prune.ts RETENTION_DAYS, since no station_fire_pressure row
+ * survives past that window anyway.
  */
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
+import { RETENTION_DAYS } from '../jobs/prune.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
 import { parseDateFlag } from '../utils/backfill.js';
 
 const LOG = '[backfill-station-fire-pressure]';
-const MAX_DAYS = 130;
+const MAX_DAYS = RETENTION_DAYS;
 
 const startDate = parseDateFlag('start', LOG);
 const endDate = parseDateFlag('end', LOG);
