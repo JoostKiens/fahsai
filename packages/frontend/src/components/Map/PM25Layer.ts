@@ -2,6 +2,7 @@ import { BitmapLayer, SolidPolygonLayer, ScatterplotLayer, TextLayer, IconLayer 
 import type { Layer, PickingInfo, Position, SolidPolygonLayerProps } from 'deck.gl';
 import { MaskExtension } from '@deck.gl/extensions';
 import Supercluster from 'supercluster';
+import { AQ_STEP, AQ_LNG_MIN, AQ_LAT_MIN, AQ_LNG_COUNT, AQ_LAT_COUNT } from '@thailand-aq/consts';
 import type { LatestMeasurement } from '@/hooks';
 import seaCountries from './sea-land-mask.json';
 import {
@@ -53,12 +54,7 @@ export function createLandMaskLayer(beforeId?: string) {
   return new SolidPolygonLayer<Ring>(props);
 }
 
-// Grid geometry — must match backend openmeteo.ts AQ grid constants.
-const AQ_STEP = 0.4;
-const AQ_LNG_MIN = 89.0;
-const AQ_LAT_MIN = 1.0;
-const AQ_LNG_COUNT = 63; // (114 - 89) / 0.4 + 1
-const AQ_LAT_COUNT = 73; // ( 30 -  1) / 0.4 + 1
+// Grid geometry — shared with the backend and camsCanvas.worker.ts via @thailand-aq/consts.
 const AQ_LNG_MAX = AQ_LNG_MIN + (AQ_LNG_COUNT - 1) * AQ_STEP; // 113.8
 const AQ_LAT_MAX = AQ_LAT_MIN + (AQ_LAT_COUNT - 1) * AQ_STEP; //  29.8
 

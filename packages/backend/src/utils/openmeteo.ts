@@ -1,6 +1,13 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
-import { MS_PER_HOUR } from '@thailand-aq/consts';
+import {
+  MS_PER_HOUR,
+  AQ_STEP,
+  AQ_LNG_MIN,
+  AQ_LAT_MIN,
+  AQ_LNG_COUNT,
+  AQ_LAT_COUNT,
+} from '@thailand-aq/consts';
 import {
   WEATHER_STEP,
   WEATHER_LNG_MIN,
@@ -208,11 +215,6 @@ export async function fetchWeatherGridForDate(
 // bbox [89,1,114,30] → 63 × 73 = 4,599 points; 16 batches of 300.
 // Open-Meteo free tier: 600 calls/min, 5k/hour, 10k/day — each location = 1 call.
 // 4,599 calls per run = ~46% of daily budget; fine for once-daily scheduled ingest.
-const AQ_STEP = 0.4;
-const AQ_LNG_MIN = 89;
-const AQ_LAT_MIN = 1;
-const AQ_LNG_COUNT = 63; // (114 - 89) / 0.4 + 1
-const AQ_LAT_COUNT = 73; // ( 30 -  1) / 0.4 + 1
 const AQ_LNG_POINTS = Array.from(
   { length: AQ_LNG_COUNT },
   (_, i) => Math.round((AQ_LNG_MIN + i * AQ_STEP) * 10) / 10,
