@@ -6,6 +6,7 @@ import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { nearestGridPoint } from '../utils/trajectory.js';
+import { toGridColumns } from '../utils/camsColumns.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -64,7 +65,9 @@ export function camsRoutes(app: FastifyInstance): void {
       (p) => p.lat >= bbox.south && p.lat <= bbox.north && p.lng >= bbox.west && p.lng <= bbox.east,
     );
 
-    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
+    return reply
+      .header('Cache-Control', CACHE_CONTROL_IMMUTABLE)
+      .send({ data: toGridColumns(filtered) });
   });
 
   // GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
