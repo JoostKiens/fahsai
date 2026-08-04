@@ -26,6 +26,7 @@ import { bangkokDateString, bangkokMidnightIso } from '../utils/bkkDate.js';
 import { analyzePeers } from '../lib/analyzePeers.js';
 import { buildRawExplainData } from '../lib/buildRawExplainData.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { corsOriginHeader } from '../utils/cors.js';
 
 const DAILY_QUOTA_LIMIT = 450;
 const EXPLAIN_CACHE_VERSION = 10;
@@ -120,6 +121,13 @@ export function explainRoutes(app: FastifyInstance): void {
         return reply.status(503).send({ error: 'AI explanation not configured' });
       }
 
+      // reply.hijack() below bypasses @fastify/cors, so the streaming responses
+      // must set their own Access-Control-Allow-Origin against the same allowlist.
+      const corsOrigin = corsOriginHeader(req.headers.origin);
+      const streamCorsHeaders = corsOrigin
+        ? { 'Access-Control-Allow-Origin': corsOrigin, Vary: 'Origin' }
+        : {};
+
       const { stationId, lat, lng, lang } = req.body ?? {};
       if (!stationId || lat === undefined || lng === undefined) {
         return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
@@ -162,7 +170,7 @@ export function explainRoutes(app: FastifyInstance): void {
             'Transfer-Encoding': 'chunked',
             'X-Accel-Buffering': 'no',
             'Cache-Control': 'no-cache',
-            'Access-Control-Allow-Origin': '*',
+            ...streamCorsHeaders,
             'X-Cache': 'HIT',
           });
           reply.raw.write(cached);
@@ -550,7 +558,7 @@ export function explainRoutes(app: FastifyInstance): void {
         'Transfer-Encoding': 'chunked',
         'X-Accel-Buffering': 'no',
         'Cache-Control': 'no-cache',
-        'Access-Control-Allow-Origin': '*',
+        ...streamCorsHeaders,
       });
 
       let accumulatedForCache = '';

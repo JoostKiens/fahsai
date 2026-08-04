@@ -12,14 +12,12 @@ import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
 import { rollbarProxyRoutes } from './routes/rollbar-proxy';
 import { reportError } from './lib/rollbar';
+import { ALLOWED_ORIGINS } from './utils/cors';
 
 const app = Fastify({ logger: true, trustProxy: true });
 
 await app.register(compress);
-const allowedOrigins = ['https://fahsai.fyi'];
-if (process.env.NODE_ENV !== 'production') allowedOrigins.push('http://localhost:5173');
-
-await app.register(cors, { origin: allowedOrigins, methods: ['GET', 'POST'] });
+await app.register(cors, { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] });
 await app.register(healthRoutes);
 await app.register(firesRoutes);
 await app.register(stationReadingsRoutes);
