@@ -22,8 +22,10 @@ import { buildRawExplainData } from './buildRawExplainData.js';
 import { buildScientificContext, type ScientificContext } from './buildScientificContext.js';
 import { logger } from './logger.js';
 
+const CONTEXT_CACHE_VERSION = 1;
+
 function contextCacheKey(stationId: string, date: string): string {
-  return `explain:context:v1:${stationId}:${date}`;
+  return `explain:context:v${CONTEXT_CACHE_VERSION}:${stationId}:${date}`;
 }
 
 function geoRegion(lat: number, lng: number): string {
@@ -172,6 +174,7 @@ export async function computeScientificContext(
   // Degrade gracefully on query failure — a fire-data outage shouldn't fail
   // the whole rate-limited, quota-tracked /api/explain request.
   let allFireRows: FireRow[] = [];
+  let fireQueryFailed = false;
   try {
     allFireRows = await fetchAllPages<FireRow>(
       (from, to) =>
@@ -189,6 +192,7 @@ export async function computeScientificContext(
       FIRE_PAGE_SIZE,
     );
   } catch (err) {
+    fireQueryFailed = true;
     logger.warn({ err }, 'explain: fire_points query failed, continuing without fire data');
   }
 
@@ -446,7 +450,9 @@ export async function computeScientificContext(
 
   const scientificCtx = buildScientificContext(rawData);
 
-  if (!isToday) {
+  // Don't persist a result built from a degraded fire query — a transient outage
+  // would otherwise get baked into the cache for HISTORICAL_TTL_SECONDS.
+  if (!isToday && !fireQueryFailed) {
     try {
       await redis.set(contextCacheKey(stationId, date), scientificCtx, {
         ex: HISTORICAL_TTL_SECONDS,

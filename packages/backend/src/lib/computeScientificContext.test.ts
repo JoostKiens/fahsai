@@ -207,7 +207,7 @@ describe('computeScientificContext', () => {
       firePressure: { pathFireCount: number };
     };
     expect(rawInput.firePressure.pathFireCount).toBe(0);
-    expect(mockRedisSet).toHaveBeenCalled();
+    expect(mockRedisSet).not.toHaveBeenCalled();
   });
 
   it('returns null when the station has no readings for that date', async () => {
