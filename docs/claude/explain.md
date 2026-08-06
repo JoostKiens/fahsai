@@ -1,5 +1,20 @@
 # `/api/explain` — implementation reference
 
+## `GET /api/explain/context`
+
+Returns the raw `ScientificContext` JSON (station, trajectory, fires, peers, baseline, etc.)
+that `/api/explain` feeds into the Gemini prompt, without calling Gemini. Backed by the same
+`computeScientificContext()` (and its own Redis cache, see `computeScientificContext.ts`), rate
+limited separately from `explainRatelimit` via `explainContextRatelimit` (20 req/min/IP,
+`packages/backend/src/cache/ratelimit.ts`) since it has no Gemini cost to budget.
+
+**Consumed externally by the published `fahsai-mcp-server` npm package**, not just this app's
+frontend. Treat response-shape changes (renames/removals, not additions) as breaking for that
+consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts`
+(`explain:context:v1` → `v2`) when they happen.
+
+---
+
 ## AI Explanation Cache
 
 Explain responses are cached in Redis with key `explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang}`.

@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { redis } from '../cache/client.js';
-import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
-import { explainRatelimit } from '../cache/ratelimit.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { explainRatelimit, explainContextRatelimit } from '../cache/ratelimit.js';
 import { reportWarning } from '../lib/rollbar.js';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
@@ -10,6 +10,7 @@ import { computeScientificContext } from '../lib/computeScientificContext.js';
 import { bangkokDateString } from '../utils/bkkDate.js';
 import { corsOriginHeader } from '../utils/cors.js';
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAILY_QUOTA_LIMIT = 450;
 const EXPLAIN_CACHE_VERSION = 10;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
@@ -184,6 +185,50 @@ export function explainRoutes(app: FastifyInstance): void {
           { ex: HISTORICAL_TTL_SECONDS },
         );
       }
+    },
+  );
+
+  // This route's response shape (ScientificContext) is consumed by the published
+  // fahsai-mcp-server npm package, not just this app's own frontend. Treat shape
+  // changes (renames/removals, not additions) as breaking for external consumers,
+  // and bump CONTEXT_CACHE_VERSION in computeScientificContext.ts
+  // (explain:context:v1 -> v2) when that happens.
+  app.get<{ Querystring: { stationId?: string; lat?: string; lng?: string; date?: string } }>(
+    '/api/explain/context',
+    async (req, reply) => {
+      const { stationId, lat: rawLat, lng: rawLng, date } = req.query;
+      const lat = Number(rawLat);
+      const lng = Number(rawLng);
+      if (!stationId || !rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
+      }
+      if (date !== undefined && !DATE_RE.test(date)) {
+        return reply.status(400).send({ error: 'Invalid date format, expected YYYY-MM-DD' });
+      }
+
+      if (IP_RATELIMIT_ENABLED) {
+        try {
+          const { success, reset } = await explainContextRatelimit.limit(req.ip);
+          if (!success) {
+            return reply.status(429).send({ type: 'ip_ratelimit', resetAtMs: reset });
+          }
+        } catch (err) {
+          req.log.error({ err }, 'explainContextRatelimit: Upstash error — failing open');
+        }
+      }
+
+      const todayBkk = bangkokDateString();
+      const selectedDate = date ?? todayBkk;
+      const scientificCtx = await computeScientificContext(stationId, lat, lng, selectedDate);
+      if (!scientificCtx) {
+        return reply.status(404).send({ error: 'Station not found' });
+      }
+      // Historical dates are cached server-side indefinitely (computeScientificContext),
+      // so it's also safe to let clients/CDNs cache them; today's is never cached anywhere.
+      if (selectedDate !== todayBkk) {
+        reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE);
+      }
+      return reply.send(scientificCtx);
     },
   );
 }
