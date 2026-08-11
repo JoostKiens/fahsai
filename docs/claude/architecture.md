@@ -13,11 +13,13 @@ keeps API keys server-side.
 
 ### NASA FIRMS — active fire points (VIIRS)
 
-- Source: `https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/{bbox}/1/{date}`
+- Source: `https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_NOAA21_NRT/{bbox}/1/{date}`
+  (switched from Suomi-NPP to NOAA-21 in migration 019; existing SNPP rows were dropped)
 - Bounding box: `89,1,114,30` — matches viewport MAX_BOUNDS (covers Myanmar, Thailand, Laos,
   Cambodia, Vietnam, Malaysia, and partial India/China/Bangladesh)
 - Schedule: daily (0 10 \* \* \*) — last satellite pass lands ~06:12 UTC, in DB by ~09:00 UTC
-- Storage: Supabase `fire_points` table (PostGIS point geometry)
+- Storage: Supabase `fire_points` table (plain `lat`/`lng` columns — the PostGIS `location`
+  geography column was dropped in migration 020, and the `postgis` extension itself in 021)
 - Cache: Redis `fires:date:{date}` TTL 7d
 - License: NASA open data, no redistribution restrictions
 - Key field: `frp` (Fire Radiative Power in MW) — use to scale point size in the UI
@@ -86,38 +88,40 @@ keeps API keys server-side.
 
 ## Scheduled ingestion jobs (Railway cron)
 
-Each job is a standalone script in `packages/backend/src/jobs/`, invoked directly by Railway
-cron. Schedules and start commands live in config-as-code at `packages/backend/railway/*.json`,
-one file per Railway service; each service points at its file via the Config-as-code path in its
-Railway Settings tab. Env vars stay in the Railway dashboard (config-as-code never holds secrets).
-All times are UTC.
+Each job's core logic is a module in `packages/backend/src/jobs/`; Railway cron invokes a thin
+CLI entrypoint in `packages/backend/src/scripts/` (e.g. `scripts/ingest-fires.ts`) that calls into
+the matching `jobs/` module. Schedules and start commands live in config-as-code at
+`packages/backend/railway/*.json`, one file per Railway service; each service points at its file
+via the Config-as-code path in its Railway Settings tab. Env vars stay in the Railway dashboard
+(config-as-code never holds secrets). All times are UTC.
 
 ```
-firms-ingest          — daily     (0 10 * * *)   fetches VIIRS data for TODAY; last pass lands
-  ingest-firms-today                              ~06:12 UTC, in DB by ~09:00, so 10:00 guarantees
-                                                  a complete day before storing
+fires-ingest           — daily     (0 10 * * *)   fetches VIIRS (NOAA-21 NRT) data for TODAY; last
+  ingest-fires                                     pass lands ~06:12 UTC, in DB by ~09:00, so 10:00
+                                                    guarantees a complete day before storing
 
-stations-ingest       — weekly    (0 22 4 * *)    fetches OpenAQ locations by bbox, upserts stations
-                                                  including pm25_sensor_ids and datetime_last;
-                                                  skips locations where datetimeLast > 30 days
+stations-ingest        — monthly   (0 22 4 * *)    fetches OpenAQ locations by bbox, upserts stations
+  ingest-stations                                   including pm25_sensor_ids and datetime_last;
+                                                    skips locations where datetimeLast > 30 days
 
-cams-ingest           — daily     (0 23 * * *)   fetches CAMS PM2.5 grid for TODAY via
-  ingest-cams-today                               ingest-cams-today.ts; single pass — CAMS is
-  ingest-cams-today-fallback                      deterministic so values don't change between runs;
-                                                  grid visible by ~23:30 UTC (06:30 BKK).
-                                                  Fallback runs at (0 1 * * *): targets yesterday
-                                                  (already next calendar day); re-ingests if
-                                                  cams_grid has < 4,000 rows for that date.
+cams-ingest            — daily     (0 23 * * *)    fetches CAMS PM2.5 grid for TODAY via
+  ingest-cams                                       ingest-cams.ts; single pass — CAMS is
+  ingest-cams-today-fallback                        deterministic so values don't change between runs;
+                                                    grid visible by ~23:30 UTC (06:30 BKK).
+                                                    Fallback runs at (0 1 * * *): targets yesterday
+                                                    (already next calendar day); re-ingests if
+                                                    cams_grid has < 4,000 rows for that date.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
-  ingest-station-readings-today                         daily averages for TODAY via /hours/daily;
+  ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
                                                         BKK day closes 16:59 UTC — 6h processing buffer;
                                                         station_readings visible by ~23:30 UTC (06:30 BKK).
 
 station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily averages for YESTERDAY as safety
   ingest-station-readings                               net; overwrites any partial values pass 1 wrote
                                                         before all stations had reported
-                                                        (ignoreDuplicates: false)
+                                                        (ignoreDuplicates: false). Same script as pass 1,
+                                                        run without the --today flag.
                                                         Despite the "TODAY"/"YESTERDAY" labels,
                                                         both passes resolve to the same Bangkok
                                                         calendar date under this schedule; pass 2
@@ -143,7 +147,7 @@ station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (s
                                                         (backfill:station-baseline) remains manual/one-off.
 
 weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
-  ingest-weather-today                            07:00 UTC snapshot via forecast API (NWP model
+  ingest-weather                                  07:00 UTC snapshot via forecast API (NWP model
   ingest-weather-today-fallback                   data, not ERA5 reanalysis); upserts to Supabase
                                                   weather_readings and Redis (weather:{date} +
                                                   weather:wind:{date}, TTL 7d). After storing the
@@ -168,8 +172,9 @@ backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for
                                                        -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 ```
 
-The UI shows the most recent date where all three gating sources have complete data
-(AQ grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1), served by `GET /api/latest-date`.
+The UI shows the most recent date where all four gating sources have complete data
+(cams_grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
+served by `GET /api/latest-date`.
 The date typically becomes available at ~23:30 UTC (06:30 BKK).
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
@@ -187,7 +192,8 @@ All routes return JSON. All accept a `bbox` query param where spatial filtering 
 ```
 GET /api/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.
-  Supports optional query params: confidence=high,nominal
+  No confidence-based filtering server-side -- all fires are returned; the frontend
+  renders low-confidence points at half alpha instead of excluding them.
 
 GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
   Returns fire points for a date range (used by time scrubber). Max 10 days.
@@ -205,8 +211,9 @@ GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
 
 GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
   Returns `days` daily rows (oldest-first) ending on `date` (BKK timezone).
-  Each row: { date, meanPm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
+  Each row: { date, pm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
   precipitationSumMm, relativeHumidity2m } | null, baseline: BaselineStat | null }.
+  pm25 is the day's latest reading, not a mean, despite the field name's implication.
   Parallel DB round-trip: station_readings + station_weather + station_baseline.
   No Redis caching -- browser Cache-Control + TanStack Query (staleTime: Infinity) handle
   client-side caching. Weather comes from station_weather (pre-computed at ingest time),
@@ -241,9 +248,20 @@ GET /api/weather?date=YYYY-MM-DD&bbox=...
   Response includes all weather_readings fields; wind, precipitation, and humidity are
   consumed by the station InfoPanel's 5-day weather table.
 
+GET /api/weather/wind?date=YYYY-MM-DD&bbox=...
+  Returns just the wind vectors (lat, lng, wind_speed_kmh, wind_direction_deg) for the wind
+  particle layer. date param required (400 if absent/invalid). Redis first
+  (key: weather:wind:{date}, TTL 7d, HISTORICAL_TTL_SECONDS); on miss reads from Supabase
+  weather_readings. 404 if no wind data for the date.
+
 GET /api/cams?date=YYYY-MM-DD&bbox=...
   Returns CAMS gridded PM2.5 for a specific date (up to 4,599 points).
   Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
+
+GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
+  Returns the single nearest CAMS grid point to (lat, lng) for the given date — used by
+  InfoPanel so it doesn't need to fetch the full grid to look up one point. 400 if date/lat/lng
+  missing or invalid; 404 if no CAMS grid data for the date.
 
 GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
   Returns the daily p95 PM2.5 time series ({ date, pm25 }[]) for the scrubber gradient chart.
@@ -256,12 +274,26 @@ GET /api/power-plants
   Populate via: pnpm --filter backend run ingest:power-plants
 
 GET /api/latest-date
-  Returns the most recent date with complete data across all three gating sources.
+  Returns the most recent date with complete data across all four gating sources.
   Redis key: latest-complete-date, TTL 30 min.
 
-GET /api/explain  (POST)
-  Streams a Gemini-generated explanation for a station's current AQI. No Redis caching.
-  See docs/claude/conventions.md for the back-trajectory ensemble details.
+POST /api/explain
+  Streams a Gemini-generated explanation for a station's current AQI. Redis-caches the
+  completed response (key: explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang}, TTL
+  HISTORICAL_TTL_SECONDS/7d) once streaming finishes -- caching is disabled outside
+  NODE_ENV=production. Per-IP rate limited (5 req/hour, see docs/claude/explain.md).
+  See docs/claude/explain.md for the back-trajectory ensemble details.
+
+GET /api/explain/context?stationId=...&lat=&lng=&date=YYYY-MM-DD
+  Returns the scientific context object (station, trajectory, nearby sources, baseline
+  comparison) that /api/explain would otherwise compute inline -- consumed by an external
+  MCP server package rather than this repo's own frontend. Redis-cached and per-IP rate
+  limited separately from POST /api/explain (20 req/min, see docs/claude/explain.md).
+
+POST /api/rollbar
+  Relays client-side Rollbar error reports to Rollbar's ingest API, forwarding the
+  X-Rollbar-Access-Token header. Always returns 200 (even on relay failure) so a Rollbar
+  outage never surfaces as an app error.
 
 GET /health
   Returns { status: 'ok', cache: 'connected', db: 'connected' }
@@ -286,10 +318,13 @@ GET /health
 | `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                                            | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams/nearest`             | —                                                 | —         | Supabase `cams_grid` (via `/api/cams` grid fetch)                               | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                                                   | `public, max-age=3600`                                          |
 | `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                                             | none set                                                        |
-| `GET /api/explain`                  | —                                                 | —         | Streams from Gemini API                                                         | none set                                                        |
+| `POST /api/explain`                 | `explain:v{N}:{stationId}:{date}:{lang}`          | 7 days    | Streams from Gemini API (cache write after stream completes; prod only)         | none set                                                        |
+| `GET /api/explain/context`          | same key scheme as `/api/explain`                 | 7 days    | Computes scientific context inline (prod only)                                  | none set                                                        |
+| `POST /api/rollbar`                 | —                                                 | —         | Relays to Rollbar ingest API                                                    | none set                                                        |
 
 **Rules:**
 

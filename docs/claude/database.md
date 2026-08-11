@@ -1,11 +1,14 @@
-# Database schema (Supabase / PostGIS)
+# Database schema (Supabase / Postgres)
 
 All schema changes use new Supabase migration files. Never modify existing migrations.
 
-```sql
--- Enable PostGIS
-create extension if not exists postgis;
+PostGIS was used early on (`stations`/`power_plants`/`fire_points` each had a `location
+geography(Point, 4326)` column) but every table has used plain `lat float8`/`lng float8`
+range filters for bbox queries since migration 003; the `location` columns were dropped
+one table at a time and the `postgis` extension itself was dropped in migration 021. No
+table uses geometry/geography types today.
 
+```sql
 -- Fire detections from VIIRS NOAA-21 NRT
 -- Columns dropped in migrations 016, 019, 020: fire_type, location, brightness,
 -- bright_ti4, bright_ti5, country_id, satellite, source, created_at.
@@ -22,55 +25,53 @@ create index on fire_points (detected_at);
 create index on fire_points (confidence);
 
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
+-- Columns dropped in migration 025 (never read by any query/frontend): provider (later
+-- re-added in 034), is_mobile, is_monitor, parameters, created_at, updated_at, datetime_last.
+-- lat/lng added in migration 003 (see PostGIS note above); location dropped along with it.
 create table stations (
   id               text primary key,   -- OpenAQ locations_id as text
   name             text not null,
-  location         geography(Point, 4326),
+  lat              float8,
+  lng              float8,
   country          text,               -- 'TH', 'MM', 'LA', 'KH'
   provider         text,               -- OpenAQ provider name for this location, e.g. 'PCD Thailand'
-  is_mobile        boolean default false,
-  is_monitor       boolean,            -- true = reference grade, false = low-cost sensor
-  parameters       text[],             -- array of parameters this station measures
-  pm25_sensor_ids  int4[]      default '{}',  -- OpenAQ sensor IDs for pm25; array because a
+  pm25_sensor_ids  int4[]      default '{}'  -- OpenAQ sensor IDs for pm25; array because a
                                               -- location may have multiple pm25 sensors
-  datetime_last    timestamptz,               -- last reported; used to skip stale stations (> 30 days)
-  created_at       timestamptz default now(),
-  updated_at       timestamptz default now()
 );
-create index on stations using gist(location);
+create index on stations (lat);
+create index on stations (lng);
 create index on stations (country);
 
 -- Time-series measurements (appended on every ingestion run)
 -- Renamed from `measurements` to `station_readings` in migration 014.
+-- Columns dropped in migration 024 (parameter/unit hardcoded to pm25/µg/m³ at ingest,
+-- sensor_id replaced by (station_id, measured_at) as the dedup key, created_at unused):
+-- sensor_id, parameter, unit, created_at.
 create table station_readings (
   id           bigserial primary key,
   station_id   text not null references stations(id),
-  sensor_id    int4 not null,      -- OpenAQ sensors_id
-  parameter    text not null,      -- 'pm25', 'pm10', 'no2', 'o3', 'so2', 'co', 'bc'
   value        float8 not null,
-  unit         text not null,      -- 'µg/m³', 'ppm', etc.
-  measured_at  timestamptz not null,
-  created_at   timestamptz default now()
+  measured_at  timestamptz not null
 );
-create index on station_readings (station_id, parameter, measured_at);
-create index on station_readings (parameter, measured_at);
+create unique index on station_readings (station_id, measured_at);
 create index on station_readings (measured_at);
 
 -- Power plants (WRI Global Power Plant Database, CC BY 4.0)
 -- Populated via: pnpm --filter backend run ingest:power-plants
+-- location (geography(Point, 4326)) was dropped along with the postgis extension in
+-- migration 021 -- lat/lng range filters are used instead, same as every other table.
 create table if not exists power_plants (
   id                serial primary key,
   name              text not null,
   country           char(3) not null,
-  fuel_type         text not null check (fuel_type in ('Coal', 'Gas', 'Oil')),
+  fuel_type         text not null check (fuel_type in ('Coal', 'Gas', 'Oil', 'Diesel')),
   capacity_mw       numeric(8, 2),
   owner             text,
   commissioned_year integer,
   lat               float8 not null,
-  lng               float8 not null,
-  location          geography(Point, 4326) not null
+  lng               float8 not null
 );
-create index if not exists power_plants_location_idx on power_plants using gist(location);
+create index if not exists power_plants_lat_lng_idx on power_plants (lat, lng);
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
 -- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)

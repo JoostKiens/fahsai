@@ -22,6 +22,10 @@ Explain responses are cached in Redis with key `explain:v{EXPLAIN_CACHE_VERSION}
 `EXPLAIN_CACHE_VERSION` in `packages/backend/src/routes/explain.ts`. Old keys orphan and expire
 naturally after 7 days. Caching is production-only — dev always generates fresh.
 
+`POST /api/explain` itself is per-IP rate limited via `explainRatelimit` (sliding window, 5
+req/hour, prefix `ratelimit:explain`, `packages/backend/src/cache/ratelimit.ts`) — separate from
+`explainContextRatelimit` documented above for the `/context` route.
+
 ---
 
 ## Back-trajectory ensemble
@@ -65,7 +69,7 @@ transport footprint of air arriving at a station.
 
 When `station_weather` shows wind from a consistent direction (all 5 days within ±45°
 of the circular mean), a `PERSISTENT WIND DIRECTION` section is added to the prompt.
-This surfaces sources that lie in that direction beyond the 66-hour trajectory window —
+This surfaces sources that lie in that direction beyond the 72-hour trajectory window —
 physically plausible contributors the trajectory doesn't capture.
 
 **Computation:** circular mean of `wind_direction_deg` from `station_weather` for
@@ -90,11 +94,18 @@ emission sources when building the Gemini prompt context. No API calls — stati
 **Influence score** = `population / distanceKm²` (or `emissionProxy`-based for power plants
 and industrial zones). Sources below a minimum threshold (default 50) are excluded.
 
-**Upwind detection**: a source is upwind if its minimum distance to any waypoint across all
-5 ensemble trajectory members is within `corridorKm`. This replaces the earlier bearing-angle
-check against today's wind snapshot — trajectory proximity is physically correct because it
-asks whether the air mass actually passed near the source, not whether the source is in
-today's wind direction.
+**Upwind detection**: a source must pass BOTH checks in `computeScientificContext.ts`, not
+either alone —
+
+- **Cone check** (`isOnCone`): minimum distance to any waypoint across all 5 ensemble
+  trajectory members is within a step-scaled threshold, `max(5, corridorKm × stepIndex /
+TRAJECTORY_STEPS)` — not a flat `corridorKm` for every step.
+- **Bearing check** (`isBearingUpwind`): bearing from station to source is within ±60° of
+  `meanWindDirDeg`, which falls back to today's wind snapshot (`nearestGridPoint(...).wind_direction_deg`)
+  when there's no persistent-wind pattern (see "Persistent wind direction context" above).
+
+Trajectory proximity alone is not sufficient — the bearing check was never removed, only
+added alongside it.
 
 Influence formula:
 
@@ -110,8 +121,10 @@ center-trajectory waypoint), not straight-line distance from the station.
 Files:
 
 - `packages/backend/src/data/urbanSources.ts` — static data array (do not sync from external source)
-- `packages/backend/src/lib/geo.ts` — `haversineKm`, `bearingDeg`, `compassFromDeg`
-- `packages/backend/src/routes/explain.ts` (cone-check upwind detection against the trajectory ensemble)
+- `packages/backend/src/utils/geo.ts` — `haversineKm`, `bearingDeg`, `compassFromDeg`
+- `packages/backend/src/lib/computeScientificContext.ts` — `isOnCone`/`isBearingUpwind`
+  upwind detection against the trajectory ensemble (`explain.ts` is just the route handler
+  that calls this)
 
 ---
 
@@ -125,7 +138,7 @@ complementary seasonal signal alongside the calendar-only `SEASONAL CONTEXT`: on
 regional timing, the other says whether this station's own history looks normal today.
 
 **Suppressed at the data layer, not by prompt instruction.** `stationBaseline` is `null` both
-when the sample count is too low *and* when the reading classifies as `normal` for the season.
+when the sample count is too low _and_ when the reading classifies as `normal` for the season.
 A `normal` reading is deliberately never passed through non-null with a "stay silent"
 instruction attached — that would rely on model compliance for something the null-check
 omission pattern (same as `persistentWind`/`transport`) already guarantees structurally. See
@@ -214,7 +227,7 @@ selection logic — do not duplicate its conditions elsewhere.
 4. If a rule only matters for one case, it goes in that case's section — never universal.
 5. When the model consistently ignores a prohibition, generic phrasing is rarely the fix.
    Name the exact phrases it produces (`"confirming conditions are similar"`, `"this location
-   benefits from the maritime air"`) : concrete examples in the rule suppress the specific
+benefits from the maritime air"`) : concrete examples in the rule suppress the specific
    pattern more reliably than an abstract restatement.
 
 ### Edit + eval loop
