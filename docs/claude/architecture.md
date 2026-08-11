@@ -225,6 +225,14 @@ GET /api/stations/:stationId/baseline
 GET /api/stations?bbox=...
   Returns all stations with their available parameters.
 
+GET /api/stations/:id
+  Returns a single station's metadata: { id, name, lat, lng, country, provider }.
+  404 { error: 'Station not found' } for an unknown id -- unlike /:id/history and
+  /:id/baseline, which never resolve station identity and return 200 with empty/
+  placeholder data for unknown ids. No date param, no data-availability check --
+  this only answers "does this station id exist, and where is it."
+  No Redis layer, no Cache-Control -- mirrors GET /api/stations (static data).
+
 GET /api/weather?date=YYYY-MM-DD&bbox=...
   Returns weather grid for the given date. date param is required (400 if absent/invalid).
   Redis cache key: weather:{date}, TTL 7d. On miss, reads from Supabase weather_readings.
@@ -266,21 +274,22 @@ GET /health
 `CACHE_CONTROL_IMMUTABLE = public, max-age=604800` (7 days).
 `HISTORICAL_TTL_SECONDS = 604800` — standard Redis TTL for all immutable historical data.
 
-| Route                               | Redis key                                         | Redis TTL | On miss                                                    | HTTP Cache-Control                                              |
-| ----------------------------------- | ------------------------------------------------- | --------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| `GET /api/fires?date=`              | `fires:date:{date}`                               | 7 days    | Supabase `fire_points`                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/fires/range`              | —                                                 | —         | Supabase `fire_points`                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/station-readings/latest`  | `station-readings:latest:{param}:{date\|current}` | 7 days    | Supabase `station_readings` (paginated)                    | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/station-readings/history` | —                                                 | —         | Supabase `station_readings`                                | none set                                                        |
+| Route                               | Redis key                                         | Redis TTL | On miss                                                                         | HTTP Cache-Control                                              |
+| ----------------------------------- | ------------------------------------------------- | --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /api/fires?date=`              | `fires:date:{date}`                               | 7 days    | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/fires/range`              | —                                                 | —         | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/station-readings/latest`  | `station-readings:latest:{param}:{date\|current}` | 7 days    | Supabase `station_readings` (paginated)                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/station-readings/history` | —                                                 | —         | Supabase `station_readings`                                                     | none set                                                        |
 | `GET /api/stations/:id/history`     | --                                                | --        | Supabase `station_readings` + `station_weather` + `station_baseline` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
-| `GET /api/stations/:id/baseline`   | --                                                | --        | Supabase `station_baseline`                                | `public, max-age=21600`                                         |
-| `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                       | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                              | `public, max-age=3600`                                         |
-| `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                    | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                        | none set                                                        |
-| `GET /api/explain`                  | —                                                 | —         | Streams from Gemini API                                    | none set                                                        |
+| `GET /api/stations/:id/baseline`    | --                                                | --        | Supabase `station_baseline`                                                     | `public, max-age=21600`                                         |
+| `GET /api/stations/:id`             | —                                                 | —         | Supabase `stations`                                                             | none set                                                        |
+| `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                                            | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                                                   | `public, max-age=3600`                                          |
+| `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                                             | none set                                                        |
+| `GET /api/explain`                  | —                                                 | —         | Streams from Gemini API                                                         | none set                                                        |
 
 **Rules:**
 
