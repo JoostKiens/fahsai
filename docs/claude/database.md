@@ -3,10 +3,15 @@
 All schema changes use new Supabase migration files. Never modify existing migrations.
 
 PostGIS was used early on (`stations`/`power_plants`/`fire_points` each had a `location
-geography(Point, 4326)` column) but every table has used plain `lat float8`/`lng float8`
-range filters for bbox queries since migration 003; the `location` columns were dropped
-one table at a time and the `postgis` extension itself was dropped in migration 021. No
-table uses geometry/geography types today.
+geography(Point, 4326)` column). All three now use plain `lat float8`/`lng float8` range
+filters for bbox queries instead -- confirmed directly against the live schema (no
+geometry/geography columns on any table, `postgis` extension not installed). The migration
+trail only explicitly drops `fire_points.location` (migration 020) and the extension itself
+(migration 021, `DROP EXTENSION ... CASCADE`); `stations.location`/`power_plants.location`
+have no matching `DROP COLUMN` in any migration file, so they were most likely removed
+manually (early migrations in this file are explicitly "run manually in the Supabase SQL
+editor" per their own headers) rather than by the CASCADE. Don't assume the migration files
+are a complete record of when/how those two columns disappeared.
 
 ```sql
 -- Fire detections from VIIRS NOAA-21 NRT
@@ -27,7 +32,7 @@ create index on fire_points (confidence);
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
 -- Columns dropped in migration 025 (never read by any query/frontend): provider (later
 -- re-added in 034), is_mobile, is_monitor, parameters, created_at, updated_at, datetime_last.
--- lat/lng added in migration 003 (see PostGIS note above); location dropped along with it.
+-- lat/lng added in migration 003; location column no longer exists (see PostGIS note above).
 create table stations (
   id               text primary key,   -- OpenAQ locations_id as text
   name             text not null,
@@ -58,8 +63,10 @@ create index on station_readings (measured_at);
 
 -- Power plants (WRI Global Power Plant Database, CC BY 4.0)
 -- Populated via: pnpm --filter backend run ingest:power-plants
--- location (geography(Point, 4326)) was dropped along with the postgis extension in
--- migration 021 -- lat/lng range filters are used instead, same as every other table.
+-- location (geography(Point, 4326)) no longer exists (see PostGIS note above) -- lat/lng
+-- columns are stored but, unlike every other table, have no supporting index: bbox-filtered
+-- reads of this table do a sequential scan. Table is small (~hundreds of rows) so this hasn't
+-- mattered in practice; add lat/lng indexes if that changes.
 create table if not exists power_plants (
   id                serial primary key,
   name              text not null,
@@ -71,7 +78,8 @@ create table if not exists power_plants (
   lat               float8 not null,
   lng               float8 not null
 );
-create index if not exists power_plants_lat_lng_idx on power_plants (lat, lng);
+-- Unique on (name, country) -- this is the onConflict key ingest-power-plants.ts upserts on.
+create unique index if not exists power_plants_name_country_idx on power_plants (name, country);
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
 -- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)

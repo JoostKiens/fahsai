@@ -278,17 +278,23 @@ GET /api/latest-date
   Redis key: latest-complete-date, TTL 30 min.
 
 POST /api/explain
-  Streams a Gemini-generated explanation for a station's current AQI. Redis-caches the
-  completed response (key: explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang}, TTL
-  HISTORICAL_TTL_SECONDS/7d) once streaming finishes -- caching is disabled outside
-  NODE_ENV=production. Per-IP rate limited (5 req/hour, see docs/claude/explain.md).
+  Streams a Gemini-generated explanation for a station's current AQI (Cache-Control: no-cache
+  on the raw streamed response, set via reply.hijack() -- not cacheable by design). Redis-caches
+  the completed response text (key: explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang},
+  TTL HISTORICAL_TTL_SECONDS/7d) after streaming finishes, but only when the requested date is
+  not today (today's reading changes intraday) AND NODE_ENV=production (EXPLAIN_CACHE_ENABLED).
+  Per-IP rate limited (5 req/hour, see docs/claude/explain.md).
   See docs/claude/explain.md for the back-trajectory ensemble details.
 
 GET /api/explain/context?stationId=...&lat=&lng=&date=YYYY-MM-DD
   Returns the scientific context object (station, trajectory, nearby sources, baseline
   comparison) that /api/explain would otherwise compute inline -- consumed by an external
-  MCP server package rather than this repo's own frontend. Redis-cached and per-IP rate
-  limited separately from POST /api/explain (20 req/min, see docs/claude/explain.md).
+  MCP server package rather than this repo's own frontend. computeScientificContext()'s own
+  Redis cache (key: explain:context:v{CONTEXT_CACHE_VERSION}:{stationId}:{date}, TTL 7d) is
+  gated only by date !== today, not by NODE_ENV -- it caches identically in dev and prod, unlike
+  POST /api/explain's response-text cache above. Sets Cache-Control: CACHE_CONTROL_IMMUTABLE
+  when the date isn't today; no header for today (never cached). Per-IP rate limited separately
+  from POST /api/explain (20 req/min, see docs/claude/explain.md).
 
 POST /api/rollbar
   Relays client-side Rollbar error reports to Rollbar's ingest API, forwarding the
@@ -322,8 +328,8 @@ GET /health
 | `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                                                   | `public, max-age=3600`                                          |
 | `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
 | `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                                             | none set                                                        |
-| `POST /api/explain`                 | `explain:v{N}:{stationId}:{date}:{lang}`          | 7 days    | Streams from Gemini API (cache write after stream completes; prod only)         | none set                                                        |
-| `GET /api/explain/context`          | same key scheme as `/api/explain`                 | 7 days    | Computes scientific context inline (prod only)                                  | none set                                                        |
+| `POST /api/explain`                 | `explain:v{N}:{stationId}:{date}:{lang}`          | 7 days    | Streams from Gemini API (cache write after stream; prod only, non-today only)   | `no-cache` (raw hijacked response, always)                      |
+| `GET /api/explain/context`          | `explain:context:v{N}:{stationId}:{date}`         | 7 days    | Computes scientific context inline (all envs; non-today only)                   | `CACHE_CONTROL_IMMUTABLE` (non-today) / none (today)            |
 | `POST /api/rollbar`                 | —                                                 | —         | Relays to Rollbar ingest API                                                    | none set                                                        |
 
 **Rules:**

@@ -14,7 +14,10 @@ a raw degree value and returns a compass label directly:
   `packages/backend/src/lib/computeScientificContext.ts` and `buildScientificContext.ts`
   (not from `explain.ts`, which is just the route handler).
 - **Frontend**: `degToCompass(deg)` in `packages/frontend/src/components/InfoPanel/utils.ambient.ts`,
-  called as `degToCompass(windVec.wind_direction_deg)` in `InfoPanel.tsx`/`History.tsx`.
+  called as `degToCompass(windVec.wind_direction_deg)` in `InfoPanel.tsx` (raw `WeatherReading`,
+  snake_case) and `degToCompass(w.windDirectionDeg)` in `History.tsx` (the camelCase
+  `StationDayHistory.weather` shape from `/api/stations/:id/history` -- a different field name,
+  not the same call pattern repeated).
 
 **Never apply `+ 180` before calling either function.** The FROM-direction label ("from NE")
 is standard for every weather app and meteorologist; applying `+ 180` first produces the TO
