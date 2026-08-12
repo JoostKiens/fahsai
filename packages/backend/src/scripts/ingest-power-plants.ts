@@ -64,14 +64,11 @@ const records = filtered.reduce<
     commissioned_year: number | null;
     lat: number;
     lng: number;
-    location: string;
   }>
 >((acc, r) => {
   const key = `${r.name.trim()}|${r.country.trim()}`;
   if (seen.has(key)) return acc;
   seen.add(key);
-  const lat = parseFloat(r.latitude);
-  const lng = parseFloat(r.longitude);
   acc.push({
     name: r.name.trim(),
     country: r.country.trim(),
@@ -79,9 +76,8 @@ const records = filtered.reduce<
     capacity_mw: r.capacity_mw ? parseFloat(r.capacity_mw) : null,
     owner: r.owner?.trim() || null,
     commissioned_year: r.commissioning_year ? parseInt(r.commissioning_year) : null,
-    lat,
-    lng,
-    location: `SRID=4326;POINT(${lng} ${lat})`,
+    lat: parseFloat(r.latitude),
+    lng: parseFloat(r.longitude),
   });
   return acc;
 }, []);
