@@ -2,7 +2,7 @@ export interface PowerPlantProperties {
   id: number;
   name: string;
   country: string;
-  fuel_type: 'Coal' | 'Gas' | 'Oil';
+  fuel_type: 'Coal' | 'Gas' | 'Oil' | 'Diesel';
   capacity_mw: number | null;
   owner: string | null;
   commissioned_year: number | null;

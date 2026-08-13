@@ -2,36 +2,36 @@
 
 ## Wind direction convention — read this before touching any wind direction code
 
-`WindVector.directionDeg` (and Open-Meteo's `winddirection_10m`) is always the direction
-the wind is coming **FROM**, in meteorological convention (0° = from North, 90° = from East,
-180° = from South, 270° = from West).
+`WeatherReading.wind_direction_deg` / `WindReading.wind_direction_deg` (`packages/types/src/weather.ts`,
+snake_case — there is no `WindVector` type) and Open-Meteo's `winddirection_10m` are always the
+direction the wind is coming **FROM**, in meteorological convention (0° = from North, 90° = from
+East, 180° = from South, 270° = from West).
 
-| Use case | Result | Example (directionDeg = 45, i.e. wind from NE) |
-|---|---|---|
-| **Display label** (InfoPanel, any UI text) | `windDir.fromLabel` | "from NE" |
-| **Particle / arrow travel direction** | `windDir.toLabel` | "toward SW" |
-| **Upwind quadrant** (which fires affect the station) | `windDir.fromQuadrant` | `'N'` |
-| **Downwind quadrant** (where smoke goes) | `windDir.toQuadrant` | `'S'` |
+There is no `parseWindDir`/quadrant-object helper — each side has one plain function that takes
+a raw degree value and returns a compass label directly:
 
-**Never apply `+ 180` to a display label.** "NE" means "wind from the NE" — standard for
-every weather app and meteorologist. Applying `+ 180` produces the TO direction (SW), which
-looks correct visually next to southward-flowing particles but is non-standard and confusing.
+- **Backend**: `compassFromDeg(deg)` in `packages/backend/src/utils/geo.ts`, called from
+  `packages/backend/src/lib/computeScientificContext.ts` and `buildScientificContext.ts`
+  (not from `explain.ts`, which is just the route handler).
+- **Frontend**: `degToCompass(deg)` in `packages/frontend/src/components/InfoPanel/utils.ambient.ts`,
+  called as `degToCompass(windVec.wind_direction_deg)` in `InfoPanel.tsx` (raw `WeatherReading`,
+  snake_case) and `degToCompass(w.windDirectionDeg)` in `History.tsx` (the camelCase
+  `StationDayHistory.weather` shape from `/api/stations/:id/history` -- a different field name,
+  not the same call pattern repeated).
 
-**Fires that affect a station are in the FROM quadrant** (upwind). A fire to the NE with
+**Never apply `+ 180` before calling either function.** The FROM-direction label ("from NE")
+is standard for every weather app and meteorologist; applying `+ 180` first produces the TO
+direction (SW), which looks correct visually next to southward-flowing particles but is
+non-standard and confusing.
+
+**Fires that affect a station are upwind, i.e. in the FROM direction.** A fire to the NE with
 wind from the NE will carry smoke toward the station. A fire to the SW (downwind) will blow
 smoke away.
 
-**In `explain.ts`** use `parseWindDir(wind.directionDeg)` which returns
-`{ fromLabel, toLabel, fromQuadrant, toQuadrant }`. Never call `compassFromDeg` or `quadrant`
-with a manually computed `+ 180` at the call site — put any new use case inside `parseWindDir`.
-
-**In the frontend** (`InfoPanel.tsx`) use `degToCompass(windVec.directionDeg)` (no `+ 180`)
-and prefix the label with "from" in the UI string.
-
-**Urban pollution source upwind detection** checks proximity to the back-trajectory ensemble
-(a source is upwind if it falls within the corridor of any trajectory member), not a bearing
-check against `windDirectionDeg`. Implementation: inline in `packages/backend/src/routes/explain.ts`
-(see `docs/claude/explain.md`).
+**Urban pollution source upwind detection** combines two checks (`computeScientificContext.ts`):
+a step-scaled proximity check against the back-trajectory ensemble (`isOnCone`) AND a bearing
+check against the mean wind direction (`isBearingUpwind`, ±60°) — not proximity alone, and not a
+bearing check alone. See `docs/claude/explain.md` for the full logic.
 
 ---
 
@@ -110,6 +110,7 @@ Any query that could return more than 1000 rows MUST use `.range(from, to)` pagi
 Use the shared helpers in `packages/backend/src/utils/backfill.ts` rather than hand-rolling
 a pagination loop — despite the filename, they're used across routes, cron jobs, and
 one-off scripts, not just backfills:
+
 - `fetchAllPages<T>(buildQuery, pageSize)` — fetches every page into memory, returns `T[]`.
   Use for anything that needs the full result set at once (most cases).
 - `forEachPage<T>(buildQuery, pageSize, onPage)` — streams one page at a time without
@@ -145,6 +146,7 @@ Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UT
 sums `precipitation_sum` over the wrong 24h window). Don't reintroduce `timezone: 'UTC'` or an
 ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the helpers in
 `packages/backend/src/utils/bkkDate.ts` instead:
+
 - `bangkokDateString(instant)` converts an instant to its Bangkok calendar day string.
 - `getYesterdayBkk()` is the common "yesterday BKK" default (used by `weather-ingest.ts`,
   `cams-ingest.ts`, `station-readings-ingest.ts`, and `ingest-station-fire-pressure.ts`).
@@ -187,7 +189,7 @@ versioning cache keys, unless immediate consistency is required, in which case f
 affected keys manually post-deploy.
 
 **Windowed-pool fetch range must double the window** — when computing a rolling ±W window
-statistic (e.g. `station_baseline`'s `WINDOW = 7`) for a *range* of target values rather than
+statistic (e.g. `station_baseline`'s `WINDOW = 7`) for a _range_ of target values rather than
 a single one, the data you fetch must span the target range padded by `±W` on each side, not
 just `±W` around a single center point. If N target values span `[t0, t1]`, the raw data
 needed spans `[t0 - W, t1 + W]` — fetching only `±W` around the range's center starves the

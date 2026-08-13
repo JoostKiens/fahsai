@@ -51,42 +51,57 @@ working in a file, mention it rather than fixing it silently.
 │   ├── types/                # shared TypeScript interfaces (no runtime deps)
 │   │   └── src/
 │   │       ├── fire.ts
-│   │       ├── aqi.ts
-│   │       ├── wind.ts
+│   │       ├── aq.ts
+│   │       ├── weather.ts
+│   │       ├── station.ts
+│   │       ├── baseline.ts
 │   │       ├── power-plant.ts
+│   │       └── index.ts
+│   ├── consts/                # shared runtime constants (no deps)
+│   │   └── src/
+│   │       ├── times.ts
+│   │       ├── aqGrid.ts
 │   │       └── index.ts
 │   ├── backend/              # Node + Fastify API + Railway cron scripts
 │   │   └── src/
 │   │       ├── server.ts     # Fastify entry point
 │   │       ├── routes/       # API route handlers
-│   │       ├── jobs/         # ingestion scripts (run via Railway cron)
+│   │       ├── jobs/         # ingestion/backfill core logic, called by scripts/
+│   │       ├── scripts/      # CLI entrypoints — the pnpm ingest:*/backfill:*/eval:*
+│   │       │                 # commands below, and Railway cron targets, run these
 │   │       ├── db/           # Supabase client + query helpers
-│   │       ├── cache/        # Upstash Redis client + helpers
-│   │       └── lib/          # shared utilities (geo transforms, etc.)
+│   │       ├── cache/        # Upstash Redis client + rate limiters
+│   │       ├── lib/          # /api/explain scientific-context logic
+│   │       ├── utils/        # geo, date, pagination, classification helpers
+│   │       └── data/         # static reference data (urban sources, geo regions)
 │   └── frontend/             # React + Vite SPA
 │       └── src/
 │           ├── main.tsx
 │           ├── App.tsx
+│           ├── i18n.ts
 │           ├── components/
-│           │   ├── Map/      # Mapbox + Deck.gl map shell
+│           │   ├── Map/      # Mapbox + Deck.gl map shell + one file per Deck.gl
+│           │   │             # layer (FiresLayer.ts, PM25Layer.ts, PowerPlantsLayer.ts)
 │           │   ├── Sidebar/  # layer toggles, opacity, legend
-│           │   ├── TimeSlider/
-│           │   └── StatsPanel/
-│           ├── layers/       # one file per Deck.gl layer
-│           │   ├── FiresLayer.ts
-│           │   ├── PM25Layer.tsx
-│           │   ├── WindLayer.ts
-│           │   └── PowerPlantsLayer.ts
+│           │   ├── Scrubber/ # time scrubber
+│           │   ├── InfoPanel/
+│           │   ├── Header/
+│           │   ├── ExplainButton/
+│           │   └── ErrorBoundary.tsx, BottomSheet.tsx, etc. (flat top-level components)
 │           ├── hooks/        # TanStack Query hooks, one per data type
 │           │   ├── useFires.ts
 │           │   ├── useStationReadings.ts
-│           │   ├── useWind.ts
-│           │   ├── useWindParticles.ts
-│           │   ├── usePowerPlants.ts
-│           │   └── useStationHistory.ts
-│           └── store/        # Zustand stores
-│               ├── layerStore.ts
-│               └── timeStore.ts
+│           │   ├── useCamsGrid.ts
+│           │   ├── useLatestDate.ts
+│           │   └── usePowerPlants.ts
+│           ├── store/        # Zustand stores
+│           │   ├── layerStore.ts
+│           │   ├── timeStore.ts
+│           │   ├── settingsStore.ts
+│           │   └── uiStore.ts
+│           ├── lib/          # rollbar.ts
+│           ├── utils/        # aqiColors, bbox, deck-overlay, etc.
+│           └── locales/      # en.json, th.json
 ```
 
 ---
@@ -96,9 +111,12 @@ working in a file, mention it rather than fixing it silently.
 ### Frontend
 
 - React 18 + TypeScript, Vite
-- Mapbox GL JS (base map, dark style)
-- Deck.gl (data layers)
+- Mapbox GL JS (base map, custom Mapbox Studio style)
+- Deck.gl (data layers), Supercluster (station clustering)
 - Zustand (UI state), TanStack Query v5 (data fetching), Turf.js (geo utils)
+- Tailwind CSS (styling), i18next/react-i18next (Thai/English), Fuse.js (station/place
+  search), sonner (toasts)
+- Rollbar (error tracking), Vercel Analytics + Speed Insights
 
 ### Backend
 
@@ -106,16 +124,23 @@ working in a file, mention it rather than fixing it silently.
 - `@fastify/cors` — registered before all routes; allows
   `https://fahsai.fyi` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
+- `@fastify/compress` — response compression
 - `trustProxy: true` set on the Fastify instance — required for correct `request.ip`
   behind the Railway proxy (reads `x-forwarded-for` instead of the raw socket IP)
-- `POST /api/explain` has per-IP rate limiting via `@upstash/ratelimit` (sliding
-  window, 10 req/hour, prefix `ratelimit:explain`); Upstash errors fail open so
-  legitimate users are never blocked by infrastructure issues
+- Per-IP rate limiting via `@upstash/ratelimit`, two limiters in `cache/ratelimit.ts`:
+  `explainRatelimit` for `POST /api/explain` (sliding window, 5 req/hour, prefix
+  `ratelimit:explain`) and `explainContextRatelimit` for `GET /api/explain/context`
+  (sliding window, 20 req/min, prefix `ratelimit:explain-context`); Upstash errors
+  fail open so legitimate users are never blocked by infrastructure issues
 - Upstash Redis (hot cache), Supabase (Postgres)
+- `@google/generative-ai` (Gemini, powers `/api/explain`), `p-retry` (backfill/ingest
+  retries), `pino` (structured logging), Rollbar (error tracking), `csv-parse`
+  (power plant CSV ingest), `@turf/boolean-point-in-polygon` (geo classification)
 
 ### Shared
 
 - `packages/types` — TypeScript interfaces shared between frontend and backend
+- `packages/consts` — shared runtime constants (no deps)
 - pnpm workspaces, ESLint + shared tsconfig
 
 ### Deployment
@@ -132,6 +157,7 @@ working in a file, mention it rather than fixing it silently.
 ```
 NODE_ENV=development
 PORT=3001
+LOG_LEVEL=info
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=    # use service role for backend writes
 UPSTASH_REDIS_REST_URL=
@@ -139,6 +165,8 @@ UPSTASH_REDIS_REST_TOKEN=
 FIRMS_MAP_KEY=
 OPENAQ_API_KEY=
 GEMINI_API_KEY=
+CDS_API_KEY=                  # Copernicus CDS, ERA5 backfill only
+ROLLBAR_TOKEN=
 ```
 
 ### Frontend (`packages/frontend/.env`)
@@ -146,6 +174,7 @@ GEMINI_API_KEY=
 ```
 VITE_API_BASE_URL=http://localhost:3001
 VITE_MAPBOX_TOKEN=            # public token, pk.* prefix
+VITE_ROLLBAR_TOKEN=
 ```
 
 Never commit `.env` files. Provide `.env.example` files with all keys listed but no values.
@@ -164,9 +193,10 @@ pnpm --filter backend dev                         # backend only
 pnpm --filter frontend dev                        # frontend only
 
 # One-off ingestion (manual testing)
-pnpm --filter backend run ingest:firms
+pnpm --filter backend run ingest:fires
+pnpm --filter backend run ingest:stations         # OpenAQ station metadata sync
 pnpm --filter backend run ingest:station-readings
-pnpm --filter backend run ingest:wind
+pnpm --filter backend run ingest:weather
 pnpm --filter backend run ingest:cams YYYY-MM-DD   # CAMS PM2.5 grid
 pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV path as optional arg)
 
@@ -186,7 +216,16 @@ pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
 
 pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
+pnpm test                                         # run all package test suites
+pnpm format                                       # prettier --write across all packages
+
+# Golden-set eval for /api/explain prompt/output quality (English + Thai)
+pnpm --filter backend run eval:explain
 ```
+
+Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twin
+(e.g. `railway:ingest:fires`) — those are what Railway cron actually invokes; see
+`docs/claude/architecture.md` for the schedule of each cron job.
 
 ---
 
