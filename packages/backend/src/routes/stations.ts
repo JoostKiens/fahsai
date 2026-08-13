@@ -14,35 +14,46 @@ interface StationRow {
 }
 
 export function stationsRoutes(app: FastifyInstance): void {
-  // GET /api/stations?bbox=west,south,east,north
-  app.get<{ Querystring: { bbox?: string } }>('/api/stations', async (req, reply) => {
-    const bbox = parseBbox(req.query.bbox);
+  // This route's response shape (Station[]) is consumed by the published
+  // fahsai-mcp-server npm package, not just this app's own frontend. Treat shape
+  // changes (renames/removals, not additions) as breaking for external consumers.
+  // GET /api/stations?bbox=west,south,east,north&q=name-substring
+  app.get<{ Querystring: { bbox?: string; q?: string | string[] } }>(
+    '/api/stations',
+    async (req, reply) => {
+      const bbox = parseBbox(req.query.bbox);
+      const rawQ = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+      const q = rawQ?.trim();
 
-    const data = await fetchAllPages<StationRow>(
-      (from, to) =>
-        supabase
+      const data = await fetchAllPages<StationRow>((from, to) => {
+        let query = supabase
           .from('stations')
           .select('id, name, lat, lng, country, provider')
           .gte('lat', bbox.south)
           .lte('lat', bbox.north)
           .gte('lng', bbox.west)
-          .lte('lng', bbox.east)
-          .order('id')
-          .range(from, to),
-      1000,
-    );
+          .lte('lng', bbox.east);
+        if (q) {
+          // Escape LIKE wildcards so a literal % or _ in the search term isn't
+          // treated as a pattern match.
+          const escapedQ = q.replace(/[%_]/g, '\\$&');
+          query = query.ilike('name', `%${escapedQ}%`);
+        }
+        return query.order('id').range(from, to);
+      }, 1000);
 
-    const stations: Station[] = data.map((row) => ({
-      id: row.id,
-      name: row.name,
-      lat: row.lat,
-      lng: row.lng,
-      country: row.country ?? '',
-      provider: row.provider,
-    }));
+      const stations: Station[] = data.map((row) => ({
+        id: row.id,
+        name: row.name,
+        lat: row.lat,
+        lng: row.lng,
+        country: row.country ?? '',
+        provider: row.provider,
+      }));
 
-    return reply.send({ data: stations });
-  });
+      return reply.send({ data: stations });
+    },
+  );
 
   // GET /api/stations/:id
   app.get<{ Params: { id: string } }>('/api/stations/:id', async (req, reply) => {

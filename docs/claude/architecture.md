@@ -229,8 +229,11 @@ GET /api/stations/:stationId/baseline
   Kept fresh day-to-day by the station-baseline-ingest cron (see above); full re-backfill
   is manual: pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
 
-GET /api/stations?bbox=...
-  Returns all stations with their available parameters.
+GET /api/stations?bbox=...&q=...
+  Returns all stations with their available parameters. bbox filters by
+  lat/lng bounds (defaults to Thailand plus neighboring countries if
+  omitted); q optionally filters by case-insensitive substring match on
+  station name. Both compose as AND when given together.
 
 GET /api/stations/:id
   Returns a single station's metadata: { id, name, lat, lng, country, provider }.
