@@ -208,3 +208,17 @@ an existing daily ingest job. `station_baseline`'s daily upkeep (`ingest-station
 originally re-fetched the OpenAQ S3 archive for the current year, mirroring the historical
 backfill's approach — but `station_readings` already had that exact data from the nightly
 pm25 ingest, making the S3 call entirely redundant.
+
+---
+
+## Branch naming
+
+Branches follow `<type>(<scope>)/<kebab-case-description>`, using the same `type` values as
+the conventional-commit types enforced on commit messages by `commitlint.config.js`
+(`feat`, `fix`, `chore`, `docs`, `ci`, ...). `<scope>` is optional and, when present, usually
+matches the touched package/area (`backend`, `frontend`, `db`, `ui`, `explain`, ...) — omit it
+for changes that don't fit one area, e.g. `feat/redesign-ui`. Examples:
+`feat(backend)/add-station-name-search`, `chore(observability)/implement-rollbar`,
+`chore/backfill-openaq`.
+
+This is inferred from existing branch history, not itself commitlint-enforced.
