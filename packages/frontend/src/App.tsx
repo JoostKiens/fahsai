@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from 'sonner';
-import { MapView } from '@/components/Map/MapView';
 import { UIOverlay } from '@/components/UIOverlay';
 import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { Header } from '@/components/Header/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useDataNotifications, useUrlSync, useSelectionHydration, useLatestDate } from '@/hooks';
+
+const MapView = lazy(() =>
+  import('@/components/Map/MapView').then((m) => ({ default: m.MapView })),
+);
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -50,7 +53,9 @@ function AppContent() {
               </div>
             }
           >
-            <MapView />
+            <Suspense fallback={<div className="w-full h-full bg-zinc-950" />}>
+              <MapView />
+            </Suspense>
           </ErrorBoundary>
           <UIOverlay />
         </div>
