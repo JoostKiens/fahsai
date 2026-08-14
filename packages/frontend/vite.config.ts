@@ -18,7 +18,11 @@ export default defineConfig({
         th: resolve(__dirname, 'th/index.html'),
       },
       output: {
-        manualChunks: { 'vendor-obs': ['rollbar'] },
+        manualChunks: {
+          'vendor-obs': ['rollbar'],
+          'vendor-map': ['mapbox-gl', 'deck.gl', '@deck.gl/mapbox', '@deck.gl/extensions'],
+          'vendor-i18n': ['i18next', 'react-i18next'],
+        },
       },
     },
   },
