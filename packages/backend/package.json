@@ -46,8 +46,8 @@
     "check-date-gaps": "node --env-file=.env.local --import=tsx/esm src/scripts/check-date-gaps.ts"
   },
   "dependencies": {
-    "@fastify/compress": "^8.3.1",
-    "@fastify/cors": "^10.1.0",
+    "@fastify/compress": "^9.2.0",
+    "@fastify/cors": "^11.3.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.112.3",
     "@thailand-aq/consts": "workspace:*",
