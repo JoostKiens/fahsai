@@ -45,7 +45,7 @@ async function getCsv(): Promise<string> {
 }
 
 const csv = await getCsv();
-const rows = parse(csv, { columns: true, skip_empty_lines: true }) as WriRow[];
+const rows: WriRow[] = parse(csv, { columns: true, skip_empty_lines: true });
 console.log(`[ingest-power-plants] Parsed ${rows.length} total rows`);
 
 const filtered = rows.filter(

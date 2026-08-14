@@ -55,7 +55,7 @@ function parsePm25Readings(
 ): { bkkDate: string; value: number }[] {
   let rows: CsvRow[];
   try {
-    rows = parse(csvContent, { columns: true, skip_empty_lines: true, trim: true }) as CsvRow[];
+    rows = parse(csvContent, { columns: true, skip_empty_lines: true, trim: true });
   } catch {
     return [];
   }
