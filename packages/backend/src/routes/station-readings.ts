@@ -283,7 +283,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
 
       const baselineByMD = new Map<string, BaselineStat>();
       for (const row of baselineData ?? []) {
-        baselineByMD.set(`${row.month}-${row.day}`, mapBaselineRow(row as BaselineRow));
+        baselineByMD.set(`${row.month}-${row.day}`, mapBaselineRow(row));
       }
 
       // Build result: oldest-first, from (endDate - days + 1) to endDate

@@ -55,7 +55,7 @@ async function fetchActiveStations(): Promise<StationRow[]> {
     .neq('pm25_sensor_ids', '{}');
 
   if (error) throw new Error(`${LOG} stations query failed: ${error.message}`);
-  return (data ?? []) as StationRow[];
+  return data ?? [];
 }
 
 async function existingRowCount(date: string): Promise<number> {

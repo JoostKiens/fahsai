@@ -134,9 +134,7 @@ export interface ScientificContext {
   } | null;
 
   outlier:
-    | { type: 'HIGH'; ratio: number; peerTier: 1 | 2 | 3 }
-    | { type: 'LOW'; ratio: number }
-    | null;
+    { type: 'HIGH'; ratio: number; peerTier: 1 | 2 | 3 } | { type: 'LOW'; ratio: number } | null;
 
   seasonContext: string;
 
@@ -275,8 +273,7 @@ function computeSourceTiers(
 }
 
 function toTierSource(s: FixtureUpwindSource): TierSource {
-  // FixtureUpwindSource is a structural superset of TierSource; the extra field is dropped at type level
-  return s as TierSource;
+  return s;
 }
 
 // ----------------------------------------------------------------

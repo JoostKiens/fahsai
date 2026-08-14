@@ -49,22 +49,22 @@
     "@fastify/compress": "^8.3.1",
     "@fastify/cors": "^10.1.0",
     "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.112.3",
     "@thailand-aq/consts": "workspace:*",
     "@thailand-aq/types": "workspace:*",
-    "@turf/boolean-point-in-polygon": "^7.3.5",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.34.0",
-    "csv-parse": "^5.5.0",
-    "fastify": "^5.0.0",
-    "p-retry": "^6.0.0",
+    "@upstash/redis": "^1.38.2",
+    "csv-parse": "^5.6.0",
+    "fastify": "^5.12.0",
+    "p-retry": "^6.2.1",
     "pino": "^10.3.1",
     "rollbar": "^3.1.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }

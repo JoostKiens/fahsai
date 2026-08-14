@@ -4,7 +4,7 @@ import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { bangkokMidnightUtcMs } from '../utils/bkkDate.js';
-import type { WeatherReading, BaselineStat, BaselineRow } from '@thailand-aq/types';
+import type { WeatherReading, BaselineStat } from '@thailand-aq/types';
 import { mapBaselineRow } from '@thailand-aq/types';
 import { MS_PER_DAY, MS_PER_HOUR } from '@thailand-aq/consts';
 const GRID_MIN_COMPLETE = 4000;
@@ -180,7 +180,7 @@ export async function fetchExplainContext(
   }
 
   const baseline: BaselineStat | null = baselineResult.data
-    ? mapBaselineRow(baselineResult.data as BaselineRow)
+    ? mapBaselineRow(baselineResult.data)
     : null;
 
   return {
@@ -195,8 +195,8 @@ export async function fetchExplainContext(
     d3,
     d4,
     stationName,
-    stationReadings: stationRows.data as { value: number; measured_at: string }[],
-    peerRows: (peerRowsResult.data ?? []) as PeerRow[],
+    stationReadings: stationRows.data,
+    peerRows: peerRowsResult.data ?? [],
     stationWeatherByDate,
     wind0,
     wind1,
@@ -204,11 +204,7 @@ export async function fetchExplainContext(
     camsD0,
     camsD1,
     camsD2,
-    pressureData: pressureResult.data as {
-      score: number;
-      fire_count: number;
-      total_frp_mw: number;
-    } | null,
+    pressureData: pressureResult.data,
     baseline,
   };
 }

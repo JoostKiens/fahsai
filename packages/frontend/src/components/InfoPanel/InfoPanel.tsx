@@ -580,7 +580,7 @@ function StationPanel({
           const periodKey = dateToPeriodKey(dayNum);
           const period = t(`infoPanel.baseline.${periodKey}` as never, { month: monthName });
           const label = t(`infoPanel.baseline.${category}` as never, { period });
-          const range = t('infoPanel.baseline.typicalRange' as never, {
+          const range = t('infoPanel.baseline.typicalRange', {
             low: Math.round(bl.p25Pm25),
             high: Math.round(bl.p75Pm25),
           });
