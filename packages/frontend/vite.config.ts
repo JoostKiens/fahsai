@@ -12,27 +12,32 @@ export default defineConfig({
     port: 5173,
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         th: resolve(import.meta.dirname, 'th/index.html'),
       },
       output: {
-        // Object-form manualChunks is no longer supported in Vite 8 (Rolldown) — function form
-        // is the equivalent, still-supported replacement for this same vendor split.
-        manualChunks(id) {
-          if (id.includes('/node_modules/rollbar/')) return 'vendor-obs';
-          if (
-            id.includes('/node_modules/mapbox-gl/') ||
-            id.includes('/node_modules/deck.gl/') ||
-            id.includes('/node_modules/@deck.gl/mapbox/') ||
-            id.includes('/node_modules/@deck.gl/extensions/')
-          ) {
-            return 'vendor-map';
-          }
-          if (id.includes('/node_modules/i18next/') || id.includes('/node_modules/react-i18next/')) {
-            return 'vendor-i18n';
-          }
+        // Native Rolldown chunk splitting — replaces the deprecated manualChunks. Same-named
+        // groups each produce their own chunk file (not merged), so each vendor bundle is one
+        // group with a predicate matching every package that belongs in it.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-obs', test: (id) => id.includes('/node_modules/rollbar/') },
+            {
+              name: 'vendor-map',
+              test: (id) =>
+                id.includes('/node_modules/mapbox-gl/') ||
+                id.includes('/node_modules/deck.gl/') ||
+                id.includes('/node_modules/@deck.gl/mapbox/') ||
+                id.includes('/node_modules/@deck.gl/extensions/'),
+            },
+            {
+              name: 'vendor-i18n',
+              test: (id) =>
+                id.includes('/node_modules/i18next/') || id.includes('/node_modules/react-i18next/'),
+            },
+          ],
         },
       },
     },
