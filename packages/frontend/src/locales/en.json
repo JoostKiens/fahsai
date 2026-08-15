@@ -22,6 +22,8 @@
   "sidebar.collapse": "Collapse sidebar",
   "sidebar.open": "Open sidebar",
 
+  "map.ariaLabel": "Air quality map",
+
   "layers.airQuality": "Air Quality (PM2.5)",
   "layers.stationReadings": "Station readings",
   "layers.stationReadingsDesc": "Ground measurements from monitoring stations",

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { UIOverlay } from '@/components/UIOverlay';
 import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { Header } from '@/components/Header/Header';
@@ -24,6 +25,7 @@ function useIsMobile() {
 }
 
 function AppContent() {
+  const { t } = useTranslation();
   useLatestDate();
   useDataNotifications();
   useUrlSync();
@@ -44,7 +46,7 @@ function AppContent() {
         >
           <Sidebar />
         </ErrorBoundary>
-        <div className="relative flex-1 overflow-hidden">
+        <main aria-label={t('map.ariaLabel')} className="relative flex-1 overflow-hidden">
           <ErrorBoundary
             name="MapView"
             fallback={
@@ -58,7 +60,7 @@ function AppContent() {
             </Suspense>
           </ErrorBoundary>
           <UIOverlay />
-        </div>
+        </main>
       </div>
       <ErrorBoundary
         name="Scrubber"

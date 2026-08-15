@@ -22,6 +22,8 @@
   "sidebar.collapse": "ยุบแถบด้านข้าง",
   "sidebar.open": "เปิดแถบด้านข้าง",
 
+  "map.ariaLabel": "แผนที่คุณภาพอากาศ",
+
   "layers.airQuality": "คุณภาพอากาศ (PM2.5)",
   "layers.stationReadings": "ค่าวัดจากสถานี",
   "layers.stationReadingsDesc": "การวัดจากสถานีตรวจวัดภาคพื้นดิน",

@@ -107,6 +107,8 @@ export function Header() {
   return (
     <>
       <header className="h-12 flex items-center px-3 md:px-4 gap-2 md:gap-4 border-b border-zinc-800 bg-zinc-900 shrink-0 z-20">
+        <h1 className="sr-only">Fahsai — {t('header.subtitle')}</h1>
+
         {/* Desktop brand */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <Logo size={26} />
