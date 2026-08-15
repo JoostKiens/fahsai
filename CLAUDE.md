@@ -120,7 +120,7 @@ working in a file, mention it rather than fixing it silently.
 
 ### Backend
 
-- Node.js 20+ + TypeScript, Fastify
+- Node.js 22+ + TypeScript, Fastify
 - `@fastify/cors` — registered before all routes; allows
   `https://fahsai.fyi` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
