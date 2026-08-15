@@ -21,13 +21,13 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       retries: 3,
       minTimeout: 2000,
       factor: 2,
-      onFailedAttempt: (err) => {
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) => {
         const cause =
-          err.cause instanceof Error
-            ? ((err.cause as { code?: string }).code ?? err.cause.name ?? err.cause.message)
+          error.cause instanceof Error
+            ? ((error.cause as { code?: string }).code ?? error.cause.name ?? error.cause.message)
             : undefined;
         console.warn(
-          `[fires-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause ? ` (${cause})` : ''}`,
+          `[fires-ingest] attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}${cause ? ` (${cause})` : ''}`,
         );
       },
     },
@@ -70,9 +70,9 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       retries: 3,
       minTimeout: 1000,
       factor: 2,
-      onFailedAttempt: (err) =>
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
         console.warn(
-          `[fires-ingest] Supabase upsert attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+          `[fires-ingest] Supabase upsert attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
         ),
     },
   );

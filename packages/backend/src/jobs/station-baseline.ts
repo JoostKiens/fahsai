@@ -260,8 +260,8 @@ export async function runStationBaseline(
           retries: 3,
           minTimeout: 1000,
           factor: 2,
-          onFailedAttempt: (err) =>
-            console.warn(`[baseline] Upsert attempt ${err.attemptNumber} failed: ${err.message}`),
+          onFailedAttempt: ({ error, attemptNumber }) =>
+            console.warn(`[baseline] Upsert attempt ${attemptNumber} failed: ${error.message}`),
         },
       );
     }

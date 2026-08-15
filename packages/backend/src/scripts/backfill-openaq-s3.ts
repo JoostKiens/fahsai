@@ -159,9 +159,9 @@ for (let i = 0; i < measurementRows.length; i += BATCH_SIZE) {
       retries: 3,
       minTimeout: 1000,
       factor: 2,
-      onFailedAttempt: (err) =>
+      onFailedAttempt: ({ error, attemptNumber }) =>
         console.warn(
-          `[backfill-s3] Batch ${batchNum} attempt ${err.attemptNumber} failed: ${err.message}`,
+          `[backfill-s3] Batch ${batchNum} attempt ${attemptNumber} failed: ${error.message}`,
         ),
     },
   );

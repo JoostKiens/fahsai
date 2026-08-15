@@ -134,9 +134,9 @@ export async function runStationReadingsIngest(date?: string): Promise<{
         retries: 3,
         minTimeout: 1000,
         factor: 2,
-        onFailedAttempt: (err) =>
+        onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
           console.warn(
-            `[station-readings-ingest] Supabase batch ${batchNum} attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+            `[station-readings-ingest] Supabase batch ${batchNum} attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
           ),
       },
     );

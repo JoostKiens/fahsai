@@ -49,13 +49,13 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
       retries: 2,
       minTimeout: 60 * 1000,
       factor: 2,
-      onFailedAttempt: (err) => {
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) => {
         const cause =
-          err.cause instanceof Error
-            ? ((err.cause as { code?: string }).code ?? err.cause.name ?? err.cause.message)
+          error.cause instanceof Error
+            ? ((error.cause as { code?: string }).code ?? error.cause.name ?? error.cause.message)
             : undefined;
         console.warn(
-          `[weather-ingest] attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}${cause ? ` (${cause})` : ''}`,
+          `[weather-ingest] attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}${cause ? ` (${cause})` : ''}`,
         );
       },
     },
@@ -99,9 +99,9 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
         retries: 3,
         minTimeout: 1000,
         factor: 2,
-        onFailedAttempt: (err) =>
+        onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
           console.warn(
-            `[weather-ingest] Supabase batch ${batchNum} attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+            `[weather-ingest] Supabase batch ${batchNum} attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
           ),
       },
     );

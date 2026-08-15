@@ -41,9 +41,9 @@ export async function runStationsIngest(): Promise<{
       retries: 3,
       minTimeout: 1000,
       factor: 2,
-      onFailedAttempt: (err) =>
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
         console.warn(
-          `[stations-ingest] Supabase upsert attempt ${err.attemptNumber} failed, ${err.retriesLeft} retries left: ${err.message}`,
+          `[stations-ingest] Supabase upsert attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
         ),
     },
   );

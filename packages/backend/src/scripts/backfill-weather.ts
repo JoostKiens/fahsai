@@ -181,8 +181,7 @@ async function pollCdsJob(jobId: string): Promise<string> {
         (results['href'] as string | undefined) ??
         ((
           (results['asset'] as Record<string, unknown> | undefined)?.['value'] as
-            | Record<string, unknown>
-            | undefined
+            Record<string, unknown> | undefined
         )?.['href'] as string | undefined) ??
         (results['location'] as string | undefined);
 
@@ -423,9 +422,9 @@ try {
           retries: 3,
           minTimeout: 1000,
           factor: 2,
-          onFailedAttempt: (err) =>
+          onFailedAttempt: ({ error, attemptNumber }) =>
             console.warn(
-              `${LOG} batch ${batchNum} attempt ${err.attemptNumber} failed: ${err.message}`,
+              `${LOG} batch ${batchNum} attempt ${attemptNumber} failed: ${error.message}`,
             ),
         },
       );
