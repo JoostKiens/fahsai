@@ -1,4 +1,4 @@
-import { Select } from '@base-ui-components/react/select';
+import { Select } from '@base-ui/react/select';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore, type Language } from '@/store/settingsStore';
 

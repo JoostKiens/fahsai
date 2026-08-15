@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Slider, type SliderRootChangeEventDetails } from '@base-ui-components/react/slider';
-import { Tooltip } from '@base-ui-components/react/tooltip';
+import { Slider, type SliderRootChangeEventDetails } from '@base-ui/react/slider';
+import { Tooltip } from '@base-ui/react/tooltip';
 import {
   useUIStore,
   dayToDate,

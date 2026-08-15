@@ -1,4 +1,4 @@
-import { Menu } from '@base-ui-components/react/menu';
+import { Menu } from '@base-ui/react/menu';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store/uiStore';
 import { GearIcon, GithubIcon, InfoIcon } from './Icons';
