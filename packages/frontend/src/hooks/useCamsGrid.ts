@@ -8,6 +8,7 @@ const API = import.meta.env.VITE_API_BASE_URL;
 
 export function useCamsGrid() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
     queryKey: ['cams-grid', selectedDate],
     queryFn: async () => {
@@ -18,5 +19,6 @@ export function useCamsGrid() {
       return parseCamsGridResponse(data);
     },
     staleTime: staleTimeForArray,
+    enabled: latestDateResolved,
   });
 }

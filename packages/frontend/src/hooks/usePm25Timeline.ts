@@ -14,6 +14,7 @@ const API = import.meta.env.VITE_API_BASE_URL;
 // undefined) and always return EMPTY_DATA_STALE_MS, causing constant re-fetches.
 export function usePm25Timeline() {
   const latestDate = useTimeStore((s) => s.latestDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   const scrubberDays = useEffectiveScrubberDays();
   const start = dayToDate(0, latestDate, scrubberDays);
   const end = latestDate;
@@ -30,5 +31,6 @@ export function usePm25Timeline() {
     },
     select: (data) => new Map(data.map((d) => [d.date, d.pm25])),
     staleTime: staleTimeForArray,
+    enabled: latestDateResolved,
   });
 }

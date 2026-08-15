@@ -54,11 +54,21 @@ export function Scrubber() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
+  const hasSyncedInitialDate = useRef(false);
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
   const ready = latestDateResolved;
 
+  // The first correction (once the real latestDate resolves) fires immediately so the
+  // per-date data hooks (gated on latestDateResolved) don't fetch a still-stale selectedDate
+  // for another DEBOUNCE_MS. Only subsequent, user-driven changes (drag/autoplay) debounce.
   useEffect(() => {
+    if (!hasSyncedInitialDate.current) {
+      if (!latestDateResolved) return;
+      hasSyncedInitialDate.current = true;
+      setDate(dateStr);
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setDate(dateStr);
@@ -66,7 +76,7 @@ export function Scrubber() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [dateStr, setDate]);
+  }, [dateStr, latestDateResolved, setDate]);
 
   useEffect(() => {
     if (playing) {

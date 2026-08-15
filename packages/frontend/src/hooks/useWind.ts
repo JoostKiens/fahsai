@@ -7,6 +7,7 @@ const API = import.meta.env.VITE_API_BASE_URL;
 
 export function useWind() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
     queryKey: ['weather-wind', selectedDate],
     queryFn: async () => {
@@ -16,5 +17,6 @@ export function useWind() {
       return ((await res.json()) as { data: WindReading[] }).data;
     },
     staleTime: staleTimeForArray,
+    enabled: latestDateResolved,
   });
 }

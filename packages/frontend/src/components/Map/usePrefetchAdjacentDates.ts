@@ -18,8 +18,10 @@ export function usePrefetchAdjacentDates() {
   const queryClient = useQueryClient();
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const latestDate = useTimeStore((s) => s.latestDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
 
   useEffect(() => {
+    if (!latestDateResolved) return;
     for (const offset of [-1, 1]) {
       const date = shiftDate(selectedDate, offset);
       if (date > latestDate) continue;
@@ -68,5 +70,5 @@ export function usePrefetchAdjacentDates() {
         staleTime: Infinity,
       });
     }
-  }, [queryClient, selectedDate, latestDate]);
+  }, [queryClient, selectedDate, latestDate, latestDateResolved]);
 }

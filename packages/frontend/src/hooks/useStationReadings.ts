@@ -17,6 +17,7 @@ export interface LatestMeasurement {
 
 export function useStationReadings() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
+  const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
     queryKey: ['aqi-latest', 'pm25', selectedDate],
     queryFn: async () => {
@@ -26,5 +27,6 @@ export function useStationReadings() {
       return ((await res.json()) as { data: LatestMeasurement[] }).data;
     },
     staleTime: staleTimeForArray,
+    enabled: latestDateResolved,
   });
 }
