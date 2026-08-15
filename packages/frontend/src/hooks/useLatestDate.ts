@@ -4,10 +4,9 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { useTimeStore } from '@/store/timeStore';
-import { useUIStore } from '@/store/uiStore';
+import { useUIStore, MAX_DAYS } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
-const MAX_DAYS = 120;
 const API = import.meta.env.VITE_API_BASE_URL;
 
 /**

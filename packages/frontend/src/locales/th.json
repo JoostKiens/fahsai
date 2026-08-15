@@ -139,7 +139,9 @@
   "toast.noCams": "ไม่มีข้อมูลแบบจำลอง PM2.5 บรรยากาศสำหรับวันนี้",
   "toast.selectionNotFound": "ไม่พบรายการที่แชร์มาแล้ว",
   "infoPanel.prevDay": "วันก่อนหน้า",
+  "infoPanel.prevDayDate": "วันก่อนหน้า {{date}}",
   "infoPanel.nextDay": "วันถัดไป",
+  "infoPanel.nextDayDate": "วันถัดไป {{date}}",
 
   "infoPanel.baseline.periodEarly": "ต้น{{month}}",
   "infoPanel.baseline.periodMid": "กลาง{{month}}",

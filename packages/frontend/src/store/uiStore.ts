@@ -65,6 +65,8 @@ interface UIStore {
   setSettingsOpen: (v: boolean) => void;
 }
 
+export const MAX_DAYS = 120;
+
 function initialScrubberDayFromUrl(): number {
   const scrubberDays = useSettingsStore.getState().scrubberDays;
   const raw = new URLSearchParams(window.location.search).get('date');

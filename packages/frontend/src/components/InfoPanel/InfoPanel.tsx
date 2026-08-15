@@ -510,7 +510,11 @@ function StationPanel({
             <button
               onClick={() => setScrubberDay(scrubberDay - 1)}
               disabled={!canGoPrev}
-              aria-label={t('infoPanel.prevDay')}
+              aria-label={
+                canGoPrev && prevDate
+                  ? t('infoPanel.prevDayDate', { date: fmtDay(prevDate) })
+                  : t('infoPanel.prevDay')
+              }
               className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               <ChevronLeftIcon />
@@ -519,7 +523,11 @@ function StationPanel({
             <button
               onClick={() => setScrubberDay(scrubberDay + 1)}
               disabled={!canGoNext}
-              aria-label={t('infoPanel.nextDay')}
+              aria-label={
+                canGoNext && nextDate
+                  ? t('infoPanel.nextDayDate', { date: fmtDay(nextDate) })
+                  : t('infoPanel.nextDay')
+              }
               className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-200 disabled:text-zinc-700 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               {canGoNext && nextDate && fmtDay(nextDate)}

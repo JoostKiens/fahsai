@@ -139,7 +139,9 @@
   "toast.noCams": "No ambient PM2.5 model data for this date",
   "toast.selectionNotFound": "Shared selection no longer available",
   "infoPanel.prevDay": "Previous day",
+  "infoPanel.prevDayDate": "Previous day, {{date}}",
   "infoPanel.nextDay": "Next day",
+  "infoPanel.nextDayDate": "Next day, {{date}}",
 
   "infoPanel.baseline.periodEarly": "early {{month}}",
   "infoPanel.baseline.periodMid": "mid-{{month}}",
