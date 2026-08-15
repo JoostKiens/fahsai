@@ -10,7 +10,7 @@
 
 Thailand's dry season air quality is severe and its causes are genuinely complex: fires, agriculture, industry, transport, geography, wind. This map puts the available data in one place so you can look at it yourself.
 
-NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A time scrubber lets you step back through up to 90 days of historical data. Available in English and Thai. Free, no login, mobile-friendly.
+NASA VIIRS fire detections, Open-Meteo wind vectors, OpenAQ ground stations, and the CAMS atmospheric PM2.5 model, updated daily. A time scrubber lets you step back through a configurable 30/60/90/120-day window of historical data. Available in English and Thai. Free, no login, mobile-friendly.
 
 ---
 
@@ -38,7 +38,7 @@ All panels show the reverse-geocoded place name and country flag for the clicked
 
 The bottom slider steps through the selected history window. Press **Play** (or hit **Space**) to animate through dates automatically at 800 ms per step.
 
-The history window — 30, 60, or 90 days — is configurable in Settings and persisted across sessions. New data is typically available by 06:30 Bangkok time each morning.
+The history window — 30, 60, 90, or 120 days — is configurable in Settings and persisted across sessions. New data is typically available by 06:30 Bangkok time each morning.
 
 Map position, zoom, and selected date are reflected in the URL, so any view is fully shareable.
 
@@ -63,6 +63,14 @@ When a station reads at least twice (or less than 40% of) the distance-weighted 
 | [Open-Meteo](https://open-meteo.com/)                            | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
 | [WRI Global Power Plant Database](https://resourcewatch.org/)    | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
 | [Mapbox](https://www.mapbox.com/)                                | Base map                                    | —       | Mapbox TOS     |
+
+---
+
+## MCP server
+
+Fahsai's data (fires, PM2.5, weather, stations) is also queryable programmatically via
+[fahsai-mcp-server](https://github.com/JoostKiens/fahsai-mcp-server), a Model Context Protocol
+server for AI agents.
 
 ---
 
