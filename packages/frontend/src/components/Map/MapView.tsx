@@ -4,7 +4,7 @@ import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '@/hooks';
-import mapboxgl from 'mapbox-gl';
+import { Map, AttributionControl, ExpressionSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createOverlay, type OverlayInstance } from '@/utils/deck-overlay';
 import { mapRef as globalMapRef } from '@/utils/mapRef';
@@ -49,16 +49,16 @@ function parseUrlMapState() {
   };
 }
 
-function detectBeforeId(map: mapboxgl.Map): string | undefined {
+function detectBeforeId(map: Map): string | undefined {
   const layers = map.getStyle().layers ?? [];
   return layers.find((l) => l.id.startsWith('admin') || l.type === 'symbol')?.id;
 }
 
 export function MapView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mapRef = useRef<Map | null>(null);
   const beforeIdRef = useRef<string | undefined>(undefined);
-  const [map, setMap] = useState<mapboxgl.Map | null>(null);
+  const [map, setMap] = useState<Map | null>(null);
   // heatmapOverlay: interleaved — renders land-mask + pm25-bitmap inside Mapbox's
   // WebGL pipeline so beforeId can place them below admin boundary layers.
   const [heatmapOverlay, setHeatmapOverlay] = useState<OverlayInstance | null>(null);
@@ -108,7 +108,7 @@ export function MapView() {
 
   useEffect(() => {
     if (!map) return;
-    const ctrl = new mapboxgl.AttributionControl({
+    const ctrl = new AttributionControl({
       compact: compactAttribution,
       customAttribution: CUSTOM_ATTRIBUTION,
     });
@@ -124,7 +124,7 @@ export function MapView() {
   // Switch Mapbox place-label language when the user changes language.
   useEffect(() => {
     if (!map) return;
-    const field: mapboxgl.ExpressionSpecification =
+    const field: ExpressionSpecification =
       language === 'th'
         ? ['coalesce', ['get', 'name_th'], ['get', 'name']]
         : ['coalesce', ['get', 'name_en'], ['get', 'name']];
@@ -339,7 +339,7 @@ export function MapView() {
     let mounted = true;
 
     const { center: initialCenter, zoom: initialZoom } = parseUrlMapState();
-    const mapInstance = new mapboxgl.Map({
+    const mapInstance = new Map({
       container: containerRef.current,
       style: 'mapbox://styles/joostkiens/cm30pk39v00ah01qz4n2i1ssu',
       center: initialCenter,
