@@ -1,5 +1,5 @@
-import { ScatterplotLayer } from 'deck.gl';
-import type { Layer, PickingInfo } from 'deck.gl';
+import { ScatterplotLayer } from '@deck.gl/layers';
+import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { FirePoint } from '@thailand-aq/types';
 
 type RGB = [number, number, number];

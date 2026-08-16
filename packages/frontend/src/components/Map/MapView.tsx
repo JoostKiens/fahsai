@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { ScatterplotLayer } from 'deck.gl';
-import type { Layer, PickingInfo } from 'deck.gl';
+import { ScatterplotLayer } from '@deck.gl/layers';
+import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '@/hooks';
 import mapboxgl from 'mapbox-gl';

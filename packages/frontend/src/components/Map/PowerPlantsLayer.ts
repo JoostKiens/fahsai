@@ -1,5 +1,5 @@
-import { IconLayer } from 'deck.gl';
-import type { Layer, PickingInfo } from 'deck.gl';
+import { IconLayer } from '@deck.gl/layers';
+import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { PowerPlantCollection, PowerPlantFeature } from '@thailand-aq/types';
 import { FUEL_COLORS } from '@/utils/powerPlantColors';
 

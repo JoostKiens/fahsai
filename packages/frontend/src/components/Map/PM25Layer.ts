@@ -1,5 +1,12 @@
-import { BitmapLayer, SolidPolygonLayer, ScatterplotLayer, TextLayer, IconLayer } from 'deck.gl';
-import type { Layer, PickingInfo, Position, SolidPolygonLayerProps } from 'deck.gl';
+import {
+  BitmapLayer,
+  SolidPolygonLayer,
+  ScatterplotLayer,
+  TextLayer,
+  IconLayer,
+} from '@deck.gl/layers';
+import type { SolidPolygonLayerProps } from '@deck.gl/layers';
+import type { Layer, PickingInfo, Position } from '@deck.gl/core';
 import { MaskExtension } from '@deck.gl/extensions';
 import Supercluster from 'supercluster';
 import { AQ_STEP, AQ_LNG_MIN, AQ_LAT_MIN, AQ_LNG_COUNT, AQ_LAT_COUNT } from '@thailand-aq/consts';

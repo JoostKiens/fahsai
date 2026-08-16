@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { TripsLayer } from 'deck.gl';
+import { TripsLayer } from '@deck.gl/geo-layers';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
