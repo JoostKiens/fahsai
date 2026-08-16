@@ -208,7 +208,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   }}
                 />
                 <span
-                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-500' : 'text-zinc-700'}`}
+                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-400' : 'text-zinc-700'}`}
                 >
                   {formatDateLabel(date)}
                 </span>
@@ -223,15 +223,15 @@ export function History({ days }: { days: StationDayHistory[] }) {
       <div className="grid grid-cols-[auto_1.3fr_1fr_1fr] gap-x-3 gap-y-[3px] text-[11px] items-center">
         {/* Column headers */}
         <span />
-        <span className="text-zinc-500 uppercase tracking-wider text-[11px]">
+        <span className="text-zinc-400 uppercase tracking-wider text-[11px]">
           {t('history.wind')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">km/h</span>
         </span>
-        <span className="text-center text-zinc-500 uppercase tracking-wider text-[11px]">
+        <span className="text-center text-zinc-400 uppercase tracking-wider text-[11px]">
           {t('history.rain')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">mm</span>
         </span>
-        <span className="text-center text-zinc-500 uppercase tracking-wider text-[11px]">
+        <span className="text-center text-zinc-400 uppercase tracking-wider text-[11px]">
           {t('history.humidity')}{' '}
           <span className="normal-case tracking-normal text-zinc-400 font-mono">%</span>
         </span>

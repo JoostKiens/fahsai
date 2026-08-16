@@ -143,7 +143,7 @@ export function YearCurve({
       {yTicks.map((v) => (
         <span
           key={v}
-          className="absolute text-[11px] text-zinc-500 font-mono"
+          className="absolute text-[11px] text-zinc-400 font-mono"
           style={{
             left: `${((PAD_L - 3) / W) * 100}%`,
             top: `${(yScale(v) / H) * 100}%`,
@@ -158,7 +158,7 @@ export function YearCurve({
       {monthLabels.map(({ x, label }) => (
         <span
           key={label}
-          className="absolute text-[11px] text-zinc-500"
+          className="absolute text-[11px] text-zinc-400"
           style={{
             left: `${(x / W) * 100}%`,
             top: `${((H - 5) / H) * 100}%`,
