@@ -35,6 +35,9 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 - **Anything in development** — both SDKs initialize only when their token env var
   is set **and** `NODE_ENV` / `MODE` is `production`. Local dev always falls through
   to console/Pino logs.
+- **"Failed to initialize WebGL."** — near-universal on headless/bot traffic
+  (no GPU), not real users. Filtered client-side via `checkIgnore` in
+  `packages/frontend/src/lib/rollbar.ts` before the payload is sent.
 
 ---
 

@@ -6,6 +6,13 @@ const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 let rollbar: Rollbar | null = null;
 
+// WebGL init failures are near-universal on headless/bot traffic (no GPU) rather than
+// real users; see docs/claude/rollbar.md
+function isIgnoredMessage(payload: { body?: { trace?: { exception?: { message?: string } } } }) {
+  const message = payload.body?.trace?.exception?.message;
+  return message === 'Failed to initialize WebGL.';
+}
+
 // ponytail: dynamic import so Vite never pre-bundles rollbar.js in dev (ad blockers block that URL)
 if (token && isProduction) {
   void import('rollbar')
@@ -17,6 +24,7 @@ if (token && isProduction) {
         captureUnhandledRejections: true,
         autoInstrument: { network: false, dom: false },
         endpoint: `${apiBase}/api/rollbar`,
+        checkIgnore: (_isUncaught, _args, payload) => isIgnoredMessage(payload),
       });
     })
     .catch(() => {
