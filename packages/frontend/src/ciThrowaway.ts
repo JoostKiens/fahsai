@@ -1,5 +1,5 @@
-// Throwaway: deliberate type, lint and format errors to verify the CI gates. Do not merge.
-export const typeError: number = "not a number";
+// Throwaway: deliberate lint and format errors to verify the CI gates. Do not merge.
+export const typeError: number = 1;
 
 export const lintError = (value: any) => { return value == null }
 
