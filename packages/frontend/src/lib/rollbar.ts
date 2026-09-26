@@ -13,6 +13,22 @@ function isIgnoredMessage(payload: { body?: { trace?: { exception?: { message?: 
   return message === 'Failed to initialize WebGL.';
 }
 
+// Crawlers (e.g. Googlebot) abort subresource fetches, surfacing as lazy-chunk load
+// errors that aren't real user failures; see docs/claude/rollbar.md. Matches the original
+// error in args: the payload's parsed exception message is truncated at the first colon.
+const isBot = /bot|crawl|spider/i.test(navigator.userAgent);
+
+function isBotChunkLoadFailure(args: unknown[]) {
+  return (
+    isBot &&
+    args.some(
+      (arg) =>
+        arg instanceof Error &&
+        arg.message.startsWith('Failed to fetch dynamically imported module'),
+    )
+  );
+}
+
 // ponytail: dynamic import so Vite never pre-bundles rollbar.js in dev (ad blockers block that URL)
 if (token && isProduction) {
   void import('rollbar')
@@ -24,7 +40,8 @@ if (token && isProduction) {
         captureUnhandledRejections: true,
         autoInstrument: { network: false, dom: false },
         endpoint: `${apiBase}/api/rollbar`,
-        checkIgnore: (_isUncaught, _args, payload) => isIgnoredMessage(payload),
+        checkIgnore: (_isUncaught, args, payload) =>
+          isBotChunkLoadFailure(args) || isIgnoredMessage(payload),
       });
     })
     .catch(() => {

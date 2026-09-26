@@ -38,6 +38,10 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 - **"Failed to initialize WebGL."** — near-universal on headless/bot traffic
   (no GPU), not real users. Filtered client-side via `checkIgnore` in
   `packages/frontend/src/lib/rollbar.ts` before the payload is sent.
+- **"Failed to fetch dynamically imported module" from a crawler user agent**
+  (`/bot|crawl|spider/i`, e.g. Googlebot) — crawlers abort subresource fetches for lazy
+  chunks like MapView. Filtered in the same `checkIgnore`; the same error from real
+  users is still reported, as is any other error from a crawler.
 
 ---
 
