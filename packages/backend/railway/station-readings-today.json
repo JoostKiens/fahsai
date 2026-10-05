@@ -1,8 +1,0 @@
-{
-  "$schema": "https://railway.com/railway.schema.json",
-  "deploy": {
-    "cronSchedule": "0 23 * * *",
-    "startCommand": "pnpm --filter backend run railway:ingest:station-readings:today",
-    "restartPolicyType": "NEVER"
-  }
-}
