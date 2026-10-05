@@ -197,7 +197,7 @@ each other the way two English sentences can. A prompt rule is permanent and glo
 `firesAreLocal` boolean or a dropped CAMS section is targeted and self-consistent. Reach
 for `buildPrompt.ts` only when the case and data are both correct.
 
-**2. Word budgets.** Universal instructions ≤ 150 words. Per-case section ≤ 100 words.
+**2. Word budgets.** Universal instructions ≤ 350 words (currently ~345). Per-case section ≤ 250 words (currently 77–240).
 Positive instructions only — state what to do, not a growing list of don'ts. If a budget
 is blown, something needs cutting or moving to code, not appending.
 
