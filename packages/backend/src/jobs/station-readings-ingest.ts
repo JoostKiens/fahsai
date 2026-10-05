@@ -62,6 +62,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
 
   let sensorsQueried = 0;
   let sensorsFailed = 0;
+  const failedSensorIds: number[] = [];
   let nextDelayMs = DEFAULT_DELAY_MS;
   let consecutiveFailures = 0;
   let abortError: Error | undefined;
@@ -101,6 +102,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
 
     if (failed) {
       sensorsFailed++;
+      failedSensorIds.push(sensorId);
       consecutiveFailures++;
       if (consecutiveFailures >= CONSECUTIVE_FAILURE_ABORT) {
         // Break rather than throw so the readings collected so far are still written below.
@@ -168,7 +170,8 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   const failedRatio = sensorsFailed / sensorsQueried;
   console.log(
     `[station-readings-ingest] ${sensorsFailed}/${sensorsQueried} sensors failed ` +
-      `(${(failedRatio * 100).toFixed(1)}%, limit ${MAX_FAILED_SENSOR_RATIO * 100}%)`,
+      `(${(failedRatio * 100).toFixed(1)}%, limit ${MAX_FAILED_SENSOR_RATIO * 100}%)` +
+      (failedSensorIds.length > 0 ? `: ${failedSensorIds.join(', ')}` : ''),
   );
 
   // Thrown only after the writes above, so the partial data from a bad run is kept.

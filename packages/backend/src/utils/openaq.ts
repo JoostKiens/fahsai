@@ -117,6 +117,8 @@ export async function fetchSensorDailyAverage(
   // holds up the whole run (the ~700-sensor ingest has little slack before the jobs that read it).
   const MAX_SERVER_ERROR_RETRIES = 2;
   let attempt = 0;
+  // Separate from `attempt` so earlier network/429 retries don't eat the 5xx budget.
+  let serverErrorAttempt = 0;
 
   while (true) {
     let res: Response;
@@ -162,16 +164,16 @@ export async function fetchSensorDailyAverage(
     if (res.status === 404) return { readings: [], ...rateLimit, failed: false };
 
     if (res.status >= 500) {
-      if (attempt >= MAX_SERVER_ERROR_RETRIES) {
+      if (serverErrorAttempt >= MAX_SERVER_ERROR_RETRIES) {
         console.warn(
-          `[openaq] sensor ${sensorId}: ${res.status} after ${attempt} retries, skipping`,
+          `[openaq] sensor ${sensorId}: ${res.status} after ${serverErrorAttempt} retries, skipping`,
         );
         return { readings: [], ...rateLimit, failed: true };
       }
-      const waitMs = Math.min(30_000, 2_000 * 2 ** attempt);
-      attempt++;
+      const waitMs = Math.min(30_000, 2_000 * 2 ** serverErrorAttempt);
+      serverErrorAttempt++;
       console.warn(
-        `[openaq] sensor ${sensorId}: ${res.status}, retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${MAX_SERVER_ERROR_RETRIES})`,
+        `[openaq] sensor ${sensorId}: ${res.status}, retrying in ${Math.round(waitMs / 1000)}s (attempt ${serverErrorAttempt}/${MAX_SERVER_ERROR_RETRIES})`,
       );
       await sleep(waitMs);
       continue;

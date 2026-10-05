@@ -61,6 +61,19 @@ describe('fetchSensorDailyAverage', () => {
     expect(result.failed).toBe(true);
   });
 
+  it('gives a 5xx its full retry budget after earlier network errors', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error('socket hang up'))
+      .mockRejectedValueOnce(new Error('socket hang up'))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(okResponse());
+
+    const result = await fetchSensorDailyAverage('key', 1, targetDate);
+
+    expect(result.failed).toBe(false);
+    expect(result.readings).toHaveLength(1);
+  });
+
   it('does not flag a 404 as failed', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
 
