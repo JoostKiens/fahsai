@@ -7,13 +7,24 @@ import { getYesterdayBkk } from '../utils/bkkDate.js';
 
 const BATCH_SIZE = 500;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
-// Abort the entire run if this many sensors are skipped due to 429s in a row.
-// Repeated 429s after waiting for reset means the hourly quota is exhausted.
-// Continuing would risk a temporary or permanent ban from OpenAQ.
-const CONSECUTIVE_429_ABORT = 5;
+// A sensor "fails" when fetchSensorDailyAverage gives up after its retries (network error, 429,
+// 5xx). Empty results (404, no data, stale date) are not failures. Failed sensors are skipped
+// and the run continues, so one flaky sensor can't discard everything fetched so far.
+//
+// The run exits non-zero (reaching Rollbar) when MORE than this share of queried sensors
+// failed: a handful of flaky sensors is normal OpenAQ noise, a larger share means the upstream
+// is unhealthy and the day's data is meaningfully incomplete. 5% ≈ 35 of ~700 sensors.
+// Collected readings are always written first, then the run throws, so partial data persists.
+const MAX_FAILED_SENSOR_RATIO = 0.05;
+// Stop early if this many sensors fail in a row. Each failure costs seconds of retry backoff,
+// so an upstream outage would otherwise grind through all ~700 sensors (and delay the
+// fire-pressure and baseline crons that read this job's output). Repeated 429s after waiting
+// for reset also mean the hourly quota is exhausted; continuing risks an OpenAQ ban.
+const CONSECUTIVE_FAILURE_ABORT = 5;
 
 export async function runStationReadingsIngest(date?: string): Promise<{
   sensorsQueried: number;
+  sensorsFailed: number;
   measurementsInserted: number;
 }> {
   const apiKey = process.env.OPENAQ_API_KEY;
@@ -35,7 +46,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
     console.warn(
       '[station-readings-ingest] no stations with pm25_sensor_ids found — run stations-ingest first',
     );
-    return { sensorsQueried: 0, measurementsInserted: 0 };
+    return { sensorsQueried: 0, sensorsFailed: 0, measurementsInserted: 0 };
   }
 
   console.log(
@@ -50,8 +61,11 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   }[] = [];
 
   let sensorsQueried = 0;
+  let sensorsFailed = 0;
+  const failedSensorIds: number[] = [];
   let nextDelayMs = DEFAULT_DELAY_MS;
-  let consecutive429s = 0;
+  let consecutiveFailures = 0;
+  let abortError: Error | undefined;
 
   for (const station of stationRows) {
     // Only fetch the first sensor per station — collocated sensors measure the same air
@@ -67,11 +81,8 @@ export async function runStationReadingsIngest(date?: string): Promise<{
       `[station-readings-ingest] fetching sensor ${sensorId} (${sensorsQueried}/${stationRows.length})`,
     );
 
-    const { readings, rateLimitRemaining, rateLimitResetMs } = await fetchSensorDailyAverage(
-      apiKey,
-      sensorId,
-      targetDate,
-    );
+    const { readings, rateLimitRemaining, rateLimitResetMs, failed } =
+      await fetchSensorDailyAverage(apiKey, sensorId, targetDate);
 
     // Adjust next delay based on rate-limit headers
     if (rateLimitRemaining !== null && rateLimitResetMs !== null) {
@@ -89,17 +100,21 @@ export async function runStationReadingsIngest(date?: string): Promise<{
       }
     }
 
-    if (readings.length === 0 && rateLimitRemaining === 0) {
-      // Sensor was skipped due to exhausted retries on 429
-      consecutive429s++;
-      if (consecutive429s >= CONSECUTIVE_429_ABORT) {
-        throw new Error(
-          `[station-readings-ingest] Aborting: ${consecutive429s} consecutive sensors skipped due to 429. ` +
-            `Hourly quota likely exhausted. Stopping to avoid an OpenAQ ban.`,
+    if (failed) {
+      sensorsFailed++;
+      failedSensorIds.push(sensorId);
+      consecutiveFailures++;
+      if (consecutiveFailures >= CONSECUTIVE_FAILURE_ABORT) {
+        // Break rather than throw so the readings collected so far are still written below.
+        abortError = new Error(
+          `[station-readings-ingest] Aborting: ${consecutiveFailures} consecutive sensors failed ` +
+            `(network error, 429 or 5xx after retries). OpenAQ is unhealthy or the hourly quota ` +
+            `is exhausted; stopping to avoid an OpenAQ ban.`,
         );
+        break;
       }
     } else {
-      consecutive429s = 0;
+      consecutiveFailures = 0;
     }
 
     for (const r of readings) {
@@ -152,6 +167,22 @@ export async function runStationReadingsIngest(date?: string): Promise<{
     redis.del(`station-readings:latest:pm25:${targetDate}`),
   ]);
 
+  const failedRatio = sensorsFailed / sensorsQueried;
+  console.log(
+    `[station-readings-ingest] ${sensorsFailed}/${sensorsQueried} sensors failed ` +
+      `(${(failedRatio * 100).toFixed(1)}%, limit ${MAX_FAILED_SENSOR_RATIO * 100}%)` +
+      (failedSensorIds.length > 0 ? `: ${failedSensorIds.join(', ')}` : ''),
+  );
+
+  // Thrown only after the writes above, so the partial data from a bad run is kept.
+  if (abortError) throw abortError;
+  if (failedRatio > MAX_FAILED_SENSOR_RATIO) {
+    throw new Error(
+      `[station-readings-ingest] ${sensorsFailed}/${sensorsQueried} sensors failed, ` +
+        `above the ${MAX_FAILED_SENSOR_RATIO * 100}% limit. Readings for the other sensors were saved.`,
+    );
+  }
+
   console.log('[station-readings-ingest] Done');
-  return { sensorsQueried, measurementsInserted: measurementRows.length };
+  return { sensorsQueried, sensorsFailed, measurementsInserted: measurementRows.length };
 }

@@ -182,6 +182,32 @@ See `docs/adr/0001-two-pass-ingest-schedule.md`.
 Each script exits with code 0 on success and non-zero on failure. Retry logic is implemented
 within the script (3 attempts with exponential backoff where applicable).
 
+### station-readings-ingest failure handling
+
+One flaky OpenAQ sensor must not discard the rest of the run (a single 5xx once crashed pass 2 at
+sensor 471/708 and lost every reading fetched so far), so failures are skipped and counted:
+
+- `fetchSensorDailyAverage` (`utils/openaq.ts`) retries network errors (4x), 429s (4x, waiting for
+  the rate-limit reset) and 5xx responses (2x, 2s then 4s backoff), then returns `failed: true`.
+  Other 4xx (bad API key, bad request) still throw: that is a config bug, not a flaky sensor.
+- `failed` is only set when the fetch gave up. 404, no rows, null value and stale-date responses
+  are legitimately empty (`failed: false`) and are not counted.
+- **Failure threshold, `MAX_FAILED_SENSOR_RATIO = 0.05`** (`jobs/station-readings-ingest.ts`): the
+  run exits non-zero (so Rollbar is notified) only when MORE than 5% of queried sensors failed,
+  about 35 of ~700. A few failures are normal OpenAQ noise; more means the day's data is
+  meaningfully incomplete. Below the threshold the run exits 0 and logs `N/M sensors failed (x%)`.
+- **Circuit breaker, `CONSECUTIVE_FAILURE_ABORT = 5`**: five failures in a row stop the run early,
+  because each failure costs seconds of backoff and an outage would otherwise take all ~700
+  sensors (delaying fire-pressure at 04:30 and baseline at 04:40 UTC, which read this job's
+  output). It also covers exhausted hourly quota (don't hammer OpenAQ).
+- **Order: write, then throw.** Readings collected before a threshold or breaker failure are
+  upserted and the Redis keys invalidated first; the error is thrown last. A non-zero exit
+  therefore means "ran, but incomplete", not "wrote nothing".
+- Railway marks the deployment `SUCCESS` even when the script exits 1; check the logs or Rollbar.
+
+See `docs/adr/0001-two-pass-ingest-schedule.md` (failure handling addendum). A broader
+consolidation of ingest retry strategy is tracked in Linear JOO-86.
+
 ---
 
 ## API routes (Fastify backend)
