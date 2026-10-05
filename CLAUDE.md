@@ -203,12 +203,12 @@ pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV p
 # One-time backfill after deploying migration 018_station_weather.sql
 pnpm --filter backend run backfill:station-weather
 
-# Fire pressure scores (75 km radius, 14-day window — its own Railway cron, station-fire-pressure.json, 30 4 * * *)
+# Fire pressure scores (75 km radius, 14-day window — its own Railway cron, ingest-station-fire-pressure, 30 4 * * *)
 pnpm --filter backend run backfill:station-fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 
 # Seasonal PM2.5 baseline (median, p25, p75 per calendar day per station from OpenAQ S3 archive).
 # Full re-backfill is manual; day-to-day upkeep runs automatically via its own Railway cron
-# (station-baseline.json, 40 4 * * *), which fills in any station_baseline rows that don't
+# (ingest-station-baseline, 40 4 * * *), which fills in any station_baseline rows that don't
 # exist yet (e.g. a newer station whose curve stops mid-year) using only that year's
 # station_readings data -- no S3 access. Rows the last full backfill already computed (with a
 # proper multi-year pool) are left untouched, not recomputed from a single year's data.

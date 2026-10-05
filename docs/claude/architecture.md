@@ -90,10 +90,15 @@ keeps API keys server-side.
 
 Each job's core logic is a module in `packages/backend/src/jobs/`; Railway cron invokes a thin
 CLI entrypoint in `packages/backend/src/scripts/` (e.g. `scripts/ingest-fires.ts`) that calls into
-the matching `jobs/` module. Schedules and start commands live in config-as-code at
-`packages/backend/railway/*.json`, one file per Railway service; each service points at its file
-via the Config-as-code path in its Railway Settings tab. Env vars stay in the Railway dashboard
-(config-as-code never holds secrets). All times are UTC.
+the matching `jobs/` module. Schedules and start commands live in Railway Infrastructure as Code at
+`.railway/railway.ts` (one file, all services; Railway's service names differ from the job
+names below, e.g. `ingest-station-readings pass 1`). Preview changes with `railway config plan`
+and apply with `railway config apply` (needs `railway link` to the `fahsai` project). Env vars
+stay in the Railway dashboard (`preserve()` in the file, never inlined). Editing a service's
+start command or schedule in the dashboard and in the file are the same setting, so `plan`
+shows any drift. Restart policy is left at Railway's default (On Failure, 10 retries):
+declaring the default in the file leaves a permanent no-op diff in `plan`, because Railway
+stores defaults as null. All times are UTC.
 
 ```
 fires-ingest           — daily     (0 10 * * *)   fetches VIIRS (NOAA-21 NRT) data for TODAY; last
@@ -127,14 +132,14 @@ station-readings-ingest (pass 2) — daily (0 4 * * *)   fetches pm25 daily aver
                                                         calendar date under this schedule; pass 2
                                                         is a same-day overwrite, not a different day.
 
-station-fire-pressure-ingest — daily (30 4 * * *)      its own Railway cron (station-fire-pressure.json),
+station-fire-pressure-ingest — daily (30 4 * * *)      its own Railway cron (ingest-station-fire-pressure),
   ingest-station-fire-pressure                          not part of station-readings-ingest. Computes 75 km
                                                         radius fire pressure scores for all active stations
                                                         and upserts to station_fire_pressure for YESTERDAY.
                                                         Scheduled 30 min after station-readings-ingest pass 2
                                                         so pass 2's overwrite has landed first.
 
-station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (station-baseline.json). Fills
+station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (ingest-station-baseline). Fills
   ingest-station-baseline                               in station_baseline rows that don't exist yet (e.g. a
                                                         newer station whose curve stops mid-year), using only
                                                         that year's station_readings values (no S3 access) for
