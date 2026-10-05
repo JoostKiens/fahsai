@@ -43,3 +43,11 @@ Unlike CAMS, OpenAQ daily averages are computed from station readings that trick
 - Railway: `station-readings-ingest` gets a new `0 23 * * *` pass 1 entry; existing `0 4 * * *` becomes pass 2.
 - Weather-ingest runs at `0 2 * * *` fetching yesterday; fallback at `0 5 * * *`. Moved from `0 8 * * *` so data is available by ~09:10 BKK instead of ~15:10 BKK. ERA5 archive API has a 5-day lag so data is from Open-Meteo's forecast API (NWP model, initialized from real observations) — never re-fetched with ERA5.
 - CLAUDE.md cron table must stay in sync with the actual Railway schedule.
+
+## Addendum (2026-10-05): failure handling in `station-readings-ingest`
+
+Both passes run the same script, which used to throw on any non-429/404 HTTP error and only wrote to Supabase after fetching every sensor, so one OpenAQ 500 at sensor 471/708 lost the whole run.
+
+Now a sensor that still fails after retries (network error, 429, 5xx) is skipped and counted. The run writes everything it collected, then exits non-zero only if more than **5%** of queried sensors failed (`MAX_FAILED_SENSOR_RATIO`), or if 5 sensors failed in a row (`CONSECUTIVE_FAILURE_ABORT`, a circuit breaker for outages and exhausted quota). 5% is a starting point (about 35 of ~700 sensors); revisit it with a few weeks of `N/M sensors failed` log lines. Details: `docs/claude/architecture.md`, "station-readings-ingest failure handling".
+
+This does not change the two-pass schedule. Whether pass 2 (and the CAMS/weather fallback crons) should exist at all is tracked in JOO-86.
