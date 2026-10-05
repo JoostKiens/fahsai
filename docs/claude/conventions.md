@@ -209,6 +209,20 @@ originally re-fetched the OpenAQ S3 archive for the current year, mirroring the 
 backfill's approach — but `station_readings` already had that exact data from the nightly
 pm25 ingest, making the S3 call entirely redundant.
 
+**deck.gl packages move in lockstep, and `mesh-layers` is a peer** — bump every `@deck.gl/*`
+package together. `@deck.gl/mesh-layers` is a peer of `geo-layers` that we declare directly in
+`packages/frontend/package.json` for this reason: left as an auto-installed peer, pnpm keeps
+the old version in the lockfile and you end up running mixed minors (e.g. `geo-layers` 9.4 on
+`mesh-layers` 9.3).
+
+**Accepted `pnpm audit` findings: `image-size` 0.7.5 and `fflate` 0.7.4** — both are
+denial-of-service bugs in file parsers (`image-size`'s ICNS parser, `fflate`'s `unzipSync`),
+pulled in deep under `@deck.gl/geo-layers` via `@loaders.gl` (`texture-compressor`,
+`@loaders.gl/compression`). Still flagged on deck.gl 9.4.0. We never feed these parsers
+untrusted files, and the fix for `image-size` is a 0.7 to 2.x major jump inside
+`texture-compressor` that would likely break it, so no `pnpm` override. Re-check after future
+deck.gl/loaders.gl bumps and drop this note once `pnpm audit` is clean.
+
 ---
 
 ## Branch naming
