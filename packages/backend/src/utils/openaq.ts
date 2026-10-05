@@ -56,6 +56,9 @@ export interface SensorFetchResult {
   readings: SensorDailyAverage[];
   rateLimitRemaining: number | null; // x-ratelimit-remaining
   rateLimitResetMs: number | null; // x-ratelimit-reset × 1000 (Unix ms)
+  // true when the fetch gave up after retries (network error, 429, 5xx), so `readings: []` means
+  // "unknown", not "no data". False for legitimately empty results (404, no rows, stale date).
+  failed: boolean;
 }
 
 export function extractPm25SensorIds(location: OpenAQLocation): number[] {
@@ -110,6 +113,9 @@ export async function fetchSensorDailyAverage(
     `&limit=1`;
 
   const MAX_RETRIES = 4;
+  // Fewer than MAX_RETRIES: a 5xx on one sensor is often persistent, and every retry
+  // holds up the whole run (the ~700-sensor ingest has little slack before the jobs that read it).
+  const MAX_SERVER_ERROR_RETRIES = 2;
   let attempt = 0;
 
   while (true) {
@@ -121,7 +127,7 @@ export async function fetchSensorDailyAverage(
         console.warn(
           `[openaq] sensor ${sensorId}: network error after ${attempt} retries (${(err as Error).message}), skipping`,
         );
-        return { readings: [], rateLimitRemaining: null, rateLimitResetMs: null };
+        return { readings: [], rateLimitRemaining: null, rateLimitResetMs: null, failed: true };
       }
       const waitMs = Math.min(30_000, 2_000 * 2 ** attempt);
       attempt++;
@@ -139,7 +145,7 @@ export async function fetchSensorDailyAverage(
         console.warn(
           `[openaq] sensor ${sensorId}: rate limited after ${attempt} retries, skipping`,
         );
-        return { readings: [], ...rateLimit };
+        return { readings: [], ...rateLimit, failed: true };
       }
       // Use x-ratelimit-reset for the exact window boundary; fall back to exponential backoff
       const waitMs = rateLimit.rateLimitResetMs
@@ -153,15 +159,35 @@ export async function fetchSensorDailyAverage(
       continue;
     }
 
-    if (res.status === 404) return { readings: [], ...rateLimit };
+    if (res.status === 404) return { readings: [], ...rateLimit, failed: false };
+
+    if (res.status >= 500) {
+      if (attempt >= MAX_SERVER_ERROR_RETRIES) {
+        console.warn(
+          `[openaq] sensor ${sensorId}: ${res.status} after ${attempt} retries, skipping`,
+        );
+        return { readings: [], ...rateLimit, failed: true };
+      }
+      const waitMs = Math.min(30_000, 2_000 * 2 ** attempt);
+      attempt++;
+      console.warn(
+        `[openaq] sensor ${sensorId}: ${res.status}, retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${MAX_SERVER_ERROR_RETRIES})`,
+      );
+      await sleep(waitMs);
+      continue;
+    }
+
+    // Remaining non-OK statuses are 4xx (bad key, bad request): a config/code bug, not a flaky
+    // sensor, so fail loudly rather than skip every sensor.
     if (!res.ok)
       throw new Error(`OpenAQ sensor ${sensorId} error: ${res.status} ${res.statusText}`);
 
     const data = (await res.json()) as OpenAQHoursResponse;
-    if (data.results.length === 0) return { readings: [], ...rateLimit };
+    if (data.results.length === 0) return { readings: [], ...rateLimit, failed: false };
 
     const result = data.results[0];
-    if (result.period === null || result.value === null) return { readings: [], ...rateLimit };
+    if (result.period === null || result.value === null)
+      return { readings: [], ...rateLimit, failed: false };
 
     // Guard against stale-data responses (same failure mode as /days)
     if (
@@ -171,11 +197,11 @@ export async function fetchSensorDailyAverage(
       console.warn(
         `[openaq] sensor ${sensorId}: date mismatch (expected ${targetDate}, got ${result.period.datetimeFrom.local}), skipping`,
       );
-      return { readings: [], ...rateLimit };
+      return { readings: [], ...rateLimit, failed: false };
     }
 
     const dateUtc = `${targetDate}T00:00:00Z`;
-    return { readings: [{ value: result.value, dateUtc }], ...rateLimit };
+    return { readings: [{ value: result.value, dateUtc }], ...rateLimit, failed: false };
   }
 }
 
