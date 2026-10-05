@@ -54,7 +54,6 @@ export default defineRailway(() => {
     source: fahsai,
     build: "pnpm install --frozen-lockfile",
     start: "pnpm --filter backend run start",
-    deploy: { restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 10 },
     replicas: { "asia-southeast1-eqsg3a": 1 },
     networking: { privateNetworkEndpoint: "thailand-air-quality-map" },
     env: { FIRMS_MAP_KEY: preserve(), GEMINI_API_KEY: preserve(), NODE_ENV: preserve(), OPENAQ_API_KEY: preserve(), ROLLBAR_TOKEN: preserve(), SUPABASE_SERVICE_ROLE_KEY: preserve(), SUPABASE_URL: preserve(), UPSTASH_REDIS_REST_TOKEN: preserve(), UPSTASH_REDIS_REST_URL: preserve() },
