@@ -43,8 +43,10 @@ transport footprint of air arriving at a station.
   fires, CAMS PM2.5, and urban/industrial/power-plant sources.
 - A **cumulative fire pressure score** (0–100) weights fires by FRP, recency, and proximity
   to the trajectory path.
-- When a station is a **strong outlier** (≥2× or ≤0.4× peer median), the trajectory, CAMS,
-  and fire sections are omitted — regional transport data is not relevant for hyperlocal anomalies.
+- When a station is a **strong outlier** (`analyzePeers.ts`: reading is ≥2× or ≤0.4× the
+  distance-weighted peer mean, at least 20 µg/m³ apart, and not both below 35 µg/m³), the
+  trajectory, CAMS, and fire sections are omitted — regional transport data is not relevant for
+  hyperlocal anomalies.
 
 ### Implementation
 
@@ -257,7 +259,7 @@ diffs). Free tier is 15 RPM; the runner waits 4,500 ms between fixtures, so a fu
 
 ### Goldens
 
-Goldens live in `eval/golden/*.ts`, one per fixture, exporting a single string:
+Goldens live in `packages/backend/src/scripts/eval/golden/*.ts`, one per fixture, exporting a single string:
 
 ```ts
 export const golden = `<one or more paragraphs of the ideal explanation>`;
@@ -271,7 +273,7 @@ structure, read the real files in `golden/`; do not maintain a second example he
 Wiring a new golden as an example:
 
 ```ts
-import { golden as goldenMyCase } from '../scripts/eval/my-fixture.js'
+import { golden as goldenMyCase } from '../scripts/eval/golden/NN-my-fixture.js'
 
 const EXAMPLE_MY_CASE = `<example>\n${goldenMyCase}\n</example>`
 
