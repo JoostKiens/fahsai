@@ -21,7 +21,7 @@ export default defineRailway(() => {
   });
   const ingestStationBaseline = service("ingest-station-baseline", {
     source: fahsai,
-    start: "pnpm --filter backend railway:ingest:station-baseline",
+    start: "pnpm --filter backend run railway:ingest:station-baseline",
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { cronSchedule: "40 4 * * *", restartPolicyType: "NEVER" },
     env: { FIRMS_MAP_KEY: preserve(), NODE_ENV: preserve(), OPENAQ_API_KEY: preserve(), SUPABASE_SERVICE_ROLE_KEY: preserve(), SUPABASE_URL: preserve(), UPSTASH_REDIS_REST_TOKEN: preserve(), UPSTASH_REDIS_REST_URL: preserve() },
@@ -68,7 +68,7 @@ export default defineRailway(() => {
   });
   const ingestStationFirePressure = service("ingest-station-fire-pressure", {
     source: fahsai,
-    start: "pnpm --filter backend railway:ingest:station-fire-pressure",
+    start: "pnpm --filter backend run railway:ingest:station-fire-pressure",
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { cronSchedule: "30 4 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "station-fire-pressure-ingest" },
