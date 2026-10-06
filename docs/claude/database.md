@@ -28,6 +28,8 @@ create table fire_points (
 );
 create index on fire_points (detected_at);
 create index on fire_points (confidence);
+-- Dedup key: fires-ingest upserts with onConflict 'detected_at,lat,lng' (ignoreDuplicates)
+create unique index on fire_points (detected_at, lat, lng);
 
 -- Monitoring station metadata (upserted on ingestion, rarely changes)
 -- Columns dropped in migration 025 (never read by any query/frontend): provider (later
@@ -38,7 +40,8 @@ create table stations (
   name             text not null,
   lat              float8,
   lng              float8,
-  country          text,               -- 'TH', 'MM', 'LA', 'KH'
+  country          text,               -- ISO 3166-1 alpha-2, e.g. 'TH', 'LA', 'KH', 'MM'; the bbox
+                                       -- also pulls in 'CN', 'VN', 'SG', 'IN', 'BD', 'MY', etc.
   provider         text,               -- OpenAQ provider name for this location, e.g. 'PCD Thailand'
   pm25_sensor_ids  int4[]      default '{}'  -- OpenAQ sensor IDs for pm25; array because a
                                               -- location may have multiple pm25 sensors
@@ -103,7 +106,7 @@ create table if not exists weather_readings (
   date                      date   not null,
   lat                       float8 not null,
   lng                       float8 not null,
-  wind_speed_kmh            float8 not null,  -- daily mean
+  wind_speed_kmh            float8,           -- snapshot at 14:00 BKK (nullable in the live schema)
   wind_direction_deg        float8 not null,  -- meteorological FROM-direction, snapshot at 14:00 BKK
   precipitation_sum         float8,           -- daily total mm (Bangkok calendar day, 00:00–24:00 BKK)
   relative_humidity_2m      float8,           -- % at 14:00 BKK snapshot
@@ -133,7 +136,8 @@ create table if not exists station_weather (
 -- Fire pressure scores (75 km radius, 14-day rolling window, anchored at Bangkok
 -- midnight; `date` is a Bangkok calendar day, matching weather_readings/cams_grid
 -- since fetchExplainContext.ts joins all three by the same date key)
--- Computed by station-readings-ingest (pass 1) for all active stations.
+-- Computed by its own cron, ingest-station-fire-pressure (not station-readings-ingest), for
+-- all active stations.
 -- Pruned after 140 days by the prune job.
 create table station_fire_pressure (
   station_id   text          not null references stations(id),
@@ -182,7 +186,8 @@ multiple sensors; each sensor tracks exactly one parameter. Station metadata and
 ingestion are split across two separate jobs:
 
 - `stations-ingest` (monthly): upserts location metadata into `stations`, including
-  `pm25_sensor_ids` and `datetime_last`. Skips locations where `datetimeLast > 30 days`.
+  `pm25_sensor_ids` (the `datetime_last` column no longer exists; the API's `datetimeLast`
+  is only used to skip locations whose last reading is more than 30 days old).
 - `ingest:station-readings` (two-pass daily): reads `pm25_sensor_ids` directly from
   `SELECT id, pm25_sensor_ids FROM stations WHERE pm25_sensor_ids != '{}'`. No API call
   to `/locations` during daily ingest. Only `pm25_sensor_ids[0]` is fetched per station —
@@ -204,9 +209,9 @@ The prune job deletes rows older than **140 days** (uniform across all tables it
 `fire_points`, `station_readings`, `cams_grid`, `weather_readings`, `station_weather`,
 `station_fire_pressure`, and `cams_daily_summary`).
 
-Basis: the 90-day max scrubber window + a 7-day buffer for the Explain feature's measurement
-history + a timezone/prune-timing buffer would only require ~100 days. Retention is raised beyond
-that for DB-size headroom and history margin. At the current per-table growth rate (~2.98 MB/day
+Basis: the 120-day max scrubber window (`MAX_DAYS` in `uiStore.ts`) + a 7-day buffer for the Explain
+feature's measurement history + a timezone/prune-timing buffer is roughly 130 days. Retention is
+set to 140 for history margin. At the current per-table growth rate (~2.98 MB/day
 across the five retention-scaling tables, measured against a live ~400 MB / 120-day baseline),
 140 days projects to roughly **0.46 GB** of Supabase's 0.5 GB free-tier limit — about a 40 MB
 buffer. `fire_points` is the only strongly seasonal table, while the grids (`weather_readings`,

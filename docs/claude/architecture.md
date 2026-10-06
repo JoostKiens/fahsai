@@ -28,7 +28,7 @@ keeps API keys server-side.
 
 - Source: OpenAQ v3 API `https://api.openaq.org/v3/`
 - Endpoints:
-  - `/v3/locations` — monthly station sync, populates `pm25_sensor_ids` and `datetime_last`
+  - `/v3/locations` — monthly station sync, populates `pm25_sensor_ids`; `datetimeLast` is used only to skip stale locations
   - `/v3/sensors/{id}/hours/daily` — daily averages per sensor; `/days` endpoint is confirmed
     broken (ignores date filters); `/hours/daily` requires local timezone offset in datetime params
 - Parameters: `pm25` only
