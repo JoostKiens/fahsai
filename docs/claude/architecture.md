@@ -98,7 +98,8 @@ stay in the Railway dashboard (`preserve()` in the file, never inlined). Editing
 start command or schedule in the dashboard and in the file are the same setting, so `plan`
 shows any drift. Restart policy is left at Railway's default (On Failure, 10 retries):
 declaring the default in the file leaves a permanent no-op diff in `plan`, because Railway
-stores defaults as null. All times are UTC.
+stores defaults as null. A service omitted from the file is deleted on `apply`. For anything
+else see https://docs.railway.com (search "Infrastructure as Code"). All times are UTC.
 
 ```
 fires-ingest           — daily     (0 10 * * *)   fetches VIIRS (NOAA-21 NRT) data for TODAY; last
