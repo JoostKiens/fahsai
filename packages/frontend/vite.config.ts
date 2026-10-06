@@ -12,6 +12,8 @@ export default defineConfig({
     port: 5173,
   },
   build: {
+    // vendor-map (Mapbox GL + Deck.gl) is inherently >500 kB; already split into its own chunk.
+    chunkSizeWarningLimit: 2500,
     rolldownOptions: {
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
