@@ -151,7 +151,8 @@ ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the helpe
 - `getYesterdayBkk()` is the common "yesterday BKK" default (used by `weather-ingest.ts`,
   `cams-ingest.ts`, `station-readings-ingest.ts`, and `ingest-station-fire-pressure.ts`).
 - `bangkokMidnightIso(dateStr)` converts a BKK date string to its midnight instant as an ISO
-  string (`${dateStr}T00:00:00+07:00`), for query range boundaries (e.g. `fires.ts`, `explain.ts`).
+  string (`${dateStr}T00:00:00+07:00`), for query range boundaries (e.g. `fires.ts`,
+  `computeScientificContext.ts`).
 - `bangkokMidnightUtcMs(dateStr)` does the same, as epoch ms (e.g. `station-readings.ts`'s
   `/history` route, `fetchExplainContext.ts`).
 
@@ -166,11 +167,6 @@ resolves to the same date their old UTC-based calc used), so BKK-today equals UT
 every run and `getYesterdayBkk()` returns the same date the pre-fix UTC calc would have. If any
 of these cron times are ever moved, re-derive which Bangkok day `getYesterdayBkk()` resolves to
 at the new run time before assuming the schedule still targets the intended date.
-
-**Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
-`vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
-by tests will fail to resolve. Only `type` imports survive because TypeScript erases them
-before Vite transforms the module. For test-importable utility files, use relative paths.
 
 **Browser cache + TanStack Query double-caching** — Fastify routes must return
 `Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body
