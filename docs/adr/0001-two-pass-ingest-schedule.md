@@ -51,3 +51,13 @@ Both passes run the same script, which used to throw on any non-429/404 HTTP err
 Now a sensor that still fails after retries (network error, 429, 5xx) is skipped and counted. The run writes everything it collected, then exits non-zero only if more than **5%** of queried sensors failed (`MAX_FAILED_SENSOR_RATIO`), or if 5 sensors failed in a row (`CONSECUTIVE_FAILURE_ABORT`, a circuit breaker for outages and exhausted quota). 5% is a starting point (about 35 of ~700 sensors); revisit it with a few weeks of `N/M sensors failed` log lines. Details: `docs/claude/architecture.md`, "station-readings-ingest failure handling".
 
 This does not change the two-pass schedule. Whether pass 2 (and the CAMS/weather fallback crons) should exist at all is tracked in JOO-86.
+
+## Addendum (2026-10-06): schedule as currently deployed
+
+Details above that have since changed (the decision itself, single-pass CAMS and two-pass OpenAQ, still stands):
+
+- The `ingest-cams-today.ts` and `ingest-station-readings-today.ts` wrapper scripts no longer exist. Pass 1 now runs `ingest-station-readings.ts --today` (`railway:ingest:station-readings:today`), and CAMS runs `ingest-cams.ts` (`railway:ingest:cams:today`).
+- CAMS also has a fallback cron, `ingest-cams-today-fallback.ts` at `0 1 * * *`, which re-ingests yesterday if `cams_grid` has fewer than 4,000 rows.
+- The weather-ingest fallback runs at `0 4 * * *`, not `0 5 * * *`.
+- The `latest-date` gate now also requires weather (`weather_readings` ≥ 4,000 rows), so it checks four sources, not three.
+- The schedule lives in `.railway/railway.ts` (Railway Infrastructure as Code); the cron table is in `docs/claude/architecture.md`, not CLAUDE.md.

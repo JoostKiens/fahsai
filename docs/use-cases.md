@@ -150,7 +150,7 @@ comparison:**
   legend. This is a real, non-cosmetic gap for personas needing something scannable
   fast (journalists on deadline, provincial officials checking daily).
 - **Historical scrubber + seasonal baseline.** No evidence SERVIR's tracker supports
-  "is this normal for late April" — Fahsai's per-station climatology (median,
+  "is this normal for late April" — Fahsai's per-station seasonal baseline (median,
   p25–p75 bands) is a distinct capability, not a UX variant.
 - **"Explain This" causal reasoning.** An LLM-generated plain-language explanation
   tied to back-trajectory + fire-pressure scoring has no equivalent spotted in

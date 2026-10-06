@@ -58,7 +58,7 @@ When a station reads at least twice (or less than 40% of) the distance-weighted 
 
 | Source                                                           | What                                        | Cadence | License        |
 | ---------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
-| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/SNPP) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
 | [OpenAQ](https://openaq.org/) v3                                 | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
 | [Open-Meteo](https://open-meteo.com/)                            | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
 | [WRI Global Power Plant Database](https://resourcewatch.org/)    | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
@@ -76,9 +76,9 @@ server for AI agents.
 
 ## Stack
 
-**Frontend:** React 18 · TypeScript · Vite · Mapbox GL JS · Deck.gl · Zustand · TanStack Query v5 · Web Workers (PM2.5 canvas rendering) · react-i18next
+**Frontend:** React 19 · TypeScript · Vite · Mapbox GL JS · Deck.gl · Zustand · TanStack Query v5 · Web Workers (PM2.5 canvas rendering) · react-i18next
 
-**Backend:** Node.js 20 · Fastify · Supabase (PostgreSQL) · Upstash Redis · Google Gemini API
+**Backend:** Node.js 24 · Fastify · Supabase (PostgreSQL) · Upstash Redis · Google Gemini API
 
 **Deployment:** Vercel (frontend) · Railway (backend + cron jobs)
 
@@ -92,6 +92,6 @@ server for AI agents.
 
 ## Development
 
-See [CLAUDE.md](CLAUDE.md) for local setup, environment variables, database schema, API reference, and ingestion job docs.
+See [CLAUDE.md](CLAUDE.md) for local setup, environment variables, and dev commands. Database schema, API reference, and ingestion job docs are in [docs/claude/](docs/claude/).
 
 Issues welcome.
