@@ -159,7 +159,7 @@ Only fall back to manual `ICT_OFFSET_MS` arithmetic when none of the above fit a
 UTC millisecond instant, not a date string, since `Intl.DateTimeFormat` only produces the latter.
 
 The `weather-today`/`weather-fallback`/`cams`/`cams-fallback`/`station-fire-pressure`/
-`station-readings-today`/`station-readings` cron times in `packages/backend/railway/*.json`
+`station-readings-today`/`station-readings` cron times in `.railway/railway.ts`
 all currently fire before 17:00 UTC (or, for the `cams`/`cams-fallback` and
 `station-readings-today`/`station-readings` pairs, at a time whose Bangkok-yesterday still
 resolves to the same date their old UTC-based calc used), so BKK-today equals UTC-today at
