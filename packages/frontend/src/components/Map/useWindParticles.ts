@@ -8,12 +8,18 @@ import { PM25_CAT_BREAKPOINTS } from '@/utils/aqiColors';
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const PARTICLE_COUNT = 2400;
-const TRAIL_LENGTH = 20;
-// Degrees of movement per frame per km/h of wind speed.
+// Reference simulation step (one 60 Hz frame) that ANIM_SCALE, TRAIL_LENGTH and the particle
+// age range were calibrated against. Motion still advances by the real frame time; this only
+// converts those per-step tuning values into milliseconds so behavior is refresh-rate independent.
+const BASE_STEP_MS = 16.67;
+// Trail length in BASE_STEP_MS steps. Trails are trimmed by age (TRAIL_LENGTH × BASE_STEP_MS),
+// not point count, so a 120 Hz screen gets twice the points but the same geographic length.
+const TRAIL_LENGTH = 10;
+// Degrees of movement per BASE_STEP_MS per km/h of wind speed.
 // Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
 const ANIM_SCALE = 0.0015;
-// Below this speed the trail is always at full TRAIL_LENGTH.
-// Above it, trail point count shrinks as √(TRAIL_SPEED_REF_KMH / speed) so total
+// Below this speed the trail always spans the full trail duration.
+// Above it, trail duration shrinks as √(TRAIL_SPEED_REF_KMH / speed) so total
 // geographic trail length grows as √speed rather than linearly — preventing
 // fast-wind trails from dominating the visual at the expense of animation speed.
 const TRAIL_SPEED_REF_KMH = 13;
@@ -60,8 +66,8 @@ const TAIL_WIDTH = 0.5;
 // which lose ms precision above 2^24 (~4.66h of continuous accumulation). Rebasing every
 // 10 minutes of real time keeps values far below that ceiling for the life of the tab.
 const CLOCK_REBASE_MS = 600_000;
-const MIN_AGE_FRAMES = 80;
-const MAX_AGE_FRAMES = 320;
+const MIN_AGE_MS = 80 * BASE_STEP_MS;
+const MAX_AGE_MS = 320 * BASE_STEP_MS;
 
 // Grid bounds — must match the weather grid constants in openmeteo.ts.
 // 0.4° step, lng 89→114 (63 pts), lat 1→30 (73 pts) = 4,599 points.
@@ -88,14 +94,15 @@ const VIEWPORT_BUFFER_DEG = 1.5;
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-interface Particle {
+export interface Particle {
   lng: number;
   lat: number;
-  age: number;
-  maxAge: number;
+  age: number; // ms since spawn
+  maxAge: number; // ms
   trail: [number, number][];
   timestamps: number[]; // ms clock value at which each trail[i] was recorded, newest first
-  maxTrail: number; // current wind-speed-based point-count cap, set each step in stepParticles
+  trailStartMs: number; // clock value of the first point this particle life ever recorded
+  maxTrailMs: number; // current wind-speed-based trail duration cap, set each step in stepParticles
   color: [number, number, number]; // lightened AQI RGB sampled at spawn
 }
 
@@ -143,7 +150,6 @@ export function useWindParticles(
     rawViewportWidth: REF_VIEWPORT_DEG_WIDTH,
     containerWidthPx: REF_CONTAINER_WIDTH_PX,
     clock: 0,
-    avgDt: 16.67, // rolling average frame time (ms) — tracks the real device refresh rate
   });
 
   // Keep config in sync without restarting the animation loop.
@@ -261,7 +267,7 @@ export function useWindParticles(
     let lastTime = 0;
 
     function tick(time: number) {
-      const dt = lastTime ? Math.min(time - lastTime, 50) : 16.67;
+      const dt = lastTime ? Math.min(time - lastTime, 50) : BASE_STEP_MS;
       lastTime = time;
       stateRef.current.clock += dt;
       // Rebase periodically to keep clock (and every particle's timestamps) far below
@@ -272,11 +278,9 @@ export function useWindParticles(
         stateRef.current.clock = 0;
         for (const p of stateRef.current.particles) {
           for (let i = 0; i < p.timestamps.length; i++) p.timestamps[i] -= rebaseDelta;
+          p.trailStartMs -= rebaseDelta;
         }
       }
-      // Exponential moving average of real frame time — used instead of a hardcoded
-      // 16.67 (60fps) so fadeWindowMs matches actual device refresh rate.
-      stateRef.current.avgDt = stateRef.current.avgDt * 0.9 + dt * 0.1;
 
       const {
         grid,
@@ -288,7 +292,6 @@ export function useWindParticles(
         rawViewportWidth,
         containerWidthPx,
         clock,
-        avgDt,
       } = stateRef.current;
 
       if (!visible || !grid) {
@@ -299,24 +302,23 @@ export function useWindParticles(
         // reference calibration (REF_PIXELS_PER_DEGREE).
         const pixelsPerDegree = containerWidthPx / rawViewportWidth;
         const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
-        const dtScale = (dt / 16.67) * velocityScale;
-        const { trailLength: dynamicTrailLength, alpha: dynamicAlpha } = dynamicTrailParams({
+        const dtScale = (dt / BASE_STEP_MS) * velocityScale;
+        const { trailDurationMs, alpha: dynamicAlpha } = dynamicTrailParams({
           rawViewportWidth,
           containerWidthPx,
         });
         stepParticles({
           particles,
           grid,
+          dt,
           dtScale,
           spawnViewport: viewport,
           gridMap,
-          trailLength: dynamicTrailLength,
+          trailDurationMs,
           clock,
         });
 
-        // Uses the observed avgDt (not a hardcoded 60fps assumption) so the fade window
-        // matches how much real time dynamicTrailLength points actually span on this device.
-        const fadeWindowMs = dynamicTrailLength * avgDt;
+        const fadeWindowMs = trailDurationMs;
 
         const layer = new TripsLayer<Particle>({
           id: 'wind-particles',
@@ -333,11 +335,12 @@ export function useWindParticles(
             // TripsLayer's own head-to-tail fade never reaches full transparency for them —
             // scaling the ceiling by how much of the window the trail actually spans turns
             // that into a uniformly dim trail instead of a hard-edged cutoff. Only applies once
-            // the trail has actually filled up to its speed-based cap (p.maxTrail) — a trail
+            // the trail has actually filled up to its speed-based cap (p.maxTrailMs) — a trail
             // that's still growing from a fresh spawn hasn't had time to fade yet either, and
             // is already correctly rendered by TripsLayer's own per-vertex fade on its own.
             const span = p.timestamps[0] - p.timestamps[p.timestamps.length - 1];
-            const spanFade = p.trail.length >= p.maxTrail ? Math.min(1, span / fadeWindowMs) : 1;
+            const isTrailFull = clock - p.trailStartMs >= p.maxTrailMs;
+            const spanFade = isTrailFull ? Math.min(1, span / fadeWindowMs) : 1;
             // Spreading a [number, number, number] tuple and appending a value yields number[],
             // so an explicit tuple cast is required for Deck.gl's typed color accessor.
             return [
@@ -458,21 +461,23 @@ function initParticles({
   );
 }
 
-function stepParticles({
+export function stepParticles({
   particles,
   grid,
+  dt,
   dtScale,
   spawnViewport,
   gridMap,
-  trailLength,
+  trailDurationMs,
   clock,
 }: {
   particles: Particle[];
   grid: WindGrid;
+  dt: number;
   dtScale: number;
   spawnViewport: Viewport;
   gridMap: Map<string, number> | null;
-  trailLength: number;
+  trailDurationMs: number;
   clock: number;
 }): void {
   for (const p of particles) {
@@ -482,17 +487,23 @@ function stepParticles({
     p.lng += (dx * ANIM_SCALE * dtScale) / cosLat;
     p.lat += dy * ANIM_SCALE * dtScale;
 
+    if (p.trail.length === 0) p.trailStartMs = clock;
     p.trail.unshift([p.lng, p.lat]);
     p.timestamps.unshift(clock);
     const speed = Math.sqrt(dx * dx + dy * dy); // == wind_speed_kmh at this cell
-    const maxTrail =
+    const maxTrailMs =
       speed > TRAIL_SPEED_REF_KMH
-        ? Math.max(2, Math.round(trailLength * Math.sqrt(TRAIL_SPEED_REF_KMH / speed)))
-        : trailLength;
-    if (p.trail.length > maxTrail) p.trail.length = maxTrail;
-    if (p.timestamps.length > maxTrail) p.timestamps.length = maxTrail;
-    p.maxTrail = maxTrail;
-    p.age++;
+        ? trailDurationMs * Math.sqrt(TRAIL_SPEED_REF_KMH / speed)
+        : trailDurationMs;
+    // Trim by age rather than point count, so trail length doesn't depend on frame rate.
+    // Always keeps at least two points so the trail stays a drawable segment.
+    const cutoffMs = clock - maxTrailMs;
+    while (p.timestamps.length > 2 && p.timestamps[p.timestamps.length - 1] < cutoffMs) {
+      p.timestamps.pop();
+      p.trail.pop();
+    }
+    p.maxTrailMs = maxTrailMs;
+    p.age += dt;
 
     // OOB against the full static grid bbox — particles live freely across
     // the viewport and only die when they leave the wind-data area entirely.
@@ -552,21 +563,21 @@ export function dynamicTrailParams({
 }: {
   rawViewportWidth: number;
   containerWidthPx: number;
-}): { trailLength: number; alpha: number } {
+}): { trailDurationMs: number; alpha: number } {
   // Uses zoomOnlyWidth (not rawViewportWidth) so trail length/alpha reflect actual
   // zoom, not container width — otherwise narrow/mobile screens render longer,
   // brighter trails than desktop at the same zoom. See zoomOnlyWidth().
   const widthRatio = zoomOnlyWidth(rawViewportWidth, containerWidthPx) / REF_VIEWPORT_DEG_WIDTH;
   // Each point's movement (dtScale, computed separately for velocity) is already
-  // pixel-invariant, so keeping the point count constant would render a fixed *pixel*
+  // pixel-invariant, so keeping the duration constant would render a fixed *pixel*
   // trail everywhere. Trails should instead represent a roughly-fixed *geographic*
-  // distance, so point count grows continuously as the viewport narrows (zooming in) —
+  // distance, so duration grows continuously as the viewport narrows (zooming in) —
   // √-damped and capped (like the wind-speed trail scaling in stepParticles) so it can't
   // run away at extreme zoom the way an uncapped 1/widthRatio growth would. Clamped here
   // (not just at its point of use) so the [1, TRAIL_GROWTH_MAX] invariant holds for
   // zoomGrowth itself.
   const zoomGrowth = clamp(Math.sqrt(1 / Math.max(widthRatio, 0.001)), 1, TRAIL_GROWTH_MAX);
-  const trailLength = Math.round(TRAIL_LENGTH * zoomGrowth);
+  const trailDurationMs = TRAIL_LENGTH * BASE_STEP_MS * zoomGrowth;
   // Derived from the same zoomGrowth signal driving trail length (not a separate,
   // device-independent zoom curve) so alpha and trail length reach "fully ramped"
   // at the same apparent zoom regardless of screen/container size.
@@ -574,7 +585,7 @@ export function dynamicTrailParams({
   const alpha = Math.round(
     PARTICLE_START_ALPHA + rampT * (PARTICLE_START_ALPHA_MAX - PARTICLE_START_ALPHA),
   );
-  return { trailLength, alpha };
+  return { trailDurationMs, alpha };
 }
 
 function spawnParticle({
@@ -591,15 +602,17 @@ function spawnParticle({
   const [west, south, east, north] = viewport;
   const lng = west + Math.random() * (east - west);
   const lat = south + Math.random() * (north - south);
-  const maxAge = MIN_AGE_FRAMES + Math.floor(Math.random() * (MAX_AGE_FRAMES - MIN_AGE_FRAMES + 1));
+  const maxAge = MIN_AGE_MS + Math.random() * (MAX_AGE_MS - MIN_AGE_MS);
   return {
     lng,
     lat,
-    age: scatterAge ? Math.floor(Math.random() * maxAge) : 0,
+    age: scatterAge ? Math.random() * maxAge : 0,
     maxAge,
     trail: [],
     timestamps: [],
-    maxTrail: TRAIL_LENGTH, // overwritten by stepParticles before this particle ever renders
+    // Both overwritten by stepParticles before this particle ever renders.
+    trailStartMs: 0,
+    maxTrailMs: TRAIL_LENGTH * BASE_STEP_MS,
     color: sampleSpawnColor({ lng, lat, grid, gridMap }),
   };
 }
@@ -701,7 +714,7 @@ function sampleWind(lng: number, lat: number, grid: WindGrid): [number, number] 
   ];
 }
 
-function buildGrid(data: WindReading[]): WindGrid {
+export function buildGrid(data: WindReading[]): WindGrid {
   const grid = new Float32Array(GRID_LNG_COUNT * GRID_LAT_COUNT * 2);
   for (const v of data) {
     const lngIdx = Math.round((v.lng - GRID_LNG_MIN) / GRID_STEP_DEG);
