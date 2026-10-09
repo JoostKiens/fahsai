@@ -12,8 +12,9 @@ const PARTICLE_COUNT = 2400;
 // age range were calibrated against. Motion still advances by the real frame time; this only
 // converts those per-step tuning values into milliseconds so behavior is refresh-rate independent.
 const BASE_STEP_MS = 16.67;
-// Trail length in BASE_STEP_MS steps. Trails are trimmed by age (TRAIL_LENGTH × BASE_STEP_MS),
-// not point count, so a 120 Hz screen gets twice the points but the same geographic length.
+// Trail duration, expressed in 60 Hz frames: a trail shows where the particle was over the
+// last TRAIL_LENGTH × BASE_STEP_MS ms. Faster screens record more points in that time, closer
+// together, so trails are equally long on 60 Hz and 120 Hz.
 const TRAIL_LENGTH = 14;
 // Degrees of movement per BASE_STEP_MS per km/h of wind speed.
 // Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
