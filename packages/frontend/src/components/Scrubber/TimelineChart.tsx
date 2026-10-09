@@ -4,6 +4,10 @@ import { pm25ToRgbLerped } from '@/utils/aqiColors';
 // Controls the chart height — change this constant to resize.
 const CHART_HEIGHT_PX = 48;
 
+// The y-axis runs from 0 to the window's max, but never to less than this (µg/m³), so a quiet
+// window isn't stretched to full height and looks calm instead of like a spike.
+const MIN_TOP_PM25 = 35;
+
 interface Props {
   timeline: Map<string, number> | undefined;
   scrubberDay: number;
@@ -26,13 +30,11 @@ export function TimelineChart({ timeline, scrubberDay, latestDate, scrubberDays 
     return <div style={{ height: CHART_HEIGHT_PX }} aria-hidden />;
   }
 
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal || 1;
+  const top = Math.max(...values, MIN_TOP_PM25);
 
   // Maps a pm25 value to a y coordinate in the 0–100 viewBox (0 = top).
   // 5% padding at top and bottom keeps the line off the edges.
-  const toY = (pm25: number) => 5 + (1 - (pm25 - minVal) / range) * 90;
+  const toY = (pm25: number) => 5 + (1 - pm25 / top) * 90;
 
   // SVG path with M (move) after gaps in data, L (line) for consecutive points.
   let pathD = '';
