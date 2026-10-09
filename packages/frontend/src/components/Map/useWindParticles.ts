@@ -14,7 +14,7 @@ const PARTICLE_COUNT = 2400;
 const BASE_STEP_MS = 16.67;
 // Trail length in BASE_STEP_MS steps. Trails are trimmed by age (TRAIL_LENGTH × BASE_STEP_MS),
 // not point count, so a 120 Hz screen gets twice the points but the same geographic length.
-const TRAIL_LENGTH = 10;
+const TRAIL_LENGTH = 14;
 // Degrees of movement per BASE_STEP_MS per km/h of wind speed.
 // Combined with REF_VIEWPORT_DEG_WIDTH, a 15 km/h breeze crosses the viewport in ~16 s.
 const ANIM_SCALE = 0.0015;
@@ -202,9 +202,11 @@ export function packTrails({
     // the trail has actually filled up to its speed-based cap (p.maxTrailMs) — a trail
     // that's still growing from a fresh spawn hasn't had time to fade yet either, and
     // is already correctly rendered by TripsLayer's own per-vertex fade on its own.
-    const spanMs = p.timestamps[p.head] - p.timestamps[trailSlot(p, n - 1)];
+    // Uses the intended cap (maxTrailMs), not the measured head-to-tail span: age-based
+    // trimming leaves the span up to one frame short, by an amount that varies with frame
+    // timing, which would make every trail's brightness jitter.
     const isTrailFull = clock - p.trailStartMs >= p.maxTrailMs;
-    const spanFade = isTrailFull ? Math.min(1, spanMs / fadeWindowMs) : 1;
+    const spanFade = isTrailFull ? Math.min(1, p.maxTrailMs / fadeWindowMs) : 1;
     const alpha = Math.round(alphaScale * (1 - p.age / p.maxAge) * spanFade);
 
     for (let i = 0; i < n; i++, vertex++) {
