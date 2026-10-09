@@ -66,6 +66,11 @@ const MAX_TRAIL_POINTS = TRAIL_LENGTH * TRAIL_GROWTH_MAX * 4 + 2;
 // Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
 const HEAD_WIDTH = 4;
 const TAIL_WIDTH = 0.5;
+// Calm-wind trails are only a few pixels long; at full HEAD_WIDTH they render as blobs.
+// Head width shrinks so a trail is drawn at least MIN_TRAIL_ASPECT times longer than wide,
+// down to MIN_HEAD_WIDTH so near-still particles stay visible. Starting guesses, tune visually.
+const MIN_TRAIL_ASPECT = 3;
+const MIN_HEAD_WIDTH = 1;
 // `clock` and particle timestamps are read by TripsLayer as 32-bit floats on the GPU,
 // which lose ms precision above 2^24 (~4.66h of continuous accumulation). Rebasing every
 // 10 minutes of real time keeps values far below that ceiling for the life of the tab.
@@ -169,12 +174,14 @@ export function packTrails({
   clock,
   fadeWindowMs,
   alphaScale,
+  pixelsPerDegree,
 }: {
   particles: Particle[];
   buffers: TrailBuffers;
   clock: number;
   fadeWindowMs: number;
   alphaScale: number; // opacity × zoom-dependent alpha, applied on top of each particle's fade
+  pixelsPerDegree: number; // current on-screen scale, used to size each trail's width
 }): TrailBuffers {
   let vertexTotal = 0;
   let pathTotal = 0;
@@ -208,6 +215,9 @@ export function packTrails({
     const isTrailFull = clock - p.trailStartMs >= p.maxTrailMs;
     const spanFade = isTrailFull ? Math.min(1, p.maxTrailMs / fadeWindowMs) : 1;
     const alpha = Math.round(alphaScale * (1 - p.age / p.maxAge) * spanFade);
+    const headWidth = trailHeadWidth({ p, pointCount: n, pixelsPerDegree });
+    // Same head-to-tail taper ratio as at full width, so the tail still comes to a point.
+    const tailWidth = (TAIL_WIDTH * headWidth) / HEAD_WIDTH;
 
     for (let i = 0; i < n; i++, vertex++) {
       const slot = trailSlot(p, i);
@@ -218,13 +228,33 @@ export function packTrails({
       out.colors[vertex * 4 + 1] = p.color[1];
       out.colors[vertex * 4 + 2] = p.color[2];
       out.colors[vertex * 4 + 3] = alpha;
-      // Tapers from HEAD_WIDTH to TAIL_WIDTH so the tail comes to a point.
-      out.widths[vertex] = HEAD_WIDTH - ((HEAD_WIDTH - TAIL_WIDTH) * i) / (n - 1);
+      out.widths[vertex] = headWidth - ((headWidth - tailWidth) * i) / (n - 1);
     }
   }
   out.pathCount = path;
   out.vertexCount = vertex;
   return out;
+}
+
+// Head width (px) for a trail of the given on-screen length: full HEAD_WIDTH for long trails,
+// narrower for short calm-wind trails so they still read as streaks rather than blobs.
+function trailHeadWidth({
+  p,
+  pointCount,
+  pixelsPerDegree,
+}: {
+  p: Particle;
+  pointCount: number;
+  pixelsPerDegree: number;
+}): number {
+  const tail = trailSlot(p, pointCount - 1);
+  // cos(lat) approximates Mercator's x/y scale ratio; within 4% across the 1–30°N grid.
+  const dxPx =
+    (p.positions[p.head * 2] - p.positions[tail * 2]) *
+    Math.cos((p.lat * Math.PI) / 180) *
+    pixelsPerDegree;
+  const dyPx = (p.positions[p.head * 2 + 1] - p.positions[tail * 2 + 1]) * pixelsPerDegree;
+  return clamp(Math.hypot(dxPx, dyPx) / MIN_TRAIL_ASPECT, MIN_HEAD_WIDTH, HEAD_WIDTH);
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -423,6 +453,7 @@ export function useWindParticles(
           clock,
           fadeWindowMs,
           alphaScale: opacity * dynamicAlpha,
+          pixelsPerDegree,
         });
         stateRef.current.trailBuffers = buffers;
         const { vertexCount } = buffers;

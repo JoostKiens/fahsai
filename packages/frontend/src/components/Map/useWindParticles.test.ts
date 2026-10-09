@@ -124,13 +124,17 @@ function simulate({
   return clock;
 }
 
-function pack(particles: Particle[], clock: number) {
+// On-screen scale at the reference zoom (1440 px container showing 22° of longitude).
+const REF_PIXELS_PER_DEGREE = 1440 / 22;
+
+function pack(particles: Particle[], clock: number, pixelsPerDegree = REF_PIXELS_PER_DEGREE) {
   return packTrails({
     particles,
     buffers: createTrailBuffers(),
     clock,
     fadeWindowMs: trailDurationMs,
     alphaScale: 255,
+    pixelsPerDegree,
   });
 }
 
@@ -195,6 +199,40 @@ describe('packTrails', () => {
       Math.fround(particle.lat),
     ]);
     expect(vertexTimes).toEqual([...vertexTimes].sort((a, b) => b - a));
+  });
+
+  describe('trail width', () => {
+    const HEAD_WIDTH_PX = 4;
+    const MIN_HEAD_WIDTH_PX = 1;
+    const particle = makeParticle();
+    const clock = simulate({ particle, frameMs: BASE_STEP_MS, durationMs: 1000 });
+    // The same trail packed at different on-screen scales, i.e. different pixel lengths.
+    const headWidthAt = (pixelsPerDegree: number) =>
+      pack([particle], clock, pixelsPerDegree).widths[0];
+
+    it('keeps the full head width for trails that are long on screen', () => {
+      expect(headWidthAt(1000)).toBe(HEAD_WIDTH_PX);
+    });
+
+    it('narrows the head for trails that are short on screen', () => {
+      // Scale at which this (eastward) trail is 6 px long on screen: 3× a 2 px head.
+      const { positions, vertexCount } = pack([particle], clock);
+      const lengthDeg =
+        Math.abs(positions[0] - positions[(vertexCount - 1) * 2]) *
+        Math.cos((particle.lat * Math.PI) / 180);
+
+      expect(headWidthAt(6 / lengthDeg)).toBeCloseTo(2);
+    });
+
+    it('never narrows the head below the minimum width', () => {
+      expect(headWidthAt(1)).toBe(MIN_HEAD_WIDTH_PX);
+    });
+
+    it('tapers the tail in proportion to the head', () => {
+      const { widths, vertexCount } = pack([particle], clock, 1);
+
+      expect(widths[vertexCount - 1] / widths[0]).toBeCloseTo(0.5 / HEAD_WIDTH_PX);
+    });
   });
 
   it('returns empty buffers when no particle has a drawable trail', () => {
