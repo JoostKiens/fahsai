@@ -210,7 +210,6 @@ sensor 471/708 and lost every reading fetched so far), so failures are skipped a
 - **Order: write, then throw.** Readings collected before a threshold or breaker failure are
   upserted and the Redis keys invalidated first; the error is thrown last. A non-zero exit
   therefore means "ran, but incomplete", not "wrote nothing".
-- Railway marks the deployment `SUCCESS` even when the script exits 1; check the logs or Rollbar.
 
 See `docs/adr/0001-two-pass-ingest-schedule.md` (failure handling addendum). A broader
 consolidation of ingest retry strategy is tracked in Linear JOO-86.

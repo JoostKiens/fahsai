@@ -39,7 +39,7 @@ export class OpenMeteoHttpError extends Error {
 const WEATHER_BATCH_SIZE = 300;
 
 // 5 s between batches avoids the minutely burst limit.
-// 10 batches × 5 s = ~50 s total run time.
+// 16 batches → 15 pauses × 5 s = ~75 s of pauses per run.
 const WEATHER_BATCH_PAUSE_MS = 5_000;
 
 // 14:00 BKK — peak daytime convective mixing, best for smoke transport

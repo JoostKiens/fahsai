@@ -1,6 +1,6 @@
 # Fahsai
 
-[![CI](https://github.com/JoostKiens/fahsai/actions/workflows/ci.yml/badge.svg)](https://github.com/JoostKiens/fahsai/actions) [![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-blue)](LICENSE.md) [![Live Demo](https://img.shields.io/badge/live%20demo-open-green)](https://fahsai.fyi) [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-monorepo-f69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![CI](https://github.com/JoostKiens/fahsai/actions/workflows/ci.yml/badge.svg)](https://github.com/JoostKiens/fahsai/actions) [![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-blue)](LICENSE.md) [![Live Demo](https://img.shields.io/badge/live%20demo-open-green)](https://fahsai.fyi) [![TypeScript](https://img.shields.io/badge/TypeScript-5.9%20%7C%206-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-monorepo-f69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
 
 ---
 
