@@ -54,3 +54,9 @@ Render sites use `t(cat.key)`.
 preserved — language changes trigger re-renders at the component level where `useTranslation`
 is called. Passing `t` into every helper would couple lib signatures to i18next; calling
 `i18next.t()` imperatively in lib files loses automatic re-render on language change.
+
+## Addendum (2026-10-06): changes since this ADR
+
+- **Decision 1 (language store):** `i18next-browser-languagedetector` is no longer used. `i18n.ts` resolves the language itself, in this order: `/th` URL path, `?lang=`, the value stored in `settingsStore`, then `navigator.language`. The Thai site is served at `/th/` (static HTML with its own og tags), and `i18n.ts` redirects when the path and the resolved language disagree. `settingsStore` is now at schema version 3.
+- **Decision 2 (date formatting):** superseded. `dateLocale()` now returns `'th-TH-u-nu-latn'` (Thai month names, Latin numerals, and the default Thai calendar, so years are Buddhist Era), and `toDisplayYear()` adds 543 to displayed years (commit 8ec6d1c). The Gregorian `-ca-gregory` variant described above is no longer used.
+- **Decision 3 (translation keys from helpers):** unchanged.

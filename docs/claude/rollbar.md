@@ -28,6 +28,12 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 
 ## What is NOT tracked
 
+- **Some cron scripts don't call `reportError`.** Only `ingest-fires`, `ingest-station-readings`,
+  `ingest-cams` (+ `-today-fallback`) and `ingest-weather` (+ `-today-fallback`) report to Rollbar.
+  `ingest-stations`, `ingest-station-fire-pressure`, `ingest-station-baseline`, `prune` and
+  `ingest-power-plants` only `console.error` and exit 1, so a failure there is visible in Railway
+  logs but not in Rollbar.
+
 - **User 429s** (our `/api/explain` rate limit hits) — expected behavior, covered by
   existing Redis counters (`ratelimit:explain`).
 - **4xx route errors** — client errors, not our bugs. The `setErrorHandler` skips
@@ -76,15 +82,16 @@ backend relay forwards the payload unchanged and passes Rollbar's response back.
 
 ## Error boundaries
 
-Four `ErrorBoundary` wrappers guard independently-useful UI regions. Each fallback
-preserves the component's outer dimensions so the layout does not shift:
+Four `ErrorBoundary` wrappers guard independently-useful UI regions (`App.tsx`,
+`UIOverlay.tsx`). Each fallback keeps the region's footprint so the layout does not shift, and
+shows a short message:
 
-| Component   | Fallback behaviour                                  |
-| ----------- | --------------------------------------------------- |
-| `MapView`   | Empty `w-full h-full` div                           |
-| `Sidebar`   | Empty `w-[260px]` aside (preserves map flex layout) |
-| `InfoPanel` | Empty absolute-positioned div (no layout impact)    |
-| `Scrubber`  | Empty `md:h-[52px]` div                             |
+| Component   | Fallback behaviour                                                       |
+| ----------- | ------------------------------------------------------------------------ |
+| `MapView`   | Full-size dark div with "Map unavailable" (inside a `Suspense`)          |
+| `Sidebar`   | `w-65` aside (desktop only) with "Controls unavailable"                  |
+| `InfoPanel` | Absolute-positioned `w-[260px]` card (desktop only), "Panel unavailable" |
+| `Scrubber`  | Bar with `md:h-13` and "Timeline unavailable"                            |
 
 The reusable `<ErrorBoundary name="..." fallback={...}>` lives at
 `packages/frontend/src/components/ErrorBoundary.tsx` (flat, no `ui/` subdirectory — see the

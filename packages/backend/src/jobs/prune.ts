@@ -1,8 +1,8 @@
 import { supabase } from '../db/client.js';
 import { bangkokDateString } from '../utils/bkkDate.js';
 
-// Retention policy: 90-day max scrubber window + 7-day Explain history buffer
-// + timezone/prune-timing buffer, raised to 140 days for DB-size headroom
+// Retention policy: 120-day max scrubber window (MAX_DAYS in the frontend uiStore) + 7-day
+// Explain history buffer + timezone/prune-timing buffer, raised to 140 days for DB-size headroom
 // (projected burning-season peak ~0.46 GB of the 0.5 GB limit — see
 // docs/claude/database.md for the per-table breakdown this is based on).
 export const RETENTION_DAYS = 140;

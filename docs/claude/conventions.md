@@ -84,7 +84,7 @@ file is PascalCase, since it holds components — not `icons.tsx`.
 `packages/*/package.json` without `"type": "module"` is harmless as long as the package
 only has type-only exports (interfaces, type aliases erase at compile time, so there's no
 runtime module to load). The moment it gains a real value export (a function or `const`),
-Node's `require(esm)` cycle detection under tsx (Node 22.17/22.19) breaks, with a misleading
+Node's `require(esm)` cycle detection under tsx (seen on Node 22.17/22.19; the project now runs Node 24) breaks, with a misleading
 error that depends on the import graph shape — either `SyntaxError: ... does not provide an
 export named X` or `ERR_REQUIRE_CYCLE_MODULE`, neither of which points at the missing field.
 Add `"type": "module"` when a package gets its first runtime export, not after chasing the
@@ -151,26 +151,20 @@ ad-hoc UTC `new Date().toISOString().slice(0, 10)` in ingest code; use the helpe
 - `getYesterdayBkk()` is the common "yesterday BKK" default (used by `weather-ingest.ts`,
   `cams-ingest.ts`, `station-readings-ingest.ts`, and `ingest-station-fire-pressure.ts`).
 - `bangkokMidnightIso(dateStr)` converts a BKK date string to its midnight instant as an ISO
-  string (`${dateStr}T00:00:00+07:00`), for query range boundaries (e.g. `fires.ts`, `explain.ts`).
+  string (`${dateStr}T00:00:00+07:00`), for query range boundaries (e.g. `fires.ts`,
+  `computeScientificContext.ts`).
 - `bangkokMidnightUtcMs(dateStr)` does the same, as epoch ms (e.g. `station-readings.ts`'s
   `/history` route, `fetchExplainContext.ts`).
 
 Only fall back to manual `ICT_OFFSET_MS` arithmetic when none of the above fit and you need a
 UTC millisecond instant, not a date string, since `Intl.DateTimeFormat` only produces the latter.
 
-The `weather-today`/`weather-fallback`/`cams`/`cams-fallback`/`station-fire-pressure`/
-`station-readings-today`/`station-readings` cron times in `.railway/railway.ts`
-all currently fire before 17:00 UTC (or, for the `cams`/`cams-fallback` and
-`station-readings-today`/`station-readings` pairs, at a time whose Bangkok-yesterday still
-resolves to the same date their old UTC-based calc used), so BKK-today equals UTC-today at
-every run and `getYesterdayBkk()` returns the same date the pre-fix UTC calc would have. If any
-of these cron times are ever moved, re-derive which Bangkok day `getYesterdayBkk()` resolves to
-at the new run time before assuming the schedule still targets the intended date.
-
-**Vitest `@/` path alias** -- `vitest.config.ts` does not configure the `@/` alias from
-`vite.config.ts`. Runtime imports using `@/` in test files or files transitively imported
-by tests will fail to resolve. Only `type` imports survive because TypeScript erases them
-before Vite transforms the module. For test-importable utility files, use relative paths.
+`getYesterdayBkk()` is evaluated when the job runs, so a cron's UTC time decides which Bangkok
+day it targets. Bangkok is UTC+7: before 17:00 UTC the Bangkok date equals the UTC date, from
+17:00 UTC it is already the next day. The crons that use the default target (`0 1`, `0 2`, `0 4`,
+`30 4` and `40 4` UTC in `.railway/railway.ts`) all run before 17:00 UTC, so they target the
+previous calendar day. If one is moved to 17:00 UTC or later, re-derive which Bangkok day it will
+target.
 
 **Browser cache + TanStack Query double-caching** — Fastify routes must return
 `Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body

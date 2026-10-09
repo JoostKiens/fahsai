@@ -28,7 +28,7 @@ keeps API keys server-side.
 
 - Source: OpenAQ v3 API `https://api.openaq.org/v3/`
 - Endpoints:
-  - `/v3/locations` — weekly station sync, populates `pm25_sensor_ids` and `datetime_last`
+  - `/v3/locations` — monthly station sync, populates `pm25_sensor_ids`; `datetimeLast` is used only to skip stale locations
   - `/v3/sensors/{id}/hours/daily` — daily averages per sensor; `/days` endpoint is confirmed
     broken (ignores date filters); `/hours/daily` requires local timezone offset in datetime params
 - Parameters: `pm25` only
@@ -44,7 +44,7 @@ keeps API keys server-side.
   `https://archive-api.open-meteo.com/v1/archive` (past dates)
 - Parameters:
   - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
-  - Daily aggregates: `wind_speed_10m_max`, `precipitation_sum`
+  - Daily aggregate: `precipitation_sum`
 - No API key required
 - Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date.
   Fetched in 16 batches of ≤300 with 5 s between batches (~80 s total).
@@ -72,7 +72,7 @@ keeps API keys server-side.
 - Source: `https://air-quality-api.open-meteo.com/v1/air-quality`
 - Parameters: `pm2_5` (hourly), daily mean computed per grid point
 - Grid: 0.4° spacing over bbox [89,1,114,30] → 4,599 points; fetched in 16 batches of 300
-  (sequential, with 429 retry backoff)
+  (sequential, 35 s pause between batches, with 429 retry backoff)
 - No API key required
 - Schedule: daily (0 23 \* \* \* UTC)
 - Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
@@ -96,9 +96,10 @@ names below, e.g. `ingest-station-readings pass 1`). Preview changes with `railw
 and apply with `railway config apply` (needs `railway link` to the `fahsai` project). Env vars
 stay in the Railway dashboard (`preserve()` in the file, never inlined). Editing a service's
 start command or schedule in the dashboard and in the file are the same setting, so `plan`
-shows any drift. Restart policy is left at Railway's default (On Failure, 10 retries):
-declaring the default in the file leaves a permanent no-op diff in `plan`, because Railway
-stores defaults as null. A service omitted from the file is deleted on `apply`. For anything
+shows any drift. Cron services set `restartPolicyType: "NEVER"` (a failed run is not retried
+until the next scheduled run); the API server leaves the restart policy at Railway's default
+(On Failure, 10 retries), since declaring the default in the file leaves a permanent no-op
+diff in `plan` (Railway stores defaults as null). A service omitted from the file is deleted on `apply`. For anything
 else see https://docs.railway.com (search "Infrastructure as Code"). All times are UTC.
 
 ```
@@ -186,7 +187,7 @@ If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills g
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
 
 Each script exits with code 0 on success and non-zero on failure. Retry logic is implemented
-within the script (3 attempts with exponential backoff where applicable).
+within the script (`p-retry`, typically 3 retries with exponential backoff, where applicable).
 
 ### station-readings-ingest failure handling
 
@@ -209,7 +210,6 @@ sensor 471/708 and lost every reading fetched so far), so failures are skipped a
 - **Order: write, then throw.** Readings collected before a threshold or breaker failure are
   upserted and the Redis keys invalidated first; the error is thrown last. A non-zero exit
   therefore means "ran, but incomplete", not "wrote nothing".
-- Railway marks the deployment `SUCCESS` even when the script exits 1; check the logs or Rollbar.
 
 See `docs/adr/0001-two-pass-ingest-schedule.md` (failure handling addendum). A broader
 consolidation of ingest retry strategy is tracked in Linear JOO-86.
@@ -230,19 +230,19 @@ GET /api/fires?date=YYYY-MM-DD&bbox=...
 GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
   Returns fire points for a date range (used by time scrubber). Max 10 days.
 
-GET /api/station-readings/latest?parameter=pm25&bbox=...&date=YYYY-MM-DD
-  Returns latest measurement per station for the given parameter.
+GET /api/station-readings/latest?bbox=...&date=YYYY-MM-DD
+  Returns latest PM2.5 measurement per station (pm25 is the only parameter).
   date is optional: when provided, queries that day's window; when absent, queries last 24h.
-  Redis first (key: station-readings:latest:{param}:{date|current}), then Supabase.
+  Redis first (key: station-readings:latest:pm25:{date|current}), then Supabase.
   Supabase query is paginated (PAGE_SIZE=1000, .range()) to bypass the server-side row cap —
   do NOT remove the pagination or stations will silently disappear from the map.
 
-GET /api/station-readings/history?station_id=...&parameter=pm25&hours=24
-  Returns time series for a single station and parameter.
-  Used in station tooltip chart.
+GET /api/station-readings/history?station_id=...&hours=24
+  Returns the PM2.5 time series for a single station. hours defaults to 24, max 168 (7 days).
 
-GET /api/stations/:stationId/history?days=5&date=YYYY-MM-DD
-  Returns `days` daily rows (oldest-first) ending on `date` (BKK timezone).
+GET /api/stations/:stationId/history?days=7&date=YYYY-MM-DD
+  Returns `days` daily rows (oldest-first, default 7, max 30) ending on `date` (BKK timezone,
+  defaults to today).
   Each row: { date, pm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
   precipitationSumMm, relativeHumidity2m } | null, baseline: BaselineStat | null }.
   pm25 is the day's latest reading, not a mean, despite the field name's implication.
@@ -301,16 +301,17 @@ GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
 GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
   Returns the daily p95 PM2.5 time series ({ date, pm25 }[]) for the scrubber gradient chart.
   Redis first (key: cams:summary:{start}:{end}, TTL 1h — newest day mutates each ingest);
-  on miss reads from Supabase cams_daily_summary. Range capped at 130 days.
+  on miss reads from Supabase cams_daily_summary. Range capped at `RETENTION_DAYS` (140; a range of 140+ days returns 400).
 
 GET /api/power-plants
-  Returns WRI power plants (Coal/Gas/Oil) for THA/MMR/LAO/KHM as GeoJSON FeatureCollection.
+  Returns WRI power plants (Coal/Gas/Oil/Diesel, filtered at ingest time) for the target
+  countries as GeoJSON FeatureCollection; 503 if the table is empty or unreachable.
   Redis cache key: power_plants:geojson, TTL 24h.
   Populate via: pnpm --filter backend run ingest:power-plants
 
 GET /api/latest-date
   Returns the most recent date with complete data across all four gating sources.
-  Redis key: latest-complete-date, TTL 30 min.
+  Redis key: latest-complete-date, TTL 30 min. Looks back up to 7 days; 404 if none is complete.
 
 POST /api/explain
   Streams a Gemini-generated explanation for a station's current AQI (Cache-Control: no-cache
@@ -337,7 +338,8 @@ POST /api/rollbar
   outage never surfaces as an app error.
 
 GET /health
-  Returns { status: 'ok', cache: 'connected', db: 'connected' }
+  Returns { status: 'ok', cache: 'connected', db: 'connected' }, or HTTP 503 with
+  status 'degraded' and 'error' for whichever of cache/db failed.
 ```
 
 ---
@@ -347,25 +349,25 @@ GET /health
 `CACHE_CONTROL_IMMUTABLE = public, max-age=604800` (7 days).
 `HISTORICAL_TTL_SECONDS = 604800` — standard Redis TTL for all immutable historical data.
 
-| Route                               | Redis key                                         | Redis TTL | On miss                                                                         | HTTP Cache-Control                                              |
-| ----------------------------------- | ------------------------------------------------- | --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `GET /api/fires?date=`              | `fires:date:{date}`                               | 7 days    | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/fires/range`              | —                                                 | —         | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/station-readings/latest`  | `station-readings:latest:{param}:{date\|current}` | 7 days    | Supabase `station_readings` (paginated)                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/station-readings/history` | —                                                 | —         | Supabase `station_readings`                                                     | none set                                                        |
-| `GET /api/stations/:id/history`     | --                                                | --        | Supabase `station_readings` + `station_weather` + `station_baseline` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
-| `GET /api/stations/:id/baseline`    | --                                                | --        | Supabase `station_baseline`                                                     | `public, max-age=21600`                                         |
-| `GET /api/stations/:id`             | —                                                 | —         | Supabase `stations`                                                             | none set                                                        |
-| `GET /api/weather/wind?date=`       | `weather:wind:{date}`                             | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/weather?date=`            | `weather:{date}`                                  | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams?date=`               | `cams:pm25:{date}`                                | 7 days    | Supabase `cams_grid`                                                            | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams/nearest`             | —                                                 | —         | Supabase `cams_grid` (via `/api/cams` grid fetch)                               | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                      | 1 hour    | Supabase `cams_daily_summary`                                                   | `public, max-age=3600`                                          |
-| `GET /api/power-plants`             | `power_plants:geojson`                            | 7 days    | Supabase `power_plants`                                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
-| `GET /api/latest-date`              | `latest-complete-date`                            | 30 min    | Supabase row counts                                                             | none set                                                        |
-| `POST /api/explain`                 | `explain:v{N}:{stationId}:{date}:{lang}`          | 7 days    | Streams from Gemini API (cache write after stream; prod only, non-today only)   | `no-cache` (raw hijacked response, always)                      |
-| `GET /api/explain/context`          | `explain:context:v{N}:{stationId}:{date}`         | 7 days    | Computes scientific context inline (all envs; non-today only)                   | `CACHE_CONTROL_IMMUTABLE` (non-today) / none (today)            |
-| `POST /api/rollbar`                 | —                                                 | —         | Relays to Rollbar ingest API                                                    | none set                                                        |
+| Route                               | Redis key                                      | Redis TTL | On miss                                                                         | HTTP Cache-Control                                              |
+| ----------------------------------- | ---------------------------------------------- | --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /api/fires?date=`              | `fires:date:{date}`                            | 7 days    | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/fires/range`              | —                                              | —         | Supabase `fire_points`                                                          | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/station-readings/latest`  | `station-readings:latest:pm25:{date\|current}` | 7 days    | Supabase `station_readings` (paginated)                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/station-readings/history` | —                                              | —         | Supabase `station_readings`                                                     | none set                                                        |
+| `GET /api/stations/:id/history`     | --                                             | --        | Supabase `station_readings` + `station_weather` + `station_baseline` (parallel) | `CACHE_CONTROL_IMMUTABLE` (historical) / `max-age=3600` (today) |
+| `GET /api/stations/:id/baseline`    | --                                             | --        | Supabase `station_baseline`                                                     | `public, max-age=21600`                                         |
+| `GET /api/stations/:id`             | —                                              | —         | Supabase `stations`                                                             | none set                                                        |
+| `GET /api/weather/wind?date=`       | `weather:wind:{date}`                          | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/weather?date=`            | `weather:{date}`                               | 7 days    | Supabase `weather_readings`                                                     | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams?date=`               | `cams:pm25:{date}`                             | 7 days    | Supabase `cams_grid`                                                            | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams/nearest`             | —                                              | —         | Supabase `cams_grid` (via `/api/cams` grid fetch)                               | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/cams/summary`             | `cams:summary:{start}:{end}`                   | 1 hour    | Supabase `cams_daily_summary`                                                   | `public, max-age=3600`                                          |
+| `GET /api/power-plants`             | `power_plants:geojson`                         | 7 days    | Supabase `power_plants`                                                         | `CACHE_CONTROL_IMMUTABLE`                                       |
+| `GET /api/latest-date`              | `latest-complete-date`                         | 30 min    | Supabase row counts                                                             | `public, max-age=300, stale-while-revalidate=60`                |
+| `POST /api/explain`                 | `explain:v{N}:{stationId}:{date}:{lang}`       | 7 days    | Streams from Gemini API (cache write after stream; prod only, non-today only)   | `no-cache` (raw hijacked response, always)                      |
+| `GET /api/explain/context`          | `explain:context:v{N}:{stationId}:{date}`      | 7 days    | Computes scientific context inline (all envs; non-today only)                   | `CACHE_CONTROL_IMMUTABLE` (non-today) / none (today)            |
+| `POST /api/rollbar`                 | —                                              | —         | Relays to Rollbar ingest API                                                    | none set                                                        |
 
 **Rules:**
 

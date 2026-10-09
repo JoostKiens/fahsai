@@ -85,13 +85,23 @@ interface TimeStore {
   latestDate: string; // valid YYYY-MM-DD, starts as yesterday ICT, updated by useLatestDate
   latestDateResolved: boolean; // false until useLatestDate returns the real value
   selectedDate: string; // YYYY-MM-DD -- default is yesterday (ICT), not today; a valid
-  // ?date= URL param (within 90 days) overrides the default
+  // ?date= URL param (within MAX_DAYS = 120 days) overrides the default
   setLatestDate: (date: string) => void;
   setDate: (date: string) => void;
 }
 // selectIsSettled(s) -- true once latestDateResolved && selectedDate <= latestDate;
 // gate toasts/other "settled" UI on this selector.
 ```
+
+---
+
+## URL state
+
+`useUrlSync` mirrors map center/zoom, selected date and the selected point into the query string
+(`lat`, `lng`, `zoom`, `date`, `sel`; debounced 500 ms via `history.replaceState`, and only once
+`latestDateResolved`). Language lives in the path (`/th/` vs `/`), not a query param. On boot,
+`useSelectionHydration` resolves `?sel=` into a full `SelectedPoint` once the station/fire/
+power-plant queries have data; any explicit user selection cancels it.
 
 ---
 
@@ -118,8 +128,9 @@ rehydrated automatically on app load — no manual `useEffect` needed.
 **Session scrubber expansion (`sessionScrubberDays`):**
 `uiStore` holds a `sessionScrubberDays: number | null` field (never persisted). When the
 app loads with a `?date=` URL param that falls outside the user's stored `scrubberDays`
-window but within 90 days, `useLatestDate` sets `sessionScrubberDays = 90` so the
-linked date is reachable. Dates beyond 90 days still clamp with a toast. The user's stored
+window but within `MAX_DAYS` (120, exported from `uiStore.ts`), `useLatestDate` sets
+`sessionScrubberDays = MAX_DAYS` so the linked date is reachable. Dates beyond that still
+clamp with a toast. The user's stored
 preference is never modified. Use `useEffectiveScrubberDays()` (hook) or
 `getEffectiveScrubberDays()` (non-hook) from `uiStore.ts` wherever the active window size
 is needed — do not read `settingsStore.scrubberDays` directly in scrubber-related code.
@@ -157,7 +168,7 @@ points at half alpha instead of excluding them (see the Deck.gl layers table abo
 
 ## AppScrollArea gotcha
 
-`AppScrollArea` (wrapping `@base-ui-components/react` ScrollArea) renders a
+`AppScrollArea` (wrapping `@base-ui/react` ScrollArea) renders a
 `ScrollArea.Content` div that expands to the intrinsic width of its children.
 When used in absolute-positioned dropdowns or constrained containers, long text
 causes horizontal overflow. Fix: add `w-0 min-w-full overflow-hidden` to the

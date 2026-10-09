@@ -47,6 +47,9 @@ working in a file, mention it rather than fixing it silently.
 ├── package.json              # pnpm workspace root
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json        # shared tsconfig
+├── .railway/railway.ts       # Railway infrastructure-as-code (services + cron schedules)
+├── scripts/                  # Python helper for the sea/land mask (generate-land-mask.py)
+├── docs/                     # claude/ reference docs, adr/ decision records, use-cases.md
 ├── packages/
 │   ├── types/                # shared TypeScript interfaces (no runtime deps)
 │   │   └── src/
@@ -71,8 +74,9 @@ working in a file, mention it rather than fixing it silently.
 │   │       │                 # commands below, and Railway cron targets, run these
 │   │       ├── db/           # Supabase client + query helpers
 │   │       ├── cache/        # Upstash Redis client + rate limiters
-│   │       ├── lib/          # /api/explain scientific-context logic
-│   │       ├── utils/        # geo, date, pagination, classification helpers
+│   │       ├── lib/          # /api/explain scientific-context logic, pino logger, Rollbar
+│   │       ├── utils/        # geo, date, backfill (pagination/concurrency), classification,
+│   │       │                 # per-provider API clients (openaq, openmeteo, firms), CORS helpers
 │   │       └── data/         # static reference data (urban sources, geo regions)
 │   └── frontend/             # React + Vite SPA
 │       └── src/
@@ -88,12 +92,9 @@ working in a file, mention it rather than fixing it silently.
 │           │   ├── Header/
 │           │   ├── ExplainButton/
 │           │   └── ErrorBoundary.tsx, BottomSheet.tsx, etc. (flat top-level components)
-│           ├── hooks/        # TanStack Query hooks, one per data type
-│           │   ├── useFires.ts
-│           │   ├── useStationReadings.ts
-│           │   ├── useCamsGrid.ts
-│           │   ├── useLatestDate.ts
-│           │   └── usePowerPlants.ts
+│           ├── hooks/        # TanStack Query data hooks (useFires, useStationReadings,
+│           │                 # useCamsGrid, useLatestDate, usePowerPlants, useWind, ...)
+│           │                 # plus URL/selection sync (useUrlSync, useSelectionHydration)
 │           ├── store/        # Zustand stores
 │           │   ├── layerStore.ts
 │           │   ├── timeStore.ts
@@ -101,6 +102,7 @@ working in a file, mention it rather than fixing it silently.
 │           │   └── uiStore.ts
 │           ├── lib/          # rollbar.ts
 │           ├── utils/        # aqiColors, bbox, deck-overlay, etc.
+│           ├── test/         # vitest setup, i18n-parity test
 │           └── locales/      # en.json, th.json
 ```
 
@@ -110,17 +112,17 @@ working in a file, mention it rather than fixing it silently.
 
 ### Frontend
 
-- React 18 + TypeScript, Vite
+- React 19 + TypeScript, Vite
 - Mapbox GL JS (base map, custom Mapbox Studio style)
 - Deck.gl (data layers), Supercluster (station clustering)
-- Zustand (UI state), TanStack Query v5 (data fetching), Turf.js (geo utils)
+- Zustand (UI state), TanStack Query v5 (data fetching), motion (animation)
 - Tailwind CSS (styling), i18next/react-i18next (Thai/English), Fuse.js (station/place
   search), sonner (toasts)
 - Rollbar (error tracking), Vercel Analytics + Speed Insights
 
 ### Backend
 
-- Node.js 22+ + TypeScript, Fastify
+- Node.js 24 + TypeScript, Fastify
 - `@fastify/cors` — registered before all routes; allows
   `https://fahsai.fyi` in all environments plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
@@ -152,7 +154,7 @@ working in a file, mention it rather than fixing it silently.
 
 ## Environment variables
 
-### Backend (`packages/backend/.env`)
+### Backend (`packages/backend/.env.local`)
 
 ```
 NODE_ENV=development
@@ -169,7 +171,7 @@ CDS_API_KEY=                  # Copernicus CDS, ERA5 backfill only
 ROLLBAR_TOKEN=
 ```
 
-### Frontend (`packages/frontend/.env`)
+### Frontend (`packages/frontend/.env.local`)
 
 ```
 VITE_API_BASE_URL=http://localhost:3001
@@ -199,9 +201,20 @@ pnpm --filter backend run ingest:station-readings
 pnpm --filter backend run ingest:weather
 pnpm --filter backend run ingest:cams YYYY-MM-DD   # CAMS PM2.5 grid
 pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV path as optional arg)
+pnpm --filter backend run ingest:station-fire-pressure
+pnpm --filter backend run ingest:station-baseline
+pnpm --filter backend run prune                   # retention cleanup
 
 # One-time backfill after deploying migration 018_station_weather.sql
 pnpm --filter backend run backfill:station-weather
+
+# Other one-off backfills / diagnostics (see each script's header comment for flags)
+pnpm --filter backend run backfill:station-readings [startDate] [endDate]  # OpenAQ S3 archive
+pnpm --filter backend run backfill:weather -- --start=YYYY-MM-DD --end=YYYY-MM-DD  # ERA5 (needs CDS_API_KEY)
+pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD
+pnpm --filter backend run backfill:fires-noaa21 <path-to-json>
+pnpm --filter backend run check-data-ranges
+pnpm --filter backend run check-date-gaps
 
 # Fire pressure scores (75 km radius, 14-day window — its own Railway cron, ingest-station-fire-pressure, 30 4 * * *)
 pnpm --filter backend run backfill:station-fire-pressure -- --start=YYYY-MM-DD --end=YYYY-MM-DD
@@ -220,7 +233,7 @@ pnpm test                                         # run all package test suites
 pnpm format                                       # prettier --write across all packages
 
 # Golden-set eval for /api/explain prompt/output quality (English + Thai)
-pnpm --filter backend run eval:explain
+pnpm --filter backend run eval:explain            # also eval:explain:th, eval:explain:prompts
 ```
 
 Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twin
@@ -244,12 +257,13 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 
 ## Dev tooling
 
-- ESLint 9 flat config (`eslint.config.js` at root)
+- ESLint 10 flat config (`eslint.config.js` at root)
   - `@typescript-eslint` recommended-type-checked for all packages
   - `eslint-plugin-react-hooks` for `packages/frontend` only
   - `eslint-config-prettier` applied last
 - Prettier: single quotes, semicolons, trailing commas, 100 char width
-- Husky + lint-staged: formats and lints staged files on pre-commit
+- Husky + lint-staged: formats and lints staged files on pre-commit; pre-push runs
+  `pnpm typecheck` and `pnpm test`
 - Commitlint: conventional commits enforced on commit-msg hook
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env)
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
