@@ -4,8 +4,10 @@ import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchSensorDailyAverage } from '../utils/openaq.js';
 import { getYesterdayBkk } from '../utils/bkkDate.js';
+import { fetchAllPages } from '../utils/backfill.js';
 
 const BATCH_SIZE = 500;
+const PAGE_SIZE = 1000;
 const DEFAULT_DELAY_MS = 1_100; // ~54 req/min — safely under the 60/min free-tier limit
 // A sensor "fails" when fetchSensorDailyAverage gives up after its retries (network error, 429,
 // 5xx). Empty results (404, no data, stale date) are not failures. Failed sensors are skipped
@@ -22,6 +24,8 @@ const MAX_FAILED_SENSOR_RATIO = 0.05;
 // for reset also mean the hourly quota is exhausted; continuing risks an OpenAQ ban.
 const CONSECUTIVE_FAILURE_ABORT = 5;
 
+type StationRow = { id: string; pm25_sensor_ids: number[] };
+
 export async function runStationReadingsIngest(date?: string): Promise<{
   sensorsQueried: number;
   sensorsFailed: number;
@@ -35,14 +39,21 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   // means today's BKK day is only ~11 hours old — fetch yesterday instead.
   const targetDate = date ?? getYesterdayBkk();
 
-  const { data: stationRows, error: stationsError } = await supabase
-    .from('stations')
-    .select('id, pm25_sensor_ids, lat, lng')
-    .filter('pm25_sensor_ids', 'not.eq', '{}');
+  const stationRows = await fetchAllPages<StationRow>(
+    (from, to) =>
+      supabase
+        .from('stations')
+        .select('id, pm25_sensor_ids')
+        .filter('pm25_sensor_ids', 'not.eq', '{}')
+        .order('id')
+        .range(from, to),
+    PAGE_SIZE,
+  ).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to fetch stations: ${message}`, { cause: err });
+  });
 
-  if (stationsError) throw new Error(`Failed to fetch stations: ${stationsError.message}`);
-
-  if (!stationRows?.length) {
+  if (!stationRows.length) {
     console.warn(
       '[station-readings-ingest] no stations with pm25_sensor_ids found — run stations-ingest first',
     );
@@ -70,7 +81,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   for (const station of stationRows) {
     // Only fetch the first sensor per station — collocated sensors measure the same air
     // and we display one value per location on the map.
-    const sensorId = (station.pm25_sensor_ids as number[])[0];
+    const sensorId = station.pm25_sensor_ids[0];
 
     // Consume the computed delay, then immediately reset to the safe default.
     // Header-based logic below will override it for the next iteration.
@@ -120,7 +131,7 @@ export async function runStationReadingsIngest(date?: string): Promise<{
     for (const r of readings) {
       if (r.value === null || r.value === undefined) continue;
       measurementRows.push({
-        station_id: station.id as string,
+        station_id: station.id,
         value: r.value,
         measured_at: r.dateUtc,
       });
