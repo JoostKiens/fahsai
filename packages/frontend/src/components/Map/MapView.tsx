@@ -266,7 +266,7 @@ export function MapView() {
     };
 
     if (firesConfig.visible && fires) {
-      layers.push(createFiresLayer(fires, firesConfig.opacity, zoom, onFireClick));
+      layers.push(createFiresLayer(fires, firesConfig.opacity, onFireClick));
     }
 
     if (aqStationsConfig.visible && aqi) {

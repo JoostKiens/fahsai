@@ -17,6 +17,9 @@ const GLOW = {
   // edge, so the glow never ends in a visible cutoff.
   falloff: 1.5,
 };
+// Base radius in px grows ×2 every `levelsPerDoubling` zoom levels, clamped to [minPx, maxPx].
+// Shared by baseRadiusForZoom (selection ring) and the vertex shader (live while zooming).
+const ZOOM_CURVE = { pivotZoom: 6.5, levelsPerDoubling: 1.5, minPx: 1, maxPx: 6 };
 
 const glslFloat = (n: number) => n.toFixed(4);
 const glslVec3 = (c: RGB) => `vec3(${c.map((v) => glslFloat(v / 255)).join(', ')})`;
@@ -34,13 +37,23 @@ const GLOW_FS = `
   );
 `;
 
+// project.scale is 2^zoom of the live viewport, so sizes follow every frame of a zoom gesture
+// without rebuilding the layer. Picking runs this shader too, so the hit target follows as well.
+const ZOOM_SIZE_VS = `
+  float fireBaseRadius = exp2((log2(project.scale) - ${glslFloat(ZOOM_CURVE.pivotZoom)}) / ${glslFloat(ZOOM_CURVE.levelsPerDoubling)});
+  size *= clamp(fireBaseRadius, ${glslFloat(ZOOM_CURVE.minPx)}, ${glslFloat(ZOOM_CURVE.maxPx)});
+`;
+
 class FireGlowLayer extends ScatterplotLayer<FirePoint> {
   static layerName = 'FireGlowLayer';
 
   getShaders() {
     // ScatterplotLayer types getShaders() as any; it defines no inject of its own to merge with.
     const shaders = super.getShaders() as object;
-    return { ...shaders, inject: { 'fs:DECKGL_FILTER_COLOR': GLOW_FS } };
+    return {
+      ...shaders,
+      inject: { 'vs:DECKGL_FILTER_SIZE': ZOOM_SIZE_VS, 'fs:DECKGL_FILTER_COLOR': GLOW_FS },
+    };
   }
 }
 
@@ -71,10 +84,9 @@ function fillColor(d: FirePoint): RGBA4 {
   return [255, 255, 255, d.confidence === 'low' ? 128 : 255];
 }
 
-// Exponential in zoom (×2 every 1.5 levels) so sizes grow smoothly instead of jumping at fixed
-// steps; clamped to 1 px zoomed out and 6 px zoomed in.
 export function baseRadiusForZoom(zoom: number): number {
-  return Math.min(6, Math.max(1, 2 ** ((zoom - 6.5) / 1.5)));
+  const { pivotZoom, levelsPerDoubling, minPx, maxPx } = ZOOM_CURVE;
+  return Math.min(maxPx, Math.max(minPx, 2 ** ((zoom - pivotZoom) / levelsPerDoubling)));
 }
 
 function outerRadius(d: FirePoint): number {
@@ -90,7 +102,6 @@ function outerRadius(d: FirePoint): number {
 export function createFiresLayer(
   data: FirePoint[],
   opacity: number,
-  zoom: number,
   onClick: (info: PickingInfo) => void,
 ): Layer {
   return new FireGlowLayer({
@@ -99,8 +110,6 @@ export function createFiresLayer(
     opacity,
     getPosition: (d) => [d.lng, d.lat],
     radiusUnits: 'pixels',
-    // Zoom goes through the radiusScale uniform, so zooming never recomputes per-point radii.
-    radiusScale: baseRadiusForZoom(zoom),
     getRadius: outerRadius,
     getFillColor: fillColor,
     parameters: ADDITIVE_BLEND,
