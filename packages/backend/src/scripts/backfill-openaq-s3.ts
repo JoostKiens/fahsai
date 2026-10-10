@@ -3,11 +3,13 @@
  * Bypasses the rate-limited API entirely — no credentials required.
  *
  * Usage:
- *   pnpm --filter backend run backfill:station-readings [startDate] [endDate]
+ *   pnpm --filter backend run backfill:station-readings [startDate] [endDate] [countries]
  *   # e.g. backfill:station-readings 2026-02-14 2026-03-28
+ *   # e.g. backfill:station-readings 2026-05-24 2026-10-07 BD,BT,IN,MM
  *
  * Defaults: startDate = today - 100 days, endDate = today - 57 days.
- * Both arguments are YYYY-MM-DD.
+ * Both dates are YYYY-MM-DD. countries is an optional comma-separated list of
+ * ISO alpha-2 codes; when given, only stations in those countries are backfilled.
  *
  * S3 files are available ≥72h after end of local day, so anything older
  * than ~3 days is safe to backfill. Current-day data still needs the API.
@@ -36,6 +38,7 @@ function parseDateArg(arg: string | undefined, fallbackDaysAgo: number): string 
 
 const startDate = parseDateArg(process.argv[2], 100);
 const endDate = parseDateArg(process.argv[3], 57);
+const countries = process.argv[4]?.split(',');
 
 if (startDate > endDate) {
   console.error(`[backfill-s3] startDate (${startDate}) must be ≤ endDate (${endDate})`);
@@ -53,11 +56,13 @@ while (cursor <= endCursor) {
 
 console.log(`[backfill-s3] Date range: ${startDate} → ${endDate} (${dates.length} days)`);
 
-// Fetch all stations that have pm25 sensor IDs
-const { data: stations, error: stationsError } = await supabase
+// Fetch all stations that have pm25 sensor IDs (optionally limited to some countries)
+let stationsQuery = supabase
   .from('stations')
   .select('id, pm25_sensor_ids')
   .filter('pm25_sensor_ids', 'not.eq', '{}');
+if (countries !== undefined) stationsQuery = stationsQuery.in('country', countries);
+const { data: stations, error: stationsError } = await stationsQuery;
 
 if (stationsError) throw new Error(`Failed to fetch stations: ${stationsError.message}`);
 if (!stations?.length) {
@@ -65,7 +70,10 @@ if (!stations?.length) {
   process.exit(1);
 }
 
-console.log(`[backfill-s3] ${stations.length} stations with pm25 sensors`);
+console.log(
+  `[backfill-s3] ${stations.length} stations with pm25 sensors` +
+    (countries !== undefined ? ` in ${countries.join(', ')}` : ''),
+);
 
 type Station = { id: string; pm25_sensor_ids: number[] };
 type MeasurementRow = {
