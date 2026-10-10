@@ -71,10 +71,14 @@ function fillColor(d: FirePoint): RGBA4 {
   return [255, 255, 255, d.confidence === 'low' ? 128 : 255];
 }
 
+// Exponential in zoom (×2 every 1.5 levels) so sizes grow smoothly instead of jumping at fixed
+// steps; clamped to 1 px zoomed out and 6 px zoomed in.
 export function baseRadiusForZoom(zoom: number): number {
-  if (zoom >= 11) return 6;
-  if (zoom >= 8) return 3;
-  return 1;
+  return Math.min(6, Math.max(1, 2 ** ((zoom - 6.5) / 1.5)));
+}
+
+function outerRadius(d: FirePoint): number {
+  return OUTER_MULT * intensityMultiplier(d);
 }
 
 /**
@@ -89,16 +93,16 @@ export function createFiresLayer(
   zoom: number,
   onClick: (info: PickingInfo) => void,
 ): Layer {
-  const baseRadius = baseRadiusForZoom(zoom);
   return new FireGlowLayer({
     id: 'fire-glow',
     data,
     opacity,
     getPosition: (d) => [d.lng, d.lat],
     radiusUnits: 'pixels',
-    getRadius: (d) => OUTER_MULT * baseRadius * intensityMultiplier(d),
+    // Zoom goes through the radiusScale uniform, so zooming never recomputes per-point radii.
+    radiusScale: baseRadiusForZoom(zoom),
+    getRadius: outerRadius,
     getFillColor: fillColor,
-    updateTriggers: { getRadius: baseRadius },
     parameters: ADDITIVE_BLEND,
     pickable: true,
     onClick,
