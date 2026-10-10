@@ -110,7 +110,7 @@ export async function fetchSensorDailyAverage(
     `${BASE_URL}/sensors/${sensorId}/hours/daily` +
     `?datetime_from=${encodeURIComponent(`${targetDate}T00:00:00${tzOffset}`)}` +
     `&datetime_to=${encodeURIComponent(`${targetDate}T23:59:59${tzOffset}`)}` +
-    `&limit=1`;
+    `&limit=2`;
 
   const MAX_RETRIES = 4;
   // Fewer than MAX_RETRIES: a 5xx on one sensor is often persistent, and every retry
@@ -187,7 +187,11 @@ export async function fetchSensorDailyAverage(
     const data = (await res.json()) as OpenAQHoursResponse;
     if (data.results.length === 0) return { readings: [], ...rateLimit, failed: false };
 
-    const result = data.results[0];
+    // OpenAQ buckets days in the sensor's own timezone. For sensors west of +07:00 our window
+    // also overlaps the end of their previous local day, returned first as a short stub bucket.
+    const result =
+      data.results.find((r) => r.period?.datetimeFrom.local?.startsWith(targetDate)) ??
+      data.results[0];
     if (result.period === null || result.value === null)
       return { readings: [], ...rateLimit, failed: false };
 
