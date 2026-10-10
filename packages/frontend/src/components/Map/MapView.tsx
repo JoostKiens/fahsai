@@ -6,7 +6,7 @@ import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '@/hooks';
 import { Map, AttributionControl, ExpressionSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { createOverlay, type OverlayInstance } from '@/utils/deck-overlay';
+import { createOverlay, skipUntilCanvasSized, type OverlayInstance } from '@/utils/deck-overlay';
 import { mapRef as globalMapRef } from '@/utils/mapRef';
 import { useLayerStore } from '@/store/layerStore';
 import { useUIStore } from '@/store/uiStore';
@@ -357,11 +357,11 @@ export function MapView() {
 
       // Non-interleaved canvases stack in addControl order (first = bottom).
       // Wind → power plants → fires/stations; heatmap is interleaved so order doesn't matter.
-      const windOv = new MapboxOverlay({ layers: [] });
+      const windOv = new MapboxOverlay({ layers: [], layerFilter: skipUntilCanvasSized });
       mapInstance.addControl(windOv);
-      const powerPlantsOv = new MapboxOverlay({ layers: [] });
+      const powerPlantsOv = new MapboxOverlay({ layers: [], layerFilter: skipUntilCanvasSized });
       mapInstance.addControl(powerPlantsOv);
-      const dataOv = new MapboxOverlay({ layers: [] });
+      const dataOv = new MapboxOverlay({ layers: [], layerFilter: skipUntilCanvasSized });
       mapInstance.addControl(dataOv);
       const heatmapOv = createOverlay({ layers: [] });
       mapInstance.addControl(heatmapOv);
