@@ -4,6 +4,7 @@ import { reportError, waitForRollbar } from '../lib/rollbar.js';
 try {
   const result = await runFiresIngest(process.argv[2]);
   console.log('[fires-ingest] done', result);
+  await waitForRollbar();
   process.exit(0);
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);

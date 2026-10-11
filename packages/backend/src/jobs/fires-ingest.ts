@@ -2,6 +2,7 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchFirms, FirmsHttpError } from '../utils/firms.js';
+import { reportWarning } from '../lib/rollbar.js';
 
 export async function runFiresIngest(date?: string): Promise<{ inserted: number }> {
   const targetDate = date ?? new Date().toISOString().slice(0, 10);
@@ -41,6 +42,11 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
     console.warn(
       `[fires-ingest] No daytime fire data returned for ${targetDate} — skipping writes`,
     );
+    // Usually FIRMS publishing late, not a real empty day; latest-date stalls until refilled.
+    reportWarning('FIRMS returned no daytime fire rows', {
+      date: targetDate,
+      fetched: rows.length,
+    });
     return { inserted: 0 };
   }
 
