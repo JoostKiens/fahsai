@@ -642,7 +642,6 @@ function FirePanel({
     frp: number | null;
     confidence: string | null;
     detectedAt: string;
-    daynight: string | null;
   };
   aqPoint: { pm25: number } | null;
   windVec: { wind_speed_kmh: number; wind_direction_deg: number } | null;
@@ -651,7 +650,6 @@ function FirePanel({
   const { t } = useTranslation();
   const intensity = frpToIntensity(fire.frp);
   const conf = mapConfidence(fire.confidence);
-  const dnKey = daynightKey(fire.daynight);
   const satKey = 'fire.satellite.noaa21';
 
   return (
@@ -688,7 +686,6 @@ function FirePanel({
               timeZone: 'Asia/Bangkok',
             }),
           })}
-          {dnKey && <> · {t(dnKey as never)}</>}
         </span>
       </Row>
       <SecondarySection aqPoint={aqPoint} windVec={windVec} />
@@ -789,14 +786,6 @@ function frpToIntensity(frp: number | null): { labelKey: string; raw: string | n
   if (frp < 50) return { labelKey: 'fire.intensity.moderate', raw: `(${frp.toFixed(0)} MW)` };
   if (frp < 200) return { labelKey: 'fire.intensity.large', raw: `(${frp.toFixed(0)} MW)` };
   return { labelKey: 'fire.intensity.extreme', raw: `(${frp.toFixed(0)} MW)` };
-}
-
-function daynightKey(dn: string | null | undefined): string | null {
-  if (!dn) return null;
-  const u = dn.toUpperCase();
-  if (u === 'D') return 'fire.daynight.day';
-  if (u === 'N') return 'fire.daynight.night';
-  return null;
 }
 
 function mapConfidence(raw: string | null): { labelKey: string; color: string } {
