@@ -129,6 +129,19 @@ describe('fetchSensorDailyAverage', () => {
     expect(result.failed).toBe(false);
   });
 
+  it('skips a bucket whose period has no datetimeFrom instead of storing it', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ results: [{ value: 28.5, period: { datetimeFrom: null } }] }), {
+        status: 200,
+      }),
+    );
+
+    const result = await fetchSensorDailyAverage('key', 1, targetDate);
+
+    expect(result.readings).toEqual([]);
+    expect(result.failed).toBe(false);
+  });
+
   it('throws on a 4xx so a bad API key is not silently skipped for every sensor', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(null, { status: 401, statusText: 'Unauthorized' }),

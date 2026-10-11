@@ -18,10 +18,11 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { buildS3Url, downloadS3File, computeDailyMean } from '../utils/openaq-s3.js';
-import { runWithConcurrency } from '../utils/backfill.js';
+import { fetchAllPages, runWithConcurrency } from '../utils/backfill.js';
 
 const BATCH_SIZE = 500;
 const CONCURRENCY = 20;
+const PAGE_SIZE = 1000;
 
 function parseDateArg(arg: string | undefined, fallbackDaysAgo: number): string {
   if (arg !== undefined) {
@@ -38,7 +39,12 @@ function parseDateArg(arg: string | undefined, fallbackDaysAgo: number): string 
 
 const startDate = parseDateArg(process.argv[2], 100);
 const endDate = parseDateArg(process.argv[3], 57);
-const countries = process.argv[4]?.split(',');
+// stations.country holds uppercase ISO alpha-2 codes, so "bd, in," becomes ['BD', 'IN'].
+const countries =
+  process.argv[4]
+    ?.split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => c !== '') ?? [];
 
 if (startDate > endDate) {
   console.error(`[backfill-s3] startDate (${startDate}) must be ≤ endDate (${endDate})`);
@@ -57,25 +63,33 @@ while (cursor <= endCursor) {
 console.log(`[backfill-s3] Date range: ${startDate} → ${endDate} (${dates.length} days)`);
 
 // Fetch all stations that have pm25 sensor IDs (optionally limited to some countries)
-let stationsQuery = supabase
-  .from('stations')
-  .select('id, pm25_sensor_ids')
-  .filter('pm25_sensor_ids', 'not.eq', '{}');
-if (countries !== undefined) stationsQuery = stationsQuery.in('country', countries);
-const { data: stations, error: stationsError } = await stationsQuery;
+type Station = { id: string; pm25_sensor_ids: number[] };
+const stations = await fetchAllPages<Station>((from, to) => {
+  let query = supabase
+    .from('stations')
+    .select('id, pm25_sensor_ids')
+    .filter('pm25_sensor_ids', 'not.eq', '{}');
+  if (countries.length > 0) query = query.in('country', countries);
+  return query.order('id').range(from, to);
+}, PAGE_SIZE).catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  throw new Error(`Failed to fetch stations: ${message}`, { cause: err });
+});
 
-if (stationsError) throw new Error(`Failed to fetch stations: ${stationsError.message}`);
-if (!stations?.length) {
-  console.error('[backfill-s3] No stations found — run ingest:stations first');
+if (stations.length === 0) {
+  console.error(
+    countries.length > 0
+      ? `[backfill-s3] No stations with pm25 sensors in ${countries.join(', ')}`
+      : '[backfill-s3] No stations found — run ingest:stations first',
+  );
   process.exit(1);
 }
 
 console.log(
   `[backfill-s3] ${stations.length} stations with pm25 sensors` +
-    (countries !== undefined ? ` in ${countries.join(', ')}` : ''),
+    (countries.length > 0 ? ` in ${countries.join(', ')}` : ''),
 );
 
-type Station = { id: string; pm25_sensor_ids: number[] };
 type MeasurementRow = {
   station_id: string;
   value: number;
@@ -85,7 +99,7 @@ type MeasurementRow = {
 // Collect all work items (station × date)
 const workItems: Array<{ station: Station; date: string }> = [];
 for (const date of dates) {
-  for (const station of stations as Station[]) {
+  for (const station of stations) {
     workItems.push({ station, date });
   }
 }
