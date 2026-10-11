@@ -18,11 +18,34 @@ const GLOW = {
   falloff: 1.5,
 };
 // Base radius in px grows ×2 every `levelsPerDoubling` zoom levels, clamped to [minPx, maxPx].
-// Shared by baseRadiusForZoom (selection ring) and the vertex shader (live while zooming).
 const ZOOM_CURVE = { pivotZoom: 6.5, levelsPerDoubling: 1.5, minPx: 1, maxPx: 6 };
+const SELECTION_RING = { minPx: 16, baseMult: 5, lineWidthPx: 2 };
 
 const glslFloat = (n: number) => n.toFixed(4);
 const glslVec3 = (c: RGB) => `vec3(${c.map((v) => glslFloat(v / 255)).join(', ')})`;
+
+// The single implementation of the zoom curve. project.scale is 2^zoom of the live viewport, so
+// sizes follow every frame of a zoom gesture without rebuilding layers.
+const ZOOM_CURVE_VS_DECL = `
+float fire_zoomBaseRadius() {
+  float r = exp2((log2(project.scale) - ${glslFloat(ZOOM_CURVE.pivotZoom)}) / ${glslFloat(ZOOM_CURVE.levelsPerDoubling)});
+  return clamp(r, ${glslFloat(ZOOM_CURVE.minPx)}, ${glslFloat(ZOOM_CURVE.maxPx)});
+}
+`;
+
+const SCATTERPLOT_RADIUS_EXPR = 'scatterplot.radiusScale * instanceRadius';
+
+// deck.gl has no hook between instanceRadius and outerRadiusPixels, and the zoom factor must be
+// applied there (not later, in DECKGL_FILTER_SIZE) so the fragment shader's edge, antialiasing
+// and stroke width all see the scaled radius. Throws if a deck.gl upgrade changes the source.
+export function patchRadius(vs: string, radiusExpr: string): string {
+  if (!vs.includes(SCATTERPLOT_RADIUS_EXPR)) {
+    throw new Error(
+      `ScatterplotLayer vertex shader no longer contains "${SCATTERPLOT_RADIUS_EXPR}"`,
+    );
+  }
+  return vs.replace(SCATTERPLOT_RADIUS_EXPR, radiusExpr);
+}
 
 // Runs before the picking module's filter (order 99), which replaces the color with the picking
 // color regardless of alpha — so the whole disc stays clickable even where the glow is faint.
@@ -37,22 +60,38 @@ const GLOW_FS = `
   );
 `;
 
-// project.scale is 2^zoom of the live viewport, so sizes follow every frame of a zoom gesture
-// without rebuilding the layer. Picking runs this shader too, so the hit target follows as well.
-const ZOOM_SIZE_VS = `
-  float fireBaseRadius = exp2((log2(project.scale) - ${glslFloat(ZOOM_CURVE.pivotZoom)}) / ${glslFloat(ZOOM_CURVE.levelsPerDoubling)});
-  size *= clamp(fireBaseRadius, ${glslFloat(ZOOM_CURVE.minPx)}, ${glslFloat(ZOOM_CURVE.maxPx)});
-`;
+// ScatterplotLayer types getShaders() as any; it defines no inject of its own to merge with.
+type Shaders = { vs: string; inject?: Record<string, string> };
 
-class FireGlowLayer extends ScatterplotLayer<FirePoint> {
+export class FireGlowLayer extends ScatterplotLayer<FirePoint> {
   static layerName = 'FireGlowLayer';
 
   getShaders() {
-    // ScatterplotLayer types getShaders() as any; it defines no inject of its own to merge with.
-    const shaders = super.getShaders() as object;
+    const shaders = super.getShaders() as Shaders;
     return {
       ...shaders,
-      inject: { 'vs:DECKGL_FILTER_SIZE': ZOOM_SIZE_VS, 'fs:DECKGL_FILTER_COLOR': GLOW_FS },
+      vs: patchRadius(shaders.vs, `${SCATTERPLOT_RADIUS_EXPR} * fire_zoomBaseRadius()`),
+      inject: { 'vs:#decl': ZOOM_CURVE_VS_DECL, 'fs:DECKGL_FILTER_COLOR': GLOW_FS },
+    };
+  }
+}
+
+type LngLat = { lng: number; lat: number };
+
+// Sized in the shader from the same curve as the glow, so it tracks zoom gestures with it.
+export class FireSelectionRingLayer extends ScatterplotLayer<LngLat> {
+  static layerName = 'FireSelectionRingLayer';
+
+  getShaders() {
+    const shaders = super.getShaders() as Shaders;
+    const { minPx, baseMult } = SELECTION_RING;
+    return {
+      ...shaders,
+      vs: patchRadius(
+        shaders.vs,
+        `max(${glslFloat(minPx)}, fire_zoomBaseRadius() * ${glslFloat(baseMult)})`,
+      ),
+      inject: { 'vs:#decl': ZOOM_CURVE_VS_DECL },
     };
   }
 }
@@ -84,11 +123,6 @@ function fillColor(d: FirePoint): RGBA4 {
   return [255, 255, 255, d.confidence === 'low' ? 128 : 255];
 }
 
-export function baseRadiusForZoom(zoom: number): number {
-  const { pivotZoom, levelsPerDoubling, minPx, maxPx } = ZOOM_CURVE;
-  return Math.min(maxPx, Math.max(minPx, 2 ** ((zoom - pivotZoom) / levelsPerDoubling)));
-}
-
 function outerRadius(d: FirePoint): number {
   return OUTER_MULT * intensityMultiplier(d);
 }
@@ -112,8 +146,26 @@ export function createFiresLayer(
     radiusUnits: 'pixels',
     getRadius: outerRadius,
     getFillColor: fillColor,
+    // The glow already fades to 0 at the rim, so edge antialiasing adds nothing; without it uv
+    // stays within the unit disc (t ≤ 1) and the hit target is exactly the drawn disc.
+    antialiasing: false,
     parameters: ADDITIVE_BLEND,
     pickable: true,
     onClick,
+  });
+}
+
+export function createFireSelectionRing([lng, lat]: [number, number]): Layer {
+  return new FireSelectionRingLayer({
+    id: 'fire-selection-ring',
+    data: [{ lng, lat }],
+    getPosition: (d) => [d.lng, d.lat],
+    radiusUnits: 'pixels',
+    stroked: true,
+    filled: false,
+    getLineColor: [255, 255, 255, 210],
+    lineWidthUnits: 'pixels',
+    getLineWidth: SELECTION_RING.lineWidthPx,
+    parameters: { depthCompare: 'always', depthWriteEnabled: false },
   });
 }
