@@ -18,6 +18,11 @@ keeps API keys server-side.
 - Bounding box: `89,1,114,30` — matches viewport MAX_BOUNDS (covers Myanmar, Thailand, Laos,
   Cambodia, Vietnam, Malaysia, and partial India/China/Bangladesh)
 - Schedule: daily (0 10 \* \* \*) — last satellite pass lands ~06:12 UTC, in DB by ~09:00 UTC
+  — plus a re-fetch at (0 23 \* \* \*) for days FIRMS publishes late (0 rows at 10:00 UTC
+  stalls `/api/latest-date`, since it needs ≥ 1 fire per day)
+- Daytime detections only (`daynight = 'D'`): the ~18 UTC night pass is filtered out at ingest.
+  This is for consistency (the dataset has always been the morning pass, and fire pressure /
+  `/api/explain` counts are calibrated on it), not because night detections are bad data.
 - Storage: Supabase `fire_points` table (plain `lat`/`lng` columns — the PostGIS `location`
   geography column was dropped in migration 020, and the `postgis` extension itself in 021)
 - Cache: Redis `fires:date:{date}` TTL 7d
@@ -105,7 +110,12 @@ else see https://docs.railway.com (search "Infrastructure as Code"). All times a
 ```
 fires-ingest           — daily     (0 10 * * *)   fetches VIIRS (NOAA-21 NRT) data for TODAY; last
   ingest-fires                                     pass lands ~06:12 UTC, in DB by ~09:00, so 10:00
-                                                    guarantees a complete day before storing
+                                                    guarantees a complete day before storing.
+                                                    Daytime rows only (daynight = 'D').
+  ingest-fires-late    — daily     (0 23 * * *)    same command, same UTC date: catches the morning
+                                                    pass when FIRMS publishes it after 10:00 UTC.
+                                                    Duplicates are skipped, so normal days add 0 rows.
+                                                    0 daytime rows → Rollbar warning.
 
 stations-ingest        — monthly   (0 22 4 * *)    fetches OpenAQ locations by bbox, upserts stations
   ingest-stations                                   including pm25_sensor_ids and datetime_last;

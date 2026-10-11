@@ -24,7 +24,7 @@ create table fire_points (
   lng          float8 not null,
   frp          float8,           -- fire radiative power (MW)
   confidence   text,             -- 'low', 'nominal', 'high'
-  daynight     text              -- 'D' or 'N'
+  daynight     text              -- always 'D' (ingest filters out night detections)
 );
 create index on fire_points (detected_at);
 create index on fire_points (confidence);
