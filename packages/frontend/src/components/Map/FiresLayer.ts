@@ -5,12 +5,96 @@ import type { FirePoint } from '@thailand-aq/types';
 type RGB = [number, number, number];
 type RGBA4 = [number, number, number, number];
 
-// Halo ring definitions — tweak these to adjust the bloom look.
-const OUTER_GLOW = { mult: 4, color: [255, 68, 0] as RGB, alpha: 20 }; // #ff4400, ~8%
-const MID_HALO = { mult: 2, color: [255, 170, 0] as RGB, alpha: 89 }; // #ffaa00, ~35%
-const INNER_CORE = { mult: 1, color: [255, 245, 204] as RGB, alpha: 230 }; // #fff5cc, ~90%
+// Glow definition — tweak these to adjust the bloom look. t runs 0 → 1 from the fire's centre
+// to the edge of the drawn disc, which is OUTER_MULT × the base radius (and is the hit target).
+const OUTER_MULT = 4;
+const CORE = { color: [255, 245, 204] as RGB, alpha: 0.9, edge: 0.25, softness: 0.05 }; // #fff5cc
+const GLOW = {
+  innerColor: [255, 170, 0] as RGB, // #ffaa00 next to the core
+  outerColor: [255, 68, 0] as RGB, // #ff4400 at the edge
+  peakAlpha: 0.8,
+  // alpha = peakAlpha · exp(-falloff · t²) · (1 - t²); the last term reaches 0 at the disc
+  // edge, so the glow never ends in a visible cutoff.
+  falloff: 1.5,
+};
+// Base radius in px grows ×2 every `levelsPerDoubling` zoom levels, clamped to [minPx, maxPx].
+const ZOOM_CURVE = { pivotZoom: 6.5, levelsPerDoubling: 1.5, minPx: 1, maxPx: 6 };
+const SELECTION_RING = { minPx: 16, baseMult: 5, lineWidthPx: 2 };
 
-const RINGS = [OUTER_GLOW, MID_HALO, INNER_CORE] as const;
+const glslFloat = (n: number) => n.toFixed(4);
+const glslVec3 = (c: RGB) => `vec3(${c.map((v) => glslFloat(v / 255)).join(', ')})`;
+
+// The single implementation of the zoom curve. project.scale is 2^zoom of the live viewport, so
+// sizes follow every frame of a zoom gesture without rebuilding layers.
+const ZOOM_CURVE_VS_DECL = `
+float fire_zoomBaseRadius() {
+  float r = exp2((log2(project.scale) - ${glslFloat(ZOOM_CURVE.pivotZoom)}) / ${glslFloat(ZOOM_CURVE.levelsPerDoubling)});
+  return clamp(r, ${glslFloat(ZOOM_CURVE.minPx)}, ${glslFloat(ZOOM_CURVE.maxPx)});
+}
+`;
+
+const SCATTERPLOT_RADIUS_EXPR = 'scatterplot.radiusScale * instanceRadius';
+
+// deck.gl has no hook between instanceRadius and outerRadiusPixels, and the zoom factor must be
+// applied there (not later, in DECKGL_FILTER_SIZE) so the fragment shader's edge, antialiasing
+// and stroke width all see the scaled radius. Throws if a deck.gl upgrade changes the source.
+export function patchRadius(vs: string, radiusExpr: string): string {
+  if (!vs.includes(SCATTERPLOT_RADIUS_EXPR)) {
+    throw new Error(
+      `ScatterplotLayer vertex shader no longer contains "${SCATTERPLOT_RADIUS_EXPR}"`,
+    );
+  }
+  return vs.replace(SCATTERPLOT_RADIUS_EXPR, radiusExpr);
+}
+
+// Runs before the picking module's filter (order 99), which replaces the color with the picking
+// color regardless of alpha — so the whole disc stays clickable even where the glow is faint.
+const GLOW_FS = `
+  float t = length(geometry.uv);
+  float core = 1.0 - smoothstep(${glslFloat(CORE.edge - CORE.softness)}, ${glslFloat(CORE.edge + CORE.softness)}, t);
+  vec3 glowColor = mix(${glslVec3(GLOW.innerColor)}, ${glslVec3(GLOW.outerColor)}, t);
+  float glowAlpha = ${glslFloat(GLOW.peakAlpha)} * exp(-${glslFloat(GLOW.falloff)} * t * t) * (1.0 - t * t);
+  color = vec4(
+    mix(glowColor, ${glslVec3(CORE.color)}, core),
+    mix(glowAlpha, ${glslFloat(CORE.alpha)}, core) * color.a
+  );
+`;
+
+// ScatterplotLayer types getShaders() as any; it defines no inject of its own to merge with.
+type Shaders = { vs: string; inject?: Record<string, string> };
+
+export class FireGlowLayer extends ScatterplotLayer<FirePoint> {
+  static layerName = 'FireGlowLayer';
+
+  getShaders() {
+    const shaders = super.getShaders() as Shaders;
+    return {
+      ...shaders,
+      vs: patchRadius(shaders.vs, `${SCATTERPLOT_RADIUS_EXPR} * fire_zoomBaseRadius()`),
+      inject: { 'vs:#decl': ZOOM_CURVE_VS_DECL, 'fs:DECKGL_FILTER_COLOR': GLOW_FS },
+    };
+  }
+}
+
+type LngLat = { lng: number; lat: number };
+
+// Sized in the shader from the same curve as the glow, so it tracks zoom gestures with it.
+export class FireSelectionRingLayer extends ScatterplotLayer<LngLat> {
+  static layerName = 'FireSelectionRingLayer';
+
+  getShaders() {
+    const shaders = super.getShaders() as Shaders;
+    const { minPx, baseMult } = SELECTION_RING;
+    return {
+      ...shaders,
+      vs: patchRadius(
+        shaders.vs,
+        `max(${glslFloat(minPx)}, fire_zoomBaseRadius() * ${glslFloat(baseMult)})`,
+      ),
+      inject: { 'vs:#decl': ZOOM_CURVE_VS_DECL },
+    };
+  }
+}
 
 // Additive blending: each fragment adds to the framebuffer instead of replacing it.
 // Overlapping halos accumulate — dense fire clusters bloom brighter.
@@ -34,46 +118,54 @@ function intensityMultiplier(d: FirePoint): number {
   return Math.min(2.0, Math.max(0.6, 0.6 + (Math.min(d.frp, 200) / 200) * 1.4));
 }
 
-function ringColor(ring: (typeof RINGS)[number], d: FirePoint): RGBA4 {
-  const a = d.confidence === 'low' ? ring.alpha * 0.5 : ring.alpha;
-  return [...ring.color, Math.round(a)];
+// The shader supplies the colors; only the per-point alpha (confidence) comes from here.
+function fillColor(d: FirePoint): RGBA4 {
+  return [255, 255, 255, d.confidence === 'low' ? 128 : 255];
+}
+
+function outerRadius(d: FirePoint): number {
+  return OUTER_MULT * intensityMultiplier(d);
 }
 
 /**
- * Returns three additive-blended ScatterplotLayers (outer glow → mid halo → inner core)
- * that render each fire point as a firefly/bloom effect. Layers use GL additive blending
- * so overlapping points accumulate light — dense clusters naturally appear brighter.
- * Intensity scales with FRP (fire radiative power); low-confidence points render at half opacity.
+ * Returns one additive-blended layer that renders each fire point as a firefly/bloom effect:
+ * a solid core with a soft orange→red glow, drawn as a radial gradient in the fragment shader.
+ * Additive blending makes overlapping points accumulate light — dense clusters appear brighter.
+ * Size scales with FRP (fire radiative power); low-confidence points render at half opacity.
  */
-export function baseRadiusForZoom(zoom: number): number {
-  if (zoom >= 11) return 6;
-  if (zoom >= 8) return 3;
-  return 1;
-}
-
 export function createFiresLayer(
   data: FirePoint[],
   opacity: number,
-  zoom: number,
   onClick: (info: PickingInfo) => void,
-): Layer[] {
-  const baseRadius = baseRadiusForZoom(zoom);
-  return RINGS.map(
-    (ring, i) =>
-      new ScatterplotLayer<FirePoint>({
-        id: ['fire-outer-glow', 'fire-mid-halo', 'fire-inner-core'][i],
-        data,
-        opacity,
-        getPosition: (d) => [d.lng, d.lat],
-        radiusUnits: 'pixels',
-        getRadius: (d) => ring.mult * baseRadius * intensityMultiplier(d),
-        getFillColor: (d) => ringColor(ring, d),
-        updateTriggers: { getRadius: baseRadius },
-        parameters: ADDITIVE_BLEND,
-        // All rings are pickable and handle clicks — Deck.gl picks the topmost layer at the
-        // pointer position, so only one onClick fires per click regardless of overlap.
-        pickable: true,
-        onClick,
-      }),
-  );
+): Layer {
+  return new FireGlowLayer({
+    id: 'fire-glow',
+    data,
+    opacity,
+    getPosition: (d) => [d.lng, d.lat],
+    radiusUnits: 'pixels',
+    getRadius: outerRadius,
+    getFillColor: fillColor,
+    // The glow already fades to 0 at the rim, so edge antialiasing adds nothing; without it uv
+    // stays within the unit disc (t ≤ 1) and the hit target is exactly the drawn disc.
+    antialiasing: false,
+    parameters: ADDITIVE_BLEND,
+    pickable: true,
+    onClick,
+  });
+}
+
+export function createFireSelectionRing([lng, lat]: [number, number]): Layer {
+  return new FireSelectionRingLayer({
+    id: 'fire-selection-ring',
+    data: [{ lng, lat }],
+    getPosition: (d) => [d.lng, d.lat],
+    radiusUnits: 'pixels',
+    stroked: true,
+    filled: false,
+    getLineColor: [255, 255, 255, 210],
+    lineWidthUnits: 'pixels',
+    getLineWidth: SELECTION_RING.lineWidthPx,
+    parameters: { depthCompare: 'always', depthWriteEnabled: false },
+  });
 }
