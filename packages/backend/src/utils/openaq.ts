@@ -35,8 +35,8 @@ interface OpenAQResponse {
 interface OpenAQHourResult {
   value: number;
   period: {
-    datetimeFrom: { utc: string; local?: string };
-    datetimeTo: { utc: string; local?: string };
+    datetimeFrom: { utc: string; local: string } | null;
+    datetimeTo: { utc: string; local: string } | null;
   } | null;
 }
 
@@ -189,22 +189,16 @@ export async function fetchSensorDailyAverage(
 
     // OpenAQ buckets days in the sensor's own timezone. For sensors west of +07:00 our window
     // also overlaps the end of their previous local day, returned first as a short stub bucket.
-    const result =
-      data.results.find((r) => r.period?.datetimeFrom.local?.startsWith(targetDate)) ??
-      data.results[0];
-    if (result.period === null || result.value === null)
-      return { readings: [], ...rateLimit, failed: false };
-
-    // Guard against stale-data responses (same failure mode as /days)
-    if (
-      result.period.datetimeFrom.local !== undefined &&
-      !result.period.datetimeFrom.local.startsWith(targetDate)
-    ) {
+    // No bucket for the target day means stale data (same failure mode as /days): skip it.
+    const result = data.results.find((r) => r.period?.datetimeFrom?.local.startsWith(targetDate));
+    if (result === undefined) {
+      const got = data.results.map((r) => r.period?.datetimeFrom?.local ?? 'null').join(', ');
       console.warn(
-        `[openaq] sensor ${sensorId}: date mismatch (expected ${targetDate}, got ${result.period.datetimeFrom.local}), skipping`,
+        `[openaq] sensor ${sensorId}: date mismatch (expected ${targetDate}, got ${got}), skipping`,
       );
       return { readings: [], ...rateLimit, failed: false };
     }
+    if (result.value === null) return { readings: [], ...rateLimit, failed: false };
 
     const dateUtc = `${targetDate}T00:00:00Z`;
     return { readings: [{ value: result.value, dateUtc }], ...rateLimit, failed: false };
