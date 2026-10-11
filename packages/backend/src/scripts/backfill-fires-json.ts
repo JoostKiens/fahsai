@@ -60,6 +60,7 @@ console.log(`[backfill-fires] Loaded ${raw.length} records from JSON`);
 
 const inBbox = raw.filter(
   (r) =>
+    r.daynight === 'D' && // daytime only, matches fires-ingest
     r.latitude >= BBOX.south &&
     r.latitude <= BBOX.north &&
     r.longitude >= BBOX.west &&
@@ -67,7 +68,7 @@ const inBbox = raw.filter(
 );
 
 console.log(
-  `[backfill-fires] ${inBbox.length} records within bbox (${raw.length - inBbox.length} filtered out)`,
+  `[backfill-fires] ${inBbox.length} daytime records within bbox (${raw.length - inBbox.length} filtered out)`,
 );
 
 const records = inBbox.map((r) => ({

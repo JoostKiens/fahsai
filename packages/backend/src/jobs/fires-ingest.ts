@@ -32,14 +32,19 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       },
     },
   );
-  console.log(`[fires-ingest] Fetched ${rows.length} rows`);
+  // Daytime only: the dataset has always been the ~06 UTC pass, and mixing in the ~18 UTC
+  // night pass would roughly double per-day counts (fire pressure, explain) overnight.
+  const dayRows = rows.filter((row) => row.daynight === 'D');
+  console.log(`[fires-ingest] Fetched ${rows.length} rows, ${dayRows.length} daytime`);
 
-  if (rows.length === 0) {
-    console.warn(`[fires-ingest] No fire data returned for ${targetDate} — skipping writes`);
+  if (dayRows.length === 0) {
+    console.warn(
+      `[fires-ingest] No daytime fire data returned for ${targetDate} — skipping writes`,
+    );
     return { inserted: 0 };
   }
 
-  const records = rows.map((row) => ({
+  const records = dayRows.map((row) => ({
     detected_at: row.detectedAt,
     lat: row.lat,
     lng: row.lng,
