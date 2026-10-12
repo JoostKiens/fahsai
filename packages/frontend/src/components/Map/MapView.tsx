@@ -233,7 +233,6 @@ export function MapView() {
           frp: d.frp,
           confidence: d.confidence,
           detectedAt: d.detectedAt,
-          daynight: d.daynight,
         },
       });
     };

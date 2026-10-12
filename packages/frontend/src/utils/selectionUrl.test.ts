@@ -26,7 +26,6 @@ const fire: SelectedPoint = {
     frp: 23.4,
     confidence: 'nominal',
     detectedAt: '2026-03-15T03:00:00Z',
-    daynight: 'D',
   },
 };
 
