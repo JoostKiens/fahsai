@@ -25,13 +25,10 @@ export function latestDateRoutes(app: FastifyInstance): void {
       const dayStart = bangkokMidnightIso(date);
       const dayEnd = bangkokMidnightIso(nextDate);
 
-      const [aqResult, fireResult, measResult, windResult] = await Promise.all([
+      // No fires gate: 0 detections is a valid day (rain, cloud cover), and both fires runs
+      // (10:00, 23:00 UTC) finish before cams/station_readings land at ~23:30 UTC anyway.
+      const [aqResult, measResult, windResult] = await Promise.all([
         supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),
-        supabase
-          .from('fire_points')
-          .select('*', { count: 'exact', head: true })
-          .gte('detected_at', dayStart)
-          .lt('detected_at', dayEnd),
         supabase
           .from('station_readings')
           .select('*', { count: 'exact', head: true })
@@ -45,7 +42,6 @@ export function latestDateRoutes(app: FastifyInstance): void {
 
       if (
         (aqResult.count ?? 0) >= AQ_GRID_MIN_ROWS &&
-        (fireResult.count ?? 0) >= 1 &&
         (measResult.count ?? 0) >= 1 &&
         (windResult.count ?? 0) >= WIND_MIN_ROWS
       ) {

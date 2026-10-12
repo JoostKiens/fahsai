@@ -18,8 +18,8 @@ keeps API keys server-side.
 - Bounding box: `89,1,114,30` — matches viewport MAX_BOUNDS (covers Myanmar, Thailand, Laos,
   Cambodia, Vietnam, Malaysia, and partial India/China/Bangladesh)
 - Schedule: twice daily (0 10,23 \* \* \*) — last satellite pass lands ~06:12 UTC, usually in
-  DB by ~09:00 UTC. The 23:00 run re-fetches the same date for days FIRMS publishes late
-  (0 rows at 10:00 UTC stalls `/api/latest-date`, since it needs ≥ 1 fire per day)
+  DB by ~09:00 UTC. The 23:00 run re-fetches the same date for days FIRMS publishes late.
+  Fires don't gate `/api/latest-date`: 0 detections can be a real day (rain, cloud cover)
 - Daytime detections only (`daynight = 'D'`): the ~18 UTC night pass is filtered out at ingest.
   This is for consistency (the dataset has always been the morning pass, and fire pressure /
   `/api/explain` counts are calibrated on it), not because night detections are bad data.
@@ -190,9 +190,10 @@ backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for
                                                        -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 ```
 
-The UI shows the most recent date where all four gating sources have complete data
-(cams_grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
-served by `GET /api/latest-date`.
+The UI shows the most recent date where all three gating sources have complete data
+(cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
+served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
+both fires runs finish before the other sources land.
 The date typically becomes available at ~23:30 UTC (06:30 BKK).
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
@@ -321,7 +322,8 @@ GET /api/power-plants
   Populate via: pnpm --filter backend run ingest:power-plants
 
 GET /api/latest-date
-  Returns the most recent date with complete data across all four gating sources.
+  Returns the most recent date with complete data across all three gating sources (cams_grid,
+  station_readings, weather_readings; fires are not gated).
   Redis key: latest-complete-date, TTL 30 min. Looks back up to 7 days; 404 if none is complete.
 
 POST /api/explain
