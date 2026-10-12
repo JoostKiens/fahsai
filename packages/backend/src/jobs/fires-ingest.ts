@@ -2,6 +2,7 @@ import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchFirms, FirmsHttpError } from '../utils/firms.js';
+import { reportWarning } from '../lib/rollbar.js';
 
 export async function runFiresIngest(date?: string): Promise<{ inserted: number }> {
   const targetDate = date ?? new Date().toISOString().slice(0, 10);
@@ -32,14 +33,24 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       },
     },
   );
-  console.log(`[fires-ingest] Fetched ${rows.length} rows`);
+  // Daytime only: the dataset has always been the ~06 UTC pass, and mixing in the ~18 UTC
+  // night pass would roughly double per-day counts (fire pressure, explain) overnight.
+  const dayRows = rows.filter((row) => row.daynight === 'D');
+  console.log(`[fires-ingest] Fetched ${rows.length} rows, ${dayRows.length} daytime`);
 
-  if (rows.length === 0) {
-    console.warn(`[fires-ingest] No fire data returned for ${targetDate} — skipping writes`);
+  if (dayRows.length === 0) {
+    console.warn(
+      `[fires-ingest] No daytime fire data returned for ${targetDate} — skipping writes`,
+    );
+    // Usually FIRMS publishing late, not a real empty day; latest-date stalls until refilled.
+    reportWarning('FIRMS returned no daytime fire rows', {
+      date: targetDate,
+      fetched: rows.length,
+    });
     return { inserted: 0 };
   }
 
-  const records = rows.map((row) => ({
+  const records = dayRows.map((row) => ({
     detected_at: row.detectedAt,
     lat: row.lat,
     lng: row.lng,
@@ -48,11 +59,14 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
     daynight: row.daynight,
   }));
 
-  await pRetry(
+  // count reflects rows actually written: duplicates skipped by ignoreDuplicates aren't counted.
+  const inserted = await pRetry(
     async () => {
-      const { error } = await supabase
-        .from('fire_points')
-        .upsert(records, { onConflict: 'detected_at,lat,lng', ignoreDuplicates: true });
+      const { error, count } = await supabase.from('fire_points').upsert(records, {
+        onConflict: 'detected_at,lat,lng',
+        ignoreDuplicates: true,
+        count: 'exact',
+      });
       if (error) {
         const detail = `code=${error.code ?? '?'} message="${error.message}" details="${error.details ?? '-'}" hint="${error.hint ?? '-'}"`;
         console.error(`[fires-ingest] Supabase upsert error: ${detail}`);
@@ -65,6 +79,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
           throw new AbortError(`Supabase upsert failed (${error.code}): ${error.message}`);
         throw new Error(`Supabase upsert failed (${error.code}): ${error.message}`);
       }
+      return count ?? 0;
     },
     {
       retries: 3,
@@ -82,6 +97,6 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
   // route repopulate with the correct shape on the next request.
   await redis.del(`fires:date:${targetDate}`);
 
-  console.log(`[fires-ingest] Upserted ${records.length} rows (duplicates silently skipped)`);
-  return { inserted: records.length };
+  console.log(`[fires-ingest] Inserted ${inserted} of ${records.length} rows (duplicates skipped)`);
+  return { inserted };
 }

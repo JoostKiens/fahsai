@@ -10,7 +10,6 @@ export interface SelectedPoint {
     frp: number | null;
     confidence: string | null;
     detectedAt: string;
-    daynight: string | null;
   };
   station?: {
     stationId: string;

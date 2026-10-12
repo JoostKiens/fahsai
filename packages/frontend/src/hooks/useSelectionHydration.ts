@@ -77,7 +77,6 @@ export function useSelectionHydration() {
           frp: f.frp,
           confidence: f.confidence,
           detectedAt: f.detectedAt,
-          daynight: f.daynight,
         },
       });
       return;

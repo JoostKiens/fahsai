@@ -17,7 +17,12 @@ keeps API keys server-side.
   (switched from Suomi-NPP to NOAA-21 in migration 019; existing SNPP rows were dropped)
 - Bounding box: `89,1,114,30` — matches viewport MAX_BOUNDS (covers Myanmar, Thailand, Laos,
   Cambodia, Vietnam, Malaysia, and partial India/China/Bangladesh)
-- Schedule: daily (0 10 \* \* \*) — last satellite pass lands ~06:12 UTC, in DB by ~09:00 UTC
+- Schedule: twice daily (0 10,23 \* \* \*) — last satellite pass lands ~06:12 UTC, usually in
+  DB by ~09:00 UTC. The 23:00 run re-fetches the same date for days FIRMS publishes late.
+  Fires don't gate `/api/latest-date`: 0 detections can be a real day (rain, cloud cover)
+- Daytime detections only (`daynight = 'D'`): the ~18 UTC night pass is filtered out at ingest.
+  This is for consistency (the dataset has always been the morning pass, and fire pressure /
+  `/api/explain` counts are calibrated on it), not because night detections are bad data.
 - Storage: Supabase `fire_points` table (plain `lat`/`lng` columns — the PostGIS `location`
   geography column was dropped in migration 020, and the `postgis` extension itself in 021)
 - Cache: Redis `fires:date:{date}` TTL 7d
@@ -103,9 +108,15 @@ diff in `plan` (Railway stores defaults as null). A service omitted from the fil
 else see https://docs.railway.com (search "Infrastructure as Code"). All times are UTC.
 
 ```
-fires-ingest           — daily     (0 10 * * *)   fetches VIIRS (NOAA-21 NRT) data for TODAY; last
+fires-ingest           — daily     (0 10,23 * * *) fetches VIIRS (NOAA-21 NRT) data for TODAY; last
   ingest-fires                                     pass lands ~06:12 UTC, in DB by ~09:00, so 10:00
-                                                    guarantees a complete day before storing
+                                                    usually has the complete day.
+                                                    Daytime rows only (daynight = 'D').
+                                                    Second run at 23:00, same UTC date: catches
+                                                    the morning pass when FIRMS publishes it
+                                                    after 10:00 UTC.
+                                                    Duplicates are skipped, so normal days add 0 rows.
+                                                    0 daytime rows → Rollbar warning.
 
 stations-ingest        — monthly   (0 22 4 * *)    fetches OpenAQ locations by bbox, upserts stations
   ingest-stations                                   including pm25_sensor_ids and datetime_last;
@@ -179,9 +190,10 @@ backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for
                                                        -- --start=YYYY-MM-DD --end=YYYY-MM-DD
 ```
 
-The UI shows the most recent date where all four gating sources have complete data
-(cams_grid ≥ 4,000 rows, fires ≥ 1, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
-served by `GET /api/latest-date`.
+The UI shows the most recent date where all three gating sources have complete data
+(cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
+served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
+both fires runs finish before the other sources land.
 The date typically becomes available at ~23:30 UTC (06:30 BKK).
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
@@ -310,7 +322,8 @@ GET /api/power-plants
   Populate via: pnpm --filter backend run ingest:power-plants
 
 GET /api/latest-date
-  Returns the most recent date with complete data across all four gating sources.
+  Returns the most recent date with complete data across all three gating sources (cams_grid,
+  station_readings, weather_readings; fires are not gated).
   Redis key: latest-complete-date, TTL 30 min. Looks back up to 7 days; 404 if none is complete.
 
 POST /api/explain

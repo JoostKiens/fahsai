@@ -92,9 +92,6 @@
   "fire.confidence.nominal": "Nominal",
   "fire.confidence.high": "High",
 
-  "fire.daynight.day": "Daytime",
-  "fire.daynight.night": "Nighttime",
-
   "fire.satellite.noaa21": "NOAA-21",
 
   "explain.button": "What's causing this?",
