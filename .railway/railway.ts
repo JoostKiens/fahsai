@@ -7,15 +7,8 @@ export default defineRailway(() => {
     source: fahsai,
     start: "pnpm --filter backend run railway:ingest:fires",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 10 * * *", restartPolicyType: "NEVER" },
+    deploy: { cronSchedule: "0 10,23 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "firms-ingest" },
-    env: { FIRMS_MAP_KEY: preserve(), NODE_ENV: preserve(), OPENAQ_API_KEY: preserve(), SUPABASE_SERVICE_ROLE_KEY: preserve(), SUPABASE_URL: preserve(), UPSTASH_REDIS_REST_TOKEN: preserve(), UPSTASH_REDIS_REST_URL: preserve() },
-  });
-  const ingestFiresLate = service("ingest-fires-late", {
-    source: fahsai,
-    start: "pnpm --filter backend run railway:ingest:fires",
-    replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 23 * * *", restartPolicyType: "NEVER" },
     env: { FIRMS_MAP_KEY: preserve(), NODE_ENV: preserve(), OPENAQ_API_KEY: preserve(), SUPABASE_SERVICE_ROLE_KEY: preserve(), SUPABASE_URL: preserve(), UPSTASH_REDIS_REST_TOKEN: preserve(), UPSTASH_REDIS_REST_URL: preserve() },
   });
   const ingestStations = service("ingest-stations", {
@@ -107,6 +100,6 @@ export default defineRailway(() => {
   });
 
   return project("fahsai", {
-    resources: [ingestFires, ingestFiresLate, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams],
+    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams],
   });
 });
