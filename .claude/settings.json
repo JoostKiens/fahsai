@@ -6,9 +6,7 @@
       "Bash(pnpm --filter backend typecheck *)",
       "Bash(pnpm lint *)",
       "Bash(pnpm --filter frontend lint *)",
-      "Bash(pnpm --filter backend lint *)",
-      "mcp__claude_ai_Linear__list_issues",
-      "mcp__claude_ai_Linear__save_issue"
+      "Bash(pnpm --filter backend lint *)"
     ]
   },
   "hooks": {
