@@ -59,11 +59,14 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
     daynight: row.daynight,
   }));
 
-  await pRetry(
+  // count reflects rows actually written: duplicates skipped by ignoreDuplicates aren't counted.
+  const inserted = await pRetry(
     async () => {
-      const { error } = await supabase
-        .from('fire_points')
-        .upsert(records, { onConflict: 'detected_at,lat,lng', ignoreDuplicates: true });
+      const { error, count } = await supabase.from('fire_points').upsert(records, {
+        onConflict: 'detected_at,lat,lng',
+        ignoreDuplicates: true,
+        count: 'exact',
+      });
       if (error) {
         const detail = `code=${error.code ?? '?'} message="${error.message}" details="${error.details ?? '-'}" hint="${error.hint ?? '-'}"`;
         console.error(`[fires-ingest] Supabase upsert error: ${detail}`);
@@ -76,6 +79,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
           throw new AbortError(`Supabase upsert failed (${error.code}): ${error.message}`);
         throw new Error(`Supabase upsert failed (${error.code}): ${error.message}`);
       }
+      return count ?? 0;
     },
     {
       retries: 3,
@@ -93,6 +97,6 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
   // route repopulate with the correct shape on the next request.
   await redis.del(`fires:date:${targetDate}`);
 
-  console.log(`[fires-ingest] Upserted ${records.length} rows (duplicates silently skipped)`);
-  return { inserted: records.length };
+  console.log(`[fires-ingest] Inserted ${inserted} of ${records.length} rows (duplicates skipped)`);
+  return { inserted };
 }
