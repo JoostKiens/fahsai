@@ -13,11 +13,15 @@ All layer files live in `packages/frontend/src/components/Map/` (there is no sep
 | Wind particles | Animated `TripsLayer` (comet-tail fade, non-interleaved overlay, `useWindParticles.ts`)                         | 2400 base particles (up to 2800 at deep zoom), bilinear interpolation, rAF loop; trails trimmed by age (TRAIL_LENGTH=14 × 16.67 ms), so length is refresh-rate independent                                                                                                                                                                                                                                                                                                                                             |
 | Power plants   | `IconLayer` (`PowerPlantsLayer.ts`)                                                                             | Canvas atlas (128×32, four 32×32 diamond icons), Coal/Gas/Oil/Diesel fuel types, zoom-dependent size (18/22/26/32px via `iconSizeForZoom`), hover tooltip                                                                                                                                                                                                                                                                                                                                                              |
 
-**Why `BitmapLayer` not `HeatmapLayer` for PM2.5:** `HeatmapLayer` normalizes weights relative
-to the viewport — the minimum value always maps to the first color regardless of absolute µg/m³,
-producing incorrect AQI colors. `BitmapLayer` paints each cell directly with EPA-threshold colors
-and bilinearly interpolates between neighbors, giving smooth gradients while preserving absolute
-color accuracy. Always filter data server-side; only send the selected date's grid.
+**Why `BitmapLayer` not `HeatmapLayer` for PM2.5:** without an explicit `colorDomain`,
+`HeatmapLayer` derives its color scale from the max weight in the current viewport, so the same
+µg/m³ gets a different color depending on what's in view. Pinning `colorDomain` fixes that, but
+`colorRange` is still spread evenly across the domain, while the EPA breakpoints (12, 35.4, 55.4,
+150.4, 250.4 µg/m³) are uneven. It's also a point-density layer: each point's weight is spread
+over `radiusPixels` in screen space and summed or averaged, so the result depends on zoom and
+grid spacing rather than the modelled concentration. `BitmapLayer` paints each cell directly with
+EPA-threshold colors and bilinearly interpolates between neighbors, giving smooth gradients while
+preserving absolute color accuracy. Always filter data server-side; only send the selected date's grid.
 
 ---
 
