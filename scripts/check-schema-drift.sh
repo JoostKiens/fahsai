@@ -20,9 +20,10 @@ for f in "$root"/supabase/migrations/*.sql; do
   psql -qX -v ON_ERROR_STOP=1 -d "$db" -f "$f"
 done
 
-# \restrict tokens and version comments change on every dump
+# \restrict tokens and version comments change on every dump; cat -s squeezes the blank lines
+# their removal leaves behind, which differ between 17.x minor versions
 dump="$(pg_dump -d "$db" --schema-only --schema=public --no-owner --no-privileges \
-  --quote-all-identifiers | grep -vE '^(\\(un)?restrict |-- Dumped )')"
+  --quote-all-identifiers | grep -vE '^(\\(un)?restrict |-- Dumped )' | cat -s)"
 
 if [ "${1:-}" = "--update" ]; then
   printf '%s\n' "$dump" > "$snapshot"

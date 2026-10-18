@@ -42,3 +42,26 @@ jobs:
 
       - run: pnpm audit --prod
         continue-on-error: true
+
+  schema-drift:
+    runs-on: ubuntu-latest
+    # postgres:17 matches the live major version; the runner's own pg_dump (16) can't dump a 17 server
+    container: postgres:17
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: scripts/check-schema-drift.sh
