@@ -103,7 +103,8 @@ jobs:
       - run: scripts/test-integration.sh
 
       - if: steps.images.outputs.cache-hit != 'true'
-        run: docker save -o /tmp/supabase-images.tar $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^public.ecr.aws/supabase/')
+        # the CLI falls back from public.ecr.aws to ghcr.io when ECR rate-limits the runner
+        run: docker save -o /tmp/supabase-images.tar $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(public\.ecr\.aws|ghcr\.io)/supabase/')
 
       - if: steps.images.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
