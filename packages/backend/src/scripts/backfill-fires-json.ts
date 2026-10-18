@@ -1,6 +1,6 @@
 /**
  * One-time backfill: ingest NOAA-21 fire data from a NASA FIRMS JSON download.
- * Run after applying migration 019_fire_source_noaa21.sql.
+ * Run after applying migration 019_fire_source_noaa21.sql (archived in supabase/migrations-legacy/).
  *
  * Usage: pnpm --filter backend run backfill:fires-noaa21 <path-to-json>
  *

@@ -137,8 +137,10 @@ the frontend or run it manually in rapid succession.
 
 **OpenAQ versions** — v1 and v2 are retired (January 2025). Use v3 only.
 
-**Schema migrations** — all schema changes use new Supabase migration files. Never modify
-existing migrations.
+**Schema migrations** — all schema changes use new timestamped files in `supabase/migrations/`.
+Never modify existing migrations. Regenerate `supabase/schema-snapshot.sql` with
+`scripts/check-schema-drift.sh --update` in the same commit (CI fails on drift). See
+`docs/claude/database.md`.
 
 **Ingest date semantics**: `weather_readings`, `station_weather`, `cams_grid`, and
 `station_fire_pressure` `date` columns are Bangkok calendar days (Asia/Bangkok), not UTC days.

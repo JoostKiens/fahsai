@@ -10,3 +10,6 @@ npm-debug.log*
 pnpm-debug.log*
 coverage/
 .claude/settings.local.json
+
+# Supabase CLI link state (project ref)
+supabase/.temp/
