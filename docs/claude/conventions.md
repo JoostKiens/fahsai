@@ -142,6 +142,28 @@ Never modify existing migrations. Regenerate `supabase/schema-snapshot.sql` with
 `scripts/check-schema-drift.sh --update` in the same commit (CI fails on drift). See
 `docs/claude/database.md`.
 
+**Unit vs integration tests (backend)** — `*.test.ts` files are DB-free unit tests and run in
+`pnpm test`, the pre-push hook and CI's `ci` job. `*.integration.test.ts` files run against a real
+local Supabase (PostgREST included) and are excluded from `pnpm test`; run them with
+`pnpm test:integration` (needs Docker and the Supabase CLI). Write an integration test when the
+behaviour lives in the query: pagination past the 1000-row cap, filter edges, LIKE escaping, day
+boundaries. A mocked query chain cannot catch those (e.g. a page size above the server cap passes
+a mocked test).
+
+- `scripts/test-integration.sh` starts `supabase start` with the unused services excluded (it
+  keeps `gotrue`, because `supabase status` only prints the API keys while it runs), builds the
+  schema from `supabase/migrations/`, and runs the suite. CI's `integration` job runs the same
+  script. It leaves the stack running; stop it with `supabase stop --no-backup`. The stack binds
+  to `0.0.0.0` with the CLI's shared default keys, so stop it when you are not using it.
+- The local stack uses ports 544xx (see `supabase/config.toml`) so it can run next to other local
+  Supabase projects. `max_rows = 1000` there must match production: the pagination tests rely on it.
+- Helpers live in `packages/backend/src/test/integration/` (`clearTables`, `seed`, `gridPoints`).
+  Call `clearTables()` in `beforeEach`. A global setup refuses to run unless `SUPABASE_URL` is
+  `localhost`/`127.0.0.1`, because the tests delete rows.
+- Tests that read the clock (`prune`, `latest-date`) fake only `Date`
+  (`vi.useFakeTimers({ toFake: ['Date'] })`); supabase-js and Fastify need real timers.
+- Check a new integration test by mutation: break the code it guards and confirm it fails.
+
 **Ingest date semantics**: `weather_readings`, `station_weather`, `cams_grid`, and
 `station_fire_pressure` `date` columns are Bangkok calendar days (Asia/Bangkok), not UTC days.
 Open-Meteo requests use `timezone: 'Asia/Bangkok'` for exactly this reason (a UTC-day fetch

@@ -17,6 +17,9 @@ All schema changes use new Supabase migration files. Never modify existing migra
   reproduce the snapshot. It compares migrations to the committed snapshot only, not to the
   live database, so a manual change on live (e.g. in the SQL editor) is not detected. CI pins
   the exact `postgres:17.x` image; bump it together with the snapshot.
+- The backend integration tests build their database from `supabase/migrations/` (applied by
+  `supabase start`), so a migration is exercised there too. `supabase/config.toml` sets
+  `max_rows = 1000` to match production; keep them in sync.
 - The baseline is registered on live with
   `supabase migration repair --status applied 20261018000000` (never apply it there). Do the
   same (`--status applied <timestamp>`) for each later migration applied by hand, or live's
