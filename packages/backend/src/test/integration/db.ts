@@ -28,6 +28,14 @@ export async function clearTables(): Promise<void> {
   }
 }
 
+// `count` distinct lat/lng pairs, for tables keyed on (date, lat, lng).
+export function gridPoints(count: number): { lat: number; lng: number }[] {
+  return Array.from({ length: count }, (_, i) => ({
+    lat: 5 + (i % 100) * 0.1,
+    lng: 95 + Math.floor(i / 100) * 0.1,
+  }));
+}
+
 export async function seed(table: TableName, rows: Row[]): Promise<void> {
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     const { error } = await supabase.from(table).insert(rows.slice(i, i + CHUNK_SIZE));
