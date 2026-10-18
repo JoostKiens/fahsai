@@ -45,11 +45,12 @@ jobs:
 
   schema-drift:
     runs-on: ubuntu-latest
-    # postgres:17 matches the live major version; the runner's own pg_dump (16) can't dump a 17 server
-    container: postgres:17
+    # Exact tag: pg_dump output shifts between minors, so bump it together with the snapshot.
+    # Major 17 matches live; the runner's own pg_dump (16) can't dump a 17 server.
+    container: postgres:17.11
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17.11
         env:
           POSTGRES_PASSWORD: postgres
         options: >-

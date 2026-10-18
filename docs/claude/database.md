@@ -14,9 +14,13 @@ All schema changes use new Supabase migration files. Never modify existing migra
   `supabase/schema-snapshot.sql` with the migration. The script needs `psql`/`pg_dump` 17 and a
   reachable Postgres (`PG*` env vars); it builds a throwaway database from the migrations.
 - CI's `schema-drift` job runs the same script and fails when the migrations no longer
-  reproduce the snapshot.
+  reproduce the snapshot. It compares migrations to the committed snapshot only, not to the
+  live database, so a manual change on live (e.g. in the SQL editor) is not detected. CI pins
+  the exact `postgres:17.x` image; bump it together with the snapshot.
 - The baseline is registered on live with
-  `supabase migration repair --status applied 20261018000000` (never apply it there).
+  `supabase migration repair --status applied 20261018000000` (never apply it there). Do the
+  same (`--status applied <timestamp>`) for each later migration applied by hand, or live's
+  migration history drifts from `supabase/migrations/` and the next `supabase db push` fails.
 
 PostGIS was used early on (`stations`/`power_plants`/`fire_points` each had a `location
 geography(Point, 4326)` column). All three now use plain `lat float8`/`lng float8` range

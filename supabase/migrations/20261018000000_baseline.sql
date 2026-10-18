@@ -8,10 +8,11 @@
 -- manages roles and grants), IF NOT EXISTS. Object names are kept verbatim, including
 -- legacy ones (aq_grid_pkey, measurements_id_seq, "public.fire_points_id_seq").
 -- The rls_auto_enable() event trigger itself is database-level and Supabase-managed,
--- so only its function is included.
+-- so only its function is included, as CREATE OR REPLACE because a fresh Supabase
+-- project may already ship it.
 
 
-CREATE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
+CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'pg_catalog'
     AS $$
