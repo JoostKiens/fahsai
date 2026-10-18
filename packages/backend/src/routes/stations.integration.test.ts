@@ -67,6 +67,12 @@ describe('stations routes against a real database', () => {
       expect(await listIds(BANGKOK_BBOX)).toEqual(['bkk-1', 'bkk-2', 'edge-1']);
     });
 
+    it('includes stations exactly on the south-west bbox corner', async () => {
+      await seed('stations', [{ id: 'sw-1', name: 'SW Corner', lat: 13, lng: 100 }]);
+
+      expect(await listIds(BANGKOK_BBOX)).toContain('sw-1');
+    });
+
     it('matches q as a case-insensitive substring', async () => {
       expect(await listIds('q=bangkok')).toEqual(['bkk-1', 'bkk-2']);
     });

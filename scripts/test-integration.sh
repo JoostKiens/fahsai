@@ -14,6 +14,12 @@ for attempt in 1 2 3; do
   sleep 15
 done
 
+# `supabase start` only applies migrations when it creates the database, so a stack left running
+# from an earlier run would miss any migration added since. `migration up` is a no-op when current;
+# it refuses when the database has migrations this checkout lacks (e.g. after switching branches),
+# so rebuild from scratch then.
+supabase migration up --local || supabase db reset --local
+
 eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
 export SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
 

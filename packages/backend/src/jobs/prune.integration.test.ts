@@ -13,13 +13,13 @@ const INSTANTS = ['2026-05-31T17:59:59Z', '2026-05-31T18:00:00Z', '2026-10-01T00
 const DAYS = ['2026-05-31', '2026-06-01', '2026-10-01'];
 
 type Row = Record<string, unknown>;
-interface Target {
+type Target = {
   key: string;
   table: TableName;
   column: string;
   values: string[];
   row: (value: string, i: number) => Row;
-}
+};
 
 const TARGETS: Target[] = [
   {
@@ -100,6 +100,7 @@ describe('runPrune against a real database', () => {
 
       const { data, error } = await supabase.from(table).select(column).order(column);
       expect(error).toBeNull();
+      // postgrest-js cannot infer the row type from a non-literal column name
       const remaining = (data as unknown as Record<string, string>[]).map((r) =>
         normalise(r[column]),
       );

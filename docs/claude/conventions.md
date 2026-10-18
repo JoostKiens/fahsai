@@ -159,7 +159,8 @@ a mocked test).
   Supabase projects. `max_rows = 1000` there must match production: the pagination tests rely on it.
 - Helpers live in `packages/backend/src/test/integration/` (`clearTables`, `seed`, `gridPoints`).
   Call `clearTables()` in `beforeEach`. A global setup refuses to run unless `SUPABASE_URL` is
-  `localhost`/`127.0.0.1`, because the tests delete rows.
+  exactly `http://127.0.0.1:54421` (this stack's port in `supabase/config.toml`), because the
+  tests delete rows and other local Supabase stacks may be running.
 - Tests that read the clock (`prune`, `latest-date`) fake only `Date`
   (`vi.useFakeTimers({ toFake: ['Date'] })`); supabase-js and Fastify need real timers.
 - Check a new integration test by mutation: break the code it guards and confirm it fails.

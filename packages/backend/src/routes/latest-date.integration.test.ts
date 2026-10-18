@@ -11,11 +11,11 @@ vi.mock('../cache/client.js', () => ({ redis: { get: redisGet, set: redisSet } }
 const NOW = new Date('2026-10-18T03:00:00Z');
 const MIN_ROWS = 4000;
 
-interface DayRows {
+type DayRows = {
   cams?: number;
   weather?: number;
   readingAt?: string | null;
-}
+};
 
 // A complete day by default; override a field to make one gate fail.
 async function seedDay(date: string, { cams = MIN_ROWS, weather = MIN_ROWS, readingAt }: DayRows) {
