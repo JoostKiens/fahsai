@@ -2,6 +2,22 @@
 
 All schema changes use new Supabase migration files. Never modify existing migrations.
 
+## Migration workflow
+
+- Migrations live in `supabase/migrations/` as `<YYYYMMDDHHMMSS>_<name>.sql`. The first,
+  `20261018000000_baseline.sql`, is a dump of the live `public` schema (grants, owners and
+  session settings stripped); it supersedes the legacy migrations 001-034, which are archived
+  in `supabase/migrations-legacy/` and are history only. Every "migration NNN" mentioned below
+  refers to a legacy file.
+- To change the schema: add a new timestamped file, apply it to the live database, then run
+  `scripts/check-schema-drift.sh --update` and commit the regenerated
+  `supabase/schema-snapshot.sql` with the migration. The script needs `psql`/`pg_dump` 17 and a
+  reachable Postgres (`PG*` env vars); it builds a throwaway database from the migrations.
+- CI's `schema-drift` job runs the same script and fails when the migrations no longer
+  reproduce the snapshot.
+- The baseline is registered on live with
+  `supabase migration repair --status applied 20261018000000` (never apply it there).
+
 PostGIS was used early on (`stations`/`power_plants`/`fire_points` each had a `location
 geography(Point, 4326)` column). All three now use plain `lat float8`/`lng float8` range
 filters for bbox queries instead -- confirmed directly against the live schema (no
@@ -10,8 +26,8 @@ trail only explicitly drops `fire_points.location` (migration 020) and the exten
 (migration 021, `DROP EXTENSION ... CASCADE`); `stations.location`/`power_plants.location`
 have no matching `DROP COLUMN` in any migration file, so they were most likely removed
 manually (early migrations in this file are explicitly "run manually in the Supabase SQL
-editor" per their own headers) rather than by the CASCADE. Don't assume the migration files
-are a complete record of when/how those two columns disappeared.
+editor" per their own headers) rather than by the CASCADE. The legacy files are not a
+complete record of when/how those two columns disappeared; the baseline is the source of truth.
 
 ```sql
 -- Fire detections from VIIRS NOAA-21 NRT

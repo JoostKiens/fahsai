@@ -48,7 +48,10 @@ working in a file, mention it rather than fixing it silently.
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json        # shared tsconfig
 ├── .railway/railway.ts       # Railway infrastructure-as-code (services + cron schedules)
-├── scripts/                  # Python helper for the sea/land mask (generate-land-mask.py)
+├── scripts/                  # Python helper for the sea/land mask (generate-land-mask.py),
+│                             # check-schema-drift.sh
+├── supabase/                 # migrations/ (baseline + new), migrations-legacy/ (archived),
+│                             # schema-snapshot.sql
 ├── docs/                     # claude/ reference docs, adr/ decision records, use-cases.md
 ├── packages/
 │   ├── types/                # shared TypeScript interfaces (no runtime deps)
@@ -205,7 +208,7 @@ pnpm --filter backend run ingest:station-fire-pressure
 pnpm --filter backend run ingest:station-baseline
 pnpm --filter backend run prune                   # retention cleanup
 
-# One-time backfill after deploying migration 018_station_weather.sql
+# One-time backfill after deploying migration 018_station_weather.sql (archived in supabase/migrations-legacy/)
 pnpm --filter backend run backfill:station-weather
 
 # Other one-off backfills / diagnostics (see each script's header comment for flags)
@@ -226,6 +229,8 @@ pnpm --filter backend run backfill:station-fire-pressure -- --start=YYYY-MM-DD -
 # station_readings data -- no S3 access. Rows the last full backfill already computed (with a
 # proper multi-year pool) are left untouched, not recomputed from a single year's data.
 pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
+
+scripts/check-schema-drift.sh [--update]          # verify supabase/migrations reproduce schema-snapshot.sql (needs Postgres 17)
 
 pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
