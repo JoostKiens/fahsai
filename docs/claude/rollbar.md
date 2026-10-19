@@ -30,7 +30,9 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 
 The handler reports the **original** error (message, path, method, request id) and only then
 replaces it with the generic `Internal server error` the client sees, so the real text is only
-ever in Rollbar and the logs.
+ever in Rollbar and the logs. The handler also writes it to the logs itself (error for
+unexpected errors, warn for `unavailable`, info for client errors), because it replaces Fastify's
+default handler, which is what used to log them.
 
 ## What is NOT tracked
 

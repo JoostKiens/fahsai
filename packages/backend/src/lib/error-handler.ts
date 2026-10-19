@@ -22,6 +22,12 @@ export function registerErrorHandling(app: FastifyInstance, reporters: ErrorRepo
     const { statusCode, body, severity } = classifyError(error);
     const context = { path: request.url, method: request.method, requestId: request.id };
 
+    // The client gets a generic text, so the original has to be logged here: this handler replaces
+    // Fastify's default one, which is what used to log it.
+    if (severity === 'error') request.log.error({ err: error }, 'request failed');
+    else if (severity === 'warning') request.log.warn({ err: error }, body.error);
+    else request.log.info({ code: body.code }, body.error);
+
     // Report the original error before the client-facing text replaces it.
     if (severity === 'error') reporters.reportError(error, context);
     if (severity === 'warning') reporters.reportWarning(body.error, context);
@@ -57,9 +63,11 @@ function severityOfServerError(statusCode: number, code: ErrorCode): 'error' | '
 }
 
 // Fastify's own 4xx errors (schema validation, malformed JSON, oversized body): their messages are
-// written by Fastify, not derived from our internals, so they are safe to send.
+// written by Fastify, not derived from our internals, so they are safe to send. A 4xx-looking error
+// from anywhere else (a library we call) is our failure, not the client's, and is not trusted here.
 function asClientError(error: unknown): ClassifiedError | null {
   if (typeof error !== 'object' || error === null) return null;
+  if (!isFastifyError(error)) return null;
   if (!('statusCode' in error) || typeof error.statusCode !== 'number') return null;
   const { statusCode } = error;
   if (statusCode < 400 || statusCode >= 500) return null;
@@ -72,6 +80,11 @@ function asClientError(error: unknown): ClassifiedError | null {
     ...(details ? { details } : {}),
   };
   return { statusCode, body, severity: null };
+}
+
+function isFastifyError(error: object): boolean {
+  if ('validation' in error && Array.isArray(error.validation)) return true;
+  return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_ERR_');
 }
 
 function codeForClientStatus(statusCode: number): ErrorCode {

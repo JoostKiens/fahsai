@@ -10,8 +10,16 @@ const mentionsDate: unknown = expect.stringContaining('date');
 const reportError = vi.fn();
 const reportWarning = vi.fn();
 
-function buildApp(): FastifyInstance {
-  const app = Fastify();
+// pino writes one JSON line per log call; these are lines we produce ourselves, so the cast is safe
+type LogLine = { level: number; msg?: string; err?: { message?: string } };
+
+function buildApp(logLines: LogLine[] = []): FastifyInstance {
+  const app = Fastify({
+    logger: {
+      level: 'info',
+      stream: { write: (line: string) => logLines.push(JSON.parse(line) as LogLine) },
+    },
+  });
   registerErrorHandling(app, { reportError, reportWarning });
 
   app.get('/invalid', () => {
@@ -50,6 +58,9 @@ function buildApp(): FastifyInstance {
     },
     () => ({ ok: true }),
   );
+  app.get('/library-error', () => {
+    throw Object.assign(new Error('upstream said no'), { statusCode: 400 });
+  });
   app.post('/json', () => ({ ok: true }));
   return app;
 }
@@ -57,10 +68,13 @@ function buildApp(): FastifyInstance {
 describe('central error handling', () => {
   let app: FastifyInstance;
 
+  let logLines: LogLine[];
+
   beforeEach(() => {
     reportError.mockReset();
     reportWarning.mockReset();
-    app = buildApp();
+    logLines = [];
+    app = buildApp(logLines);
   });
 
   afterEach(() => app.close());
@@ -146,6 +160,55 @@ describe('central error handling', () => {
         expect.objectContaining({ message: 'relation "secret_table" does not exist' }),
         { path: '/boom', method: 'GET', requestId: anyRequestId },
       );
+    });
+  });
+
+  describe('what is logged', () => {
+    const errorLevel = 50;
+    const warnLevel = 40;
+    const infoLevel = 30;
+
+    it('logs an unexpected error at error level with the original message', async () => {
+      await get('/boom');
+
+      expect(
+        logLines.find(
+          (line) => line.level === errorLevel && line.err?.message?.includes('secret_table'),
+        ),
+      ).toBeDefined();
+    });
+
+    it('logs an unavailable dataset as a warning', async () => {
+      await get('/unavailable');
+
+      expect(logLines.some((line) => line.level === warnLevel)).toBe(true);
+      expect(logLines.some((line) => line.level === errorLevel)).toBe(false);
+    });
+
+    it('logs a client error below error level', async () => {
+      await get('/invalid');
+
+      expect(logLines.some((line) => line.level >= warnLevel)).toBe(false);
+      expect(
+        logLines.some(
+          (line) => line.level === infoLevel && line.msg === 'start must be before end',
+        ),
+      ).toBe(true);
+    });
+  });
+
+  describe('an error with a 4xx status that did not come from Fastify', () => {
+    it('is answered as an unexpected error, without its message', async () => {
+      const { status, body } = await get('/library-error');
+
+      expect(status).toBe(500);
+      expect(body).toEqual({ error: 'Internal server error', code: 'internal' });
+    });
+
+    it('is reported, because it is our failure to call the library', async () => {
+      await get('/library-error');
+
+      expect(reportError).toHaveBeenCalledTimes(1);
     });
   });
 
