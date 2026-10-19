@@ -27,10 +27,12 @@ export function parseApiError(value: unknown): ApiError | null {
   };
 }
 
-// The text received so far without the error line, which may still be arriving.
+// The text received so far without the error line, which may still be arriving: that includes a
+// chunk that stops inside the line's opening, such as "\n[ERR".
 export function withoutStreamError(received: string): string {
   const start = received.lastIndexOf(STREAM_ERROR_PREFIX);
-  return start === -1 ? received : received.slice(0, start);
+  if (start !== -1) return received.slice(0, start);
+  return received.slice(0, received.length - partialPrefixLength(received));
 }
 
 // The error the stream ended with, or null if it has none. An error line that is cut off or
@@ -49,6 +51,15 @@ export function toRateLimit(error: ApiError | null, nowMs: number): RateLimit {
     reason: error?.reason ?? 'quota_exceeded',
     resetAtMs: error?.resetAtMs ?? nowMs + MS_PER_HOUR,
   };
+}
+
+// How many characters at the end of `received` are the beginning of the error line's prefix.
+function partialPrefixLength(received: string): number {
+  const longest = Math.min(STREAM_ERROR_PREFIX.length - 1, received.length);
+  for (let length = longest; length > 0; length--) {
+    if (received.endsWith(STREAM_ERROR_PREFIX.slice(0, length))) return length;
+  }
+  return 0;
 }
 
 function parseJson(text: string): unknown {

@@ -137,6 +137,9 @@ export function useExplain() {
       } else if (streamError) {
         setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       }
+    } catch (err) {
+      // a new request or a reset aborts the pending read, which rejects: that is not an error
+      if (!signal.aborted) throw err;
     } finally {
       if (!signal.aborted) {
         setState((prev) => ({ ...prev, loading: false, phase: null }));

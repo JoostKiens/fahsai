@@ -54,6 +54,9 @@ describe('useExplain', () => {
     return new Response(body, { status: 200 });
   }
 
+  // each chunk gets its own act(), so React renders after it, as it would in the browser
+  const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
   const errorLine = (error: object) => `\n[ERROR_JSON:${JSON.stringify(error)}]`;
 
   it('reads the reason and reset time of an HTTP 429', async () => {
@@ -119,10 +122,12 @@ describe('useExplain', () => {
     expect(latest()).toMatchObject({ text: '', error: 'unavailable', rateLimit: null });
   });
 
-  it('never shows the error line, even while it is still arriving in pieces', async () => {
+  it.each([
+    ['inside its opening', 4],
+    ['halfway through it', 25],
+  ])('never shows the error line, even when a chunk ends %s', async (_where, cut) => {
     const encoder = new TextEncoder();
     const line = errorLine({ error: 'Explanation unavailable', code: 'unavailable' });
-    const cut = Math.floor(line.length / 2);
     let stream!: ReadableStreamDefaultController<Uint8Array>;
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -130,9 +135,6 @@ describe('useExplain', () => {
       },
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
-    // each chunk gets its own act(), so React renders after it, as it would in the browser
-    const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
     let finished: Promise<void> | undefined;
     await act(async () => {
       finished = latest().explain(OPTIONS);
@@ -156,5 +158,41 @@ describe('useExplain', () => {
       await finished;
     });
     expect(latest()).toMatchObject({ text: '', error: 'unavailable' });
+  });
+  it('resolves quietly when a reset aborts the stream that is being read', async () => {
+    const encoder = new TextEncoder();
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream = controller;
+      },
+    });
+    // like a real fetch, aborting the request errors the body that is being read
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) => {
+        init.signal?.addEventListener('abort', () =>
+          stream.error(new DOMException('The operation was aborted.', 'AbortError')),
+        );
+        return Promise.resolve(new Response(body, { status: 200 }));
+      }),
+    );
+
+    let finished: Promise<void> | undefined;
+    await act(async () => {
+      finished = latest().explain(OPTIONS);
+      await nextTick();
+    });
+    await act(async () => {
+      stream.enqueue(encoder.encode('Some words'));
+      await nextTick();
+    });
+    await act(async () => {
+      latest().reset();
+      await nextTick();
+    });
+
+    await expect(finished).resolves.toBeUndefined();
+    expect(latest()).toMatchObject({ text: '', loading: false, error: null, rateLimit: null });
   });
 });

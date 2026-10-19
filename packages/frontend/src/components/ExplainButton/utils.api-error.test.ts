@@ -92,6 +92,19 @@ describe('stream errors', () => {
     expect(withoutStreamError('Some text\n[ERROR_JSON:{"err')).toBe('Some text');
     expect(withoutStreamError('Some text')).toBe('Some text');
   });
+
+  it.each(['\n', '\n[', '\n[ERR', '\n[ERROR_JSON'])(
+    'hides an error line that has only just begun to arrive (%j)',
+    (beginning) => {
+      expect(withoutStreamError(`Some text${beginning}`)).toBe('Some text');
+    },
+  );
+
+  it('keeps text that merely contains part of the prefix', () => {
+    expect(withoutStreamError('An [ERR in the middle of the text.')).toBe(
+      'An [ERR in the middle of the text.',
+    );
+  });
 });
 
 describe('toRateLimit', () => {
