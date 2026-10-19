@@ -194,6 +194,35 @@ day it targets. Bangkok is UTC+7: before 17:00 UTC the Bangkok date equals the U
 previous calendar day. If one is moved to 17:00 UTC or later, re-derive which Bangkok day it will
 target.
 
+**API errors** — every error the backend sends on purpose is `{ error, code }` (`ApiError` in
+`packages/types/src/error.ts`). Never write `reply.status(...).send({ error })`: throw
+`new AppError({ code, message })` (`lib/app-error.ts`) from the route, and the central handler
+(`lib/error-handler.ts`, registered before the routes in `server.ts`) sends it. The status follows
+the code:
+
+| code              | status | use for                                                                   |
+| ----------------- | ------ | ------------------------------------------------------------------------- |
+| `invalid_request` | 400    | bad or missing input, including an invalid `bbox`                         |
+| `not_found`       | 404    | an unknown resource or route                                              |
+| `no_data`         | 404    | nothing for this date or range (the frontend treats it as an empty state) |
+| `rate_limited`    | 429    | also set `reason` and `resetAtMs`                                         |
+| `unavailable`     | 503    | a dataset or feature that is not there; reported to Rollbar as a warning  |
+| `internal`        | 500    | anything unexpected; the client gets a generic text, never the real one   |
+
+- `error` is the single human-readable text. **Never add a `message` field**: the published
+  `fahsai-mcp-server` reads `message` before `error`, so a second text would win.
+- Throw a plain `Error` only for bugs and failed queries. The handler answers it with a generic
+  500 and reports the original (message, path, method, request id) to Rollbar. Client errors
+  (4xx) are never reported.
+- A route test that expects an error body must register the handler:
+  `registerErrorHandling(app, noReporters)` (`src/test/no-reporters.ts`).
+- Do not throw an `AppError` inside a `try` whose `catch` fails open (e.g. the Upstash rate-limit
+  check): the catch swallows it. Return a value from a helper and throw outside the `try`, as
+  `ipRateLimitResetMs` does in `routes/explain.ts`.
+- `/health` (its own 503 body) and `/api/rollbar` (relays Rollbar, always 200) are exempt.
+- The explain stream cannot change its HTTP status once it has started; see
+  `docs/claude/explain.md` ("Errors") for how a failure is sent in-band.
+
 **Browser cache + TanStack Query double-caching** — Fastify routes must return
 `Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body
 lets the browser serve that empty body from cache after data arrives, bypassing TanStack's

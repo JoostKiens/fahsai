@@ -28,6 +28,38 @@ req/hour, prefix `ratelimit:explain`, `packages/backend/src/cache/ratelimit.ts`)
 
 ---
 
+## Errors
+
+All errors are the `ApiError` shape (`{ error, code, reason?, resetAtMs? }`, see
+`docs/claude/conventions.md`, "API errors").
+
+**Before the stream starts** they are ordinary HTTP errors:
+
+- 400 `invalid_request`: `stationId`, `lat` or `lng` missing; on `/context` also a bad `date`.
+- 404 `not_found`: unknown station.
+- 429 `rate_limited` with `reason: 'ip_ratelimit'` (the per-IP limits above) or
+  `reason: 'quota_exceeded'` (450 explanations a day, resetting at Bangkok midnight), plus
+  `resetAtMs`.
+- 503 `unavailable`: no `GEMINI_API_KEY` configured.
+
+**After the stream has started** the HTTP status is already 200 and the response is hijacked, so a
+failure is sent in-band as the last line of the stream: `\n[ERROR_JSON:<ApiError as one line of
+JSON>]`.
+
+- A Gemini rate limit is `code: 'rate_limited'` with `reason: 'gemini_rpm' | 'gemini_tpm' |
+'gemini_rpd'` and `resetAtMs` (the next Los Angeles midnight for the daily limit, else a minute
+  away). It is reported to Rollbar as a warning.
+- Any other failure is `{ error: 'Explanation unavailable', code: 'unavailable' }`. The raw Gemini
+  message is never sent to the client; it is logged and reported to Rollbar as an error.
+- A failed stream is never cached.
+
+Backend: `lib/gemini-error.ts` (`classifyGeminiError`, `formatStreamError`). Frontend:
+`components/ExplainButton/utils.api-error.ts`: the error line is hidden while it is still arriving
+and read once the stream is done (`parseStreamError`). On any error the explanation box shows the
+rate-limit or unavailable message only, never partial text.
+
+---
+
 ## Back-trajectory ensemble
 
 The explain endpoint uses a 5-member backward trajectory ensemble to identify the 72-hour

@@ -233,6 +233,11 @@ consolidation of ingest retry strategy is tracked in Linear JOO-86.
 All routes return JSON. All accept a `bbox` query param where spatial filtering is needed
 (format: `west,south,east,north`, default: `89,1,114,30`).
 
+Every error sent on purpose is `{ error, code }` (see `docs/claude/conventions.md`, "API
+errors"). A 404 on a date-keyed route means there is no data for that date (`code: 'no_data'`);
+an unknown resource or route is `code: 'not_found'`. An invalid `bbox` is a 400. `/health` and
+`/api/rollbar` keep their own shapes.
+
 ```
 GET /api/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.
@@ -281,7 +286,7 @@ GET /api/stations?bbox=...&q=...
 
 GET /api/stations/:id
   Returns a single station's metadata: { id, name, lat, lng, country, provider }.
-  404 { error: 'Station not found' } for an unknown id -- unlike /:id/history and
+  404 { error: 'Station not found', code: 'not_found' } for an unknown id -- unlike /:id/history and
   /:id/baseline, which never resolve station identity and return 200 with empty/
   placeholder data for unknown ids. No date param, no data-availability check --
   this only answers "does this station id exist, and where is it."

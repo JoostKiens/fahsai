@@ -2,10 +2,26 @@
 
 Types live in `packages/types/src/` and are imported by both frontend and backend.
 `AQIReading` (earlier design) is gone -- the current model is built around `Station`.
-Key files: `station.ts`, `baseline.ts`, `fire.ts`, `weather.ts`, `aq.ts`, `power-plant.ts`.
+Key files: `station.ts`, `baseline.ts`, `fire.ts`, `weather.ts`, `aq.ts`, `power-plant.ts`,
+`error.ts`.
 All re-exported from `index.ts`.
 
 ```typescript
+// error.ts -- every error the API sends (HTTP bodies and the explain stream's last line)
+export type ErrorCode =
+  'invalid_request' | 'not_found' | 'no_data' | 'rate_limited' | 'unavailable' | 'internal';
+export type RateLimitReason =
+  'ip_ratelimit' | 'quota_exceeded' | 'gemini_rpm' | 'gemini_tpm' | 'gemini_rpd';
+export type ApiError = {
+  error: string; // the one human text; never add a `message` field
+  code: ErrorCode;
+  reason?: RateLimitReason; // only for code 'rate_limited'
+  resetAtMs?: number;
+  details?: { path: string; message: string }[];
+};
+export type RateLimit = { reason: RateLimitReason; resetAtMs: number };
+// the code and reason lists are also exported as ERROR_CODES / RATE_LIMIT_REASONS
+
 // fire.ts
 export interface FirePoint {
   id: number;

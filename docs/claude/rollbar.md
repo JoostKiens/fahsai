@@ -11,12 +11,14 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 
 ### Backend
 
-| Event                             | Level     | Where                               |
-| --------------------------------- | --------- | ----------------------------------- |
-| Unhandled route errors (5xx)      | `error`   | `setErrorHandler` in `server.ts`    |
-| Gemini API rate limit hits        | `warning` | `routes/explain.ts`                 |
-| Ingestion job failures            | `error`   | `scripts/ingest-*.ts` catch blocks  |
-| Process-level uncaught exceptions | `error`   | `captureUncaught: true` in SDK init |
+| Event                                   | Level     | Where                                                       |
+| --------------------------------------- | --------- | ----------------------------------------------------------- |
+| Unexpected route errors (5xx)           | `error`   | `registerErrorHandling` (`lib/error-handler.ts`)            |
+| Unavailable dataset or feature (503)    | `warning` | `registerErrorHandling`, thrown as `AppError` `unavailable` |
+| Gemini rate limit hits                  | `warning` | `routes/explain.ts`                                         |
+| Gemini failures after the stream starts | `error`   | `routes/explain.ts`                                         |
+| Ingestion job failures                  | `error`   | `scripts/ingest-*.ts` catch blocks                          |
+| Process-level uncaught exceptions       | `error`   | `captureUncaught: true` in SDK init                         |
 
 ### Frontend
 
@@ -26,6 +28,10 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
 | Unhandled JS exceptions      | `error` | `captureUncaught: true` in SDK init |
 | Unhandled promise rejections | `error` | `captureUnhandledRejections: true`  |
 
+The handler reports the **original** error (message, path, method, request id) and only then
+replaces it with the generic `Internal server error` the client sees, so the real text is only
+ever in Rollbar and the logs.
+
 ## What is NOT tracked
 
 - **Some cron scripts don't call `reportError`.** Only `ingest-fires`, `ingest-station-readings`,
@@ -34,10 +40,11 @@ Free tier limit: **5,000 occurrences/month** across both projects combined.
   `ingest-power-plants` only `console.error` and exit 1, so a failure there is visible in Railway
   logs but not in Rollbar.
 
-- **User 429s** (our `/api/explain` rate limit hits) — expected behavior, covered by
+- **User 429s** (our `/api/explain` IP limit and daily quota) — expected behavior, covered by
   existing Redis counters (`ratelimit:explain`).
-- **4xx route errors** — client errors, not our bugs. The `setErrorHandler` skips
-  anything with `statusCode < 500`.
+- **4xx route errors** — client errors, not our bugs. The central error handler never reports
+  them (`classifyError` returns no severity for anything below 500), including an invalid `bbox`,
+  which used to be a reported 500.
 - **Anything in development** — both SDKs initialize only when their token env var
   is set **and** `NODE_ENV` / `MODE` is `production`. Local dev always falls through
   to console/Pino logs.
