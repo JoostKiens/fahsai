@@ -5,6 +5,7 @@ import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { AppError } from '../lib/app-error.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -44,7 +45,10 @@ export function weatherRoutes(app: FastifyInstance): void {
       const { date, bbox: rawBbox } = req.query;
 
       if (!date || !DATE_RE.test(date)) {
-        return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'date param required (YYYY-MM-DD)',
+        });
       }
 
       const cacheKey = windCacheKey(date);
@@ -54,9 +58,10 @@ export function weatherRoutes(app: FastifyInstance): void {
         readings = await fetchWindFromDb(date);
 
         if (!readings.length) {
-          return reply
-            .status(404)
-            .send({ error: 'No wind data for this date. Run the ingest job.' });
+          throw new AppError({
+            code: 'no_data',
+            message: 'No wind data for this date. Run the ingest job.',
+          });
         }
 
         if (readings.length >= MIN_COMPLETE_POINTS) {
@@ -78,7 +83,7 @@ export function weatherRoutes(app: FastifyInstance): void {
     const { date, bbox: rawBbox } = req.query;
 
     if (!date || !DATE_RE.test(date)) {
-      return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
+      throw new AppError({ code: 'invalid_request', message: 'date param required (YYYY-MM-DD)' });
     }
 
     let readings = await redis.get<WeatherReading[]>(weatherCacheKey(date));
@@ -87,9 +92,10 @@ export function weatherRoutes(app: FastifyInstance): void {
       readings = await fetchWeatherFromDb(date);
 
       if (!readings.length) {
-        return reply
-          .status(404)
-          .send({ error: 'No weather data for this date. Run the ingest job.' });
+        throw new AppError({
+          code: 'no_data',
+          message: 'No weather data for this date. Run the ingest job.',
+        });
       }
 
       if (readings.length >= MIN_COMPLETE_POINTS) {

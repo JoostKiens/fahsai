@@ -38,6 +38,7 @@ const noData = (name: string, url: string, error: string): ErrorCase => [
 ];
 
 const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
+const DATE_REQUIRED = 'date param required (YYYY-MM-DD)';
 
 const CASES: Record<string, ErrorCase[]> = {
   fires: [
@@ -79,6 +80,20 @@ const CASES: Record<string, ErrorCase[]> = {
       'no fires in range',
       '/api/fires/range?start=2026-10-16&end=2026-10-17',
       'No fire data for this date range.',
+    ),
+  ],
+  weather: [
+    invalid('weather without date', '/api/weather', DATE_REQUIRED),
+    invalid('wind with a malformed date', '/api/weather/wind?date=x', DATE_REQUIRED),
+    noData(
+      'no weather',
+      '/api/weather?date=2026-10-17',
+      'No weather data for this date. Run the ingest job.',
+    ),
+    noData(
+      'no wind',
+      '/api/weather/wind?date=2026-10-17',
+      'No wind data for this date. Run the ingest job.',
     ),
   ],
 };
