@@ -3,9 +3,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { AppError } from './app-error.js';
 import { registerErrorHandling } from './error-handler.js';
 
-// asymmetric matchers are typed `any`; typing them `unknown` keeps no-unsafe-assignment satisfied
+// asymmetric matchers are typed `any`; typing it `unknown` keeps no-unsafe-assignment satisfied
 const anyRequestId: unknown = expect.any(String);
-const mentionsDate: unknown = expect.stringContaining('date');
 
 const reportError = vi.fn();
 const reportWarning = vi.fn();
@@ -114,7 +113,7 @@ describe('central error handling', () => {
       expect(status).toBe(400);
       expect(body).toMatchObject({
         code: 'invalid_request',
-        details: [{ path: 'date', message: mentionsDate }],
+        details: [{ path: 'date', message: 'is required' }],
       });
     });
 

@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import {
-  Type,
-  TypeBoxTypeProvider,
-  TypeBoxValidatorCompiler,
-} from '@fastify/type-provider-typebox';
+import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { registerApiDocs } from './api-docs.js';
+import { useTypeBoxValidation } from './typebox-validation.js';
 
 type OpenApiDocument = {
   openapi: string;
@@ -21,7 +18,7 @@ describe('API docs', () => {
 
   beforeEach(async () => {
     app = Fastify();
-    app.setValidatorCompiler(TypeBoxValidatorCompiler);
+    useTypeBoxValidation(app);
     await registerApiDocs(app);
     app.withTypeProvider<TypeBoxTypeProvider>().get(
       '/things',
