@@ -169,6 +169,9 @@ const CASES: Record<string, ErrorCase[]> = {
       'unavailable',
     ],
   ],
+  'latest date': [
+    noData('no complete day', '/api/latest-date', 'No complete date found in the last 7 days'),
+  ],
 };
 
 describe('error responses of the data routes against a real database', () => {

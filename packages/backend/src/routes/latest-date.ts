@@ -3,6 +3,7 @@ import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { bangkokDateString, bangkokMidnightIso } from '../utils/bkkDate.js';
+import { AppError } from '../lib/app-error.js';
 
 const CACHE_KEY = 'latest-complete-date';
 const CACHE_TTL_SECONDS = 30 * 60; // 30 min — refreshes well within the daily ingest window
@@ -50,8 +51,9 @@ export function latestDateRoutes(app: FastifyInstance): void {
       }
     }
 
-    return reply
-      .status(404)
-      .send({ error: `No complete date found in the last ${LOOKBACK_DAYS} days` });
+    throw new AppError({
+      code: 'no_data',
+      message: `No complete date found in the last ${LOOKBACK_DAYS} days`,
+    });
   });
 }
