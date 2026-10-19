@@ -1,4 +1,5 @@
 import type { FastifySchemaValidationError } from 'fastify/types/schema.js';
+import { FORMAT_HINTS } from '../schemas/common.js';
 
 // The text of a request that failed schema validation: what Fastify would say, but readable. The
 // full list of problems still reaches the client as `details` (see error-handler.ts).
@@ -15,6 +16,9 @@ export function formatValidationError(
     return new Error(`Missing required ${noun}: ${missing.join(', ')}`);
   }
   const name = first.instancePath.split('/').filter(Boolean).pop() ?? dataVar;
+  const format = first.keyword === 'format' ? first.params['format'] : undefined;
+  const hint = typeof format === 'string' ? FORMAT_HINTS[format] : undefined;
+  if (hint) return new Error(`Invalid parameter ${name}: expected ${hint}`);
   return new Error(`Invalid parameter ${name}: ${first.message ?? 'is not valid'}`);
 }
 

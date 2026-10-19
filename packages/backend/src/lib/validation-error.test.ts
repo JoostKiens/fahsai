@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { ApiError } from '@thailand-aq/types';
 import { noReporters } from '../test/no-reporters.js';
+import { Bbox } from '../schemas/common.js';
 import { registerErrorHandling } from './error-handler.js';
 import { useTypeBoxValidation } from './typebox-validation.js';
 
@@ -19,6 +20,7 @@ describe('the text of a request that failed validation', () => {
         schema: {
           querystring: Type.Object({
             date: Type.String({ format: 'date' }),
+            bbox: Type.Optional(Bbox),
             hours: Type.Number({ exclusiveMinimum: 0, maximum: 168 }),
           }),
         },
@@ -49,7 +51,15 @@ describe('the text of a request that failed validation', () => {
   it('names the parameter that is invalid and why', async () => {
     const { body } = await errorFor('/things?date=2026-02-30&hours=24');
 
-    expect(body.error).toBe('Invalid parameter date: must match format "date"');
+    expect(body.error).toBe('Invalid parameter date: expected a calendar day, YYYY-MM-DD');
+  });
+
+  it('says what a bbox must look like', async () => {
+    const { body } = await errorFor('/things?date=2026-10-17&hours=24&bbox=nonsense');
+
+    expect(body.error).toBe(
+      'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)',
+    );
   });
 
   it('says what limit a number breaks', async () => {

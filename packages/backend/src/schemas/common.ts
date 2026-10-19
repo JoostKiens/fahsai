@@ -8,28 +8,37 @@ export const DateString = Type.String({
   examples: ['2026-10-17'],
 });
 
-export const DEFAULT_BBOX_DESCRIPTION = 'Defaults to 89,1,114,30 (Thailand and its neighbours).';
+const BBOX_PATTERN = /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/;
+
+// Registered as the 'bbox' format (see typebox-validation.ts), so a bad value reads
+// "expected west,south,east,north" instead of quoting a regular expression.
+export const BBOX_FORMAT = 'bbox';
+
+export function isBbox(value: string): boolean {
+  return BBOX_PATTERN.test(value);
+}
 
 export const Bbox = Type.String({
-  pattern: '^-?\\d+(\\.\\d+)?(,-?\\d+(\\.\\d+)?){3}$',
-  description: `West,south,east,north in degrees. ${DEFAULT_BBOX_DESCRIPTION}`,
+  format: BBOX_FORMAT,
+  description:
+    'West,south,east,north in degrees. Defaults to 89,1,114,30 (Thailand and its neighbours).',
   examples: ['100,13,101,14'],
 });
+
+// What each custom or standard format expects, for the text of a validation error.
+export const FORMAT_HINTS: Record<string, string> = {
+  date: 'a calendar day, YYYY-MM-DD',
+  [BBOX_FORMAT]: 'west,south,east,north (for example 100,13,101,14)',
+};
 
 // Registered once with app.addSchema, so the document holds one ApiError component and every route
 // refers to it. Keep it in step with ApiError in packages/types.
 export const ApiErrorSchema = Type.Object(
   {
     error: Type.String({ description: 'The one human-readable text.' }),
-    code: Type.Union(
-      ERROR_CODES.map((code) => Type.Literal(code)),
-      { description: 'What went wrong, for programs.' },
-    ),
+    code: Type.Enum(ERROR_CODES, { description: 'What went wrong, for programs.' }),
     reason: Type.Optional(
-      Type.Union(
-        RATE_LIMIT_REASONS.map((reason) => Type.Literal(reason)),
-        { description: 'Which limit was hit; only for rate_limited.' },
-      ),
+      Type.Enum(RATE_LIMIT_REASONS, { description: 'Which limit was hit; only for rate_limited.' }),
     ),
     resetAtMs: Type.Optional(Type.Number({ description: 'When the limit resets, epoch ms.' })),
     details: Type.Optional(

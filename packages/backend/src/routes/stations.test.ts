@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { registerErrorHandling } from '../lib/error-handler.js';
-import { noReporters } from '../test/no-reporters.js';
+import type { FastifyInstance } from 'fastify';
+import { buildTestApp } from '../test/test-app.js';
 
 interface ChainMock {
   gte: ReturnType<typeof vi.fn>;
@@ -45,8 +44,7 @@ describe('GET /api/stations/:id', () => {
 
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
-    app = Fastify();
-    registerErrorHandling(app, noReporters);
+    app = buildTestApp();
     await app.register(stationsRoutes);
   });
 
@@ -104,8 +102,7 @@ describe('GET /api/stations', () => {
 
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
-    app = Fastify();
-    registerErrorHandling(app, noReporters);
+    app = buildTestApp();
     await app.register(stationsRoutes);
   });
 

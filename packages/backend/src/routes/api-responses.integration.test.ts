@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { clearTables, seed } from '../test/integration/db.js';
 import { camsRoutes } from './cams.js';
 import { firesRoutes } from './fires.js';
 import { powerPlantsRoutes } from './power-plants.js';
 import { stationReadingsRoutes } from './station-readings.js';
 import { weatherRoutes } from './weather.js';
+import { buildTestApp } from '../test/test-app.js';
 
 // Characterization tests: they pin the CURRENT success responses (status, Cache-Control, body) of
 // the data routes against a real database, so later refactors (schemas, versioning) can prove
@@ -161,7 +162,7 @@ describe('current success responses of the data routes', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = Fastify();
+    app = buildTestApp();
     firesRoutes(app);
     weatherRoutes(app);
     camsRoutes(app);

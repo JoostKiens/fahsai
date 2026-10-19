@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { registerErrorHandling } from '../lib/error-handler.js';
-import { noReporters } from '../test/no-reporters.js';
+import type { FastifyInstance } from 'fastify';
 import { clearTables, seed } from '../test/integration/db.js';
 import { stationsRoutes } from './stations.js';
+import { buildTestApp } from '../test/test-app.js';
 
 const BASE_STATIONS = [
   { id: 'bkk-1', name: 'Bangkok Din Daeng', lat: 13.77, lng: 100.55, country: 'TH', provider: 'x' },
@@ -24,8 +23,7 @@ describe('stations routes against a real database', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = Fastify();
-    registerErrorHandling(app, noReporters);
+    app = buildTestApp();
     stationsRoutes(app);
   });
 

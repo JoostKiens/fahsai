@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { registerErrorHandling } from '../lib/error-handler.js';
+import type { FastifyInstance } from 'fastify';
 import { clearTables } from '../test/integration/db.js';
-import { noReporters } from '../test/no-reporters.js';
 import { camsRoutes } from './cams.js';
 import { firesRoutes } from './fires.js';
 import { latestDateRoutes } from './latest-date.js';
@@ -10,6 +8,7 @@ import { powerPlantsRoutes } from './power-plants.js';
 import { stationReadingsRoutes } from './station-readings.js';
 import { stationsRoutes } from './stations.js';
 import { weatherRoutes } from './weather.js';
+import { buildTestApp } from '../test/test-app.js';
 
 // Every error the data routes send on purpose, against an empty database. Bodies are exactly
 // { error, code }: the human text is unchanged from before the error contract (JOO-76).
@@ -20,14 +19,24 @@ vi.mock('../cache/client.js', () => ({
   CACHE_CONTROL_IMMUTABLE: `public, max-age=${7 * 24 * 60 * 60}`,
 }));
 
-type ErrorCase = [name: string, url: string, status: number, error: string, code: string];
+type Detail = { path: string; message: string };
+type ErrorCase = [
+  name: string,
+  url: string,
+  status: number,
+  error: string,
+  code: string,
+  details?: Detail[],
+];
 
-const invalid = (name: string, url: string, error: string): ErrorCase => [
+// details are only there when the request failed schema validation
+const invalid = (name: string, url: string, error: string, details?: Detail[]): ErrorCase => [
   name,
   url,
   400,
   error,
   'invalid_request',
+  details,
 ];
 const noData = (name: string, url: string, error: string): ErrorCase => [
   name,
@@ -37,6 +46,8 @@ const noData = (name: string, url: string, error: string): ErrorCase => [
   'no_data',
 ];
 
+const BAD_BBOX_SCHEMA =
+  'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)';
 const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
 const NO_CAMS = 'No CAMS grid data for this date. Run the ingest job.';
 const DATE_REQUIRED = 'date param required (YYYY-MM-DD)';
@@ -157,7 +168,9 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   stations: [
-    invalid('list with a bad bbox', '/api/stations?bbox=nonsense', BAD_BBOX),
+    invalid('list with a bad bbox', '/api/stations?bbox=nonsense', BAD_BBOX_SCHEMA, [
+      { path: '/bbox', message: 'must match format "bbox"' },
+    ]),
     ['unknown station', '/api/stations/nope', 404, 'Station not found', 'not_found'],
   ],
   'power plants': [
@@ -178,8 +191,7 @@ describe('error responses of the data routes against a real database', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = Fastify();
-    registerErrorHandling(app, noReporters);
+    app = buildTestApp();
     firesRoutes(app);
     weatherRoutes(app);
     camsRoutes(app);
@@ -194,12 +206,12 @@ describe('error responses of the data routes against a real database', () => {
   beforeEach(clearTables);
 
   describe.each(Object.entries(CASES))('%s', (_group, cases) => {
-    it.each(cases)('%s', async (_name, url, status, error, code) => {
+    it.each(cases)('%s', async (_name, url, status, error, code, details) => {
       const res = await app.inject({ method: 'GET', url });
 
       expect({ status: res.statusCode, body: res.json<unknown>() }).toEqual({
         status,
-        body: { error, code },
+        body: { error, code, ...(details ? { details } : {}) },
       });
     });
   });
