@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
+import { TypeBoxValidatorCompiler } from '@fastify/type-provider-typebox';
 import { healthRoutes } from './routes/health';
 import { firesRoutes } from './routes/fires';
 import { stationReadingsRoutes } from './routes/station-readings';
@@ -11,6 +12,7 @@ import { powerPlantsRoutes } from './routes/power-plants';
 import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
 import { rollbarProxyRoutes } from './routes/rollbar-proxy';
+import { registerApiDocs } from './lib/api-docs';
 import { registerErrorHandling } from './lib/error-handler';
 import { createReportThrottle, throttleWarnings } from './lib/report-throttle';
 import { reportError, reportWarning } from './lib/rollbar';
@@ -29,6 +31,10 @@ registerErrorHandling(
     createReportThrottle({ windowMs: REPORT_THROTTLE_WINDOW_MS }),
   ),
 );
+
+// Validates the TypeBox schemas on the routes (querystring values are coerced, bodies are not).
+app.setValidatorCompiler(TypeBoxValidatorCompiler);
+await registerApiDocs(app);
 
 await app.register(compress);
 await app.register(cors, { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] });
