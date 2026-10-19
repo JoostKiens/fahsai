@@ -1,4 +1,4 @@
-import Fastify, { type FastifyError } from 'fastify';
+import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import compress from '@fastify/compress';
 import { healthRoutes } from './routes/health';
@@ -11,10 +11,14 @@ import { powerPlantsRoutes } from './routes/power-plants';
 import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
 import { rollbarProxyRoutes } from './routes/rollbar-proxy';
-import { reportError } from './lib/rollbar';
+import { registerErrorHandling } from './lib/error-handler';
+import { reportError, reportWarning } from './lib/rollbar';
 import { ALLOWED_ORIGINS } from './utils/cors';
 
 const app = Fastify({ logger: true, trustProxy: true });
+
+// Before any route plugin, so they all inherit it.
+registerErrorHandling(app, { reportError, reportWarning });
 
 await app.register(compress);
 await app.register(cors, { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] });
@@ -28,13 +32,6 @@ await app.register(powerPlantsRoutes);
 await app.register(explainRoutes);
 await app.register(latestDateRoutes);
 await app.register(rollbarProxyRoutes);
-
-app.setErrorHandler<FastifyError>((error, request, reply) => {
-  if (!error.statusCode || error.statusCode >= 500) {
-    reportError(error, { path: request.url, method: request.method });
-  }
-  void reply.send(error);
-});
 
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? '0.0.0.0';
