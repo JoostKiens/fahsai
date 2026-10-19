@@ -49,9 +49,9 @@ working in a file, mention it rather than fixing it silently.
 ├── tsconfig.base.json        # shared tsconfig
 ├── .railway/railway.ts       # Railway infrastructure-as-code (services + cron schedules)
 ├── scripts/                  # Python helper for the sea/land mask (generate-land-mask.py),
-│                             # check-schema-drift.sh
-├── supabase/                 # migrations/ (baseline + new), migrations-legacy/ (archived),
-│                             # schema-snapshot.sql
+│                             # check-schema-drift.sh, test-integration.sh
+├── supabase/                 # config.toml (local stack), migrations/ (baseline + new),
+│                             # migrations-legacy/ (archived), schema-snapshot.sql
 ├── docs/                     # claude/ reference docs, adr/ decision records, use-cases.md
 ├── packages/
 │   ├── types/                # shared TypeScript interfaces (no runtime deps)
@@ -234,7 +234,9 @@ scripts/check-schema-drift.sh [--update]          # verify supabase/migrations r
 
 pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
-pnpm test                                         # run all package test suites
+pnpm test                                         # run all package test suites (DB-free)
+pnpm test:integration                             # backend real-DB tests on a local Supabase (needs Docker + Supabase CLI)
+supabase stop --no-backup                         # stop that local stack when done
 pnpm format                                       # prettier --write across all packages
 
 # Golden-set eval for /api/explain prompt/output quality (English + Thai)
@@ -270,7 +272,9 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 - Husky + lint-staged: formats and lints staged files on pre-commit; pre-push runs
   `pnpm typecheck` and `pnpm test`
 - Commitlint: conventional commits enforced on commit-msg hook
-- Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env)
+- Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env). Backend
+  `*.integration.test.ts` files run separately against a local Supabase (see
+  `docs/claude/conventions.md`)
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
 ## Internationalisation (i18n)

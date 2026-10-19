@@ -13,6 +13,7 @@
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx}\"",
     "test": "pnpm -r run test",
+    "test:integration": "scripts/test-integration.sh",
     "prepare": "husky"
   },
   "lint-staged": {

@@ -66,3 +66,53 @@ jobs:
       - uses: actions/checkout@v5
 
       - run: scripts/check-schema-drift.sh
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_CLI_VERSION: 2.121.0
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      # The image set is fixed by the CLI version, so it keys the cache. Avoids anonymous-pull
+      # rate limits on public.ecr.aws.
+      - uses: actions/cache/restore@v6
+        id: images
+        with:
+          path: /tmp/supabase-images.tar
+          key: supabase-images-${{ env.SUPABASE_CLI_VERSION }}
+
+      - if: steps.images.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-images.tar
+
+      - run: scripts/test-integration.sh
+
+      # Populating the cache must never fail a run whose tests passed.
+      - if: steps.images.outputs.cache-hit != 'true'
+        continue-on-error: true
+        # the CLI falls back from public.ecr.aws to ghcr.io when ECR rate-limits the runner
+        run: docker save -o /tmp/supabase-images.tar $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(public\.ecr\.aws|ghcr\.io)/supabase/')
+
+      - if: steps.images.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: /tmp/supabase-images.tar
+          key: supabase-images-${{ env.SUPABASE_CLI_VERSION }}
