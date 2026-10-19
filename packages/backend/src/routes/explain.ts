@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
@@ -9,6 +9,7 @@ import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { computeScientificContext } from '../lib/computeScientificContext.js';
 import { bangkokDateString } from '../utils/bkkDate.js';
 import { corsOriginHeader } from '../utils/cors.js';
+import { AppError } from '../lib/app-error.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAILY_QUOTA_LIMIT = 450;
@@ -56,13 +57,40 @@ function explainCacheKey(stationId: string, date: string, lang: string): string 
   return `explain:v${EXPLAIN_CACHE_VERSION}:${stationId}:${date}:${lang}`;
 }
 
+// Returns when the limit resets if this IP is over it, else null. Upstash being down must not block
+// users, so any error there fails open. Kept out of the route so the AppError thrown for a hit is
+// not swallowed by that fail-open catch.
+async function ipRateLimitResetMs(
+  limiter: typeof explainRatelimit,
+  ip: string,
+  log: FastifyBaseLogger,
+): Promise<number | null> {
+  if (!IP_RATELIMIT_ENABLED) return null;
+  try {
+    const { success, reset } = await limiter.limit(ip);
+    return success ? null : reset;
+  } catch (err) {
+    log.error({ err }, 'ip rate limit: Upstash error — failing open');
+    return null;
+  }
+}
+
+function ipRateLimited(resetAtMs: number): AppError {
+  return new AppError({
+    code: 'rate_limited',
+    message: 'Rate limit exceeded',
+    reason: 'ip_ratelimit',
+    resetAtMs,
+  });
+}
+
 export function explainRoutes(app: FastifyInstance): void {
   app.post<{ Body: { stationId: string; lat: number; lng: number; date?: string; lang?: string } }>(
     '/api/explain',
     async (req, reply) => {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        return reply.status(503).send({ error: 'AI explanation not configured' });
+        throw new AppError({ code: 'unavailable', message: 'AI explanation not configured' });
       }
 
       // reply.hijack() below bypasses @fastify/cors, so the streaming responses
@@ -74,19 +102,14 @@ export function explainRoutes(app: FastifyInstance): void {
 
       const { stationId, lat, lng, lang } = req.body ?? {};
       if (!stationId || lat === undefined || lng === undefined) {
-        return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'Missing required fields: stationId, lat, lng',
+        });
       }
 
-      if (IP_RATELIMIT_ENABLED) {
-        try {
-          const { success, reset } = await explainRatelimit.limit(req.ip);
-          if (!success) {
-            return reply.status(429).send({ type: 'ip_ratelimit', resetAtMs: reset });
-          }
-        } catch (err) {
-          req.log.error({ err }, 'explainRatelimit: Upstash error — failing open');
-        }
-      }
+      const ipResetAtMs = await ipRateLimitResetMs(explainRatelimit, req.ip, req.log);
+      if (ipResetAtMs !== null) throw ipRateLimited(ipResetAtMs);
 
       const todayBkk = bangkokDateString();
       const quotaKey = `explain:quota:${todayBkk}`;
@@ -95,9 +118,12 @@ export function explainRoutes(app: FastifyInstance): void {
       if (count > DAILY_QUOTA_LIMIT) {
         const startOfBkkDayUtcMs =
           Math.floor((Date.now() + ICT_OFFSET_MS) / MS_PER_DAY) * MS_PER_DAY - ICT_OFFSET_MS;
-        return reply
-          .status(429)
-          .send({ type: 'quota_exceeded', resetAtMs: startOfBkkDayUtcMs + MS_PER_DAY });
+        throw new AppError({
+          code: 'rate_limited',
+          message: 'Daily quota exceeded',
+          reason: 'quota_exceeded',
+          resetAtMs: startOfBkkDayUtcMs + MS_PER_DAY,
+        });
       }
 
       const selectedDate = req.body.date ?? bangkokDateString();
@@ -125,7 +151,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
       const scientificCtx = await computeScientificContext(stationId, lat, lng, selectedDate);
       if (!scientificCtx) {
-        return reply.status(404).send({ error: 'Station not found' });
+        throw new AppError({ code: 'not_found', message: 'Station not found' });
       }
       const prompt = buildPrompt(scientificCtx, normalizedLang);
 
@@ -200,28 +226,26 @@ export function explainRoutes(app: FastifyInstance): void {
       const lat = Number(rawLat);
       const lng = Number(rawLng);
       if (!stationId || !rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return reply.status(400).send({ error: 'Missing required fields: stationId, lat, lng' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'Missing required fields: stationId, lat, lng',
+        });
       }
       if (date !== undefined && !DATE_RE.test(date)) {
-        return reply.status(400).send({ error: 'Invalid date format, expected YYYY-MM-DD' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'Invalid date format, expected YYYY-MM-DD',
+        });
       }
 
-      if (IP_RATELIMIT_ENABLED) {
-        try {
-          const { success, reset } = await explainContextRatelimit.limit(req.ip);
-          if (!success) {
-            return reply.status(429).send({ type: 'ip_ratelimit', resetAtMs: reset });
-          }
-        } catch (err) {
-          req.log.error({ err }, 'explainContextRatelimit: Upstash error — failing open');
-        }
-      }
+      const ipResetAtMs = await ipRateLimitResetMs(explainContextRatelimit, req.ip, req.log);
+      if (ipResetAtMs !== null) throw ipRateLimited(ipResetAtMs);
 
       const todayBkk = bangkokDateString();
       const selectedDate = date ?? todayBkk;
       const scientificCtx = await computeScientificContext(stationId, lat, lng, selectedDate);
       if (!scientificCtx) {
-        return reply.status(404).send({ error: 'Station not found' });
+        throw new AppError({ code: 'not_found', message: 'Station not found' });
       }
       // Historical dates are cached server-side indefinitely (computeScientificContext),
       // so it's also safe to let clients/CDNs cache them; today's is never cached anywhere.
