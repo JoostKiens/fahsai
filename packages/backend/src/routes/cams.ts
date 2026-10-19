@@ -8,6 +8,7 @@ import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { nearestGridPoint } from '../utils/trajectory.js';
 import { toGridColumns } from '../utils/camsColumns.js';
+import { AppError } from '../lib/app-error.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
@@ -51,15 +52,16 @@ export function camsRoutes(app: FastifyInstance): void {
     const { date, bbox: rawBbox } = req.query;
 
     if (!date || !DATE_RE.test(date)) {
-      return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
+      throw new AppError({ code: 'invalid_request', message: 'date param required (YYYY-MM-DD)' });
     }
 
     const points = await getCamsGridForDate(date);
 
     if (!points.length) {
-      return reply
-        .status(404)
-        .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
+      throw new AppError({
+        code: 'no_data',
+        message: 'No CAMS grid data for this date. Run the ingest job.',
+      });
     }
 
     const bbox = parseBbox(rawBbox);
@@ -81,21 +83,28 @@ export function camsRoutes(app: FastifyInstance): void {
       const { date, lat: rawLat, lng: rawLng } = req.query;
 
       if (!date || !DATE_RE.test(date)) {
-        return reply.status(400).send({ error: 'date param required (YYYY-MM-DD)' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'date param required (YYYY-MM-DD)',
+        });
       }
 
       const lat = Number(rawLat);
       const lng = Number(rawLng);
       if (!rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return reply.status(400).send({ error: 'lat and lng params required (numeric)' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'lat and lng params required (numeric)',
+        });
       }
 
       const points = await getCamsGridForDate(date);
 
       if (!points.length) {
-        return reply
-          .status(404)
-          .send({ error: 'No CAMS grid data for this date. Run the ingest job.' });
+        throw new AppError({
+          code: 'no_data',
+          message: 'No CAMS grid data for this date. Run the ingest job.',
+        });
       }
 
       return reply
@@ -112,17 +121,23 @@ export function camsRoutes(app: FastifyInstance): void {
       const { start, end } = req.query;
 
       if (!start || !DATE_RE.test(start) || !end || !DATE_RE.test(end)) {
-        return reply.status(400).send({ error: 'start and end params required (YYYY-MM-DD)' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'start and end params required (YYYY-MM-DD)',
+        });
       }
       if (start > end) {
-        return reply.status(400).send({ error: 'start must be on or before end' });
+        throw new AppError({ code: 'invalid_request', message: 'start must be on or before end' });
       }
       const rangeDays = Math.round(
         (new Date(end + 'T00:00:00Z').getTime() - new Date(start + 'T00:00:00Z').getTime()) /
           MS_PER_DAY,
       );
       if (rangeDays >= MAX_SUMMARY_DAYS) {
-        return reply.status(400).send({ error: `range exceeds ${MAX_SUMMARY_DAYS} days` });
+        throw new AppError({
+          code: 'invalid_request',
+          message: `range exceeds ${MAX_SUMMARY_DAYS} days`,
+        });
       }
 
       const cacheKey = `cams:summary:${start}:${end}`;

@@ -38,6 +38,7 @@ const noData = (name: string, url: string, error: string): ErrorCase => [
 ];
 
 const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
+const NO_CAMS = 'No CAMS grid data for this date. Run the ingest job.';
 const DATE_REQUIRED = 'date param required (YYYY-MM-DD)';
 
 const CASES: Record<string, ErrorCase[]> = {
@@ -94,6 +95,32 @@ const CASES: Record<string, ErrorCase[]> = {
       'no wind',
       '/api/weather/wind?date=2026-10-17',
       'No wind data for this date. Run the ingest job.',
+    ),
+  ],
+  cams: [
+    invalid('cams without date', '/api/cams', DATE_REQUIRED),
+    noData('no cams grid', '/api/cams?date=2026-10-17', NO_CAMS),
+    invalid('nearest without date', '/api/cams/nearest?lat=1&lng=1', DATE_REQUIRED),
+    invalid(
+      'nearest without coordinates',
+      '/api/cams/nearest?date=2026-10-17',
+      'lat and lng params required (numeric)',
+    ),
+    noData('no cams grid for nearest', '/api/cams/nearest?date=2026-10-17&lat=13&lng=100', NO_CAMS),
+    invalid(
+      'summary without dates',
+      '/api/cams/summary',
+      'start and end params required (YYYY-MM-DD)',
+    ),
+    invalid(
+      'summary reversed',
+      '/api/cams/summary?start=2026-10-17&end=2026-10-16',
+      'start must be on or before end',
+    ),
+    invalid(
+      'summary too long',
+      '/api/cams/summary?start=2020-01-01&end=2026-10-17',
+      'range exceeds 140 days',
     ),
   ],
 };
