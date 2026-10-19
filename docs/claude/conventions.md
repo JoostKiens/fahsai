@@ -155,8 +155,11 @@ a mocked test).
   schema from `supabase/migrations/`, and runs the suite. CI's `integration` job runs the same
   script. It leaves the stack running; stop it with `supabase stop --no-backup`. The stack binds
   to `0.0.0.0` with the CLI's shared default keys, so stop it when you are not using it.
-- The local stack uses ports 544xx (see `supabase/config.toml`) so it can run next to other local
-  Supabase projects. `max_rows = 1000` there must match production: the pagination tests rely on it.
+- Start the stack with `scripts/test-integration.sh`, not a bare `supabase start`. The script
+  excludes the services the tests don't need, so only `db`, `kong`, `postgrest` and `gotrue` run,
+  on ports 544xx (API 54421, DB 54422), and it can sit next to other local Supabase projects. The
+  other services in `supabase/config.toml` keep the CLI's default ports and would collide with
+  them. `max_rows = 1000` there must match production: the pagination tests rely on it.
 - Helpers live in `packages/backend/src/test/integration/` (`clearTables`, `seed`, `gridPoints`).
   Call `clearTables()` in `beforeEach`. A global setup refuses to run unless `SUPABASE_URL` is
   exactly `http://127.0.0.1:54421` (this stack's port in `supabase/config.toml`), because the
