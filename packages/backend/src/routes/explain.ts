@@ -3,7 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { explainRatelimit, explainContextRatelimit } from '../cache/ratelimit.js';
-import { reportWarning } from '../lib/rollbar.js';
+import { reportError, reportWarning } from '../lib/rollbar.js';
+import { classifyGeminiError, formatStreamError } from '../lib/gemini-error.js';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { computeScientificContext } from '../lib/computeScientificContext.js';
@@ -26,32 +27,6 @@ export type ExplainCase =
   | 'PLAUSIBLE_CLEAN'
   | 'PLAUSIBLE_REGIONAL_BACKGROUND'
   | 'PLAUSIBLE_UNCLEAR';
-
-// Gemini RPD resets at midnight America/Los_Angeles (PDT = UTC-7, PST = UTC-8).
-// Try both offsets for the next LA calendar day and return the one where LA hour == 0.
-function nextMidnightPT(): number {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(now);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
-  const next = new Date(get('year'), get('month') - 1, get('day') + 1);
-  for (const offsetH of [7, 8]) {
-    const candidate = new Date(
-      Date.UTC(next.getFullYear(), next.getMonth(), next.getDate(), offsetH),
-    );
-    const laHour = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Los_Angeles',
-      hour: 'numeric',
-      hour12: false,
-    }).format(candidate);
-    if (laHour === '0' || laHour === '00') return candidate.getTime();
-  }
-  return Date.UTC(next.getFullYear(), next.getMonth(), next.getDate(), 8);
-}
 
 function explainCacheKey(stationId: string, date: string, lang: string): string {
   return `explain:v${EXPLAIN_CACHE_VERSION}:${stationId}:${date}:${lang}`;
@@ -179,27 +154,17 @@ export function explainRoutes(app: FastifyInstance): void {
         }
       } catch (err) {
         accumulatedForCache = '';
-        const msg = err instanceof Error ? err.message : String(err);
         req.log.error({ err }, 'Gemini API error');
-        const lower = msg.toLowerCase();
-        const isRateLimit =
-          (err as Record<string, unknown>).status === 429 ||
-          lower.includes('resource_exhausted') ||
-          lower.includes('rate limit') ||
-          lower.includes('quota');
-        if (isRateLimit) {
-          const isDaily = lower.includes('per day') || lower.includes('daily');
-          const type = isDaily
-            ? 'gemini_rpd'
-            : lower.includes('token')
-              ? 'gemini_tpm'
-              : 'gemini_rpm';
-          const resetAtMs = isDaily ? nextMidnightPT() : Date.now() + 60_000;
-          reportWarning('Gemini rate limit hit', { type, resetAtMs });
-          reply.raw.write(`[ERROR_JSON:${JSON.stringify({ type, resetAtMs })}]`);
+        const streamError = classifyGeminiError(err);
+        if (streamError.code === 'rate_limited') {
+          reportWarning('Gemini rate limit hit', {
+            reason: streamError.reason,
+            resetAtMs: streamError.resetAtMs,
+          });
         } else {
-          reply.raw.write(`\n\n[ERROR: ${msg}]`);
+          reportError(err, { path: req.url, method: req.method, requestId: req.id });
         }
+        reply.raw.write(formatStreamError(streamError));
       }
 
       reply.raw.end();

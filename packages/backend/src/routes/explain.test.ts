@@ -5,11 +5,40 @@ import type { ScientificContext } from '../lib/buildScientificContext.js';
 import { registerErrorHandling } from '../lib/error-handler.js';
 import { noReporters } from '../test/no-reporters.js';
 
-const { mockCompute, mockLimit, mockPostLimit, mockIncr } = vi.hoisted(() => ({
+const {
+  mockCompute,
+  mockLimit,
+  mockPostLimit,
+  mockIncr,
+  mockGenerateStream,
+  mockReportError,
+  mockReportWarning,
+} = vi.hoisted(() => ({
   mockCompute: vi.fn(),
   mockLimit: vi.fn(),
   mockPostLimit: vi.fn(),
   mockIncr: vi.fn(),
+  mockGenerateStream: vi.fn(),
+  mockReportError: vi.fn(),
+  mockReportWarning: vi.fn(),
+}));
+
+vi.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: class {
+    getGenerativeModel() {
+      return { generateContentStream: mockGenerateStream };
+    }
+  },
+}));
+
+vi.mock('../lib/buildPrompt.js', () => ({
+  buildPrompt: () => 'prompt',
+  GEMINI_MODEL: 'test-model',
+}));
+
+vi.mock('../lib/rollbar.js', () => ({
+  reportError: mockReportError,
+  reportWarning: mockReportWarning,
 }));
 
 vi.mock('../lib/computeScientificContext.js', () => ({
@@ -252,5 +281,104 @@ describe('POST /api/explain error responses', () => {
 
     expect(res.statusCode).toBe(404);
     expect(mockCompute).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Like Gemini's stream: chunks arrive asynchronously, then it either ends or fails.
+async function* fakeGeminiStream(chunks: string[], failure?: Error) {
+  for (const chunk of chunks) {
+    await Promise.resolve();
+    yield { text: () => chunk };
+  }
+  if (failure) throw failure;
+}
+
+const anyRequestId: unknown = expect.any(String);
+
+describe('POST /api/explain errors after the stream has started', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp();
+  });
+
+  beforeEach(() => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
+    mockCompute.mockReset();
+    mockCompute.mockResolvedValue(FIXTURE_CONTEXT);
+    mockPostLimit.mockReset();
+    mockPostLimit.mockResolvedValue({ success: true, reset: 0 });
+    mockIncr.mockReset();
+    mockIncr.mockResolvedValue(1);
+    mockGenerateStream.mockReset();
+    mockReportError.mockReset();
+    mockReportWarning.mockReset();
+  });
+
+  // Gemini streams some text, then fails.
+  function streamThatFails(error: Error) {
+    mockGenerateStream.mockResolvedValue({
+      stream: fakeGeminiStream(['The PM2.5 here is '], error),
+    });
+  }
+
+  const explain = () =>
+    app.inject({
+      method: 'POST',
+      url: '/api/explain',
+      payload: { stationId: 'abc', lat: 18.79, lng: 98.98 },
+    });
+
+  function streamError(body: string): ApiError | null {
+    const match = /\[ERROR_JSON:(.*)\]\s*$/s.exec(body);
+    return match ? (JSON.parse(match[1]) as ApiError) : null;
+  }
+
+  it('ends the stream with the rate-limit error and reports a warning', async () => {
+    streamThatFails(Object.assign(new Error('Too Many Requests'), { status: 429 }));
+
+    const res = await explain();
+    const error = streamError(res.body);
+
+    expect(res.body.startsWith('The PM2.5 here is ')).toBe(true);
+    expect(error).toMatchObject({
+      error: 'Gemini rate limit reached',
+      code: 'rate_limited',
+      reason: 'gemini_rpm',
+    });
+    expect(error?.resetAtMs).toBeGreaterThan(Date.now());
+    expect(mockReportWarning).toHaveBeenCalledWith('Gemini rate limit hit', {
+      reason: 'gemini_rpm',
+      resetAtMs: error?.resetAtMs,
+    });
+    expect(mockReportError).not.toHaveBeenCalled();
+  });
+
+  it('ends the stream with a generic error, hides the raw message, and reports the original', async () => {
+    const failure = new Error('fetch failed: ECONNRESET to generativelanguage.example');
+    streamThatFails(failure);
+
+    const res = await explain();
+
+    expect(streamError(res.body)).toEqual({
+      error: 'Explanation unavailable',
+      code: 'unavailable',
+    });
+    expect(res.body).not.toContain('ECONNRESET');
+    expect(res.body).not.toContain('[ERROR:');
+    expect(mockReportError).toHaveBeenCalledWith(failure, {
+      path: '/api/explain',
+      method: 'POST',
+      requestId: anyRequestId,
+    });
+  });
+
+  it('sends no error line when the stream completes', async () => {
+    mockGenerateStream.mockResolvedValue({ stream: fakeGeminiStream(['All good.']) });
+
+    const res = await explain();
+
+    expect(res.body).toBe('All good.');
+    expect(streamError(res.body)).toBeNull();
   });
 });
