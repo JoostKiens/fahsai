@@ -160,6 +160,15 @@ const CASES: Record<string, ErrorCase[]> = {
     invalid('list with a bad bbox', '/api/stations?bbox=nonsense', BAD_BBOX),
     ['unknown station', '/api/stations/nope', 404, 'Station not found', 'not_found'],
   ],
+  'power plants': [
+    [
+      'no power plants ingested',
+      '/api/power-plants',
+      503,
+      'Power plant data unavailable — run ingest:power-plants',
+      'unavailable',
+    ],
+  ],
 };
 
 describe('error responses of the data routes against a real database', () => {

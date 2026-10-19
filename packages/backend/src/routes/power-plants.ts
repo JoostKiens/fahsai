@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { AppError } from '../lib/app-error.js';
 
 const CACHE_KEY = 'power_plants:geojson';
 
@@ -34,15 +35,17 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
         1000,
       );
     } catch {
-      return reply
-        .status(503)
-        .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
+      throw new AppError({
+        code: 'unavailable',
+        message: 'Power plant data unavailable — run ingest:power-plants',
+      });
     }
 
     if (allRows.length === 0) {
-      return reply
-        .status(503)
-        .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
+      throw new AppError({
+        code: 'unavailable',
+        message: 'Power plant data unavailable — run ingest:power-plants',
+      });
     }
 
     const geojson = buildGeojson(allRows);
