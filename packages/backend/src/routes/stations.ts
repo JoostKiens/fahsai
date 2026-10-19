@@ -3,6 +3,7 @@ import type { Station } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { AppError } from '../lib/app-error.js';
 
 interface StationRow {
   id: string;
@@ -65,7 +66,7 @@ export function stationsRoutes(app: FastifyInstance): void {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return reply.status(404).send({ error: 'Station not found' });
+        throw new AppError({ code: 'not_found', message: 'Station not found' });
       }
       throw new Error(`Supabase stations query failed: ${error.message}`);
     }

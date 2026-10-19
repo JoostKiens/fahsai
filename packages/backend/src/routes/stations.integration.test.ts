@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { registerErrorHandling } from '../lib/error-handler.js';
+import { noReporters } from '../test/no-reporters.js';
 import { clearTables, seed } from '../test/integration/db.js';
 import { stationsRoutes } from './stations.js';
 
@@ -23,6 +25,7 @@ describe('stations routes against a real database', () => {
 
   beforeAll(() => {
     app = Fastify();
+    registerErrorHandling(app, noReporters);
     stationsRoutes(app);
   });
 
@@ -132,7 +135,7 @@ describe('stations routes against a real database', () => {
       const res = await app.inject({ method: 'GET', url: '/api/stations/nope' });
 
       expect(res.statusCode).toBe(404);
-      expect(res.json()).toEqual({ error: 'Station not found' });
+      expect(res.json()).toEqual({ error: 'Station not found', code: 'not_found' });
     });
   });
 });

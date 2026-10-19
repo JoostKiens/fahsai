@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { registerErrorHandling } from '../lib/error-handler.js';
+import { noReporters } from '../test/no-reporters.js';
 
 interface ChainMock {
   gte: ReturnType<typeof vi.fn>;
@@ -44,6 +46,7 @@ describe('GET /api/stations/:id', () => {
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
     app = Fastify();
+    registerErrorHandling(app, noReporters);
     await app.register(stationsRoutes);
   });
 
@@ -80,7 +83,7 @@ describe('GET /api/stations/:id', () => {
     const res = await app.inject({ method: 'GET', url: '/api/stations/unknown' });
 
     expect(res.statusCode).toBe(404);
-    expect(res.json()).toEqual({ error: 'Station not found' });
+    expect(res.json()).toEqual({ error: 'Station not found', code: 'not_found' });
   });
 
   it('does not mask a genuine Supabase error as a 404', async () => {
@@ -92,7 +95,7 @@ describe('GET /api/stations/:id', () => {
     const res = await app.inject({ method: 'GET', url: '/api/stations/10004' });
 
     expect(res.statusCode).toBe(500);
-    expect(res.json()).not.toEqual({ error: 'Station not found' });
+    expect(res.json()).toEqual({ error: 'Internal server error', code: 'internal' });
   });
 });
 
@@ -102,6 +105,7 @@ describe('GET /api/stations', () => {
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
     app = Fastify();
+    registerErrorHandling(app, noReporters);
     await app.register(stationsRoutes);
   });
 
