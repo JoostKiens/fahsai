@@ -6,6 +6,7 @@ import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { bangkokMidnightIso } from '../utils/bkkDate.js';
 import { offsetDate } from '../utils/trajectory.js';
+import { AppError } from '../lib/app-error.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -14,9 +15,13 @@ export function firesRoutes(app: FastifyInstance): void {
   app.get<{ Querystring: { date?: string; bbox?: string } }>('/api/fires', async (req, reply) => {
     const { date, bbox: rawBbox } = req.query;
 
-    if (!date) return reply.status(400).send({ error: 'Missing required param: date' });
+    if (!date)
+      throw new AppError({ code: 'invalid_request', message: 'Missing required param: date' });
     if (!DATE_RE.test(date))
-      return reply.status(400).send({ error: 'Invalid date format, expected YYYY-MM-DD' });
+      throw new AppError({
+        code: 'invalid_request',
+        message: 'Invalid date format, expected YYYY-MM-DD',
+      });
 
     const bbox = parseBbox(rawBbox);
     const isDefaultBbox = !rawBbox || rawBbox === DEFAULT_BBOX;
@@ -31,7 +36,7 @@ export function firesRoutes(app: FastifyInstance): void {
     const data = await queryFires(date, date, bbox);
 
     if (data.length === 0) {
-      return reply.status(404).send({ error: 'No fire data for this date.' });
+      throw new AppError({ code: 'no_data', message: 'No fire data for this date.' });
     }
 
     if (isDefaultBbox) {
@@ -47,24 +52,31 @@ export function firesRoutes(app: FastifyInstance): void {
     async (req, reply) => {
       const { start, end, bbox: rawBbox } = req.query;
 
-      if (!start) return reply.status(400).send({ error: 'Missing required param: start' });
-      if (!end) return reply.status(400).send({ error: 'Missing required param: end' });
+      if (!start)
+        throw new AppError({ code: 'invalid_request', message: 'Missing required param: start' });
+      if (!end)
+        throw new AppError({ code: 'invalid_request', message: 'Missing required param: end' });
       if (!DATE_RE.test(start))
-        return reply.status(400).send({ error: 'Invalid start date format' });
-      if (!DATE_RE.test(end)) return reply.status(400).send({ error: 'Invalid end date format' });
+        throw new AppError({ code: 'invalid_request', message: 'Invalid start date format' });
+      if (!DATE_RE.test(end))
+        throw new AppError({ code: 'invalid_request', message: 'Invalid end date format' });
 
       const startMs = new Date(start).getTime();
       const endMs = new Date(end).getTime();
       const diffDays = (endMs - startMs) / (1000 * 60 * 60 * 24);
 
-      if (diffDays < 0) return reply.status(400).send({ error: 'start must be before end' });
+      if (diffDays < 0)
+        throw new AppError({ code: 'invalid_request', message: 'start must be before end' });
       if (diffDays > 10)
-        return reply.status(400).send({ error: 'Date range cannot exceed 10 days' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'Date range cannot exceed 10 days',
+        });
 
       const bbox = parseBbox(rawBbox);
       const data = await queryFires(start, end, bbox);
       if (data.length === 0) {
-        return reply.status(404).send({ error: 'No fire data for this date range.' });
+        throw new AppError({ code: 'no_data', message: 'No fire data for this date range.' });
       }
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
     },
