@@ -8,6 +8,7 @@ import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { forEachPage } from '../utils/backfill.js';
 import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 import { offsetDate } from '../utils/trajectory.js';
+import { AppError } from '../lib/app-error.js';
 
 const MAX_HISTORY_HOURS = 168; // 7 days
 const CURRENT_DATE_TTL_SECONDS = 3600;
@@ -132,7 +133,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       );
 
       if (latest.length === 0) {
-        return reply.status(404).send({ error: 'No station readings for this date.' });
+        throw new AppError({ code: 'no_data', message: 'No station readings for this date.' });
       }
 
       if (isDefaultBbox) {
@@ -150,16 +151,20 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const { station_id: stationId, hours: rawHours } = req.query;
 
       if (!stationId)
-        return reply.status(400).send({ error: 'Missing required param: station_id' });
+        throw new AppError({
+          code: 'invalid_request',
+          message: 'Missing required param: station_id',
+        });
 
       const hours = rawHours !== undefined ? Number(rawHours) : 24;
       if (isNaN(hours) || hours <= 0) {
-        return reply.status(400).send({ error: 'hours must be a positive number' });
+        throw new AppError({ code: 'invalid_request', message: 'hours must be a positive number' });
       }
       if (hours > MAX_HISTORY_HOURS) {
-        return reply
-          .status(400)
-          .send({ error: `hours cannot exceed ${MAX_HISTORY_HOURS} (7 days)` });
+        throw new AppError({
+          code: 'invalid_request',
+          message: `hours cannot exceed ${MAX_HISTORY_HOURS} (7 days)`,
+        });
       }
 
       const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -195,10 +200,10 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const days = rawDays !== undefined ? Number(rawDays) : 7;
 
       if (isNaN(days) || days <= 0) {
-        return reply.status(400).send({ error: 'days must be a positive number' });
+        throw new AppError({ code: 'invalid_request', message: 'days must be a positive number' });
       }
       if (days > 30) {
-        return reply.status(400).send({ error: 'days cannot exceed 30' });
+        throw new AppError({ code: 'invalid_request', message: 'days cannot exceed 30' });
       }
 
       // Anchor the window to the requested end date (BKK); default to today BKK.

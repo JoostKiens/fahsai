@@ -123,6 +123,39 @@ const CASES: Record<string, ErrorCase[]> = {
       'range exceeds 140 days',
     ),
   ],
+  'station readings': [
+    invalid('latest with a bad bbox', '/api/station-readings/latest?bbox=nonsense', BAD_BBOX),
+    noData(
+      'no latest readings',
+      '/api/station-readings/latest?date=2026-10-17',
+      'No station readings for this date.',
+    ),
+    invalid(
+      'history without station',
+      '/api/station-readings/history',
+      'Missing required param: station_id',
+    ),
+    invalid(
+      'history with hours=0',
+      '/api/station-readings/history?station_id=s1&hours=0',
+      'hours must be a positive number',
+    ),
+    invalid(
+      'history with too many hours',
+      '/api/station-readings/history?station_id=s1&hours=169',
+      'hours cannot exceed 168 (7 days)',
+    ),
+    invalid(
+      'station history with days=0',
+      '/api/stations/s1/history?days=0',
+      'days must be a positive number',
+    ),
+    invalid(
+      'station history with too many days',
+      '/api/stations/s1/history?days=31',
+      'days cannot exceed 30',
+    ),
+  ],
 };
 
 describe('error responses of the data routes against a real database', () => {
