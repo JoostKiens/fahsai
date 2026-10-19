@@ -35,3 +35,9 @@ export type ApiError = {
   resetAtMs?: number;
   details?: ApiErrorDetail[];
 };
+
+// A rate limit the user is waiting out: which one, and when it resets.
+export type RateLimit = {
+  reason: RateLimitReason;
+  resetAtMs: number;
+};

@@ -1,6 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import i18next from 'i18next';
-import { MS_PER_HOUR } from '@thailand-aq/consts';
+import type { RateLimit } from '@thailand-aq/types';
+import {
+  parseApiError,
+  parseStreamError,
+  toRateLimit,
+  withoutStreamError,
+} from './utils.api-error';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -9,11 +15,6 @@ interface ExplainOptions {
   lat: number;
   lng: number;
   date: string; // YYYY-MM-DD in BKK timezone — anchors the fire/peer/measurement windows
-}
-
-export interface RateLimit {
-  type: string;
-  resetAtMs: number;
 }
 
 interface ExplainState {
@@ -64,16 +65,13 @@ export function useExplain() {
     }
 
     if (res.status === 429) {
-      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      const type = typeof body.type === 'string' ? body.type : 'quota_exceeded';
-      const resetAtMs =
-        typeof body.resetAtMs === 'number' ? body.resetAtMs : Date.now() + MS_PER_HOUR;
+      const error = parseApiError(await res.json().catch(() => null));
       setState({
         text: '',
         loading: false,
         phase: null,
         error: null,
-        rateLimit: { type, resetAtMs },
+        rateLimit: toRateLimit(error, Date.now()),
       });
       return;
     }
@@ -117,33 +115,27 @@ export function useExplain() {
           promptStripped = true;
         }
 
-        // Structured rate-limit error from Gemini (mid-stream)
-        const errorJsonMatch = /\[ERROR_JSON:(\{[^}]+\})\]/.exec(accumulated);
-        if (errorJsonMatch) {
-          try {
-            const parsed = JSON.parse(errorJsonMatch[1]) as RateLimit;
-            setState({ text: '', loading: false, phase: null, error: null, rateLimit: parsed });
-          } catch {
-            setState({
-              text: '',
-              loading: false,
-              phase: null,
-              error: 'unavailable',
-              rateLimit: null,
-            });
-          }
-          break;
-        }
-
-        const hasError = accumulated.includes('[ERROR:');
+        // The error line a failed stream ends with is hidden here and read once the stream is done.
         setState({
-          text: accumulated,
-          loading: !hasError,
-          phase: hasError ? null : 'thinking',
-          error: hasError ? 'unavailable' : null,
+          text: withoutStreamError(accumulated),
+          loading: true,
+          phase: 'thinking',
+          error: null,
           rateLimit: null,
         });
-        if (hasError) break;
+      }
+
+      const streamError = parseStreamError(accumulated);
+      if (streamError?.code === 'rate_limited') {
+        setState({
+          text: '',
+          loading: false,
+          phase: null,
+          error: null,
+          rateLimit: toRateLimit(streamError, Date.now()),
+        });
+      } else if (streamError) {
+        setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       }
     } finally {
       if (!signal.aborted) {

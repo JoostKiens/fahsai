@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
+import type { RateLimit } from '@thailand-aq/types';
 import { useSettingsStore } from './settingsStore';
 import { parsePendingSelectionFromSearch } from '@/utils/selectionUrl';
 
@@ -54,8 +55,8 @@ interface UIStore {
   setMapCenter: (center: [number, number]) => void;
   mapZoom: number;
   setMapZoom: (zoom: number) => void;
-  explainRateLimit: { type: string; resetAtMs: number } | null;
-  setExplainRateLimit: (v: { type: string; resetAtMs: number } | null) => void;
+  explainRateLimit: RateLimit | null;
+  setExplainRateLimit: (v: RateLimit | null) => void;
   aboutOpen: boolean;
   setAboutOpen: (v: boolean) => void;
   settingsOpen: boolean;
