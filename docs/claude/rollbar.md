@@ -34,6 +34,13 @@ ever in Rollbar and the logs. The handler also writes it to the logs itself (err
 unexpected errors, warn for `unavailable`, info for client errors), because it replaces Fastify's
 default handler, which is what used to log them.
 
+Warnings and Gemini problems are throttled, because a condition that lasts (a missing dataset, a
+Gemini outage or a spent daily limit) would otherwise send one report per request and use up the
+free tier: a `503 unavailable` warning goes out once per message per 10 minutes
+(`lib/report-throttle.ts`, applied in `server.ts`), and `routes/explain.ts` does the same for
+each Gemini failure message and each Gemini rate-limit reason. Unexpected 5xx errors are not
+throttled. The window is per server instance.
+
 ## What is NOT tracked
 
 - **Some cron scripts don't call `reportError`.** Only `ingest-fires`, `ingest-station-readings`,

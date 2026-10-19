@@ -11,6 +11,7 @@ export function nextMidnightPT(nowMs: number): number {
     month: 'numeric',
     day: 'numeric',
   }).formatToParts(new Date(nowMs));
+  // with exactly these format options Intl always returns year, month and day, so find() cannot miss
   const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
   const next = new Date(get('year'), get('month') - 1, get('day') + 1);
   for (const offsetH of [7, 8]) {

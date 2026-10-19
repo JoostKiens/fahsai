@@ -5,6 +5,7 @@ import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client
 import { explainRatelimit, explainContextRatelimit } from '../cache/ratelimit.js';
 import { reportError, reportWarning } from '../lib/rollbar.js';
 import { classifyGeminiError, formatStreamError } from '../lib/gemini-error.js';
+import { createReportThrottle } from '../lib/report-throttle.js';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { computeScientificContext } from '../lib/computeScientificContext.js';
@@ -18,6 +19,9 @@ const EXPLAIN_CACHE_VERSION = 10;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
+const GEMINI_REPORT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
+
+const mayReportGeminiProblem = createReportThrottle({ windowMs: GEMINI_REPORT_THROTTLE_WINDOW_MS });
 
 export type ExplainCase =
   | 'OUTLIER_HIGH'
@@ -35,17 +39,23 @@ function explainCacheKey(stationId: string, date: string, lang: string): string 
 // Returns when the limit resets if this IP is over it, else null. Upstash being down must not block
 // users, so any error there fails open. Kept out of the route so the AppError thrown for a hit is
 // not swallowed by that fail-open catch.
-async function ipRateLimitResetMs(
-  limiter: typeof explainRatelimit,
-  ip: string,
-  log: FastifyBaseLogger,
-): Promise<number | null> {
+async function ipRateLimitResetMs({
+  limiter,
+  name,
+  ip,
+  log,
+}: {
+  limiter: typeof explainRatelimit;
+  name: string;
+  ip: string;
+  log: FastifyBaseLogger;
+}): Promise<number | null> {
   if (!IP_RATELIMIT_ENABLED) return null;
   try {
     const { success, reset } = await limiter.limit(ip);
     return success ? null : reset;
   } catch (err) {
-    log.error({ err }, 'ip rate limit: Upstash error — failing open');
+    log.error({ err, limiter: name }, 'ip rate limit: Upstash error — failing open');
     return null;
   }
 }
@@ -83,7 +93,12 @@ export function explainRoutes(app: FastifyInstance): void {
         });
       }
 
-      const ipResetAtMs = await ipRateLimitResetMs(explainRatelimit, req.ip, req.log);
+      const ipResetAtMs = await ipRateLimitResetMs({
+        limiter: explainRatelimit,
+        name: 'explain',
+        ip: req.ip,
+        log: req.log,
+      });
       if (ipResetAtMs !== null) throw ipRateLimited(ipResetAtMs);
 
       const todayBkk = bangkokDateString();
@@ -156,12 +171,15 @@ export function explainRoutes(app: FastifyInstance): void {
         accumulatedForCache = '';
         req.log.error({ err }, 'Gemini API error');
         const streamError = classifyGeminiError(err);
+        // an outage or a spent daily limit fails every request: report each problem once per window
         if (streamError.code === 'rate_limited') {
-          reportWarning('Gemini rate limit hit', {
-            reason: streamError.reason,
-            resetAtMs: streamError.resetAtMs,
-          });
-        } else {
+          if (mayReportGeminiProblem(`rate_limited:${streamError.reason}`)) {
+            reportWarning('Gemini rate limit hit', {
+              reason: streamError.reason,
+              resetAtMs: streamError.resetAtMs,
+            });
+          }
+        } else if (mayReportGeminiProblem(err instanceof Error ? err.message : String(err))) {
           reportError(err, { path: req.url, method: req.method, requestId: req.id });
         }
         reply.raw.write(formatStreamError(streamError));
@@ -203,7 +221,12 @@ export function explainRoutes(app: FastifyInstance): void {
         });
       }
 
-      const ipResetAtMs = await ipRateLimitResetMs(explainContextRatelimit, req.ip, req.log);
+      const ipResetAtMs = await ipRateLimitResetMs({
+        limiter: explainContextRatelimit,
+        name: 'explain-context',
+        ip: req.ip,
+        log: req.log,
+      });
       if (ipResetAtMs !== null) throw ipRateLimited(ipResetAtMs);
 
       const todayBkk = bangkokDateString();

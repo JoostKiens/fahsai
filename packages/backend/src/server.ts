@@ -12,13 +12,23 @@ import { explainRoutes } from './routes/explain';
 import { latestDateRoutes } from './routes/latest-date';
 import { rollbarProxyRoutes } from './routes/rollbar-proxy';
 import { registerErrorHandling } from './lib/error-handler';
+import { createReportThrottle, throttleWarnings } from './lib/report-throttle';
 import { reportError, reportWarning } from './lib/rollbar';
 import { ALLOWED_ORIGINS } from './utils/cors';
 
 const app = Fastify({ logger: true, trustProxy: true });
 
-// Before any route plugin, so they all inherit it.
-registerErrorHandling(app, { reportError, reportWarning });
+const REPORT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
+
+// Before any route plugin, so they all inherit it. A dataset that stays missing would send a warning
+// on every request, so each warning goes to Rollbar at most once per window.
+registerErrorHandling(
+  app,
+  throttleWarnings(
+    { reportError, reportWarning },
+    createReportThrottle({ windowMs: REPORT_THROTTLE_WINDOW_MS }),
+  ),
+);
 
 await app.register(compress);
 await app.register(cors, { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'] });

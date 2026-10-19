@@ -373,6 +373,27 @@ describe('POST /api/explain errors after the stream has started', () => {
     });
   });
 
+  // The throttle is module-level, so these use a failure and a limit no other test reports.
+  it('reports the same Gemini failure once, however many requests hit it', async () => {
+    const failure = new Error('overloaded: model is busy, try later');
+    streamThatFails(failure);
+    await explain();
+    streamThatFails(failure);
+    await explain();
+
+    expect(mockReportError).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports the same Gemini rate limit once, however many requests hit it', async () => {
+    const limit = Object.assign(new Error('Too many tokens per minute'), { status: 429 });
+    streamThatFails(limit);
+    await explain();
+    streamThatFails(limit);
+    await explain();
+
+    expect(mockReportWarning).toHaveBeenCalledTimes(1);
+  });
+
   it('sends no error line when the stream completes', async () => {
     mockGenerateStream.mockResolvedValue({ stream: fakeGeminiStream(['All good.']) });
 
