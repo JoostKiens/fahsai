@@ -238,6 +238,9 @@ errors"). A 404 on a date-keyed route means there is no data for that date (`cod
 an unknown resource or route is `code: 'not_found'`. An invalid `bbox` is a 400. `/health` and
 `/api/rollbar` keep their own shapes.
 
+The routes are described by TypeBox schemas and the OpenAPI document generated from them is
+served at `/docs` (page) and `/docs/json`. See `docs/claude/conventions.md`, "Route schemas".
+
 ```
 GET /api/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.

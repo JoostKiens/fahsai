@@ -12,6 +12,9 @@ limited separately from `explainRatelimit` via `explainContextRatelimit` (20 req
 frontend. Treat response-shape changes (renames/removals, not additions) as breaking for that
 consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts`
 (`explain:context:v1` → `v2`) when they happen.
+The response schema (`schemas/explain.ts`) lists every field, and a field it leaves out is dropped
+from the response, so a source's `currentlyUpwind` is in it on purpose: the MCP server requires it.
+`lang` is normalised to `en` or `th` before it reaches the cache key.
 
 ---
 
