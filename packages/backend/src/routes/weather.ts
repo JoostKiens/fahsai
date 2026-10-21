@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { WeatherReading, WindReading } from '@thailand-aq/types';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
@@ -6,8 +7,9 @@ import { parseBbox } from '../utils/bbox.js';
 import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { AppError } from '../lib/app-error.js';
+import { Bbox, DateString, errorResponses } from '../schemas/common.js';
+import { WeatherReadingSchema, WindReadingSchema } from '../schemas/weather.js';
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
 const MIN_COMPLETE_POINTS = 4000;
 
@@ -38,18 +40,25 @@ async function fetchWindFromDb(date: string): Promise<WindReading[]> {
 }
 
 export function weatherRoutes(app: FastifyInstance): void {
-  // GET /api/weather/wind?date=YYYY-MM-DD&bbox=west,south,east,north
-  app.get<{ Querystring: { date?: string; bbox?: string } }>(
+  const typed = app.withTypeProvider<TypeBoxTypeProvider>();
+
+  typed.get(
     '/api/weather/wind',
+    {
+      schema: {
+        summary: 'Wind grid for one day',
+        description:
+          'Wind speed and direction (snapshot at 14:00 Bangkok time) on the forecast grid, inside the bbox. 404 (no_data) when the day has not been ingested.',
+        tags: ['weather'],
+        querystring: Type.Object({ date: DateString, bbox: Type.Optional(Bbox) }),
+        response: {
+          200: Type.Object({ data: Type.Array(WindReadingSchema) }),
+          ...errorResponses(400, 404),
+        },
+      },
+    },
     async (req, reply) => {
       const { date, bbox: rawBbox } = req.query;
-
-      if (!date || !DATE_RE.test(date)) {
-        throw new AppError({
-          code: 'invalid_request',
-          message: 'date param required (YYYY-MM-DD)',
-        });
-      }
 
       const cacheKey = windCacheKey(date);
       let readings = await redis.get<WindReading[]>(cacheKey);
@@ -79,35 +88,48 @@ export function weatherRoutes(app: FastifyInstance): void {
     },
   );
 
-  app.get<{ Querystring: { date?: string; bbox?: string } }>('/api/weather', async (req, reply) => {
-    const { date, bbox: rawBbox } = req.query;
+  typed.get(
+    '/api/weather',
+    {
+      schema: {
+        summary: 'Weather grid for one day',
+        description:
+          'Wind, humidity and precipitation on the forecast grid, inside the bbox. 404 (no_data) when the day has not been ingested.',
+        tags: ['weather'],
+        querystring: Type.Object({ date: DateString, bbox: Type.Optional(Bbox) }),
+        response: {
+          200: Type.Object({ data: Type.Array(WeatherReadingSchema) }),
+          ...errorResponses(400, 404),
+        },
+      },
+    },
+    async (req, reply) => {
+      const { date, bbox: rawBbox } = req.query;
 
-    if (!date || !DATE_RE.test(date)) {
-      throw new AppError({ code: 'invalid_request', message: 'date param required (YYYY-MM-DD)' });
-    }
+      let readings = await redis.get<WeatherReading[]>(weatherCacheKey(date));
 
-    let readings = await redis.get<WeatherReading[]>(weatherCacheKey(date));
+      if (!readings?.length || readings.length < 4000) {
+        readings = await fetchWeatherFromDb(date);
 
-    if (!readings?.length || readings.length < 4000) {
-      readings = await fetchWeatherFromDb(date);
+        if (!readings.length) {
+          throw new AppError({
+            code: 'no_data',
+            message: 'No weather data for this date. Run the ingest job.',
+          });
+        }
 
-      if (!readings.length) {
-        throw new AppError({
-          code: 'no_data',
-          message: 'No weather data for this date. Run the ingest job.',
-        });
+        if (readings.length >= MIN_COMPLETE_POINTS) {
+          await redis.set(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
+        }
       }
 
-      if (readings.length >= MIN_COMPLETE_POINTS) {
-        await redis.set(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
-      }
-    }
+      const bbox = parseBbox(rawBbox);
+      const filtered = readings.filter(
+        (r) =>
+          r.lat >= bbox.south && r.lat <= bbox.north && r.lng >= bbox.west && r.lng <= bbox.east,
+      );
 
-    const bbox = parseBbox(rawBbox);
-    const filtered = readings.filter(
-      (r) => r.lat >= bbox.south && r.lat <= bbox.north && r.lng >= bbox.west && r.lng <= bbox.east,
-    );
-
-    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
-  });
+      return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: filtered });
+    },
+  );
 }

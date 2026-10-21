@@ -46,38 +46,36 @@ const noData = (name: string, url: string, error: string): ErrorCase => [
   'no_data',
 ];
 
+// What a request that fails schema validation gets: the readable text, and which fields.
+const missing = (name: string, url: string, ...params: string[]): ErrorCase =>
+  invalid(
+    name,
+    url,
+    `Missing required parameter${params.length > 1 ? 's' : ''}: ${params.join(', ')}`,
+    params.map((path) => ({ path, message: 'is required' })),
+  );
+const badDate = (name: string, url: string, param: string): ErrorCase =>
+  invalid(name, url, `Invalid parameter ${param}: expected a calendar day, YYYY-MM-DD`, [
+    { path: `/${param}`, message: 'must match format "date"' },
+  ]);
+const badBbox = (name: string, url: string): ErrorCase =>
+  invalid(name, url, BAD_BBOX_SCHEMA, [{ path: '/bbox', message: 'must match format "bbox"' }]);
+
 const BAD_BBOX_SCHEMA =
   'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)';
 const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
 const NO_CAMS = 'No CAMS grid data for this date. Run the ingest job.';
-const DATE_REQUIRED = 'date param required (YYYY-MM-DD)';
 
 const CASES: Record<string, ErrorCase[]> = {
   fires: [
-    invalid('missing date', '/api/fires', 'Missing required param: date'),
-    invalid(
-      'malformed date',
-      '/api/fires?date=17-10-2026',
-      'Invalid date format, expected YYYY-MM-DD',
-    ),
-    invalid('bad bbox', '/api/fires?date=2026-10-17&bbox=nonsense', BAD_BBOX),
+    missing('missing date', '/api/fires', 'date'),
+    badDate('malformed date', '/api/fires?date=17-10-2026', 'date'),
+    badBbox('bad bbox', '/api/fires?date=2026-10-17&bbox=nonsense'),
     noData('no fires', '/api/fires?date=2026-10-17', 'No fire data for this date.'),
-    invalid(
-      'range without start',
-      '/api/fires/range?end=2026-10-17',
-      'Missing required param: start',
-    ),
-    invalid(
-      'range without end',
-      '/api/fires/range?start=2026-10-17',
-      'Missing required param: end',
-    ),
-    invalid(
-      'range bad start',
-      '/api/fires/range?start=x&end=2026-10-17',
-      'Invalid start date format',
-    ),
-    invalid('range bad end', '/api/fires/range?start=2026-10-17&end=x', 'Invalid end date format'),
+    missing('range without start', '/api/fires/range?end=2026-10-17', 'start'),
+    missing('range without end', '/api/fires/range?start=2026-10-17', 'end'),
+    badDate('range bad start', '/api/fires/range?start=x&end=2026-10-17', 'start'),
+    badDate('range bad end', '/api/fires/range?start=2026-10-17&end=x', 'end'),
     invalid(
       'range reversed',
       '/api/fires/range?start=2026-10-17&end=2026-10-16',
@@ -95,8 +93,8 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   weather: [
-    invalid('weather without date', '/api/weather', DATE_REQUIRED),
-    invalid('wind with a malformed date', '/api/weather/wind?date=x', DATE_REQUIRED),
+    missing('weather without date', '/api/weather', 'date'),
+    badDate('wind with a malformed date', '/api/weather/wind?date=x', 'date'),
     noData(
       'no weather',
       '/api/weather?date=2026-10-17',
@@ -109,20 +107,12 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   cams: [
-    invalid('cams without date', '/api/cams', DATE_REQUIRED),
+    missing('cams without date', '/api/cams', 'date'),
     noData('no cams grid', '/api/cams?date=2026-10-17', NO_CAMS),
-    invalid('nearest without date', '/api/cams/nearest?lat=1&lng=1', DATE_REQUIRED),
-    invalid(
-      'nearest without coordinates',
-      '/api/cams/nearest?date=2026-10-17',
-      'lat and lng params required (numeric)',
-    ),
+    missing('nearest without date', '/api/cams/nearest?lat=1&lng=1', 'date'),
+    missing('nearest without coordinates', '/api/cams/nearest?date=2026-10-17', 'lat', 'lng'),
     noData('no cams grid for nearest', '/api/cams/nearest?date=2026-10-17&lat=13&lng=100', NO_CAMS),
-    invalid(
-      'summary without dates',
-      '/api/cams/summary',
-      'start and end params required (YYYY-MM-DD)',
-    ),
+    missing('summary without dates', '/api/cams/summary', 'start', 'end'),
     invalid(
       'summary reversed',
       '/api/cams/summary?start=2026-10-17&end=2026-10-16',
@@ -168,9 +158,7 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   stations: [
-    invalid('list with a bad bbox', '/api/stations?bbox=nonsense', BAD_BBOX_SCHEMA, [
-      { path: '/bbox', message: 'must match format "bbox"' },
-    ]),
+    badBbox('list with a bad bbox', '/api/stations?bbox=nonsense'),
     ['unknown station', '/api/stations/nope', 404, 'Station not found', 'not_found'],
   ],
   'power plants': [
