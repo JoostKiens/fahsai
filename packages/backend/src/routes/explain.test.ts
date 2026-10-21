@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { ApiError } from '@thailand-aq/types';
-import type { ScientificContext } from '../lib/buildScientificContext.js';
-import { registerErrorHandling } from '../lib/error-handler.js';
-import { noReporters } from '../test/no-reporters.js';
+import {
+  FULL_CONTEXT,
+  HIGH_OUTLIER_CONTEXT,
+  SPARSE_CONTEXT,
+} from '../test/fixtures/scientific-context.js';
+import { buildTestApp } from '../test/test-app.js';
 
 const {
   mockCompute,
@@ -56,18 +59,13 @@ vi.mock('../cache/client.js', () => ({
   CACHE_CONTROL_IMMUTABLE: 'public, max-age=604800',
 }));
 
-// Only the fields the route touches (it forwards the object as-is) matter for this fixture.
-const FIXTURE_CONTEXT = {
-  station: { name: 'Test Station', lat: 18.79, lng: 98.98 },
-  currentPm25: 42,
-} as unknown as ScientificContext;
+const FIXTURE_CONTEXT = FULL_CONTEXT;
 
 async function buildApp(): Promise<FastifyInstance> {
   // IP_RATELIMIT_ENABLED is computed from NODE_ENV at module load, so stub before importing.
   vi.stubEnv('NODE_ENV', 'production');
   const { explainRoutes } = await import('./explain.js');
-  const app = Fastify();
-  registerErrorHandling(app, noReporters);
+  const app = buildTestApp();
   await app.register(explainRoutes);
   return app;
 }
@@ -96,6 +94,23 @@ describe('GET /api/explain/context', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(FIXTURE_CONTEXT);
     expect(mockCompute).toHaveBeenCalledWith('abc', 18.79, 98.98, expect.any(String));
+  });
+
+  // The response schema must not strip or reject any part of a real context.
+  it.each([
+    ['a full context', FULL_CONTEXT],
+    ['a context with every optional part missing', SPARSE_CONTEXT],
+    ['a context for a high outlier', HIGH_OUTLIER_CONTEXT],
+  ])('sends %s exactly as computed', async (_name, context) => {
+    mockCompute.mockResolvedValue(context);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/explain/context?stationId=abc&lat=18.79&lng=98.98',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(context);
   });
 
   it('returns 400 when stationId is missing', async () => {
@@ -229,9 +244,21 @@ describe('POST /api/explain error responses', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({
-      error: 'Missing required fields: stationId, lat, lng',
+      error: 'Missing required parameter: stationId',
+      code: 'invalid_request',
+      details: [{ path: 'stationId', message: 'is required' }],
+    });
+  });
+
+  it('answers 400 invalid_request for a date that does not exist', async () => {
+    const res = await post({ ...validBody, date: '2026-02-30' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: 'Invalid parameter date: expected a calendar day, YYYY-MM-DD',
       code: 'invalid_request',
     });
+    expect(mockCompute).not.toHaveBeenCalled();
   });
 
   it('answers 429 rate_limited with the reset time when the IP limit trips', async () => {

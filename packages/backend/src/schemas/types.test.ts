@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { Static } from '@fastify/type-provider-typebox';
+import type { ScientificContext, ExplainCase } from '../lib/buildScientificContext.js';
 import type {
   ApiError,
   BaselineResponse,
@@ -15,6 +16,7 @@ import type {
 } from '@thailand-aq/types';
 import { ApiErrorSchema } from './common.js';
 import { PM25DailySummarySchema, PM25GridColumnsSchema, PM25GridPointSchema } from './aq.js';
+import { EXPLAIN_CASES, ScientificContextSchema } from './explain.js';
 import { FirePointSchema } from './fire.js';
 import { PowerPlantCollectionSchema } from './power-plant.js';
 import { BaselineResponseSchema, StationDayHistorySchema } from './station-readings.js';
@@ -54,5 +56,10 @@ describe('schemas match the shared types', () => {
   it('StationDayHistory and BaselineResponse', () => {
     expectTypeOf<Static<typeof StationDayHistorySchema>>().toEqualTypeOf<StationDayHistory>();
     expectTypeOf<Static<typeof BaselineResponseSchema>>().toEqualTypeOf<BaselineResponse>();
+  });
+
+  it('ScientificContext and ExplainCase', () => {
+    expectTypeOf<Static<typeof ScientificContextSchema>>().toEqualTypeOf<ScientificContext>();
+    expectTypeOf<(typeof EXPLAIN_CASES)[number]>().toEqualTypeOf<ExplainCase>();
   });
 });
