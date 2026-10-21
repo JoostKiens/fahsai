@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 
 export function rollbarProxyRoutes(app: FastifyInstance): void {
-  app.post('/api/rollbar', async (request, reply) => {
+  // A relay for the browser SDK (see docs/claude/rollbar.md), not part of the API: hidden from /docs.
+  app.post('/api/rollbar', { schema: { hide: true } }, async (request, reply) => {
     try {
       // Rollbar SDK sends the token as X-Rollbar-Access-Token header, not in the body
       const bodyToSend =

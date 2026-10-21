@@ -1,11 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { clearTables, seed } from '../test/integration/db.js';
 import { camsRoutes } from './cams.js';
 import { firesRoutes } from './fires.js';
 import { powerPlantsRoutes } from './power-plants.js';
 import { stationReadingsRoutes } from './station-readings.js';
 import { weatherRoutes } from './weather.js';
+import { buildTestApp } from '../test/test-app.js';
 
 // Characterization tests: they pin the CURRENT success responses (status, Cache-Control, body) of
 // the data routes against a real database, so later refactors (schemas, versioning) can prove
@@ -126,7 +127,7 @@ async function seedFixtures() {
       date: D,
       lat: 18.75,
       lng: 99,
-      wind_speed_kmh: null,
+      wind_speed_kmh: 7.5,
       wind_direction_deg: 45,
       relative_humidity_2m: null,
       precipitation_sum: null,
@@ -161,12 +162,12 @@ describe('current success responses of the data routes', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = Fastify();
-    firesRoutes(app);
-    weatherRoutes(app);
-    camsRoutes(app);
-    stationReadingsRoutes(app);
-    powerPlantsRoutes(app);
+    app = buildTestApp();
+    void app.register(firesRoutes, { prefix: '/api' });
+    void app.register(weatherRoutes, { prefix: '/api' });
+    void app.register(camsRoutes, { prefix: '/api' });
+    void app.register(stationReadingsRoutes, { prefix: '/api' });
+    void app.register(powerPlantsRoutes, { prefix: '/api' });
   });
 
   afterAll(() => app.close());
@@ -334,7 +335,7 @@ describe('current success responses of the data routes', () => {
                 "precipitation_sum": null,
                 "relative_humidity_2m": null,
                 "wind_direction_deg": 45,
-                "wind_speed_kmh": null,
+                "wind_speed_kmh": 7.5,
               },
             ],
           },
@@ -366,6 +367,20 @@ describe('current success responses of the data routes', () => {
       `);
     });
 
+    // weather_readings.wind_speed_kmh is nullable but the ingest never writes null (JOO-92), and the
+    // frontend treats it as a number: the response schema sends a stray null as 0.
+    it('sends a null wind speed as 0', async () => {
+      await seed('weather_readings', [
+        { date: '2026-10-15', lat: 1.5, lng: 1.5, wind_speed_kmh: null, wind_direction_deg: 90 },
+      ]);
+
+      const { body } = await get('/api/weather/wind?date=2026-10-15&bbox=1,1,2,2');
+
+      expect(body).toEqual({
+        data: [{ lat: 1.5, lng: 1.5, wind_speed_kmh: 0, wind_direction_deg: 90 }],
+      });
+    });
+
     it('GET /api/weather/wind', async () => {
       expect(await getSorted(`/api/weather/wind?date=${D}`, byLatLng)).toMatchInlineSnapshot(`
         {
@@ -387,7 +402,7 @@ describe('current success responses of the data routes', () => {
                 "lat": 18.75,
                 "lng": 99,
                 "wind_direction_deg": 45,
-                "wind_speed_kmh": null,
+                "wind_speed_kmh": 7.5,
               },
             ],
           },

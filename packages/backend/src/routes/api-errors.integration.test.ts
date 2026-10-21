@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
-import { registerErrorHandling } from '../lib/error-handler.js';
+import type { FastifyInstance } from 'fastify';
 import { clearTables } from '../test/integration/db.js';
-import { noReporters } from '../test/no-reporters.js';
 import { camsRoutes } from './cams.js';
 import { firesRoutes } from './fires.js';
 import { latestDateRoutes } from './latest-date.js';
@@ -10,6 +8,7 @@ import { powerPlantsRoutes } from './power-plants.js';
 import { stationReadingsRoutes } from './station-readings.js';
 import { stationsRoutes } from './stations.js';
 import { weatherRoutes } from './weather.js';
+import { buildTestApp } from '../test/test-app.js';
 
 // Every error the data routes send on purpose, against an empty database. Bodies are exactly
 // { error, code }: the human text is unchanged from before the error contract (JOO-76).
@@ -20,14 +19,24 @@ vi.mock('../cache/client.js', () => ({
   CACHE_CONTROL_IMMUTABLE: `public, max-age=${7 * 24 * 60 * 60}`,
 }));
 
-type ErrorCase = [name: string, url: string, status: number, error: string, code: string];
+type Detail = { path: string; message: string };
+type ErrorCase = [
+  name: string,
+  url: string,
+  status: number,
+  error: string,
+  code: string,
+  details?: Detail[],
+];
 
-const invalid = (name: string, url: string, error: string): ErrorCase => [
+// details are only there when the request failed schema validation
+const invalid = (name: string, url: string, error: string, details?: Detail[]): ErrorCase => [
   name,
   url,
   400,
   error,
   'invalid_request',
+  details,
 ];
 const noData = (name: string, url: string, error: string): ErrorCase => [
   name,
@@ -37,36 +46,41 @@ const noData = (name: string, url: string, error: string): ErrorCase => [
   'no_data',
 ];
 
-const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
+// What a request that fails schema validation gets: the readable text, and which fields.
+const missing = (name: string, url: string, ...params: string[]): ErrorCase =>
+  invalid(
+    name,
+    url,
+    `Missing required parameter${params.length > 1 ? 's' : ''}: ${params.join(', ')}`,
+    params.map((name) => ({ path: `/${name}`, message: 'is required' })),
+  );
+const badDate = (name: string, url: string, param: string): ErrorCase =>
+  invalid(name, url, `Invalid parameter ${param}: expected a calendar day, YYYY-MM-DD`, [
+    { path: `/${param}`, message: 'must match format "date"' },
+  ]);
+const badBbox = (name: string, url: string): ErrorCase =>
+  invalid(name, url, BAD_BBOX_SCHEMA, [{ path: '/bbox', message: 'must match format "bbox"' }]);
+
+// The validator would coerce these to 0, 1 and 16; a client that sent them made a mistake.
+const notANumber = (name: string, url: string, param: string): ErrorCase =>
+  invalid(name, url, `Invalid parameter ${param}: must be a number`, [
+    { path: `/${param}`, message: 'must be a number' },
+  ]);
+
+const BAD_BBOX_SCHEMA =
+  'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)';
 const NO_CAMS = 'No CAMS grid data for this date. Run the ingest job.';
-const DATE_REQUIRED = 'date param required (YYYY-MM-DD)';
 
 const CASES: Record<string, ErrorCase[]> = {
   fires: [
-    invalid('missing date', '/api/fires', 'Missing required param: date'),
-    invalid(
-      'malformed date',
-      '/api/fires?date=17-10-2026',
-      'Invalid date format, expected YYYY-MM-DD',
-    ),
-    invalid('bad bbox', '/api/fires?date=2026-10-17&bbox=nonsense', BAD_BBOX),
+    missing('missing date', '/api/fires', 'date'),
+    badDate('malformed date', '/api/fires?date=17-10-2026', 'date'),
+    badBbox('bad bbox', '/api/fires?date=2026-10-17&bbox=nonsense'),
     noData('no fires', '/api/fires?date=2026-10-17', 'No fire data for this date.'),
-    invalid(
-      'range without start',
-      '/api/fires/range?end=2026-10-17',
-      'Missing required param: start',
-    ),
-    invalid(
-      'range without end',
-      '/api/fires/range?start=2026-10-17',
-      'Missing required param: end',
-    ),
-    invalid(
-      'range bad start',
-      '/api/fires/range?start=x&end=2026-10-17',
-      'Invalid start date format',
-    ),
-    invalid('range bad end', '/api/fires/range?start=2026-10-17&end=x', 'Invalid end date format'),
+    missing('range without start', '/api/fires/range?end=2026-10-17', 'start'),
+    missing('range without end', '/api/fires/range?start=2026-10-17', 'end'),
+    badDate('range bad start', '/api/fires/range?start=x&end=2026-10-17', 'start'),
+    badDate('range bad end', '/api/fires/range?start=2026-10-17&end=x', 'end'),
     invalid(
       'range reversed',
       '/api/fires/range?start=2026-10-17&end=2026-10-16',
@@ -84,8 +98,8 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   weather: [
-    invalid('weather without date', '/api/weather', DATE_REQUIRED),
-    invalid('wind with a malformed date', '/api/weather/wind?date=x', DATE_REQUIRED),
+    missing('weather without date', '/api/weather', 'date'),
+    badDate('wind with a malformed date', '/api/weather/wind?date=x', 'date'),
     noData(
       'no weather',
       '/api/weather?date=2026-10-17',
@@ -98,20 +112,23 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   cams: [
-    invalid('cams without date', '/api/cams', DATE_REQUIRED),
+    missing('cams without date', '/api/cams', 'date'),
     noData('no cams grid', '/api/cams?date=2026-10-17', NO_CAMS),
-    invalid('nearest without date', '/api/cams/nearest?lat=1&lng=1', DATE_REQUIRED),
-    invalid(
-      'nearest without coordinates',
-      '/api/cams/nearest?date=2026-10-17',
-      'lat and lng params required (numeric)',
-    ),
+    missing('nearest without date', '/api/cams/nearest?lat=1&lng=1', 'date'),
+    missing('nearest without coordinates', '/api/cams/nearest?date=2026-10-17', 'lat', 'lng'),
     noData('no cams grid for nearest', '/api/cams/nearest?date=2026-10-17&lat=13&lng=100', NO_CAMS),
-    invalid(
-      'summary without dates',
-      '/api/cams/summary',
-      'start and end params required (YYYY-MM-DD)',
+    notANumber(
+      'nearest with an empty lat',
+      '/api/cams/nearest?date=2026-10-17&lat=&lng=100',
+      'lat',
     ),
+    notANumber('nearest with lng=true', '/api/cams/nearest?date=2026-10-17&lat=13&lng=true', 'lng'),
+    notANumber(
+      'nearest with a hex lat',
+      '/api/cams/nearest?date=2026-10-17&lat=0x10&lng=100',
+      'lat',
+    ),
+    missing('summary without dates', '/api/cams/summary', 'start', 'end'),
     invalid(
       'summary reversed',
       '/api/cams/summary?start=2026-10-17&end=2026-10-16',
@@ -124,40 +141,63 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   'station readings': [
-    invalid('latest with a bad bbox', '/api/station-readings/latest?bbox=nonsense', BAD_BBOX),
+    badBbox('latest with a bad bbox', '/api/station-readings/latest?bbox=nonsense'),
+    badDate('latest with a malformed date', '/api/station-readings/latest?date=x', 'date'),
     noData(
       'no latest readings',
       '/api/station-readings/latest?date=2026-10-17',
       'No station readings for this date.',
     ),
-    invalid(
-      'history without station',
-      '/api/station-readings/history',
-      'Missing required param: station_id',
-    ),
+    missing('history without station', '/api/station-readings/history', 'station_id'),
     invalid(
       'history with hours=0',
       '/api/station-readings/history?station_id=s1&hours=0',
-      'hours must be a positive number',
+      'Invalid parameter hours: must be >= 1',
+      [{ path: '/hours', message: 'must be >= 1' }],
     ),
     invalid(
       'history with too many hours',
       '/api/station-readings/history?station_id=s1&hours=169',
-      'hours cannot exceed 168 (7 days)',
+      'Invalid parameter hours: must be <= 168',
+      [{ path: '/hours', message: 'must be <= 168' }],
+    ),
+    notANumber(
+      'history with hours=true',
+      '/api/station-readings/history?station_id=s1&hours=true',
+      'hours',
+    ),
+    invalid(
+      'history with fractional hours',
+      '/api/station-readings/history?station_id=s1&hours=1.5',
+      'Invalid parameter hours: must be a whole number',
+      [{ path: '/hours', message: 'must be multiple of 1' }],
+    ),
+    invalid(
+      'station history with fractional days',
+      '/api/stations/s1/history?days=2.5',
+      'Invalid parameter days: must be a whole number',
+      [{ path: '/days', message: 'must be multiple of 1' }],
     ),
     invalid(
       'station history with days=0',
       '/api/stations/s1/history?days=0',
-      'days must be a positive number',
+      'Invalid parameter days: must be >= 1',
+      [{ path: '/days', message: 'must be >= 1' }],
     ),
     invalid(
       'station history with too many days',
       '/api/stations/s1/history?days=31',
-      'days cannot exceed 30',
+      'Invalid parameter days: must be <= 30',
+      [{ path: '/days', message: 'must be <= 30' }],
+    ),
+    badDate(
+      'station history with an impossible date',
+      '/api/stations/s1/history?date=2026-13-45',
+      'date',
     ),
   ],
   stations: [
-    invalid('list with a bad bbox', '/api/stations?bbox=nonsense', BAD_BBOX),
+    badBbox('list with a bad bbox', '/api/stations?bbox=nonsense'),
     ['unknown station', '/api/stations/nope', 404, 'Station not found', 'not_found'],
   ],
   'power plants': [
@@ -178,15 +218,14 @@ describe('error responses of the data routes against a real database', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = Fastify();
-    registerErrorHandling(app, noReporters);
-    firesRoutes(app);
-    weatherRoutes(app);
-    camsRoutes(app);
-    stationReadingsRoutes(app);
-    stationsRoutes(app);
-    powerPlantsRoutes(app);
-    latestDateRoutes(app);
+    app = buildTestApp();
+    void app.register(firesRoutes, { prefix: '/api' });
+    void app.register(weatherRoutes, { prefix: '/api' });
+    void app.register(camsRoutes, { prefix: '/api' });
+    void app.register(stationReadingsRoutes, { prefix: '/api' });
+    void app.register(stationsRoutes, { prefix: '/api' });
+    void app.register(powerPlantsRoutes, { prefix: '/api' });
+    void app.register(latestDateRoutes, { prefix: '/api' });
   });
 
   afterAll(() => app.close());
@@ -194,12 +233,12 @@ describe('error responses of the data routes against a real database', () => {
   beforeEach(clearTables);
 
   describe.each(Object.entries(CASES))('%s', (_group, cases) => {
-    it.each(cases)('%s', async (_name, url, status, error, code) => {
+    it.each(cases)('%s', async (_name, url, status, error, code, details) => {
       const res = await app.inject({ method: 'GET', url });
 
       expect({ status: res.statusCode, body: res.json<unknown>() }).toEqual({
         status,
-        body: { error, code },
+        body: { error, code, ...(details ? { details } : {}) },
       });
     });
   });

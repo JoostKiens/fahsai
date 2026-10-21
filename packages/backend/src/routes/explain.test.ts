@@ -1,9 +1,16 @@
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { ApiError } from '@thailand-aq/types';
-import type { ScientificContext } from '../lib/buildScientificContext.js';
-import { registerErrorHandling } from '../lib/error-handler.js';
-import { noReporters } from '../test/no-reporters.js';
+import {
+  FULL_CONTEXT,
+  HIGH_OUTLIER_CONTEXT,
+  SPARSE_CONTEXT,
+} from '../test/fixtures/scientific-context.js';
+import { buildTestApp } from '../test/test-app.js';
+import { buildScientificContext } from '../lib/buildScientificContext.js';
+import type { ExplainFixture } from '../scripts/eval/types.js';
 
 const {
   mockCompute,
@@ -56,19 +63,15 @@ vi.mock('../cache/client.js', () => ({
   CACHE_CONTROL_IMMUTABLE: 'public, max-age=604800',
 }));
 
-// Only the fields the route touches (it forwards the object as-is) matter for this fixture.
-const FIXTURE_CONTEXT = {
-  station: { name: 'Test Station', lat: 18.79, lng: 98.98 },
-  currentPm25: 42,
-} as unknown as ScientificContext;
+const FIXTURE_CONTEXT = FULL_CONTEXT;
+const FIXTURE_DIR = fileURLToPath(new URL('../scripts/eval/fixtures', import.meta.url));
 
 async function buildApp(): Promise<FastifyInstance> {
   // IP_RATELIMIT_ENABLED is computed from NODE_ENV at module load, so stub before importing.
   vi.stubEnv('NODE_ENV', 'production');
   const { explainRoutes } = await import('./explain.js');
-  const app = Fastify();
-  registerErrorHandling(app, noReporters);
-  await app.register(explainRoutes);
+  const app = buildTestApp();
+  await app.register(explainRoutes, { prefix: '/api' });
   return app;
 }
 
@@ -97,6 +100,45 @@ describe('GET /api/explain/context', () => {
     expect(res.json()).toEqual(FIXTURE_CONTEXT);
     expect(mockCompute).toHaveBeenCalledWith('abc', 18.79, 98.98, expect.any(String));
   });
+
+  // The response schema must not strip or reject any part of a real context.
+  it.each([
+    ['a full context', FULL_CONTEXT],
+    ['a context with every optional part missing', SPARSE_CONTEXT],
+    ['a context for a high outlier', HIGH_OUTLIER_CONTEXT],
+  ])('sends %s exactly as computed', async (_name, context) => {
+    mockCompute.mockResolvedValue(context);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/explain/context?stationId=abc&lat=18.79&lng=98.98',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(context);
+  });
+
+  // The fixtures above are typed, so they cannot hold a field the type hides (currentlyUpwind was
+  // once stripped that way). A context built by the real code can.
+  it.each(readdirSync(FIXTURE_DIR).filter((f) => f.endsWith('.ts')))(
+    'sends the context built from golden fixture %s exactly as computed',
+    async (file) => {
+      const { fixture } = (await import(
+        `../scripts/eval/fixtures/${file.replace('.ts', '.js')}`
+      )) as {
+        fixture: ExplainFixture;
+      };
+      const context = buildScientificContext(fixture.input);
+      mockCompute.mockResolvedValue(context);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/explain/context?stationId=abc&lat=18.79&lng=98.98',
+      });
+
+      expect(res.json()).toEqual(JSON.parse(JSON.stringify(context)));
+    },
+  );
 
   it('returns 400 when stationId is missing', async () => {
     const res = await app.inject({
@@ -229,9 +271,21 @@ describe('POST /api/explain error responses', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({
-      error: 'Missing required fields: stationId, lat, lng',
+      error: 'Missing required parameter: stationId',
+      code: 'invalid_request',
+      details: [{ path: '/stationId', message: 'is required' }],
+    });
+  });
+
+  it('answers 400 invalid_request for a date that does not exist', async () => {
+    const res = await post({ ...validBody, date: '2026-02-30' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: 'Invalid parameter date: expected a calendar day, YYYY-MM-DD',
       code: 'invalid_request',
     });
+    expect(mockCompute).not.toHaveBeenCalled();
   });
 
   it('answers 429 rate_limited with the reset time when the IP limit trips', async () => {
@@ -374,11 +428,14 @@ describe('POST /api/explain errors after the stream has started', () => {
   });
 
   // The throttle is module-level, so these use a failure and a limit no other test reports.
-  it('reports the same Gemini failure once, however many requests hit it', async () => {
-    const failure = new Error('overloaded: model is busy, try later');
-    streamThatFails(failure);
+  it('reports the same kind of Gemini failure once, whatever its message says', async () => {
+    const failure = (id: number) =>
+      Object.assign(new Error(`overloaded: request ${id} was refused`), {
+        name: 'OverloadedError',
+      });
+    streamThatFails(failure(1));
     await explain();
-    streamThatFails(failure);
+    streamThatFails(failure(2));
     await explain();
 
     expect(mockReportError).toHaveBeenCalledTimes(1);

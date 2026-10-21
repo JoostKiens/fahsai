@@ -87,7 +87,7 @@ export interface BaselineDay extends BaselineStat {
   day: number;
 }
 
-// Returned by GET /api/stations/:id/baseline
+// Returned by GET /api/v1/stations/:id/baseline
 export interface BaselineResponse {
   data: BaselineDay[];
   minYear: number | null;
@@ -120,7 +120,7 @@ export interface PM25GridPoint {
   pm25: number; // daily mean µg/m³ from CAMS model via Open-Meteo
 }
 
-// Wire format for GET /api/cams -- parallel arrays instead of PM25GridPoint[]
+// Wire format for GET /api/v1/cams -- parallel arrays instead of PM25GridPoint[]
 // to cut per-point key-name overhead over the network.
 export interface PM25GridColumns {
   lats: number[];
@@ -128,13 +128,13 @@ export interface PM25GridColumns {
   pm25s: number[];
 }
 
-// Row shape for GET /api/cams/summary -- one entry per date.
+// Row shape for GET /api/v1/cams/summary -- one entry per date.
 export interface PM25DailySummary {
   date: string; // YYYY-MM-DD
   pm25: number; // 95th-percentile µg/m³ across that day's CAMS grid
 }
 
-// power-plant.ts -- GeoJSON FeatureCollection returned by GET /api/power-plants
+// power-plant.ts -- GeoJSON FeatureCollection returned by GET /api/v1/power-plants
 export interface PowerPlantProperties {
   id: number;
   name: string;

@@ -43,7 +43,8 @@ export function firePressureLabel(score: number): string {
 // buildPrompt only depends on this type, not on RawExplainData.
 // ----------------------------------------------------------------
 
-export type TierSource = Omit<FixtureUpwindSource, 'currentlyUpwind'>;
+// currentlyUpwind stays: the published fahsai-mcp-server reads it from /api/explain/context
+export type TierSource = FixtureUpwindSource;
 
 export interface ScientificContext {
   station: { name: string; lat: number; lng: number };
@@ -260,9 +261,9 @@ function computeSourceTiers(
   for (const s of sources) {
     if (s.currentlyUpwind && s.distanceKm <= 150) {
       if (fireExceptionActive && s.distanceKm > 50) continue;
-      tier1.push(toTierSource(s));
+      tier1.push(s);
     } else if (!s.currentlyUpwind && s.distanceKm <= 20) {
-      tier2.push(toTierSource(s));
+      tier2.push(s);
     }
     // tier 3: omit
   }
@@ -270,10 +271,6 @@ function computeSourceTiers(
   tier1.sort((a, b) => a.distanceKm - b.distanceKm);
 
   return { tier1, tier2 };
-}
-
-function toTierSource(s: FixtureUpwindSource): TierSource {
-  return s;
 }
 
 // ----------------------------------------------------------------
@@ -358,7 +355,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     ? {
         label: raw.persistentWind.label,
         dayCount: raw.persistentWind.dayCount,
-        sourcesBeyondWindow: raw.persistentWind.sourcesBeyondWindow.map(toTierSource),
+        sourcesBeyondWindow: raw.persistentWind.sourcesBeyondWindow,
       }
     : null;
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ApiError, ApiErrorDetail, ErrorCode } from '@thailand-aq/types';
 import { AppError } from './app-error.js';
+import { formatValidationError, missingProperties } from './validation-error.js';
 
 export type ErrorReporters = {
   reportError: (err: unknown, extra?: Record<string, unknown>) => void;
@@ -18,6 +19,8 @@ const INTERNAL_ERROR_BODY: ApiError = { error: 'Internal server error', code: 'i
 
 // Registered before the routes so every route plugin inherits it.
 export function registerErrorHandling(app: FastifyInstance, reporters: ErrorReporters): void {
+  app.setSchemaErrorFormatter(formatValidationError);
+
   app.setErrorHandler((error, request, reply) => {
     const { statusCode, body, severity } = classifyError(error);
     const context = { path: request.url, method: request.method, requestId: request.id };
@@ -32,12 +35,13 @@ export function registerErrorHandling(app: FastifyInstance, reporters: ErrorRepo
     if (severity === 'error') reporters.reportError(error, context);
     if (severity === 'warning') reporters.reportWarning(body.error, context);
 
-    return reply.status(statusCode).send(body);
+    // a route may have set a long Cache-Control before it failed; an error is never cacheable
+    return reply.status(statusCode).header('Cache-Control', 'no-store').send(body);
   });
 
   app.setNotFoundHandler((_request, reply) => {
     const body: ApiError = { error: 'Route not found', code: 'not_found' };
-    return reply.status(404).send(body);
+    return reply.status(404).header('Cache-Control', 'no-store').send(body);
   });
 }
 
@@ -84,7 +88,7 @@ function asClientError(error: unknown): ClassifiedError | null {
 
 function isFastifyError(error: object): boolean {
   if ('validation' in error && Array.isArray(error.validation)) return true;
-  return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_ERR_');
+  return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_');
 }
 
 function codeForClientStatus(statusCode: number): ErrorCode {
@@ -95,25 +99,20 @@ function codeForClientStatus(statusCode: number): ErrorCode {
 
 function validationDetails(error: object): ApiErrorDetail[] | null {
   if (!('validation' in error) || !Array.isArray(error.validation)) return null;
-  const details = error.validation.map((item: unknown) => ({
-    path: pathOf(item),
-    message: messageOf(item),
-  }));
+  const details = error.validation.flatMap((item: unknown) => detailsOf(item));
   return details.length > 0 ? details : null;
+}
+
+function detailsOf(item: unknown): ApiErrorDetail[] {
+  const missing = missingProperties(item);
+  if (missing.length > 0)
+    return missing.map((name) => ({ path: `/${name}`, message: 'is required' }));
+  return [{ path: pathOf(item), message: messageOf(item) }];
 }
 
 function pathOf(item: unknown): string {
   if (typeof item !== 'object' || item === null) return '';
-  if ('instancePath' in item && typeof item.instancePath === 'string' && item.instancePath !== '') {
-    return item.instancePath;
-  }
-  // a missing required property has an empty instancePath; the property name is in params
-  if ('params' in item && typeof item.params === 'object' && item.params !== null) {
-    if ('missingProperty' in item.params && typeof item.params.missingProperty === 'string') {
-      return item.params.missingProperty;
-    }
-  }
-  return '';
+  return 'instancePath' in item && typeof item.instancePath === 'string' ? item.instancePath : '';
 }
 
 function messageOf(item: unknown): string {

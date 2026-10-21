@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
-import { registerErrorHandling } from '../lib/error-handler.js';
-import { noReporters } from '../test/no-reporters.js';
 import { clearTables, gridPoints, seed } from '../test/integration/db.js';
 import { latestDateRoutes } from './latest-date.js';
+import { buildTestApp } from '../test/test-app.js';
 
 const { redisGet, redisSet } = vi.hoisted(() => ({ redisGet: vi.fn(), redisSet: vi.fn() }));
 vi.mock('../cache/client.js', () => ({ redis: { get: redisGet, set: redisSet } }));
@@ -42,9 +40,8 @@ async function resetDb() {
 }
 
 async function getLatestDate() {
-  const app = Fastify();
-  registerErrorHandling(app, noReporters);
-  latestDateRoutes(app);
+  const app = buildTestApp();
+  void app.register(latestDateRoutes, { prefix: '/api' });
   const res = await app.inject({ method: 'GET', url: '/api/latest-date' });
   await app.close();
   return res;

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { PM25DailySummary, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
@@ -9,8 +10,13 @@ import { fetchAllPages } from '../utils/backfill.js';
 import { nearestGridPoint } from '../utils/trajectory.js';
 import { toGridColumns } from '../utils/camsColumns.js';
 import { AppError } from '../lib/app-error.js';
+import {
+  PM25DailySummarySchema,
+  PM25GridColumnsSchema,
+  PM25GridPointSchema,
+} from '../schemas/aq.js';
+import { Bbox, DateString, errorResponses } from '../schemas/common.js';
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAGE_SIZE = 1000;
 // Full CAMS grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis
 // so a rate-limited partial ingest never poisons the hot cache.
@@ -47,56 +53,63 @@ async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
 }
 
 export function camsRoutes(app: FastifyInstance): void {
-  // GET /api/cams?date=YYYY-MM-DD&bbox=west,south,east,north
-  app.get<{ Querystring: { date?: string; bbox?: string } }>('/api/cams', async (req, reply) => {
-    const { date, bbox: rawBbox } = req.query;
+  const typed = app.withTypeProvider<TypeBoxTypeProvider>();
 
-    if (!date || !DATE_RE.test(date)) {
-      throw new AppError({ code: 'invalid_request', message: 'date param required (YYYY-MM-DD)' });
-    }
+  typed.get(
+    '/cams',
+    {
+      schema: {
+        summary: 'PM2.5 model grid for one day',
+        description:
+          'Daily mean PM2.5 from the CAMS model on its grid, inside the bbox, as parallel arrays (lats, lngs, pm25s). 404 (no_data) when the day has not been ingested.',
+        tags: ['cams'],
+        querystring: Type.Object({ date: DateString, bbox: Type.Optional(Bbox) }),
+        response: {
+          200: Type.Object({ data: PM25GridColumnsSchema }),
+          ...errorResponses(400, 404),
+        },
+      },
+    },
+    async (req, reply) => {
+      const { date, bbox: rawBbox } = req.query;
 
-    const points = await getCamsGridForDate(date);
+      const points = await getCamsGridForDate(date);
 
-    if (!points.length) {
-      throw new AppError({
-        code: 'no_data',
-        message: 'No CAMS grid data for this date. Run the ingest job.',
-      });
-    }
+      if (!points.length) {
+        throw new AppError({
+          code: 'no_data',
+          message: 'No CAMS grid data for this date. Run the ingest job.',
+        });
+      }
 
-    const bbox = parseBbox(rawBbox);
-    const filtered = points.filter(
-      (p) => p.lat >= bbox.south && p.lat <= bbox.north && p.lng >= bbox.west && p.lng <= bbox.east,
-    );
+      const bbox = parseBbox(rawBbox);
+      const filtered = points.filter(
+        (p) =>
+          p.lat >= bbox.south && p.lat <= bbox.north && p.lng >= bbox.west && p.lng <= bbox.east,
+      );
 
-    return reply
-      .header('Cache-Control', CACHE_CONTROL_IMMUTABLE)
-      .send({ data: toGridColumns(filtered) });
-  });
+      return reply
+        .header('Cache-Control', CACHE_CONTROL_IMMUTABLE)
+        .send({ data: toGridColumns(filtered) });
+    },
+  );
 
-  // GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
   // Returns the single nearest grid point — used by InfoPanel so it doesn't need
   // to fetch the full grid just to look up one point.
-  app.get<{ Querystring: { date?: string; lat?: string; lng?: string } }>(
-    '/api/cams/nearest',
+  typed.get(
+    '/cams/nearest',
+    {
+      schema: {
+        summary: 'The model grid point nearest a location',
+        description:
+          'The CAMS grid point closest to lat/lng for the day. 404 (no_data) when the day has not been ingested.',
+        tags: ['cams'],
+        querystring: Type.Object({ date: DateString, lat: Type.Number(), lng: Type.Number() }),
+        response: { 200: Type.Object({ data: PM25GridPointSchema }), ...errorResponses(400, 404) },
+      },
+    },
     async (req, reply) => {
-      const { date, lat: rawLat, lng: rawLng } = req.query;
-
-      if (!date || !DATE_RE.test(date)) {
-        throw new AppError({
-          code: 'invalid_request',
-          message: 'date param required (YYYY-MM-DD)',
-        });
-      }
-
-      const lat = Number(rawLat);
-      const lng = Number(rawLng);
-      if (!rawLat || !rawLng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        throw new AppError({
-          code: 'invalid_request',
-          message: 'lat and lng params required (numeric)',
-        });
-      }
+      const { date, lat, lng } = req.query;
 
       const points = await getCamsGridForDate(date);
 
@@ -113,19 +126,25 @@ export function camsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
   // Daily p95 PM2.5 time series powering the scrubber gradient line chart.
-  app.get<{ Querystring: { start?: string; end?: string } }>(
-    '/api/cams/summary',
+  typed.get(
+    '/cams/summary',
+    {
+      schema: {
+        summary: 'Daily PM2.5 summary',
+        description:
+          'The 95th percentile of the CAMS grid for each day from start to end, oldest first. An empty range is a 200 with no data (and no-store), not a 404.',
+        tags: ['cams'],
+        querystring: Type.Object({ start: DateString, end: DateString }),
+        response: {
+          200: Type.Object({ data: Type.Array(PM25DailySummarySchema) }),
+          ...errorResponses(400),
+        },
+      },
+    },
     async (req, reply) => {
       const { start, end } = req.query;
 
-      if (!start || !DATE_RE.test(start) || !end || !DATE_RE.test(end)) {
-        throw new AppError({
-          code: 'invalid_request',
-          message: 'start and end params required (YYYY-MM-DD)',
-        });
-      }
       if (start > end) {
         throw new AppError({ code: 'invalid_request', message: 'start must be on or before end' });
       }

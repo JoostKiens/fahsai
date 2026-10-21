@@ -2,6 +2,8 @@ import type { ErrorReporters } from './error-handler.js';
 
 const MAX_TRACKED_KEYS = 100;
 
+export const REPORT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
+
 type ThrottleOptions = {
   windowMs: number;
   nowMs?: () => number;
@@ -23,8 +25,13 @@ export function createReportThrottle({
 
     if (lastReportedAt.size >= MAX_TRACKED_KEYS) {
       forgetExpired(lastReportedAt, now, windowMs);
-      if (lastReportedAt.size >= MAX_TRACKED_KEYS) lastReportedAt.clear();
+      if (lastReportedAt.size >= MAX_TRACKED_KEYS) {
+        // a Map iterates in insertion order and a reported key is re-inserted below, so the first is the one reported longest ago
+        const [oldest] = lastReportedAt.keys();
+        if (oldest !== undefined) lastReportedAt.delete(oldest);
+      }
     }
+    lastReportedAt.delete(key); // set() alone would keep an expired key at its old place in the order
     lastReportedAt.set(key, now);
     return true;
   };

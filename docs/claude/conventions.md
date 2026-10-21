@@ -219,9 +219,28 @@ the code:
 - Do not throw an `AppError` inside a `try` whose `catch` fails open (e.g. the Upstash rate-limit
   check): the catch swallows it. Return a value from a helper and throw outside the `try`, as
   `ipRateLimitResetMs` does in `routes/explain.ts`.
+- Every error reply is `Cache-Control: no-store`, whatever the route set before it failed.
+- `details[].path` is a JSON pointer (`/date`), also for a missing field.
 - `/health` (its own 503 body) and `/api/rollbar` (relays Rollbar, always 200) are exempt.
 - The explain stream cannot change its HTTP status once it has started; see
   `docs/claude/explain.md` ("Errors") for how a failure is sent in-band.
+
+**Route schemas (TypeBox)** — every data route declares `schema.querystring`, `params` or `body`
+and a `response` per status, built from `src/schemas/`; the OpenAPI document is generated from
+them (`/docs` for the page, `/docs/json` for the document). To add a route: put its shapes in
+`src/schemas/`, give the route a path without `/api/v1`, list its plugin in `routes/index.ts`, wrap the app with `.withTypeProvider<TypeBoxTypeProvider>()`, add
+`...errorResponses(400, 404, ...)`, and add an `expectTypeOf` equality check to
+`schemas/types.test.ts` against the shared type in `packages/types`. Gotchas:
+
+- A response schema strips every property it does not list, and serialises `null` as `0` for a
+  non-nullable number. A field the TypeScript type hides is still sent at runtime, so test a
+  response built by the real code, not a typed fixture (see the golden-fixture test in
+  `routes/explain.test.ts`).
+- Querystring values are coerced to the schema's type, bodies are not. `Type.Integer` truncates
+  `1.5` to `1`: use `wholeNumber()` (`schemas/common.ts`). The coercion also turns `lat=` into
+  `0`, `true` into `1` and `0x10` into `16`, so `useTypeBoxValidation` rejects any numeric
+  parameter that is not a plain decimal before it reaches the validator.
+- Keep semantic checks (`start <= end`, a 10-day cap) as `AppError`s in the handler.
 
 **Browser cache + TanStack Query double-caching** — Fastify routes must return
 `Cache-Control: no-store` for empty responses. Sending a cacheable header on an empty body
