@@ -137,9 +137,12 @@ export function useExplain() {
       } else if (streamError) {
         setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
       }
-    } catch (err) {
+    } catch {
       // a new request or a reset aborts the pending read, which rejects: that is not an error
-      if (!signal.aborted) throw err;
+      if (!signal.aborted) {
+        // the connection dropped mid-stream: show the same state as a failed request
+        setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
+      }
     } finally {
       if (!signal.aborted) {
         setState((prev) => ({ ...prev, loading: false, phase: null }));

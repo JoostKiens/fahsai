@@ -195,4 +195,31 @@ describe('useExplain', () => {
     await expect(finished).resolves.toBeUndefined();
     expect(latest()).toMatchObject({ text: '', loading: false, error: null, rateLimit: null });
   });
+
+  it('shows unavailable when the connection drops in the middle of the stream', async () => {
+    const encoder = new TextEncoder();
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream = controller;
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+
+    let finished: Promise<void> | undefined;
+    await act(async () => {
+      finished = latest().explain(OPTIONS);
+      await nextTick();
+    });
+    await act(async () => {
+      stream.enqueue(encoder.encode('Some words'));
+      await nextTick();
+    });
+    await act(async () => {
+      stream.error(new TypeError('network error'));
+      await finished;
+    });
+
+    expect(latest()).toMatchObject({ text: '', loading: false, error: 'unavailable' });
+  });
 });
