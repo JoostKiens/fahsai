@@ -3,8 +3,7 @@ import type { PM25DailySummary } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
 import { dayToDate, useEffectiveScrubberDays } from '@/store/uiStore';
 import { staleTimeForArray } from '@/utils/queryHelpers';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl, isNoData } from '@/lib/api';
 
 // Daily p95 PM2.5 across the scrubber's date range, used to draw the gradient line chart.
 // Returns a Map<date, pm25> for O(1) per-day lookup via the `select` transform.
@@ -22,10 +21,10 @@ export function usePm25Timeline() {
   return useQuery({
     queryKey: ['cams-summary', start, end],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/cams/summary?start=${start}&end=${end}`, {
+      const res = await fetch(apiUrl(`/cams/summary?start=${start}&end=${end}`), {
         cache: 'no-cache',
       });
-      if (res.status === 404) return [];
+      if (await isNoData(res)) return [];
       if (!res.ok) throw new Error(`cams summary fetch failed: ${res.status}`);
       return ((await res.json()) as { data: PM25DailySummary[] }).data;
     },

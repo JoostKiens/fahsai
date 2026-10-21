@@ -3,8 +3,7 @@ import { useTimeStore } from '@/store/timeStore';
 import type { PM25GridColumns, PM25GridPoint } from '@thailand-aq/types';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 import { parseCamsGridResponse } from '@/utils/camsColumns';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl, isNoData } from '@/lib/api';
 
 export function useCamsGrid() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
@@ -12,8 +11,8 @@ export function useCamsGrid() {
   return useQuery({
     queryKey: ['cams-grid', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/cams?date=${selectedDate}`);
-      if (res.status === 404) return [];
+      const res = await fetch(apiUrl(`/cams?date=${selectedDate}`));
+      if (await isNoData(res)) return [];
       if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
       const { data } = (await res.json()) as { data: PM25GridColumns | PM25GridPoint[] };
       return parseCamsGridResponse(data);

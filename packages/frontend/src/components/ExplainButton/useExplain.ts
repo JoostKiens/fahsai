@@ -7,8 +7,7 @@ import {
   toRateLimit,
   withoutStreamError,
 } from './utils.api-error';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl } from '@/lib/api';
 
 interface ExplainOptions {
   stationId: string;
@@ -52,7 +51,7 @@ export function useExplain() {
 
     let res: Response;
     try {
-      res = await fetch(`${API}/api/explain`, {
+      res = await fetch(apiUrl(`/explain`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stationId, lat, lng, date, lang: i18next.language }),

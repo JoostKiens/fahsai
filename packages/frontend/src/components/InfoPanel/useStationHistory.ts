@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl } from '@/lib/api';
 
 export function useStationHistory(stationId: string | null) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
@@ -18,7 +17,7 @@ export function useStationHistory(stationId: string | null) {
   const query = useQuery({
     queryKey: ['station-history', stationId, selectedDate],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/stations/${stationId!}/history?days=6&date=${nextDay}`);
+      const res = await fetch(apiUrl(`/stations/${stationId!}/history?days=6&date=${nextDay}`));
       if (!res.ok) throw new Error(`station history fetch failed: ${res.status}`);
       const body = (await res.json()) as { stationId: string; days: StationDayHistory[] };
       return body.days;
