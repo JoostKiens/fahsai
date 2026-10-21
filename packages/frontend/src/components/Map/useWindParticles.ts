@@ -65,13 +65,13 @@ const TRAIL_GROWTH_MAX = 2;
 // shorter; raise the multiplier if such displays become common.
 const MAX_TRAIL_POINTS = TRAIL_LENGTH * TRAIL_GROWTH_MAX * 4 + 2;
 // Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
-const HEAD_WIDTH = 3;
-const TAIL_WIDTH = 0.5;
+export const HEAD_WIDTH = 3;
+export const TAIL_WIDTH = 0.5;
 // Calm-wind trails are only a few pixels long; at full HEAD_WIDTH they render as blobs.
 // Head width shrinks so a trail is drawn at least MIN_TRAIL_ASPECT times longer than wide,
 // down to MIN_HEAD_WIDTH so near-still particles stay visible. Starting guesses, tune visually.
-const MIN_TRAIL_ASPECT = 3;
-const MIN_HEAD_WIDTH = 1;
+export const MIN_TRAIL_ASPECT = 3;
+export const MIN_HEAD_WIDTH = 1;
 // `clock` and particle timestamps are read by TripsLayer as 32-bit floats on the GPU,
 // which lose ms precision above 2^24 (~4.66h of continuous accumulation). Rebasing every
 // 10 minutes of real time keeps values far below that ceiling for the life of the tab.

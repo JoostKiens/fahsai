@@ -8,6 +8,10 @@ import {
   buildGrid,
   spawnParticle,
   packTrails,
+  HEAD_WIDTH,
+  TAIL_WIDTH,
+  MIN_HEAD_WIDTH,
+  MIN_TRAIL_ASPECT,
   createTrailBuffers,
   type Particle,
 } from './useWindParticles';
@@ -202,8 +206,6 @@ describe('packTrails', () => {
   });
 
   describe('trail width', () => {
-    const HEAD_WIDTH_PX = 3;
-    const MIN_HEAD_WIDTH_PX = 1;
     const particle = makeParticle();
     const clock = simulate({ particle, frameMs: BASE_STEP_MS, durationMs: 1000 });
     // The same trail packed at different on-screen scales, i.e. different pixel lengths.
@@ -211,27 +213,29 @@ describe('packTrails', () => {
       pack([particle], clock, pixelsPerDegree).widths[0];
 
     it('keeps the full head width for trails that are long on screen', () => {
-      expect(headWidthAt(1000)).toBe(HEAD_WIDTH_PX);
+      expect(headWidthAt(1000)).toBe(HEAD_WIDTH);
     });
 
     it('narrows the head for trails that are short on screen', () => {
-      // Scale at which this (eastward) trail is 6 px long on screen: 3× a 2 px head.
+      // A head halfway between the minimum and the full width needs a trail MIN_TRAIL_ASPECT times
+      // as long as that on screen; this is the scale at which this (eastward) trail is that long.
+      const halfwayWidth = (HEAD_WIDTH + MIN_HEAD_WIDTH) / 2;
       const { positions, vertexCount } = pack([particle], clock);
       const lengthDeg =
         Math.abs(positions[0] - positions[(vertexCount - 1) * 2]) *
         Math.cos((particle.lat * Math.PI) / 180);
 
-      expect(headWidthAt(6 / lengthDeg)).toBeCloseTo(2);
+      expect(headWidthAt((halfwayWidth * MIN_TRAIL_ASPECT) / lengthDeg)).toBeCloseTo(halfwayWidth);
     });
 
     it('never narrows the head below the minimum width', () => {
-      expect(headWidthAt(1)).toBe(MIN_HEAD_WIDTH_PX);
+      expect(headWidthAt(1)).toBe(MIN_HEAD_WIDTH);
     });
 
     it('tapers the tail in proportion to the head', () => {
       const { widths, vertexCount } = pack([particle], clock, 1);
 
-      expect(widths[vertexCount - 1] / widths[0]).toBeCloseTo(0.5 / HEAD_WIDTH_PX);
+      expect(widths[vertexCount - 1] / widths[0]).toBeCloseTo(TAIL_WIDTH / HEAD_WIDTH);
     });
   });
 
