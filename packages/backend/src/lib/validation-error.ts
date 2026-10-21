@@ -19,6 +19,9 @@ export function formatValidationError(
   const format = first.keyword === 'format' ? first.params['format'] : undefined;
   const hint = typeof format === 'string' ? FORMAT_HINTS[format] : undefined;
   if (hint) return new Error(`Invalid parameter ${name}: expected ${hint}`);
+  if (first.keyword === 'multipleOf' && first.params['multipleOf'] === 1) {
+    return new Error(`Invalid parameter ${name}: must be a whole number`);
+  }
   return new Error(`Invalid parameter ${name}: ${first.message ?? 'is not valid'}`);
 }
 

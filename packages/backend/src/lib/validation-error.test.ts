@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { ApiError } from '@thailand-aq/types';
 import { noReporters } from '../test/no-reporters.js';
-import { Bbox } from '../schemas/common.js';
+import { Bbox, wholeNumber } from '../schemas/common.js';
 import { registerErrorHandling } from './error-handler.js';
 import { useTypeBoxValidation } from './typebox-validation.js';
 
@@ -22,6 +22,7 @@ describe('the text of a request that failed validation', () => {
             date: Type.String({ format: 'date' }),
             bbox: Type.Optional(Bbox),
             hours: Type.Number({ exclusiveMinimum: 0, maximum: 168 }),
+            days: Type.Optional(wholeNumber({ minimum: 1 })),
           }),
         },
       },
@@ -66,6 +67,12 @@ describe('the text of a request that failed validation', () => {
     const { body } = await errorFor('/things?date=2026-10-17&hours=169');
 
     expect(body.error).toBe('Invalid parameter hours: must be <= 168');
+  });
+
+  it('says a number must be whole', async () => {
+    const { body } = await errorFor('/things?date=2026-10-17&hours=24&days=2.5');
+
+    expect(body.error).toBe('Invalid parameter days: must be a whole number');
   });
 
   it('says a number must be numeric', async () => {

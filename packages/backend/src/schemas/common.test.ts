@@ -7,7 +7,7 @@ import { registerApiDocs } from '../lib/api-docs.js';
 import { registerErrorHandling } from '../lib/error-handler.js';
 import { useTypeBoxValidation } from '../lib/typebox-validation.js';
 import { noReporters } from '../test/no-reporters.js';
-import { Bbox, DateString, errorResponses } from './common.js';
+import { Bbox, DateString, errorResponses, wholeNumber } from './common.js';
 
 type OpenApiDocument = {
   components?: { schemas?: Record<string, unknown> };
@@ -36,6 +36,21 @@ describe('shared schemas', () => {
         },
       },
       () => ({ ok: true }),
+    );
+    typed.get(
+      '/counted',
+      {
+        schema: {
+          querystring: Type.Object({
+            whole: wholeNumber({ minimum: 1, maximum: 30 }),
+            integer: Type.Optional(Type.Integer({ minimum: 1 })),
+          }),
+          response: {
+            200: Type.Object({ whole: Type.Number(), integer: Type.Optional(Type.Number()) }),
+          },
+        },
+      },
+      (req) => ({ whole: req.query.whole, integer: req.query.integer }),
     );
     typed.get(
       '/rate-limited',
@@ -82,6 +97,24 @@ describe('shared schemas', () => {
         expect(await status(`/checked?date=2026-10-17&bbox=${bbox}`)).toBe(400);
       },
     );
+  });
+
+  describe('wholeNumber', () => {
+    it('accepts a whole number', async () => {
+      expect(await status('/counted?whole=7')).toBe(200);
+    });
+
+    it.each(['1.5', '2.5', '0.4', '31', '0', 'many'])('rejects %s', async (whole) => {
+      expect(await status(`/counted?whole=${whole}`)).toBe(400);
+    });
+
+    // Why wholeNumber exists: the validator truncates a fractional value for Type.Integer
+    // instead of rejecting it, so days=2.5 would silently become days=2.
+    it('is not what Type.Integer does with a fraction', async () => {
+      const res = await app.inject({ method: 'GET', url: '/counted?whole=1&integer=2.5' });
+
+      expect(res.json<{ integer: number }>().integer).toBe(2);
+    });
   });
 
   describe('error responses', () => {

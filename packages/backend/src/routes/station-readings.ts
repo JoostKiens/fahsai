@@ -10,7 +10,7 @@ import { forEachPage } from '../utils/backfill.js';
 import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 import { offsetDate } from '../utils/trajectory.js';
 import { AppError } from '../lib/app-error.js';
-import { Bbox, DateString, errorResponses } from '../schemas/common.js';
+import { Bbox, DateString, errorResponses, wholeNumber } from '../schemas/common.js';
 import {
   BaselineResponseSchema,
   LatestMeasurementSchema,
@@ -156,11 +156,11 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         querystring: Type.Object({
           station_id: Type.String({ minLength: 1 }),
           hours: Type.Optional(
-            Type.Number({
-              exclusiveMinimum: 0,
+            wholeNumber({
+              minimum: 1,
               maximum: MAX_HISTORY_HOURS,
               default: DEFAULT_HISTORY_HOURS,
-              description: 'How far back to look, at most 7 days.',
+              description: 'How many hours back to look, at most 7 days.',
             }),
           ),
         }),
@@ -209,8 +209,8 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         params: Type.Object({ stationId: Type.String() }),
         querystring: Type.Object({
           days: Type.Optional(
-            Type.Number({
-              exclusiveMinimum: 0,
+            wholeNumber({
+              minimum: 1,
               maximum: MAX_HISTORY_DAYS,
               default: DEFAULT_HISTORY_DAYS,
               description: 'How many days, at most 30.',

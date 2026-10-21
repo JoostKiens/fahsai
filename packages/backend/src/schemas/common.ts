@@ -25,6 +25,14 @@ export const Bbox = Type.String({
   examples: ['100,13,101,14'],
 });
 
+type NumberOptions = Parameters<typeof Type.Number>[0];
+
+// A whole number in a query string. Not Type.Integer: for a querystring value the validator
+// coerces "1.5" to 1 and accepts it, where multipleOf rejects it.
+export function wholeNumber(options: NumberOptions = {}) {
+  return Type.Number({ ...options, multipleOf: 1 });
+}
+
 // What each custom or standard format expects, for the text of a validation error.
 export const FORMAT_HINTS: Record<string, string> = {
   date: 'a calendar day, YYYY-MM-DD',
