@@ -6,8 +6,7 @@ import { MS_PER_DAY } from '@thailand-aq/consts';
 import { useTimeStore } from '@/store/timeStore';
 import { useUIStore, MAX_DAYS } from '@/store/uiStore';
 import { useSettingsStore } from '@/store/settingsStore';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl } from '@/lib/api';
 
 /**
  * Fetches the latest complete date from the API and pushes it into the time store.
@@ -19,7 +18,7 @@ export function useLatestDate(): void {
   const { data: latestDate } = useQuery({
     queryKey: ['latest-date'],
     queryFn: async () => {
-      const res = await fetch(`${API}/api/latest-date`);
+      const res = await fetch(apiUrl(`/latest-date`));
       if (!res.ok) throw new Error('Failed to fetch latest date');
       const json = (await res.json()) as { date: string };
       return json.date;

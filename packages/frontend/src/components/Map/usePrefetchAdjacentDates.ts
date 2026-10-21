@@ -5,8 +5,7 @@ import { useTimeStore } from '@/store/timeStore';
 import type { LatestMeasurement } from '@/hooks';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 import { parseCamsGridResponse } from '@/utils/camsColumns';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { apiUrl, isNoData } from '@/lib/api';
 
 function shiftDate(date: string, days: number): string {
   const d = new Date(date);
@@ -29,8 +28,8 @@ export function usePrefetchAdjacentDates() {
       void queryClient.prefetchQuery({
         queryKey: ['fires', date],
         queryFn: async () => {
-          const res = await fetch(`${API}/api/fires?date=${date}`);
-          if (res.status === 404) return [];
+          const res = await fetch(apiUrl(`/fires?date=${date}`));
+          if (await isNoData(res)) return [];
           if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
           return ((await res.json()) as { data: FirePoint[] }).data;
         },
@@ -40,8 +39,8 @@ export function usePrefetchAdjacentDates() {
       void queryClient.prefetchQuery({
         queryKey: ['aqi-latest', 'pm25', date],
         queryFn: async () => {
-          const res = await fetch(`${API}/api/station-readings/latest?date=${date}`);
-          if (res.status === 404) return [];
+          const res = await fetch(apiUrl(`/station-readings/latest?date=${date}`));
+          if (await isNoData(res)) return [];
           if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
           return ((await res.json()) as { data: LatestMeasurement[] }).data;
         },
@@ -51,8 +50,8 @@ export function usePrefetchAdjacentDates() {
       void queryClient.prefetchQuery({
         queryKey: ['cams-grid', date],
         queryFn: async () => {
-          const res = await fetch(`${API}/api/cams?date=${date}`);
-          if (res.status === 404) return [];
+          const res = await fetch(apiUrl(`/cams?date=${date}`));
+          if (await isNoData(res)) return [];
           if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
           const { data } = (await res.json()) as { data: PM25GridColumns | PM25GridPoint[] };
           return parseCamsGridResponse(data);
@@ -63,7 +62,7 @@ export function usePrefetchAdjacentDates() {
       void queryClient.prefetchQuery({
         queryKey: ['weather-wind', date],
         queryFn: async () => {
-          const res = await fetch(`${API}/api/weather/wind?date=${date}`);
+          const res = await fetch(apiUrl(`/weather/wind?date=${date}`));
           if (!res.ok) throw new Error(`wind fetch failed: ${res.status}`);
           return ((await res.json()) as { data: WindReading[] }).data;
         },
