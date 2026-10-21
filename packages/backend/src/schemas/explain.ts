@@ -22,6 +22,7 @@ const TierSourceSchema = Type.Object({
   type: Type.Enum(['city', 'coal_plant', 'gas_plant', 'oil_plant', 'industrial'] as const),
   population: Type.Optional(Type.Number({ description: 'For cities.' })),
   capacityMw: Type.Optional(Type.Number({ description: 'For power plants.' })),
+  currentlyUpwind: Type.Boolean({ description: 'Whether the wind blows from the source now.' }),
 });
 
 const FireWindowSchema = Type.Object({ count: Type.Number(), totalFrpMw: Type.Number() });

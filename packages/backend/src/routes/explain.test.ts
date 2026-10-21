@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { ApiError } from '@thailand-aq/types';
@@ -7,6 +9,8 @@ import {
   SPARSE_CONTEXT,
 } from '../test/fixtures/scientific-context.js';
 import { buildTestApp } from '../test/test-app.js';
+import { buildScientificContext } from '../lib/buildScientificContext.js';
+import type { ExplainFixture } from '../scripts/eval/types.js';
 
 const {
   mockCompute,
@@ -60,6 +64,7 @@ vi.mock('../cache/client.js', () => ({
 }));
 
 const FIXTURE_CONTEXT = FULL_CONTEXT;
+const FIXTURE_DIR = fileURLToPath(new URL('../scripts/eval/fixtures', import.meta.url));
 
 async function buildApp(): Promise<FastifyInstance> {
   // IP_RATELIMIT_ENABLED is computed from NODE_ENV at module load, so stub before importing.
@@ -112,6 +117,28 @@ describe('GET /api/explain/context', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(context);
   });
+
+  // The fixtures above are typed, so they cannot hold a field the type hides (currentlyUpwind was
+  // once stripped that way). A context built by the real code can.
+  it.each(readdirSync(FIXTURE_DIR).filter((f) => f.endsWith('.ts')))(
+    'sends the context built from golden fixture %s exactly as computed',
+    async (file) => {
+      const { fixture } = (await import(
+        `../scripts/eval/fixtures/${file.replace('.ts', '.js')}`
+      )) as {
+        fixture: ExplainFixture;
+      };
+      const context = buildScientificContext(fixture.input);
+      mockCompute.mockResolvedValue(context);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/explain/context?stationId=abc&lat=18.79&lng=98.98',
+      });
+
+      expect(res.json()).toEqual(JSON.parse(JSON.stringify(context)));
+    },
+  );
 
   it('returns 400 when stationId is missing', async () => {
     const res = await app.inject({

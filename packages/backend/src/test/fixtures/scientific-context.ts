@@ -35,7 +35,14 @@ export const FULL_CONTEXT: ScientificContext = {
     label: 'NNE',
     dayCount: 3,
     sourcesBeyondWindow: [
-      { name: 'Mae Moh', country: 'TH', distanceKm: 120, type: 'coal_plant', capacityMw: 2400 },
+      {
+        name: 'Mae Moh',
+        country: 'TH',
+        distanceKm: 120,
+        type: 'coal_plant',
+        capacityMw: 2400,
+        currentlyUpwind: false,
+      },
     ],
   },
   transport: {
@@ -74,7 +81,14 @@ export const FULL_CONTEXT: ScientificContext = {
   },
   upwindSources: {
     tier1: [
-      { name: 'Chiang Mai', country: 'TH', distanceKm: 40, type: 'city', population: 127000 },
+      {
+        name: 'Chiang Mai',
+        country: 'TH',
+        distanceKm: 40,
+        type: 'city',
+        population: 127000,
+        currentlyUpwind: true,
+      },
     ],
     tier2: [],
   },
