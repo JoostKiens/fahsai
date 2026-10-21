@@ -1,6 +1,6 @@
 # `/api/explain` — implementation reference
 
-## `GET /api/explain/context`
+## `GET /api/v1/explain/context`
 
 Returns the raw `ScientificContext` JSON (station, trajectory, fires, peers, baseline, etc.)
 that `/api/explain` feeds into the Gemini prompt, without calling Gemini. Backed by the same
@@ -25,7 +25,7 @@ Explain responses are cached in Redis with key `explain:v{EXPLAIN_CACHE_VERSION}
 `EXPLAIN_CACHE_VERSION` in `packages/backend/src/routes/explain.ts`. Old keys orphan and expire
 naturally after 7 days. Caching is production-only — dev always generates fresh.
 
-`POST /api/explain` itself is per-IP rate limited via `explainRatelimit` (sliding window, 5
+`POST /api/v1/explain` itself is per-IP rate limited via `explainRatelimit` (sliding window, 5
 req/hour, prefix `ratelimit:explain`, `packages/backend/src/cache/ratelimit.ts`) — separate from
 `explainContextRatelimit` documented above for the `/context` route.
 

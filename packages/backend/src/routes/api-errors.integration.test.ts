@@ -219,13 +219,13 @@ describe('error responses of the data routes against a real database', () => {
 
   beforeAll(() => {
     app = buildTestApp();
-    firesRoutes(app);
-    weatherRoutes(app);
-    camsRoutes(app);
-    stationReadingsRoutes(app);
-    stationsRoutes(app);
-    powerPlantsRoutes(app);
-    latestDateRoutes(app);
+    void app.register(firesRoutes, { prefix: '/api' });
+    void app.register(weatherRoutes, { prefix: '/api' });
+    void app.register(camsRoutes, { prefix: '/api' });
+    void app.register(stationReadingsRoutes, { prefix: '/api' });
+    void app.register(stationsRoutes, { prefix: '/api' });
+    void app.register(powerPlantsRoutes, { prefix: '/api' });
+    void app.register(latestDateRoutes, { prefix: '/api' });
   });
 
   afterAll(() => app.close());

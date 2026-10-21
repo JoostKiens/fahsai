@@ -35,23 +35,23 @@ describe('the OpenAPI document', () => {
 
   it('lists every route of the API', () => {
     expect(Object.keys(paths).sort()).toEqual([
-      '/api/cams',
-      '/api/cams/nearest',
-      '/api/cams/summary',
-      '/api/explain',
-      '/api/explain/context',
-      '/api/fires',
-      '/api/fires/range',
-      '/api/latest-date',
-      '/api/power-plants',
-      '/api/station-readings/history',
-      '/api/station-readings/latest',
-      '/api/stations',
-      '/api/stations/{id}',
-      '/api/stations/{stationId}/baseline',
-      '/api/stations/{stationId}/history',
-      '/api/weather',
-      '/api/weather/wind',
+      '/api/v1/cams',
+      '/api/v1/cams/nearest',
+      '/api/v1/cams/summary',
+      '/api/v1/explain',
+      '/api/v1/explain/context',
+      '/api/v1/fires',
+      '/api/v1/fires/range',
+      '/api/v1/latest-date',
+      '/api/v1/power-plants',
+      '/api/v1/station-readings/history',
+      '/api/v1/station-readings/latest',
+      '/api/v1/stations',
+      '/api/v1/stations/{id}',
+      '/api/v1/stations/{stationId}/baseline',
+      '/api/v1/stations/{stationId}/history',
+      '/api/v1/weather',
+      '/api/v1/weather/wind',
       '/health',
     ]);
   });
@@ -70,6 +70,10 @@ describe('the OpenAPI document', () => {
       .filter(({ operation }) => !('500' in operation.responses));
 
     expect(without500).toEqual([]);
+  });
+
+  it('leaves out the unversioned aliases of the routes', () => {
+    expect(Object.keys(paths).filter((path) => /^\/api\/(?!v1\/)/.test(path))).toEqual([]);
   });
 
   it('leaves out the Rollbar relay', () => {

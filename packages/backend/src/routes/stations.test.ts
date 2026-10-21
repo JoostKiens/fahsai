@@ -45,7 +45,7 @@ describe('GET /api/stations/:id', () => {
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
     app = buildTestApp();
-    await app.register(stationsRoutes);
+    await app.register(stationsRoutes, { prefix: '/api' });
   });
 
   beforeEach(() => {
@@ -103,7 +103,7 @@ describe('GET /api/stations', () => {
   beforeAll(async () => {
     const { stationsRoutes } = await import('./stations.js');
     app = buildTestApp();
-    await app.register(stationsRoutes);
+    await app.register(stationsRoutes, { prefix: '/api' });
   });
 
   beforeEach(() => {

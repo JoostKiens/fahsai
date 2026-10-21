@@ -24,7 +24,7 @@ interface PlantRow {
 
 export function powerPlantsRoutes(app: FastifyInstance): void {
   app.withTypeProvider<TypeBoxTypeProvider>().get(
-    '/api/power-plants',
+    '/power-plants',
     {
       schema: {
         summary: 'Fossil-fuel power plants',

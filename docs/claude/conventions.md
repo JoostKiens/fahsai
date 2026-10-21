@@ -228,7 +228,7 @@ the code:
 **Route schemas (TypeBox)** — every data route declares `schema.querystring`, `params` or `body`
 and a `response` per status, built from `src/schemas/`; the OpenAPI document is generated from
 them (`/docs` for the page, `/docs/json` for the document). To add a route: put its shapes in
-`src/schemas/`, wrap the app with `.withTypeProvider<TypeBoxTypeProvider>()`, add
+`src/schemas/`, give the route a path without `/api/v1`, list its plugin in `routes/index.ts`, wrap the app with `.withTypeProvider<TypeBoxTypeProvider>()`, add
 `...errorResponses(400, 404, ...)`, and add an `expectTypeOf` equality check to
 `schemas/types.test.ts` against the shared type in `packages/types`. Gotchas:
 
