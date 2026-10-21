@@ -6,7 +6,7 @@ import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client
 import { explainRatelimit, explainContextRatelimit } from '../cache/ratelimit.js';
 import { reportError, reportWarning } from '../lib/rollbar.js';
 import { classifyGeminiError, formatStreamError } from '../lib/gemini-error.js';
-import { createReportThrottle } from '../lib/report-throttle.js';
+import { createReportThrottle, REPORT_THROTTLE_WINDOW_MS } from '../lib/report-throttle.js';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { buildPrompt, GEMINI_MODEL } from '../lib/buildPrompt.js';
 import { computeScientificContext } from '../lib/computeScientificContext.js';
@@ -21,9 +21,8 @@ const EXPLAIN_CACHE_VERSION = 10;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
-const GEMINI_REPORT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
 
-const mayReportGeminiProblem = createReportThrottle({ windowMs: GEMINI_REPORT_THROTTLE_WINDOW_MS });
+const mayReportGeminiProblem = createReportThrottle({ windowMs: REPORT_THROTTLE_WINDOW_MS });
 
 export type ExplainCase =
   | 'OUTLIER_HIGH'
@@ -131,7 +130,9 @@ export function explainRoutes(app: FastifyInstance): void {
       }
 
       const selectedDate = req.body.date ?? bangkokDateString();
-      const normalizedLang = lang ?? 'en';
+      // anything but Thai gets the English prompt; keeping it out of the cache key stops junk values
+      // from skipping the shared cache and using the daily quota
+      const normalizedLang = lang === 'th' ? 'th' : 'en';
 
       if (EXPLAIN_CACHE_ENABLED) {
         const cached = await redis.get<string>(
@@ -193,7 +194,9 @@ export function explainRoutes(app: FastifyInstance): void {
               resetAtMs: streamError.resetAtMs,
             });
           }
-        } else if (mayReportGeminiProblem(err instanceof Error ? err.message : String(err))) {
+        } else if (
+          mayReportGeminiProblem(`failed:${err instanceof Error ? err.name : typeof err}`)
+        ) {
           reportError(err, { path: req.url, method: req.method, requestId: req.id });
         }
         reply.raw.write(formatStreamError(streamError));

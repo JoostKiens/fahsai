@@ -24,6 +24,20 @@ describe('createReportThrottle', () => {
     expect(mayReport('a')).toBe(false);
   });
 
+  it('when full, forgets only the key reported longest ago', () => {
+    const { clock, mayReport } = buildThrottle();
+    for (let i = 0; i < 100; i++) {
+      clock.now = i;
+      mayReport(`key-${i}`);
+    }
+
+    clock.now = 200;
+    mayReport('one-more');
+
+    expect(mayReport('key-0')).toBe(true);
+    expect(mayReport('key-99')).toBe(false);
+  });
+
   it('lets the key through again once the window has passed', () => {
     const { clock, mayReport } = buildThrottle();
     mayReport('a');

@@ -52,7 +52,7 @@ const missing = (name: string, url: string, ...params: string[]): ErrorCase =>
     name,
     url,
     `Missing required parameter${params.length > 1 ? 's' : ''}: ${params.join(', ')}`,
-    params.map((path) => ({ path, message: 'is required' })),
+    params.map((name) => ({ path: `/${name}`, message: 'is required' })),
   );
 const badDate = (name: string, url: string, param: string): ErrorCase =>
   invalid(name, url, `Invalid parameter ${param}: expected a calendar day, YYYY-MM-DD`, [
@@ -60,6 +60,12 @@ const badDate = (name: string, url: string, param: string): ErrorCase =>
   ]);
 const badBbox = (name: string, url: string): ErrorCase =>
   invalid(name, url, BAD_BBOX_SCHEMA, [{ path: '/bbox', message: 'must match format "bbox"' }]);
+
+// The validator would coerce these to 0, 1 and 16; a client that sent them made a mistake.
+const notANumber = (name: string, url: string, param: string): ErrorCase =>
+  invalid(name, url, `Invalid parameter ${param}: must be a number`, [
+    { path: `/${param}`, message: 'must be a number' },
+  ]);
 
 const BAD_BBOX_SCHEMA =
   'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)';
@@ -111,6 +117,17 @@ const CASES: Record<string, ErrorCase[]> = {
     missing('nearest without date', '/api/cams/nearest?lat=1&lng=1', 'date'),
     missing('nearest without coordinates', '/api/cams/nearest?date=2026-10-17', 'lat', 'lng'),
     noData('no cams grid for nearest', '/api/cams/nearest?date=2026-10-17&lat=13&lng=100', NO_CAMS),
+    notANumber(
+      'nearest with an empty lat',
+      '/api/cams/nearest?date=2026-10-17&lat=&lng=100',
+      'lat',
+    ),
+    notANumber('nearest with lng=true', '/api/cams/nearest?date=2026-10-17&lat=13&lng=true', 'lng'),
+    notANumber(
+      'nearest with a hex lat',
+      '/api/cams/nearest?date=2026-10-17&lat=0x10&lng=100',
+      'lat',
+    ),
     missing('summary without dates', '/api/cams/summary', 'start', 'end'),
     invalid(
       'summary reversed',
@@ -143,6 +160,11 @@ const CASES: Record<string, ErrorCase[]> = {
       '/api/station-readings/history?station_id=s1&hours=169',
       'Invalid parameter hours: must be <= 168',
       [{ path: '/hours', message: 'must be <= 168' }],
+    ),
+    notANumber(
+      'history with hours=true',
+      '/api/station-readings/history?station_id=s1&hours=true',
+      'hours',
     ),
     invalid(
       'history with fractional hours',

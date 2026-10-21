@@ -35,12 +35,13 @@ export function registerErrorHandling(app: FastifyInstance, reporters: ErrorRepo
     if (severity === 'error') reporters.reportError(error, context);
     if (severity === 'warning') reporters.reportWarning(body.error, context);
 
-    return reply.status(statusCode).send(body);
+    // a route may have set a long Cache-Control before it failed; an error is never cacheable
+    return reply.status(statusCode).header('Cache-Control', 'no-store').send(body);
   });
 
   app.setNotFoundHandler((_request, reply) => {
     const body: ApiError = { error: 'Route not found', code: 'not_found' };
-    return reply.status(404).send(body);
+    return reply.status(404).header('Cache-Control', 'no-store').send(body);
   });
 }
 
@@ -87,7 +88,7 @@ function asClientError(error: unknown): ClassifiedError | null {
 
 function isFastifyError(error: object): boolean {
   if ('validation' in error && Array.isArray(error.validation)) return true;
-  return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_ERR_');
+  return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_');
 }
 
 function codeForClientStatus(statusCode: number): ErrorCode {
@@ -104,7 +105,8 @@ function validationDetails(error: object): ApiErrorDetail[] | null {
 
 function detailsOf(item: unknown): ApiErrorDetail[] {
   const missing = missingProperties(item);
-  if (missing.length > 0) return missing.map((name) => ({ path: name, message: 'is required' }));
+  if (missing.length > 0)
+    return missing.map((name) => ({ path: `/${name}`, message: 'is required' }));
   return [{ path: pathOf(item), message: messageOf(item) }];
 }
 

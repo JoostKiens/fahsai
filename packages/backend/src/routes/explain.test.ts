@@ -273,7 +273,7 @@ describe('POST /api/explain error responses', () => {
     expect(res.json()).toEqual({
       error: 'Missing required parameter: stationId',
       code: 'invalid_request',
-      details: [{ path: 'stationId', message: 'is required' }],
+      details: [{ path: '/stationId', message: 'is required' }],
     });
   });
 
@@ -428,11 +428,14 @@ describe('POST /api/explain errors after the stream has started', () => {
   });
 
   // The throttle is module-level, so these use a failure and a limit no other test reports.
-  it('reports the same Gemini failure once, however many requests hit it', async () => {
-    const failure = new Error('overloaded: model is busy, try later');
-    streamThatFails(failure);
+  it('reports the same kind of Gemini failure once, whatever its message says', async () => {
+    const failure = (id: number) =>
+      Object.assign(new Error(`overloaded: request ${id} was refused`), {
+        name: 'OverloadedError',
+      });
+    streamThatFails(failure(1));
     await explain();
-    streamThatFails(failure);
+    streamThatFails(failure(2));
     await explain();
 
     expect(mockReportError).toHaveBeenCalledTimes(1);

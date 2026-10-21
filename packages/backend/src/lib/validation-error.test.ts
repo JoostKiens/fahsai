@@ -45,7 +45,7 @@ describe('the text of a request that failed validation', () => {
     expect(body).toMatchObject({
       error: 'Missing required parameter: date',
       code: 'invalid_request',
-      details: [{ path: 'date' }],
+      details: [{ path: '/date' }],
     });
   });
 
@@ -78,7 +78,7 @@ describe('the text of a request that failed validation', () => {
   it('says a number must be numeric', async () => {
     const { body } = await errorFor('/things?date=2026-10-17&hours=lots');
 
-    expect(body.error).toBe('Invalid parameter hours: must be number');
+    expect(body.error).toBe('Invalid parameter hours: must be a number');
   });
 
   it('never leaks the message field of Fastify errors', async () => {

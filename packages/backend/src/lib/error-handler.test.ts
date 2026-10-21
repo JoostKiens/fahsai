@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
+import compress from '@fastify/compress';
 import { AppError } from './app-error.js';
 import { registerErrorHandling } from './error-handler.js';
 
@@ -60,6 +61,10 @@ function buildApp(logLines: LogLine[] = []): FastifyInstance {
   app.get('/library-error', () => {
     throw Object.assign(new Error('upstream said no'), { statusCode: 400 });
   });
+  app.get('/cached-then-fails', (_req, reply) => {
+    void reply.header('Cache-Control', 'public, max-age=604800');
+    throw new AppError({ code: 'unavailable', message: 'Power plant data unavailable' });
+  });
   app.post('/json', () => ({ ok: true }));
   return app;
 }
@@ -113,7 +118,7 @@ describe('central error handling', () => {
       expect(status).toBe(400);
       expect(body).toMatchObject({
         code: 'invalid_request',
-        details: [{ path: 'date', message: 'is required' }],
+        details: [{ path: '/date', message: 'is required' }],
       });
     });
 
@@ -141,6 +146,38 @@ describe('central error handling', () => {
         body: { error: 'Route not found', code: 'not_found' },
       });
     });
+  });
+
+  describe('a client error from a Fastify plugin', () => {
+    it('is answered as a client error and not reported', async () => {
+      const withCompress = Fastify();
+      registerErrorHandling(withCompress, { reportError, reportWarning });
+      await withCompress.register(compress);
+      withCompress.post('/json', () => ({ ok: true }));
+
+      const res = await withCompress.inject({
+        method: 'POST',
+        url: '/json',
+        headers: { 'content-type': 'application/json', 'content-encoding': 'nonsense' },
+        payload: '{}',
+      });
+      await withCompress.close();
+
+      expect(res.statusCode).toBeLessThan(500);
+      expect(res.json()).toMatchObject({ code: 'invalid_request' });
+      expect(reportError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('caching', () => {
+    it.each(['/invalid', '/boom', '/no-such-route', '/cached-then-fails'])(
+      'never lets a cache keep the error from %s',
+      async (url) => {
+        const res = await app.inject({ method: 'GET', url });
+
+        expect(res.headers['cache-control']).toBe('no-store');
+      },
+    );
   });
 
   describe('unexpected errors', () => {

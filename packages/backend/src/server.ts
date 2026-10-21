@@ -5,13 +5,15 @@ import { registerRoutes } from './routes/index';
 import { registerApiDocs } from './lib/api-docs';
 import { useTypeBoxValidation } from './lib/typebox-validation';
 import { registerErrorHandling } from './lib/error-handler';
-import { createReportThrottle, throttleWarnings } from './lib/report-throttle';
+import {
+  createReportThrottle,
+  REPORT_THROTTLE_WINDOW_MS,
+  throttleWarnings,
+} from './lib/report-throttle';
 import { reportError, reportWarning } from './lib/rollbar';
 import { ALLOWED_ORIGINS } from './utils/cors';
 
 const app = Fastify({ logger: true, trustProxy: true });
-
-const REPORT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
 
 // Before any route plugin, so they all inherit it. A dataset that stays missing would send a warning
 // on every request, so each warning goes to Rollbar at most once per window.

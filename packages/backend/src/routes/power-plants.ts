@@ -34,7 +34,7 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
         response: { 200: PowerPlantCollectionSchema, ...errorResponses(503) },
       },
     },
-    async (_req, reply) => {
+    async (req, reply) => {
       const cached = await redis.get<PowerPlantCollection>(CACHE_KEY);
       if (cached !== null)
         return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
@@ -52,7 +52,9 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
               .range(from, to),
           1000,
         );
-      } catch {
+      } catch (err) {
+        // a database failure and a table that was never ingested look the same to the client
+        req.log.error({ err }, 'power_plants query failed');
         throw new AppError({
           code: 'unavailable',
           message: 'Power plant data unavailable — run ingest:power-plants',
