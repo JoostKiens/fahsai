@@ -63,7 +63,6 @@ const badBbox = (name: string, url: string): ErrorCase =>
 
 const BAD_BBOX_SCHEMA =
   'Invalid parameter bbox: expected west,south,east,north (for example 100,13,101,14)';
-const BAD_BBOX = 'Invalid bbox: "nonsense" — expected "west,south,east,north"';
 const NO_CAMS = 'No CAMS grid data for this date. Run the ingest job.';
 
 const CASES: Record<string, ErrorCase[]> = {
@@ -125,36 +124,42 @@ const CASES: Record<string, ErrorCase[]> = {
     ),
   ],
   'station readings': [
-    invalid('latest with a bad bbox', '/api/station-readings/latest?bbox=nonsense', BAD_BBOX),
+    badBbox('latest with a bad bbox', '/api/station-readings/latest?bbox=nonsense'),
+    badDate('latest with a malformed date', '/api/station-readings/latest?date=x', 'date'),
     noData(
       'no latest readings',
       '/api/station-readings/latest?date=2026-10-17',
       'No station readings for this date.',
     ),
-    invalid(
-      'history without station',
-      '/api/station-readings/history',
-      'Missing required param: station_id',
-    ),
+    missing('history without station', '/api/station-readings/history', 'station_id'),
     invalid(
       'history with hours=0',
       '/api/station-readings/history?station_id=s1&hours=0',
-      'hours must be a positive number',
+      'Invalid parameter hours: must be > 0',
+      [{ path: '/hours', message: 'must be > 0' }],
     ),
     invalid(
       'history with too many hours',
       '/api/station-readings/history?station_id=s1&hours=169',
-      'hours cannot exceed 168 (7 days)',
+      'Invalid parameter hours: must be <= 168',
+      [{ path: '/hours', message: 'must be <= 168' }],
     ),
     invalid(
       'station history with days=0',
       '/api/stations/s1/history?days=0',
-      'days must be a positive number',
+      'Invalid parameter days: must be > 0',
+      [{ path: '/days', message: 'must be > 0' }],
     ),
     invalid(
       'station history with too many days',
       '/api/stations/s1/history?days=31',
-      'days cannot exceed 30',
+      'Invalid parameter days: must be <= 30',
+      [{ path: '/days', message: 'must be <= 30' }],
+    ),
+    badDate(
+      'station history with an impossible date',
+      '/api/stations/s1/history?date=2026-13-45',
+      'date',
     ),
   ],
   stations: [

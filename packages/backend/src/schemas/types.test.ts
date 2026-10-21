@@ -2,12 +2,14 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type { Static } from '@fastify/type-provider-typebox';
 import type {
   ApiError,
+  BaselineResponse,
   FirePoint,
   PM25DailySummary,
   PM25GridColumns,
   PM25GridPoint,
   PowerPlantCollection,
   Station,
+  StationDayHistory,
   WeatherReading,
   WindReading,
 } from '@thailand-aq/types';
@@ -15,6 +17,7 @@ import { ApiErrorSchema } from './common.js';
 import { PM25DailySummarySchema, PM25GridColumnsSchema, PM25GridPointSchema } from './aq.js';
 import { FirePointSchema } from './fire.js';
 import { PowerPlantCollectionSchema } from './power-plant.js';
+import { BaselineResponseSchema, StationDayHistorySchema } from './station-readings.js';
 import { StationSchema } from './station.js';
 import { WeatherReadingSchema, WindReadingSchema } from './weather.js';
 
@@ -46,5 +49,10 @@ describe('schemas match the shared types', () => {
     expectTypeOf<Static<typeof PM25GridPointSchema>>().toEqualTypeOf<PM25GridPoint>();
     expectTypeOf<Static<typeof PM25GridColumnsSchema>>().toEqualTypeOf<PM25GridColumns>();
     expectTypeOf<Static<typeof PM25DailySummarySchema>>().toEqualTypeOf<PM25DailySummary>();
+  });
+
+  it('StationDayHistory and BaselineResponse', () => {
+    expectTypeOf<Static<typeof StationDayHistorySchema>>().toEqualTypeOf<StationDayHistory>();
+    expectTypeOf<Static<typeof BaselineResponseSchema>>().toEqualTypeOf<BaselineResponse>();
   });
 });
