@@ -56,7 +56,7 @@ export function camsRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
 
   typed.get(
-    '/api/cams',
+    '/cams',
     {
       schema: {
         summary: 'PM2.5 model grid for one day',
@@ -97,7 +97,7 @@ export function camsRoutes(app: FastifyInstance): void {
   // Returns the single nearest grid point — used by InfoPanel so it doesn't need
   // to fetch the full grid just to look up one point.
   typed.get(
-    '/api/cams/nearest',
+    '/cams/nearest',
     {
       schema: {
         summary: 'The model grid point nearest a location',
@@ -128,7 +128,7 @@ export function camsRoutes(app: FastifyInstance): void {
 
   // Daily p95 PM2.5 time series powering the scrubber gradient line chart.
   typed.get(
-    '/api/cams/summary',
+    '/cams/summary',
     {
       schema: {
         summary: 'Daily PM2.5 summary',

@@ -24,7 +24,7 @@ export function stationsRoutes(app: FastifyInstance): void {
   // fahsai-mcp-server npm package, not just this app's own frontend. Treat shape
   // changes (renames/removals, not additions) as breaking for external consumers.
   typed.get(
-    '/api/stations',
+    '/stations',
     {
       schema: {
         summary: 'List monitoring stations',
@@ -78,7 +78,7 @@ export function stationsRoutes(app: FastifyInstance): void {
   );
 
   typed.get(
-    '/api/stations/:id',
+    '/stations/:id',
     {
       schema: {
         summary: 'Get one station',

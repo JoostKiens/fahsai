@@ -15,7 +15,7 @@ export function firesRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
 
   typed.get(
-    '/api/fires',
+    '/fires',
     {
       schema: {
         summary: 'Fire detections for one day',
@@ -57,7 +57,7 @@ export function firesRoutes(app: FastifyInstance): void {
   );
 
   typed.get(
-    '/api/fires/range',
+    '/fires/range',
     {
       schema: {
         summary: 'Fire detections over a range of days',

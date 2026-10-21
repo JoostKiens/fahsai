@@ -43,7 +43,7 @@ export function weatherRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
 
   typed.get(
-    '/api/weather/wind',
+    '/weather/wind',
     {
       schema: {
         summary: 'Wind grid for one day',
@@ -89,7 +89,7 @@ export function weatherRoutes(app: FastifyInstance): void {
   );
 
   typed.get(
-    '/api/weather',
+    '/weather',
     {
       schema: {
         summary: 'Weather grid for one day',

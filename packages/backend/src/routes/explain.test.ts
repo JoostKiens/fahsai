@@ -71,7 +71,7 @@ async function buildApp(): Promise<FastifyInstance> {
   vi.stubEnv('NODE_ENV', 'production');
   const { explainRoutes } = await import('./explain.js');
   const app = buildTestApp();
-  await app.register(explainRoutes);
+  await app.register(explainRoutes, { prefix: '/api' });
   return app;
 }
 

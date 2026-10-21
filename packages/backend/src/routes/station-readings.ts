@@ -34,7 +34,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();
 
   typed.get(
-    '/api/station-readings/latest',
+    '/station-readings/latest',
     {
       schema: {
         summary: 'The latest PM2.5 reading of every station for a day',
@@ -147,7 +147,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
   );
 
   typed.get(
-    '/api/station-readings/history',
+    '/station-readings/history',
     {
       schema: {
         summary: 'Every PM2.5 reading of a station in the last hours',
@@ -199,7 +199,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
   // Returns `days` rows ending on that date (inclusive), oldest-first.
   // Weather comes from station_weather (pre-computed at ingest time), not weather_readings.
   typed.get(
-    '/api/stations/:stationId/history',
+    '/stations/:stationId/history',
     {
       schema: {
         summary: 'A station’s recent days',
@@ -336,7 +336,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
   );
 
   typed.get(
-    '/api/stations/:stationId/baseline',
+    '/stations/:stationId/baseline',
     {
       schema: {
         summary: 'A station’s seasonal PM2.5 baseline',

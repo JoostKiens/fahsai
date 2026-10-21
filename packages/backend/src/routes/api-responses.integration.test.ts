@@ -163,11 +163,11 @@ describe('current success responses of the data routes', () => {
 
   beforeAll(() => {
     app = buildTestApp();
-    firesRoutes(app);
-    weatherRoutes(app);
-    camsRoutes(app);
-    stationReadingsRoutes(app);
-    powerPlantsRoutes(app);
+    void app.register(firesRoutes, { prefix: '/api' });
+    void app.register(weatherRoutes, { prefix: '/api' });
+    void app.register(camsRoutes, { prefix: '/api' });
+    void app.register(stationReadingsRoutes, { prefix: '/api' });
+    void app.register(powerPlantsRoutes, { prefix: '/api' });
   });
 
   afterAll(() => app.close());

@@ -24,7 +24,7 @@ describe('stations routes against a real database', () => {
 
   beforeAll(() => {
     app = buildTestApp();
-    stationsRoutes(app);
+    void app.register(stationsRoutes, { prefix: '/api' });
   });
 
   afterAll(() => app.close());

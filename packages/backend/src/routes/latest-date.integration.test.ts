@@ -41,7 +41,7 @@ async function resetDb() {
 
 async function getLatestDate() {
   const app = buildTestApp();
-  latestDateRoutes(app);
+  void app.register(latestDateRoutes, { prefix: '/api' });
   const res = await app.inject({ method: 'GET', url: '/api/latest-date' });
   await app.close();
   return res;

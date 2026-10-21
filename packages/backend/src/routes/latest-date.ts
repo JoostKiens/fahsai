@@ -15,7 +15,7 @@ const LOOKBACK_DAYS = 7;
 
 export function latestDateRoutes(app: FastifyInstance): void {
   app.withTypeProvider<TypeBoxTypeProvider>().get(
-    '/api/latest-date',
+    '/latest-date',
     {
       schema: {
         summary: 'The latest day with complete data',
