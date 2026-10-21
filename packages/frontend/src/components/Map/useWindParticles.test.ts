@@ -202,7 +202,7 @@ describe('packTrails', () => {
   });
 
   describe('trail width', () => {
-    const HEAD_WIDTH_PX = 4;
+    const HEAD_WIDTH_PX = 3;
     const MIN_HEAD_WIDTH_PX = 1;
     const particle = makeParticle();
     const clock = simulate({ particle, frameMs: BASE_STEP_MS, durationMs: 1000 });

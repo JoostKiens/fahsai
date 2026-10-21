@@ -65,7 +65,7 @@ const TRAIL_GROWTH_MAX = 2;
 // shorter; raise the multiplier if such displays become common.
 const MAX_TRAIL_POINTS = TRAIL_LENGTH * TRAIL_GROWTH_MAX * 4 + 2;
 // Trail stroke width (pixels) tapers from HEAD_WIDTH down to TAIL_WIDTH along each path.
-const HEAD_WIDTH = 4;
+const HEAD_WIDTH = 3;
 const TAIL_WIDTH = 0.5;
 // Calm-wind trails are only a few pixels long; at full HEAD_WIDTH they render as blobs.
 // Head width shrinks so a trail is drawn at least MIN_TRAIL_ASPECT times longer than wide,
