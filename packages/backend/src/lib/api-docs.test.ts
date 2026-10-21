@@ -68,6 +68,26 @@ describe('API docs', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    // the validator alone would turn these into 0, 1 and 16
+    it.each(['', 'true', '0x10', '1e3', ' ', 'Infinity'])(
+      'rejects the querystring value %j for a number',
+      async (value) => {
+        const res = await app.inject({ method: 'GET', url: `/things?lat=${value}` });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.json()).toMatchObject({
+          error: 'Invalid parameter lat: must be a number',
+          details: [{ path: '/lat', message: 'must be a number' }],
+        });
+      },
+    );
+
+    it('accepts negative and decimal numbers', async () => {
+      const res = await app.inject({ method: 'GET', url: '/things?lat=-13.25' });
+
+      expect(res.json()).toEqual({ lat: -13.25 });
+    });
+
     it('rejects a missing required parameter', async () => {
       const res = await app.inject({ method: 'GET', url: '/things' });
 
