@@ -2,10 +2,26 @@
 
 Types live in `packages/types/src/` and are imported by both frontend and backend.
 `AQIReading` (earlier design) is gone -- the current model is built around `Station`.
-Key files: `station.ts`, `baseline.ts`, `fire.ts`, `weather.ts`, `aq.ts`, `power-plant.ts`.
+Key files: `station.ts`, `baseline.ts`, `fire.ts`, `weather.ts`, `aq.ts`, `power-plant.ts`,
+`error.ts`.
 All re-exported from `index.ts`.
 
 ```typescript
+// error.ts -- every error the API sends (HTTP bodies and the explain stream's last line)
+export type ErrorCode =
+  'invalid_request' | 'not_found' | 'no_data' | 'rate_limited' | 'unavailable' | 'internal';
+export type RateLimitReason =
+  'ip_ratelimit' | 'quota_exceeded' | 'gemini_rpm' | 'gemini_tpm' | 'gemini_rpd';
+export type ApiError = {
+  error: string; // the one human text; never add a `message` field
+  code: ErrorCode;
+  reason?: RateLimitReason; // only for code 'rate_limited'
+  resetAtMs?: number;
+  details?: { path: string; message: string }[];
+};
+export type RateLimit = { reason: RateLimitReason; resetAtMs: number };
+// the code and reason lists are also exported as ERROR_CODES / RATE_LIMIT_REASONS
+
 // fire.ts
 export interface FirePoint {
   id: number;
@@ -71,7 +87,7 @@ export interface BaselineDay extends BaselineStat {
   day: number;
 }
 
-// Returned by GET /api/stations/:id/baseline
+// Returned by GET /api/v1/stations/:id/baseline
 export interface BaselineResponse {
   data: BaselineDay[];
   minYear: number | null;
@@ -104,7 +120,7 @@ export interface PM25GridPoint {
   pm25: number; // daily mean µg/m³ from CAMS model via Open-Meteo
 }
 
-// Wire format for GET /api/cams -- parallel arrays instead of PM25GridPoint[]
+// Wire format for GET /api/v1/cams -- parallel arrays instead of PM25GridPoint[]
 // to cut per-point key-name overhead over the network.
 export interface PM25GridColumns {
   lats: number[];
@@ -112,13 +128,13 @@ export interface PM25GridColumns {
   pm25s: number[];
 }
 
-// Row shape for GET /api/cams/summary -- one entry per date.
+// Row shape for GET /api/v1/cams/summary -- one entry per date.
 export interface PM25DailySummary {
   date: string; // YYYY-MM-DD
   pm25: number; // 95th-percentile µg/m³ across that day's CAMS grid
 }
 
-// power-plant.ts -- GeoJSON FeatureCollection returned by GET /api/power-plants
+// power-plant.ts -- GeoJSON FeatureCollection returned by GET /api/v1/power-plants
 export interface PowerPlantProperties {
   id: number;
   name: string;

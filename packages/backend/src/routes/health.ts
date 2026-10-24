@@ -1,19 +1,37 @@
 import type { FastifyInstance } from 'fastify';
+import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 
+const HealthSchema = Type.Object({
+  status: Type.Enum(['ok', 'degraded'] as const),
+  cache: Type.Enum(['connected', 'error'] as const),
+  db: Type.Enum(['connected', 'error'] as const),
+});
+
 export function healthRoutes(app: FastifyInstance): void {
-  app.get('/health', async (_req, reply) => {
-    const [cacheStatus, dbStatus] = await Promise.all([checkCache(), checkDb()]);
+  app.withTypeProvider<TypeBoxTypeProvider>().get(
+    '/health',
+    {
+      schema: {
+        summary: 'Is the API healthy?',
+        description: 'Checks the cache and the database. 503 when either is down.',
+        tags: ['system'],
+        response: { 200: HealthSchema, 503: HealthSchema },
+      },
+    },
+    async (_req, reply) => {
+      const [cacheStatus, dbStatus] = await Promise.all([checkCache(), checkDb()]);
 
-    const ok = cacheStatus === 'connected' && dbStatus === 'connected';
+      const ok = cacheStatus === 'connected' && dbStatus === 'connected';
 
-    return reply.status(ok ? 200 : 503).send({
-      status: ok ? 'ok' : 'degraded',
-      cache: cacheStatus,
-      db: dbStatus,
-    });
-  });
+      return reply.status(ok ? 200 : 503).send({
+        status: ok ? 'ok' : 'degraded',
+        cache: cacheStatus,
+        db: dbStatus,
+      });
+    },
+  );
 }
 
 async function checkCache(): Promise<'connected' | 'error'> {

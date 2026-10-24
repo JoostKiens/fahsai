@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExplain } from './useExplain';
-import type { RateLimit } from './useExplain';
+import type { RateLimit } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
 import { sanitizeExplanation, parseBoldSegments } from './utils.sanitize';
 
@@ -95,20 +95,20 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
 
   function rateLimitMessage(): string | null {
     if (!activeRateLimit) return null;
-    const { type } = activeRateLimit;
-    if (type === 'ip_ratelimit' && remainingMs !== null) {
+    const { reason } = activeRateLimit;
+    if (reason === 'ip_ratelimit' && remainingMs !== null) {
       const { value, unit } = formatCountdown(remainingMs);
       return t('explain.rateLimitIp', { count: value, unit: t(`explain.timeUnit.${unit}`) });
     }
-    if (type === 'quota_exceeded')
+    if (reason === 'quota_exceeded')
       return t('explain.rateLimitQuota', { time: formatResetTime(activeRateLimit.resetAtMs) });
-    if ((type === 'gemini_rpm' || type === 'gemini_tpm') && remainingMs !== null) {
+    if ((reason === 'gemini_rpm' || reason === 'gemini_tpm') && remainingMs !== null) {
       const { value } = formatCountdown(remainingMs);
       return t('explain.rateLimitGeminiBusy', { count: value });
     }
-    if (type === 'gemini_rpd')
+    if (reason === 'gemini_rpd')
       return t('explain.rateLimitGeminiRpd', { time: formatResetTime(activeRateLimit.resetAtMs) });
-    // Unknown type: show countdown if available, otherwise generic daily message
+    // Unknown reason: show countdown if available, otherwise generic daily message
     if (remainingMs !== null) {
       const { value, unit } = formatCountdown(remainingMs);
       return t('explain.rateLimitIp', { count: value, unit: t(`explain.timeUnit.${unit}`) });

@@ -1,5 +1,6 @@
 export * from './aq';
 export * from './baseline';
+export * from './error';
 export * from './fire';
 export * from './station';
 export * from './weather';

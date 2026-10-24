@@ -233,26 +233,41 @@ consolidation of ingest retry strategy is tracked in Linear JOO-86.
 All routes return JSON. All accept a `bbox` query param where spatial filtering is needed
 (format: `west,south,east,north`, default: `89,1,114,30`).
 
+Every error sent on purpose is `{ error, code }` (see `docs/claude/conventions.md`, "API
+errors"). A 404 on a date-keyed route means there is no data for that date (`code: 'no_data'`);
+an unknown resource or route is `code: 'not_found'`. An invalid `bbox` is a 400. `/health` and
+`/api/rollbar` keep their own shapes.
+
+**Versioning.** The data routes are served under `/api/v1`. The same handlers are also mounted at
+`/api` (no version) for the published `fahsai-mcp-server`, which calls those paths: they are left out of
+the OpenAPI document, have no sunset date, and `routes/api-versions.integration.test.ts` pins that the
+two answer identically. `/health` and `/api/rollbar` are not versioned. Route files declare paths
+without the prefix (`'/fires'`); `registerRoutes` (`routes/index.ts`) adds it, so a new data route
+must also be added to its `dataRoutes` list. In prose, `/api/explain` is shorthand for that route.
+
+The routes are described by TypeBox schemas and the OpenAPI document generated from them is
+served at `/docs` (page) and `/docs/json`. See `docs/claude/conventions.md`, "Route schemas".
+
 ```
-GET /api/fires?date=YYYY-MM-DD&bbox=...
+GET /api/v1/fires?date=YYYY-MM-DD&bbox=...
   Returns fire points for a given date. Checks Redis first, falls back to Supabase.
   No confidence-based filtering server-side -- all fires are returned; the frontend
   renders low-confidence points at half alpha instead of excluding them.
 
-GET /api/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
+GET /api/v1/fires/range?start=YYYY-MM-DD&end=YYYY-MM-DD&bbox=...
   Returns fire points for a date range (used by time scrubber). Max 10 days.
 
-GET /api/station-readings/latest?bbox=...&date=YYYY-MM-DD
+GET /api/v1/station-readings/latest?bbox=...&date=YYYY-MM-DD
   Returns latest PM2.5 measurement per station (pm25 is the only parameter).
   date is optional: when provided, queries that day's window; when absent, queries last 24h.
   Redis first (key: station-readings:latest:pm25:{date|current}), then Supabase.
   Supabase query is paginated (PAGE_SIZE=1000, .range()) to bypass the server-side row cap —
   do NOT remove the pagination or stations will silently disappear from the map.
 
-GET /api/station-readings/history?station_id=...&hours=24
+GET /api/v1/station-readings/history?station_id=...&hours=24
   Returns the PM2.5 time series for a single station. hours defaults to 24, max 168 (7 days).
 
-GET /api/stations/:stationId/history?days=7&date=YYYY-MM-DD
+GET /api/v1/stations/:stationId/history?days=7&date=YYYY-MM-DD
   Returns `days` daily rows (oldest-first, default 7, max 30) ending on `date` (BKK timezone,
   defaults to today).
   Each row: { date, pm25, readingCount, weather: { windSpeedKmh, windDirectionDeg,
@@ -263,7 +278,7 @@ GET /api/stations/:stationId/history?days=7&date=YYYY-MM-DD
   client-side caching. Weather comes from station_weather (pre-computed at ingest time),
   NOT from weather_readings -- do not add weather_readings lookups here.
 
-GET /api/stations/:stationId/baseline
+GET /api/v1/stations/:stationId/baseline
   Returns all seasonal baseline rows for a station (365 rows, one per calendar day),
   ordered by (month, day). Each row: { month, day, medianPm25, p25Pm25, p75Pm25, n }.
   Also returns { minYear, maxYear } aggregated (min/max) across all rows, since individual
@@ -273,21 +288,21 @@ GET /api/stations/:stationId/baseline
   Kept fresh day-to-day by the station-baseline-ingest cron (see above); full re-backfill
   is manual: pnpm --filter backend run backfill:station-baseline -- --start=YYYY --end=YYYY
 
-GET /api/stations?bbox=...&q=...
+GET /api/v1/stations?bbox=...&q=...
   Returns all stations with their available parameters. bbox filters by
   lat/lng bounds (defaults to Thailand plus neighboring countries if
   omitted); q optionally filters by case-insensitive substring match on
   station name. Both compose as AND when given together.
 
-GET /api/stations/:id
+GET /api/v1/stations/:id
   Returns a single station's metadata: { id, name, lat, lng, country, provider }.
-  404 { error: 'Station not found' } for an unknown id -- unlike /:id/history and
+  404 { error: 'Station not found', code: 'not_found' } for an unknown id -- unlike /:id/history and
   /:id/baseline, which never resolve station identity and return 200 with empty/
   placeholder data for unknown ids. No date param, no data-availability check --
   this only answers "does this station id exist, and where is it."
   No Redis layer, no Cache-Control -- mirrors GET /api/stations (static data).
 
-GET /api/weather?date=YYYY-MM-DD&bbox=...
+GET /api/v1/weather?date=YYYY-MM-DD&bbox=...
   Returns weather grid for the given date. date param is required (400 if absent/invalid).
   Redis cache key: weather:{date}, TTL 7d. On miss, reads from Supabase weather_readings.
   Does not fetch from Open-Meteo on demand — data must have been ingested by weather-ingest.
@@ -295,38 +310,38 @@ GET /api/weather?date=YYYY-MM-DD&bbox=...
   Response includes all weather_readings fields; wind, precipitation, and humidity are
   consumed by the station InfoPanel's 5-day weather table.
 
-GET /api/weather/wind?date=YYYY-MM-DD&bbox=...
+GET /api/v1/weather/wind?date=YYYY-MM-DD&bbox=...
   Returns just the wind vectors (lat, lng, wind_speed_kmh, wind_direction_deg) for the wind
   particle layer. date param required (400 if absent/invalid). Redis first
   (key: weather:wind:{date}, TTL 7d, HISTORICAL_TTL_SECONDS); on miss reads from Supabase
   weather_readings. 404 if no wind data for the date.
 
-GET /api/cams?date=YYYY-MM-DD&bbox=...
+GET /api/v1/cams?date=YYYY-MM-DD&bbox=...
   Returns CAMS gridded PM2.5 for a specific date (up to 4,599 points).
   Redis first (key: cams:pm25:{date}, TTL 7d); on miss reads from Supabase cams_grid.
 
-GET /api/cams/nearest?date=YYYY-MM-DD&lat=&lng=
+GET /api/v1/cams/nearest?date=YYYY-MM-DD&lat=&lng=
   Returns the single nearest CAMS grid point to (lat, lng) for the given date — used by
   InfoPanel so it doesn't need to fetch the full grid to look up one point. 400 if date/lat/lng
   missing or invalid; 404 if no CAMS grid data for the date.
 
-GET /api/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
+GET /api/v1/cams/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
   Returns the daily p95 PM2.5 time series ({ date, pm25 }[]) for the scrubber gradient chart.
   Redis first (key: cams:summary:{start}:{end}, TTL 1h — newest day mutates each ingest);
   on miss reads from Supabase cams_daily_summary. Range capped at `RETENTION_DAYS` (140; a range of 140+ days returns 400).
 
-GET /api/power-plants
+GET /api/v1/power-plants
   Returns WRI power plants (Coal/Gas/Oil/Diesel, filtered at ingest time) for the target
   countries as GeoJSON FeatureCollection; 503 if the table is empty or unreachable.
   Redis cache key: power_plants:geojson, TTL 24h.
   Populate via: pnpm --filter backend run ingest:power-plants
 
-GET /api/latest-date
+GET /api/v1/latest-date
   Returns the most recent date with complete data across all three gating sources (cams_grid,
   station_readings, weather_readings; fires are not gated).
   Redis key: latest-complete-date, TTL 30 min. Looks back up to 7 days; 404 if none is complete.
 
-POST /api/explain
+POST /api/v1/explain
   Streams a Gemini-generated explanation for a station's current AQI (Cache-Control: no-cache
   on the raw streamed response, set via reply.hijack() -- not cacheable by design). Redis-caches
   the completed response text (key: explain:v{EXPLAIN_CACHE_VERSION}:{stationId}:{date}:{lang},
@@ -335,13 +350,13 @@ POST /api/explain
   Per-IP rate limited (5 req/hour, see docs/claude/explain.md).
   See docs/claude/explain.md for the back-trajectory ensemble details.
 
-GET /api/explain/context?stationId=...&lat=&lng=&date=YYYY-MM-DD
+GET /api/v1/explain/context?stationId=...&lat=&lng=&date=YYYY-MM-DD
   Returns the scientific context object (station, trajectory, nearby sources, baseline
   comparison) that /api/explain would otherwise compute inline -- consumed by an external
   MCP server package rather than this repo's own frontend. computeScientificContext()'s own
   Redis cache (key: explain:context:v{CONTEXT_CACHE_VERSION}:{stationId}:{date}, TTL 7d) is
   gated only by date !== today, not by NODE_ENV -- it caches identically in dev and prod, unlike
-  POST /api/explain's response-text cache above. Sets Cache-Control: CACHE_CONTROL_IMMUTABLE
+  POST /api/v1/explain's response-text cache above. Sets Cache-Control: CACHE_CONTROL_IMMUTABLE
   when the date isn't today; no header for today (never cached). Per-IP rate limited separately
   from POST /api/explain (20 req/min, see docs/claude/explain.md).
 

@@ -49,6 +49,9 @@
   "dependencies": {
     "@fastify/compress": "^9.2.0",
     "@fastify/cors": "^11.3.0",
+    "@fastify/swagger": "9.9.2",
+    "@fastify/swagger-ui": "6.1.2",
+    "@fastify/type-provider-typebox": "6.3.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.117.2",
     "@thailand-aq/consts": "workspace:*",
@@ -56,12 +59,14 @@
     "@turf/boolean-point-in-polygon": "^7.4.0",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
+    "ajv-formats": "^3.0.1",
     "csv-parse": "^7.0.3",
     "fastify": "^5.12.5",
     "p-retry": "^8.0.1",
     "pino": "^10.4.0",
     "rollbar": "^3.1.0",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "typebox": "1.4.2"
   },
   "devDependencies": {
     "@types/node": "^24",
