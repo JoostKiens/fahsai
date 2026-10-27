@@ -25,12 +25,9 @@ export interface ClassifyParams {
 //   latestPm25 <= CLEAN_PM25 (12) — too low for fires to be the current cause (checked before
 //                                   fire transport). Physical cut-off, deliberately not tied to
 //                                   the EPA Good breakpoint (9.0 since 2024).
-//   trajectoryPrecipTotal > 25 && latestPm25 <= 25
+//   trajectoryPrecipTotal > 40 && latestPm25 <= 25
 //                                 — rain-washout, checked before fire transport
-//                                   (Ko Yawn 21.9/76mm ✓, Khong 9.3/27mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
-//                                   Lowered from 40 after the 2024 EPA rescale. The
-//                                   fixtures only bound it to (9.8, 27.4] mm (Lopburi, 9.8 mm, is
-//                                   regional background), so 25 is a placeholder, not calibrated.
+//                                   (Ko Yawn 21.9/76mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
 //   distKm <= 150                 — tier-1 upwind source threshold
 const CLEAN_PM25 = 12;
 
@@ -56,7 +53,7 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
   // Good readings and heavy-washout readings resolve to PLAUSIBLE_CLEAN regardless of fire
   // pressure — if PM2.5 ≤ 12, fires are not the current cause; the question is why it's clean.
   if (params.latestPm25 <= CLEAN_PM25) return 'PLAUSIBLE_CLEAN';
-  if (params.trajectoryPrecipTotal > 25 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
+  if (params.trajectoryPrecipTotal > 40 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
 
   const fireTransportByPath = params.firePressureNorm >= 40;
   const fireTransportByArea = params.areaScore >= 40;

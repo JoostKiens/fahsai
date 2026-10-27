@@ -632,13 +632,14 @@ type CleanSubCase = 'washout' | 'coastal' | 'fireSeasonGood' | 'marine';
 
 function cleanSubCase(ctx: ScientificContext): CleanSubCase {
   if (
+    ctx.currentPm25 <= 12 &&
     ctx.transport !== null &&
     ctx.transport.fire.pathScore >= 40 &&
     !ctx.transport.trajectory.originIsWater &&
     ctx.weatherContext.trajectoryPrecipitationMm > 0
   )
     return 'fireSeasonGood';
-  if (ctx.weatherContext.trajectoryPrecipitationMm > 25) return 'washout';
+  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return 'washout';
   if (
     ctx.transport !== null &&
     ctx.transport.trajectory.originIsWater &&
