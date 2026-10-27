@@ -1,1 +1,1 @@
-export const golden = `Air here arrived from Indonesia via the Strait of Malacca, clean throughout the route with no fires and no identified emission sources along the way. Over 88 mm of rain fell along the route over the past few days, washing the air before it reached this station.`;
+export const golden = `Air here arrived from Indonesia via the Strait of Malacca, with no fires and no identified emission sources along the way. Over 88 mm of rain fell along the route over the past few days, washing the air before it reached this station.`;

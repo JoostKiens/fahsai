@@ -16,8 +16,8 @@ All layer files live in `packages/frontend/src/components/Map/` (there is no sep
 **Why `BitmapLayer` not `HeatmapLayer` for PM2.5:** without an explicit `colorDomain`,
 `HeatmapLayer` derives its color scale from the max weight in the current viewport, so the same
 µg/m³ gets a different color depending on what's in view. Pinning `colorDomain` fixes that, but
-`colorRange` is still spread evenly across the domain, while the EPA breakpoints (12, 35.4, 55.4,
-150.4, 250.4 µg/m³) are uneven. It's also a point-density layer: each point's weight is spread
+`colorRange` is still spread evenly across the domain, while the EPA breakpoints (9, 35.4, 55.4,
+125.4, 225.4 µg/m³) are uneven. It's also a point-density layer: each point's weight is spread
 over `radiusPixels` in screen space and summed or averaged, so the result depends on zoom and
 grid spacing rather than the modelled concentration. `BitmapLayer` paints each cell directly with
 EPA-threshold colors and bilinearly interpolates between neighbors, giving smooth gradients while
@@ -39,19 +39,19 @@ Two color functions serve different purposes — use the right one:
   each band. Used by `TimelineChart` so the gradient line transitions fluidly rather than
   jumping at breakpoints.
 
-At exact EPA breakpoints (e.g. 12.0 µg/m³), the two functions differ: `pm25ToRgbLerped`
+At exact EPA breakpoints (e.g. 9.0 µg/m³), the two functions differ: `pm25ToRgbLerped`
 returns the **next** category's color (t=1 of the lower band, fully transitioned), while
 `pm25ToRgb` returns the **current** category's color (boundary is inclusive in the step
 function).
 
 | Category              | PM2.5 µg/m³ | Hex       | RGB              |
 | --------------------- | ----------- | --------- | ---------------- |
-| Good                  | 0–12.0      | `#58c458` | `[88, 196, 88]`  |
-| Moderate              | 12.1–35.4   | `#f0d232` | `[240, 210, 50]` |
+| Good                  | 0–9.0       | `#58c458` | `[88, 196, 88]`  |
+| Moderate              | 9.1–35.4    | `#f0d232` | `[240, 210, 50]` |
 | Unhealthy (sensitive) | 35.5–55.4   | `#ff7e00` | `[255, 126, 0]`  |
-| Unhealthy             | 55.5–150.4  | `#ff0000` | `[255, 0, 0]`    |
-| Very unhealthy        | 150.5–250.4 | `#8f3f97` | `[143, 63, 151]` |
-| Hazardous             | 250.5+      | `#7e0023` | `[126, 0, 35]`   |
+| Unhealthy             | 55.5–125.4  | `#ff0000` | `[255, 0, 0]`    |
+| Very unhealthy        | 125.5–225.4 | `#8f3f97` | `[143, 63, 151]` |
+| Hazardous             | 225.5+      | `#7e0023` | `[126, 0, 35]`   |
 
 ---
 

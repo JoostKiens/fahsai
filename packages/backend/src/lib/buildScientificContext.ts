@@ -13,7 +13,7 @@ export type { ExplainCase };
 // AQI helpers — exported so buildPrompt can use them without duplication
 // ----------------------------------------------------------------
 
-const AQI_BP = [12.0, 35.4, 55.4, 150.4, 250.4];
+const AQI_BP = [9.0, 35.4, 55.4, 125.4, 225.4];
 const AQI_LABELS = [
   'Good',
   'Moderate',
@@ -180,7 +180,7 @@ function regionalCrisisFraction(peers: ScientificContext['peers'] & object): num
     const veryUnhealthy = parseInt(/(\d+) Very unhealthy/.exec(distribution)?.[1] ?? '0', 10);
     return (haz + veryUnhealthy) / stationCount;
   }
-  return stations.filter((s) => s.value > 150.4).length / stationCount;
+  return stations.filter((s) => s.value > 125.4).length / stationCount;
 }
 
 function computeTrend(
@@ -195,8 +195,8 @@ function computeTrend(
   const ratio = latest / yesterday;
   const direction: 'rising' | 'falling' | 'stable' =
     ratio > 1.1 ? 'rising' : ratio < 0.9 ? 'falling' : 'stable';
-  // A trend at Good air quality levels (< 12 µg/m³) carries no public-health narrative.
-  if (currentPm25 < 12) return { direction, isSignificant: false };
+  // A trend at Good air quality levels (≤ 9 µg/m³) carries no public-health narrative.
+  if (currentPm25 <= 9) return { direction, isSignificant: false };
   const isSignificant = (() => {
     if (direction === 'stable') return false;
     // Exclude yesterday from the historical window — it already drives the direction
@@ -422,7 +422,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
   }
 
   const peerWeightedMean = raw.peers?.weightedMean ?? 0;
-  const peerTier: 1 | 2 | 3 = peerWeightedMean < 55 ? 1 : peerWeightedMean < 150 ? 2 : 3;
+  const peerTier: 1 | 2 | 3 = peerWeightedMean <= 55.4 ? 1 : peerWeightedMean <= 125.4 ? 2 : 3;
   const outlier =
     raw.outlier !== null
       ? raw.outlier.direction === 'high'
