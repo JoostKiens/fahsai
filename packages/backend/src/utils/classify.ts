@@ -22,10 +22,16 @@ export interface ClassifyParams {
 //   areaScore >= 40               — local fires dominant; triggers even when path score is low
 //   camsMaxPm25 < 25              — CAMS suppression: fires on flanks, not core air mass
 //                                   (applies only when triggered by path score alone)
-//   latestPm25 <= 12              — unambiguously Good (checked before fire transport)
-//   trajectoryPrecipTotal > 40 && latestPm25 <= 25
+//   latestPm25 <= 9               — unambiguously Good (checked before fire transport)
+//   trajectoryPrecipTotal > 25 && latestPm25 <= 25
 //                                 — rain-washout, checked before fire transport
-//                                   (Ko Yawn 21.9/76mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
+//                                   (Ko Yawn 21.9/76mm ✓, Khong 9.3/27mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
+//                                   Lowered from 40 to admit Khong after the 2024 EPA rescale. The
+//                                   fixtures only bound it to (9.8, 27.4] mm (Lopburi, 9.8 mm, is
+//                                   regional background), so 25 is a placeholder, not calibrated.
+//   originIsWater && camsMaxPm25 < 15 && latestPm25 <= 15
+//                                 — marine clean: open-water air that stayed clean along the
+//                                   whole path (Narathiwat 11.6/CAMS 14.7 ✓, Chanthaburi 27.9/22.4 ✗)
 //   distKm <= 150                 — tier-1 upwind source threshold
 export function classifyCase(params: ClassifyParams): ExplainCase {
   if (params.isStrongOutlier && params.isHighOutlier) return 'OUTLIER_HIGH';
@@ -47,9 +53,16 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
   }
 
   // Good readings and heavy-washout readings resolve to PLAUSIBLE_CLEAN regardless of fire
-  // pressure — if PM2.5 ≤ 12, fires are not the current cause; the question is why it's clean.
-  if (params.latestPm25 <= 12) return 'PLAUSIBLE_CLEAN';
-  if (params.trajectoryPrecipTotal > 40 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
+  // pressure — if PM2.5 ≤ 9, fires are not the current cause; the question is why it's clean.
+  if (params.latestPm25 <= 9) return 'PLAUSIBLE_CLEAN';
+  if (params.trajectoryPrecipTotal > 25 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
+  if (
+    params.originIsWater &&
+    params.camsMaxPm25 !== null &&
+    params.camsMaxPm25 < 15 &&
+    params.latestPm25 <= 15
+  )
+    return 'PLAUSIBLE_CLEAN';
 
   const fireTransportByPath = params.firePressureNorm >= 40;
   const fireTransportByArea = params.areaScore >= 40;

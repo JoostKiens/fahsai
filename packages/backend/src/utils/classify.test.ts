@@ -101,21 +101,49 @@ describe('classifyCase', () => {
     ).toBe('PLAUSIBLE_FIRE_TRANSPORT');
   });
 
-  it('returns PLAUSIBLE_CLEAN when pm25 <= 12 (Le Thai: 8.6, Narathiwat: 11.6)', () => {
+  it('returns PLAUSIBLE_CLEAN when pm25 <= 9 (Le Thai: 8.6)', () => {
     expect(classifyCase({ ...base, latestPm25: 8.6 })).toBe('PLAUSIBLE_CLEAN');
-    expect(classifyCase({ ...base, latestPm25: 11.6 })).toBe('PLAUSIBLE_CLEAN');
   });
 
-  it('returns PLAUSIBLE_CLEAN when pm25 <= 12 even with very high fire pressure (Khong: 9.3, pathScore 78, areaScore 75)', () => {
+  it('returns PLAUSIBLE_CLEAN when pm25 <= 9 even with very high fire pressure', () => {
     expect(
       classifyCase({
         ...base,
-        latestPm25: 9.3,
+        latestPm25: 8.6,
         firePressureNorm: 78,
         areaScore: 75,
         camsMaxPm25: 26,
       }),
     ).toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('returns PLAUSIBLE_CLEAN for moderate washout despite very high fire pressure (Khong: 9.3, 27.4 mm, pathScore 78, areaScore 75)', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 9.3,
+        trajectoryPrecipTotal: 27.4,
+        firePressureNorm: 78,
+        areaScore: 75,
+        camsMaxPm25: 26,
+      }),
+    ).toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('returns PLAUSIBLE_CLEAN for marine air that stayed clean along the path (Narathiwat: 11.6, CAMS max 14.7)', () => {
+    expect(
+      classifyCase({ ...base, latestPm25: 11.6, camsMaxPm25: 14.7, originIsWater: true }),
+    ).toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('does not apply the marine clean rule when CAMS shows pollution along the path (Chanthaburi: 27.9, CAMS max 22.4)', () => {
+    expect(
+      classifyCase({ ...base, latestPm25: 27.9, camsMaxPm25: 22.4, originIsWater: true }),
+    ).not.toBe('PLAUSIBLE_CLEAN');
+  });
+
+  it('does not classify as PLAUSIBLE_CLEAN for a Moderate reading without a clean signal (Narathiwat value, land origin)', () => {
+    expect(classifyCase({ ...base, latestPm25: 11.6 })).not.toBe('PLAUSIBLE_CLEAN');
   });
 
   it('returns PLAUSIBLE_CLEAN for washout even with high fire pressure (Ko Yawn: 76.2 mm, 21.9, pathScore 30)', () => {

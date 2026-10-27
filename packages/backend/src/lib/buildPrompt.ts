@@ -119,7 +119,7 @@ function buildScientificDataBlock(ctx: ScientificContext): string {
     if (cams.samples.length > 0) {
       const originPm25 = cams.samples[cams.samples.length - 1].pm25;
       const label =
-        originPm25 > 35 ? 'Smoke-loaded' : originPm25 > 12 ? 'Moderately polluted' : 'Clean';
+        originPm25 > 35 ? 'Smoke-loaded' : originPm25 > 9 ? 'Moderately polluted' : 'Clean';
       originCharacter = `ORIGIN CHARACTER: ${label}\n`;
     }
 
@@ -447,8 +447,8 @@ it out.
 </instructions>`;
 
 const CLEAN_FIRE_SEASON_GOOD_SECTION = `<instructions>
-CASE: PLAUSIBLE_CLEAN (Good reading during active fire season)
-This station reads Good despite significant fire activity in the region.
+CASE: PLAUSIBLE_CLEAN (clean reading during active fire season)
+This station reads clean despite significant fire activity in the region.
 Do not lead with fires.
 
 - Lead with rainfall as the cause: rain along the route stripped smoke from
@@ -632,14 +632,13 @@ type CleanSubCase = 'washout' | 'coastal' | 'fireSeasonGood' | 'marine';
 
 function cleanSubCase(ctx: ScientificContext): CleanSubCase {
   if (
-    ctx.currentPm25 <= 12 &&
     ctx.transport !== null &&
     ctx.transport.fire.pathScore >= 40 &&
     !ctx.transport.trajectory.originIsWater &&
     ctx.weatherContext.trajectoryPrecipitationMm > 0
   )
     return 'fireSeasonGood';
-  if (ctx.weatherContext.trajectoryPrecipitationMm > 40) return 'washout';
+  if (ctx.weatherContext.trajectoryPrecipitationMm > 25) return 'washout';
   if (
     ctx.transport !== null &&
     ctx.transport.trajectory.originIsWater &&

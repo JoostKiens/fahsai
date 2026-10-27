@@ -4,9 +4,9 @@ export const fixture: ExplainFixture = {
   id: '13-plausible-clean-khong-champasack-30-04-2026',
   case: 'PLAUSIBLE_CLEAN',
   description:
-    'Good reading (9.3 µg/m³) during peak fire season with high path and area fire pressure. ' +
+    'Low Moderate reading (9.3 µg/m³) during peak fire season with high path and area fire pressure. ' +
     '503 fires along path (pathScore 78), 476 area fires (areaScore 75) — classifier previously ' +
-    'assigned PLAUSIBLE_FIRE_TRANSPORT before the latestPm25<=12 guard could fire. ' +
+    'assigned PLAUSIBLE_FIRE_TRANSPORT; the rain-washout rule (> 25 mm) now catches it. ' +
     '27.4 mm of trajectory precipitation explains the clean arrival. ' +
     'Origin: Cambodia (Moderately polluted). One peer (Sukhuma, 20.5 µg/m³, 68 km) confirms ' +
     'this station is running cleaner than the wider area.',
