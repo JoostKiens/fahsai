@@ -12,7 +12,7 @@ import { corsOriginHeader } from '../utils/cors.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 10;
+const EXPLAIN_CACHE_VERSION = 11;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';

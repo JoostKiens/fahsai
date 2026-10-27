@@ -512,7 +512,7 @@ anomalously high even by those elevated standards.
 
 - Open with the regional picture first: cite the peer distribution or range
   and name the AQI categories (e.g. "nearby stations read between 60 and
-  140 µg/m³, all Unhealthy or Unhealthy for sensitive groups")
+  120 µg/m³, all Unhealthy or Unhealthy for sensitive groups")
 - Then note the anomaly: this station reads X times above those already
   elevated levels, which suggests a sensor fault or a very localised source
   directly at the station on top of the regional pollution
