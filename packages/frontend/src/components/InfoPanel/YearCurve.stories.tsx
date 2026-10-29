@@ -47,5 +47,13 @@ export const NoReading: Story = {
   },
 };
 
-// A baseline with missing days: the line and band bridge the gaps.
-export const BaselineWithGaps: Story = { args: { data: fangBaseline, currentPm25: 18 } };
+// Fang's baseline is missing 2 days in July and 55 days from late August to mid-October. The
+// line and band break there instead of bridging the gaps with made-up values.
+export const BaselineWithGaps: Story = {
+  args: { data: fangBaseline, currentPm25: 18 },
+  play: async ({ canvasElement }) => {
+    const medianLine = canvasElement.querySelector('path[fill="none"]');
+    const segmentCount = medianLine?.getAttribute('d')?.match(/M/g)?.length;
+    await expect(segmentCount).toBe(3);
+  },
+};

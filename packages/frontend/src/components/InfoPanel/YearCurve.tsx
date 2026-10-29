@@ -46,14 +46,31 @@ export function YearCurve({
 
     const sorted = [...data].sort((a, b) => dayOfYear(a.month, a.day) - dayOfYear(b.month, b.day));
 
-    const bandUpper = sorted.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p75Pm25)}`);
-    const bandLower = [...sorted]
-      .reverse()
-      .map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p25Pm25)}`);
-    const bandPath = `M${bandUpper.join('L')}L${bandLower.join('L')}Z`;
+    // Break the line and band at missing days so a gap isn't drawn as if it were data.
+    const segments: BaselineDay[][] = [];
+    sorted.forEach((d, i) => {
+      const prev = sorted[i - 1];
+      const isGap = !prev || dayOfYear(d.month, d.day) - dayOfYear(prev.month, prev.day) > 1;
+      if (isGap) segments.push([]);
+      segments[segments.length - 1].push(d);
+    });
 
-    const medianPath =
-      'M' + sorted.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.medianPm25)}`).join('L');
+    const bandPath = segments
+      .map((segment) => {
+        const upper = segment.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p75Pm25)}`);
+        const lower = [...segment]
+          .reverse()
+          .map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p25Pm25)}`);
+        return `M${upper.join('L')}L${lower.join('L')}Z`;
+      })
+      .join('');
+
+    const medianPath = segments
+      .map(
+        (segment) =>
+          'M' + segment.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.medianPm25)}`).join('L'),
+      )
+      .join('');
     const yTicks: number[] = [];
     for (let v = step; v < maxVal; v += step) yTicks.push(v);
 
