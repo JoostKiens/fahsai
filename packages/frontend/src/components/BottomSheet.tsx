@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'motion/react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { SPRING, TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 
 export interface BottomSheetDetents {
@@ -43,6 +44,7 @@ export function BottomSheet({
   const portalRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const isModal = showBackdrop;
+  const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
   const transition = prefersReducedMotion ? { duration: 0 } : SPRING;
 
@@ -56,9 +58,10 @@ export function BottomSheet({
   }, [open]);
 
   // Move focus into the sheet on open and back to the opener on close. A modal sheet also makes
-  // the rest of the page inert, so neither Tab nor a screen reader can leave it.
+  // the rest of the page inert, so neither Tab nor a screen reader can leave it. Only below the
+  // md breakpoint: above it the sheet is hidden, and an inert page would have no way out.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isMobile) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const inertSiblings = isModal
       ? [...document.body.children].filter(
@@ -71,7 +74,7 @@ export function BottomSheet({
       inertSiblings.forEach((el) => el.removeAttribute('inert'));
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
-  }, [open, isModal]);
+  }, [open, isModal, isMobile]);
 
   // Y translation from the full position to the peek position
   const peekOffset = detents ? detents.fullHeight - detents.peekHeight : 0;

@@ -193,6 +193,9 @@ content wrapper inside the scroll area, and `overflow-x-hidden` to the
 
 Either way, opening moves focus into the sheet and closing returns it to the opener. Anything
 portalled to `<body>` while a modal sheet is open (and not inside it) is not made inert.
+Focus and `inert` only apply below the md breakpoint (`useIsMobile`). Above it the sheet is
+hidden but can stay open (its state lives in the caller), and an inert page would have no
+visible way out.
 
 ---
 

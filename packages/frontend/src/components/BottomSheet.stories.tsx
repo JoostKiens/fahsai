@@ -147,3 +147,16 @@ export const NonModalFocus: Story = {
     await expect(opener).toHaveFocus();
   },
 };
+
+// From the md breakpoint up the sheet is hidden (desktop has its own panels), so an open modal
+// sheet must not make the page inert: nothing visible could close it.
+export const HiddenOnDesktop: Story = {
+  globals: { viewport: { value: 'tablet', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const opener = page.getByRole('button', { name: 'Open sheet' });
+    await expect(page.getByRole('dialog', { hidden: true })).not.toBeVisible();
+    opener.focus();
+    await expect(opener).toHaveFocus();
+  },
+};
