@@ -29,10 +29,17 @@ export default defineConfig({
           tailwindcss(),
           storybookTest({ configDir: resolve(import.meta.dirname, '.storybook') }),
         ],
-        // Pre-bundle the map and i18n libraries: discovering them mid-run makes Vite reload and
+        // Pre-bundle the map, i18n and UI libraries: discovering them mid-run makes Vite reload and
         // fail the first cold run.
         optimizeDeps: {
           include: [
+            '@base-ui/react/dialog',
+            '@base-ui/react/menu',
+            '@base-ui/react/scroll-area',
+            '@base-ui/react/select',
+            '@base-ui/react/slider',
+            '@base-ui/react/switch',
+            '@base-ui/react/tooltip',
             '@deck.gl/core',
             '@deck.gl/extensions',
             '@deck.gl/geo-layers',
