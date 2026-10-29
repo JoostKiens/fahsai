@@ -15,20 +15,25 @@ const PLACES = [
   { place_name: 'Chiang Rai, Thailand', center: [99.8325, 19.9105] },
   { place_name: 'Chiang Saen, Chiang Rai, Thailand', center: [100.0839, 20.2747] },
   { place_name: 'Bangkok, Thailand', center: [100.5018, 13.7563] },
+  { place_name: 'Luang Prabang, Laos', center: [102.1347, 19.8856] },
 ];
 
-const handlers = [
-  http.get('*/api/v1/station-readings/latest', () => HttpResponse.json(stationReadings)),
-  // …/mapbox.places/{query}.json
-  http.get('https://api.mapbox.com/geocoding/v5/mapbox.places/:query', ({ params }) => {
-    const query = decodeURIComponent(String(params.query))
-      .replace(/\.json$/, '')
-      .toLowerCase();
-    return HttpResponse.json({
-      features: PLACES.filter((p) => p.place_name.toLowerCase().includes(query)),
-    });
-  }),
-];
+// …/mapbox.places/{query}.json
+const GEOCODE_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places/:query';
+
+function answerGeocode({ params }: { params: Record<string, unknown> }) {
+  const query = decodeURIComponent(String(params.query))
+    .replace(/\.json$/, '')
+    .toLowerCase();
+  return HttpResponse.json({
+    features: PLACES.filter((p) => p.place_name.toLowerCase().includes(query)),
+  });
+}
+
+const stationsHandler = http.get('*/api/v1/station-readings/latest', () =>
+  HttpResponse.json(stationReadings),
+);
+const handlers = [stationsHandler, http.get(GEOCODE_URL, answerGeocode)];
 
 const meta = {
   component: Search,
@@ -82,7 +87,36 @@ export const KeyboardSelectsAStation: Story = {
 export const NoResults: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.type(canvas.getByRole('combobox', { name: 'Search' }), 'zzqx');
-    await waitFor(() => expect(canvas.getByText('No results')).toBeVisible());
+    await waitFor(() =>
+      expect(canvas.getByText('No results', { ignore: '[role="status"]' })).toBeVisible(),
+    );
+    await expect(canvas.getByRole('status')).toHaveTextContent('No results');
+  },
+};
+
+// A query that matches no station but does match a place: until the slow geocode answers, the
+// search has no results yet rather than none, so "No results" is neither shown nor announced.
+export const NoResultsWaitsForPlaces: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        stationsHandler,
+        http.get(GEOCODE_URL, async (info) => {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return answerGeocode(info);
+        }),
+      ],
+    },
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(canvas.getByRole('combobox', { name: 'Search' }), 'luang prabang');
+    // Past the 300 ms debounce, so the geocode request is in flight.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await expect(canvas.queryByText('No results')).toBeNull();
+    await expect(
+      await within(canvas.getByRole('listbox')).findByText('Luang Prabang, Laos'),
+    ).toBeVisible();
+    await expect(canvas.getByRole('status')).toBeEmptyDOMElement();
   },
 };
 

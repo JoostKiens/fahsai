@@ -54,6 +54,9 @@ export default defineConfig({
             'msw-storybook-addon/csf3',
             'react-i18next',
             'supercluster',
+            // addon-a11y imports these lazily, on the first story's check
+            'axe-core',
+            'storybook/internal/preview-errors',
           ],
         },
         test: {

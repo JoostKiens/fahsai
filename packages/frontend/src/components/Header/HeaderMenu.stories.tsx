@@ -32,18 +32,30 @@ async function openFromKeyboard(
   await user.keyboard('{Enter}');
 }
 
-// The menu is portalled to <body>, outside the story's canvas.
+// For stories that close the menu: axe can run while it's still mounted, and its popup has Base
+// UI's focus guards, aria-hidden spans with tabIndex 0 that keep focus inside. They're meant to be
+// focusable, so this rule misfires.
+const ignoreMenuFocusGuards = {
+  a11y: { config: { rules: [{ id: 'aria-hidden-focus', enabled: false }] } },
+};
+
+// The menu is portalled to <body>, outside the story's canvas. Closing is checked on the trigger:
+// Base UI unmounts the closed menu on a later animation frame, and under a full parallel run those
+// frames can take over a second each, so waiting for the menu to leave the DOM was flaky.
 export const ChoosingSettingsOpensSettings: Story = {
+  parameters: ignoreMenuFocusGuards,
   play: async ({ canvas, canvasElement, userEvent }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
+    const trigger = canvas.getByRole('button', { name: 'More options' });
+    await openFromKeyboard(trigger, userEvent);
     await userEvent.click(await page.findByRole('menuitem', { name: 'Settings' }));
     await expect(useUIStore.getState().settingsOpen).toBe(true);
-    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
   },
 };
 
 export const ChoosingAboutOpensAbout: Story = {
+  parameters: ignoreMenuFocusGuards,
   play: async ({ canvas, canvasElement, userEvent }) => {
     const page = within(canvasElement.ownerDocument.body);
     await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
