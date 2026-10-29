@@ -44,6 +44,11 @@ export const ChoosingSettingsOpensSettings: Story = {
 };
 
 export const ChoosingAboutOpensAbout: Story = {
+  // The open About dialog has Base UI's focus guards: aria-hidden spans with tabIndex 0 that
+  // bounce focus back into the dialog. They're meant to be focusable, so this rule misfires.
+  parameters: {
+    a11y: { config: { rules: [{ id: 'aria-hidden-focus', enabled: false }] } },
+  },
   play: async ({ canvas, canvasElement, userEvent }) => {
     const page = within(canvasElement.ownerDocument.body);
     await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
