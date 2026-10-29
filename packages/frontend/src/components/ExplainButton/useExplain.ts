@@ -21,7 +21,8 @@ interface ExplainState {
   text: string;
   loading: boolean;
   phase: 'fetching' | 'thinking' | null;
-  error: 'unavailable' | null;
+  // interrupted: the model failed after part of the answer arrived; that part is kept.
+  error: 'unavailable' | 'interrupted' | null;
   rateLimit: RateLimit | null;
 }
 
@@ -32,6 +33,19 @@ const INITIAL: ExplainState = {
   error: null,
   rateLimit: null,
 };
+
+// The state of an answer that failed: the part that arrived is kept and marked as cut off, and
+// when nothing arrived there is only the failure.
+function cutOff(received: string): ExplainState {
+  const text = received.trimEnd();
+  return {
+    text,
+    loading: false,
+    phase: null,
+    error: text ? 'interrupted' : 'unavailable',
+    rateLimit: null,
+  };
+}
 
 export function useExplain() {
   const [state, setState] = useState<ExplainState>(INITIAL);
@@ -135,13 +149,13 @@ export function useExplain() {
           rateLimit: toRateLimit(streamError, Date.now()),
         });
       } else if (streamError) {
-        setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
+        setState(cutOff(withoutStreamError(accumulated)));
       }
     } catch {
       // a new request or a reset aborts the pending read, which rejects: that is not an error
       if (!signal.aborted) {
-        // the connection dropped mid-stream: show the same state as a failed request
-        setState({ text: '', loading: false, phase: null, error: 'unavailable', rateLimit: null });
+        // the connection dropped mid-stream
+        setState(cutOff(withoutStreamError(accumulated)));
       }
     } finally {
       if (!signal.aborted) {

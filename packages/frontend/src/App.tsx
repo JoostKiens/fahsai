@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -7,22 +7,17 @@ import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { Header } from '@/components/Header/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useDataNotifications, useUrlSync, useSelectionHydration, useLatestDate } from '@/hooks';
+import {
+  useDataNotifications,
+  useUrlSync,
+  useSelectionHydration,
+  useLatestDate,
+  useIsMobile,
+} from '@/hooks';
 
 const MapView = lazy(() =>
   import('@/components/Map/MapView').then((m) => ({ default: m.MapView })),
 );
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const mql = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
-  return isMobile;
-}
 
 function AppContent() {
   const { t } = useTranslation();

@@ -13,3 +13,5 @@ coverage/
 
 # Supabase CLI link state (project ref)
 supabase/.temp/
+
+storybook-static

@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import type { PM25GridPoint } from '@thailand-aq/types';
 import { AQ_STEP, AQ_LNG_MIN, AQ_LAT_MIN, AQ_LNG_COUNT, AQ_LAT_COUNT } from '@thailand-aq/consts';
-import { pm25ToRgba } from '@/utils/aqiColors';
+import { HEATMAP_ALPHA, pm25ToRgba } from '@/utils/aqiColors';
 
 type RGBA = [number, number, number, number];
 
@@ -12,7 +12,6 @@ const AQ_LAT_MAX = AQ_LAT_MIN + (AQ_LAT_COUNT - 1) * AQ_STEP;
 // within this canvas, not enlarge it.
 const CANVAS_W = 630;
 const CANVAS_H = 730;
-const HEATMAP_ALPHA = 55;
 
 const BITMAP_WEST = AQ_LNG_MIN - AQ_STEP / 2;
 const BITMAP_NORTH = AQ_LAT_MAX + AQ_STEP / 2;

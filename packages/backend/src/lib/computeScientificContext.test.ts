@@ -140,7 +140,7 @@ describe('computeScientificContext', () => {
     const result = await computeScientificContext(STATION_ID, LAT, LNG, PAST_DATE);
 
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
-    expect(mockRedisGet).toHaveBeenCalledWith(`explain:context:v1:${STATION_ID}:${PAST_DATE}`);
+    expect(mockRedisGet).toHaveBeenCalledWith(`explain:context:v2:${STATION_ID}:${PAST_DATE}`);
     expect(mockFetchExplainContext).not.toHaveBeenCalled();
   });
 
@@ -153,7 +153,7 @@ describe('computeScientificContext', () => {
 
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
     expect(mockRedisSet).toHaveBeenCalledWith(
-      `explain:context:v1:${STATION_ID}:${PAST_DATE}`,
+      `explain:context:v2:${STATION_ID}:${PAST_DATE}`,
       SCIENTIFIC_CONTEXT_FIXTURE,
       { ex: 604800 },
     );

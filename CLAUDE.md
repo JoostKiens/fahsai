@@ -236,6 +236,9 @@ pnpm typecheck                                    # type-check all packages
 pnpm lint                                         # lint all packages
 pnpm test                                         # run all package test suites (DB-free)
 pnpm test:integration                             # backend real-DB tests on a local Supabase (needs Docker + Supabase CLI)
+pnpm --filter frontend storybook                  # Storybook on :6006 (also serves the Storybook MCP at /mcp)
+pnpm --filter frontend test:storybook             # every story as a test in headless Chromium; not part of pnpm test
+pnpm --filter frontend exec playwright install chromium  # once per machine, before the first test:storybook
 supabase stop --no-backup                         # stop that local stack when done
 pnpm format                                       # prettier --write across all packages
 
@@ -275,6 +278,14 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env). Backend
   `*.integration.test.ts` files run separately against a local Supabase (see
   `docs/claude/conventions.md`)
+- Storybook (`packages/frontend/.storybook`): stories run as a second Vitest project
+  (`storybook`, Playwright Chromium), local only, not in CI or the git hooks. The Storybook MCP
+  (`.mcp.json`) tells agents to use its `test-run` tool instead of package.json test scripts;
+  `test-run` only covers stories, so still run `pnpm test` for unit tests.
+  Never delete `node_modules/.cache/storybook` or `.vite` while a Storybook dev server is
+  running: it breaks that server (504 "Outdated Optimize Dep") until restarted. If a cold
+  `test:storybook` run fails with "Failed to fetch dynamically imported module", a newly used
+  dependency was optimised mid-run: add it to `optimizeDeps.include` in `vitest.config.ts`.
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
 ## Internationalisation (i18n)
@@ -284,6 +295,11 @@ Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
 **Whenever you add or rename a string in either file, update both files.** The keys in
 `en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
 this and will fail CI if they diverge.
+
+`src/i18n.ts` runs on import: it detects the language and may redirect to `/th/`. Keep it to
+setup only. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
+components must not import from `@/i18n`, or they can't render in Storybook or tests
+without that side effect.
 
 ---
 

@@ -17,7 +17,7 @@ import { DateString, errorResponses } from '../schemas/common.js';
 import { ExplainRequestSchema, ScientificContextSchema } from '../schemas/explain.js';
 
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 10;
+const EXPLAIN_CACHE_VERSION = 11;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';

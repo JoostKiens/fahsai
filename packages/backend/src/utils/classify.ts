@@ -22,11 +22,15 @@ export interface ClassifyParams {
 //   areaScore >= 40               — local fires dominant; triggers even when path score is low
 //   camsMaxPm25 < 25              — CAMS suppression: fires on flanks, not core air mass
 //                                   (applies only when triggered by path score alone)
-//   latestPm25 <= 12              — unambiguously Good (checked before fire transport)
+//   latestPm25 <= CLEAN_PM25 (12) — too low for fires to be the current cause (checked before
+//                                   fire transport). Physical cut-off, deliberately not tied to
+//                                   the EPA Good breakpoint (9.0 since 2024).
 //   trajectoryPrecipTotal > 40 && latestPm25 <= 25
 //                                 — rain-washout, checked before fire transport
 //                                   (Ko Yawn 21.9/76mm ✓, Chaloem 49.2/2mm ✗, Hana 37.1/1mm ✗)
 //   distKm <= 150                 — tier-1 upwind source threshold
+const CLEAN_PM25 = 12;
+
 export function classifyCase(params: ClassifyParams): ExplainCase {
   if (params.isStrongOutlier && params.isHighOutlier) return 'OUTLIER_HIGH';
   if (params.isStrongOutlier && !params.isHighOutlier) return 'OUTLIER_LOW';
@@ -48,7 +52,7 @@ export function classifyCase(params: ClassifyParams): ExplainCase {
 
   // Good readings and heavy-washout readings resolve to PLAUSIBLE_CLEAN regardless of fire
   // pressure — if PM2.5 ≤ 12, fires are not the current cause; the question is why it's clean.
-  if (params.latestPm25 <= 12) return 'PLAUSIBLE_CLEAN';
+  if (params.latestPm25 <= CLEAN_PM25) return 'PLAUSIBLE_CLEAN';
   if (params.trajectoryPrecipTotal > 40 && params.latestPm25 <= 25) return 'PLAUSIBLE_CLEAN';
 
   const fireTransportByPath = params.firePressureNorm >= 40;

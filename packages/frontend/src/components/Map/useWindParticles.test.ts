@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Layer } from '@deck.gl/core';
 import type { WindReading } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
 import {
@@ -8,9 +11,16 @@ import {
   buildGrid,
   spawnParticle,
   packTrails,
+  HEAD_WIDTH,
+  TAIL_WIDTH,
+  MIN_HEAD_WIDTH,
+  MIN_TRAIL_ASPECT,
   createTrailBuffers,
+  useWindParticles,
   type Particle,
+  type WindParticleOptions,
 } from './useWindParticles';
+import { seededRandom } from './story-harness/seeded-random';
 
 describe('viewportParticleCount', () => {
   // A fixed geographic viewport isolates the zoom-compensation math from the
@@ -202,8 +212,6 @@ describe('packTrails', () => {
   });
 
   describe('trail width', () => {
-    const HEAD_WIDTH_PX = 4;
-    const MIN_HEAD_WIDTH_PX = 1;
     const particle = makeParticle();
     const clock = simulate({ particle, frameMs: BASE_STEP_MS, durationMs: 1000 });
     // The same trail packed at different on-screen scales, i.e. different pixel lengths.
@@ -211,27 +219,29 @@ describe('packTrails', () => {
       pack([particle], clock, pixelsPerDegree).widths[0];
 
     it('keeps the full head width for trails that are long on screen', () => {
-      expect(headWidthAt(1000)).toBe(HEAD_WIDTH_PX);
+      expect(headWidthAt(1000)).toBe(HEAD_WIDTH);
     });
 
     it('narrows the head for trails that are short on screen', () => {
-      // Scale at which this (eastward) trail is 6 px long on screen: 3× a 2 px head.
+      // A head halfway between the minimum and the full width needs a trail MIN_TRAIL_ASPECT times
+      // as long as that on screen; this is the scale at which this (eastward) trail is that long.
+      const halfwayWidth = (HEAD_WIDTH + MIN_HEAD_WIDTH) / 2;
       const { positions, vertexCount } = pack([particle], clock);
       const lengthDeg =
         Math.abs(positions[0] - positions[(vertexCount - 1) * 2]) *
         Math.cos((particle.lat * Math.PI) / 180);
 
-      expect(headWidthAt(6 / lengthDeg)).toBeCloseTo(2);
+      expect(headWidthAt((halfwayWidth * MIN_TRAIL_ASPECT) / lengthDeg)).toBeCloseTo(halfwayWidth);
     });
 
     it('never narrows the head below the minimum width', () => {
-      expect(headWidthAt(1)).toBe(MIN_HEAD_WIDTH_PX);
+      expect(headWidthAt(1)).toBe(MIN_HEAD_WIDTH);
     });
 
     it('tapers the tail in proportion to the head', () => {
       const { widths, vertexCount } = pack([particle], clock, 1);
 
-      expect(widths[vertexCount - 1] / widths[0]).toBeCloseTo(0.5 / HEAD_WIDTH_PX);
+      expect(widths[vertexCount - 1] / widths[0]).toBeCloseTo(TAIL_WIDTH / HEAD_WIDTH);
     });
   });
 
@@ -242,5 +252,80 @@ describe('packTrails', () => {
       pathCount: 0,
       vertexCount: 0,
     });
+  });
+});
+
+describe('useWindParticles options', () => {
+  // React only flushes act() updates in environments that opt in.
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+  const bounds = { getWest: () => 95, getSouth: () => 10, getEast: () => 105, getNorth: () => 20 };
+  const map = {
+    getBounds: () => bounds,
+    getContainer: () => ({ clientWidth: 800 }),
+    on: () => undefined,
+    off: () => undefined,
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Mounts the hook with `options` and returns the last layers it handed to an overlay. With
+  // `overlayCount` > 1 it re-renders with a new overlay object each time, which re-runs the
+  // animation effect without new wind data.
+  function renderLayers(options: WindParticleOptions, { overlayCount = 1 } = {}): Layer[] {
+    let layers: Layer[] = [];
+    function Probe({ overlay }: { overlay: { setProps(props: { layers: Layer[] }): void } }) {
+      useWindParticles(overlay, map, readings, { visible: true, opacity: 1 }, null, options);
+      return null;
+    }
+    const root = createRoot(document.createElement('div'));
+    for (let i = 0; i < overlayCount; i++) {
+      const overlay = { setProps: (props: { layers: Layer[] }) => (layers = props.layers) };
+      act(() => root.render(createElement(Probe, { overlay })));
+    }
+    act(() => root.unmount());
+    return layers;
+  }
+
+  // The wind layer's trail vertex positions.
+  function renderFrozenPaths(options: WindParticleOptions, renderOptions = {}): number[] {
+    const [layer] = renderLayers(options, renderOptions);
+    const data = layer.props.data as { attributes: { getPath: { value: Float32Array } } };
+    return Array.from(data.attributes.getPath.value);
+  }
+
+  it('renders the same frame for the same seed', () => {
+    const first = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const second = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    expect(first.length).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+  });
+
+  it('renders a different frame for a different seed', () => {
+    const first = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const other = renderFrozenPaths({ random: seededRandom(2), freezeAtFrame: 30 });
+    expect(other).not.toEqual(first);
+  });
+
+  it('starts no animation loop when frozen', () => {
+    const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
+    renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 1 });
+    expect(requestFrame).not.toHaveBeenCalled();
+  });
+
+  it('still draws a layer when frozen at frame 0', () => {
+    const layers = renderLayers({ random: seededRandom(1), freezeAtFrame: 0 });
+    expect(layers.map((layer) => layer.id)).toEqual(['wind-particles']);
+  });
+
+  it('does not step past the frozen frame when the effect re-runs', () => {
+    const once = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const rerun = renderFrozenPaths(
+      { random: seededRandom(1), freezeAtFrame: 30 },
+      { overlayCount: 2 },
+    );
+    expect(rerun).toEqual(once);
   });
 });

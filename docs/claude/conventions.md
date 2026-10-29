@@ -295,6 +295,50 @@ deck.gl/loaders.gl bumps and drop this note once `pnpm audit` is clean.
 
 ---
 
+## Storybook stories
+
+Stories live next to their component (`Foo.stories.tsx`) and run as tests via
+`test:storybook`. Canvas (Deck.gl) stories use the harness in
+`components/Map/story-harness/`; its probes and limits are written up in
+`docs/experiments/storybook-canvas.md`.
+
+- **Fixtures** are real production API responses, saved minified under the component's
+  `fixtures/<YYYY-MM-DD>/`. Prefer real responses over hand-written data; derive edge cases
+  (gaps, empty days) from them in the story.
+- **Controlled components** (`checked`, `playing`, `open`) get a small `Stateful<Name>` wrapper
+  that keeps the value in React state, keyed on the arg, so the story stays clickable. Don't
+  use `useArgs`: its re-render clears `fn()` spies in the UI and never happens under Vitest.
+- **Controls:** a prop with a fixed set of values gets a `select` or `range` control with the
+  options the app actually passes. `.storybook/preview.tsx` turns any arg ending in `Date` into
+  a date picker that passes a timestamp; `'YYYY-MM-DD'` string props need
+  `control: 'text'`.
+- **Stores** are reset to their initial state before every story (`.storybook/preview.tsx`).
+  A story that needs other state sets it in its own `beforeEach`, e.g.
+  `useUIStore.setState({ selectedPoint: … })`; read the store in the play function to check
+  what an interaction changed.
+- **Language:** the toolbar's Language switch sets i18next for any story; a Thai variant sets
+  `globals: { locale: 'th' }`.
+- **Network** is mocked with MSW: handlers from `msw/http` in `parameters.msw.handlers`. A
+  request to `/api/…` or Mapbox that no handler answers is blocked and fails the story, listing
+  the URL. Mapbox and `/api/explain` responses are written by hand (Mapbox needs the token; each
+  explain call costs a Gemini request); everything else uses recorded fixtures.
+- **Timing under load:** in test runs the preview makes motion animations finish instantly
+  (`MotionGlobalConfig.skipAnimations`, when `navigator.webdriver` is set) and raises
+  `findBy`/`waitFor`'s timeout to 3 s; the Storybook UI keeps its animations. Still wrap a first
+  visibility check in `waitFor` (content can start at opacity 0), and open Base UI popups (Menu,
+  Select) from the keyboard: pointer clicks on their triggers were flaky under load.
+- **Expected colours are literals**, not values from `aqiColors`, so a broken scale can't
+  change both sides of the check.
+- **Portalled UI** (`BottomSheet`, tooltips) renders outside the canvas: query it with
+  `within(canvasElement.ownerDocument.body)`. Mobile-only components set
+  `globals: { viewport: { value: 'mobile1' } }`; the Vitest addon applies it too.
+- **SVG elements:** `getByTestId` is typed for HTML elements only; use
+  `canvasElement.querySelector<SVGPathElement>('[data-testid="…"]')`.
+- **Play functions only where there's behaviour to check**, and make a deliberate break of
+  the component fail the story before trusting it.
+
+---
+
 ## Branch naming
 
 Branches follow `<type>(<scope>)/<kebab-case-description>`, using the same `type` values as
