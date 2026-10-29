@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Layer } from '@deck.gl/core';
@@ -267,18 +267,32 @@ describe('useWindParticles options', () => {
     off: () => undefined,
   };
 
-  // Mounts the hook frozen at `freezeAtFrame` and returns the wind layer's path positions.
-  function renderFrozenPaths(options: WindParticleOptions): number[] {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Mounts the hook with `options` and returns the last layers it handed to an overlay. With
+  // `overlayCount` > 1 it re-renders with a new overlay object each time, which re-runs the
+  // animation effect without new wind data.
+  function renderLayers(options: WindParticleOptions, { overlayCount = 1 } = {}): Layer[] {
     let layers: Layer[] = [];
-    const overlay = { setProps: (props: { layers: Layer[] }) => (layers = props.layers) };
-    function Probe() {
+    function Probe({ overlay }: { overlay: { setProps(props: { layers: Layer[] }): void } }) {
       useWindParticles(overlay, map, readings, { visible: true, opacity: 1 }, null, options);
       return null;
     }
     const root = createRoot(document.createElement('div'));
-    act(() => root.render(createElement(Probe)));
+    for (let i = 0; i < overlayCount; i++) {
+      const overlay = { setProps: (props: { layers: Layer[] }) => (layers = props.layers) };
+      act(() => root.render(createElement(Probe, { overlay })));
+    }
     act(() => root.unmount());
-    const data = layers[0].props.data as { attributes: { getPath: { value: Float32Array } } };
+    return layers;
+  }
+
+  // The wind layer's trail vertex positions.
+  function renderFrozenPaths(options: WindParticleOptions, renderOptions = {}): number[] {
+    const [layer] = renderLayers(options, renderOptions);
+    const data = layer.props.data as { attributes: { getPath: { value: Float32Array } } };
     return Array.from(data.attributes.getPath.value);
   }
 
@@ -299,6 +313,19 @@ describe('useWindParticles options', () => {
     const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
     renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 1 });
     expect(requestFrame).not.toHaveBeenCalled();
-    requestFrame.mockRestore();
+  });
+
+  it('still draws a layer when frozen at frame 0', () => {
+    const layers = renderLayers({ random: seededRandom(1), freezeAtFrame: 0 });
+    expect(layers.map((layer) => layer.id)).toEqual(['wind-particles']);
+  });
+
+  it('does not step past the frozen frame when the effect re-runs', () => {
+    const once = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const rerun = renderFrozenPaths(
+      { random: seededRandom(1), freezeAtFrame: 30 },
+      { overlayCount: 2 },
+    );
+    expect(rerun).toEqual(once);
   });
 });

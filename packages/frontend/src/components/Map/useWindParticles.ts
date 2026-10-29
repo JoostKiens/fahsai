@@ -275,11 +275,18 @@ type ViewportSource = {
   off(type: 'zoom' | 'move' | 'resize', listener: () => void): unknown;
 };
 
-/** Testing hooks; leave unset in the app. */
+/**
+ * Testing hooks; leave unset in the app. Both are read once, when the hook mounts: remount
+ * (e.g. with a React `key`) to change them.
+ */
 export type WindParticleOptions = {
   /** Replaces Math.random for particle spawning, e.g. a seeded generator. */
   random?: () => number;
-  /** Advance this many fixed-length frames at once, render that frame, and stop animating. */
+  /**
+   * Advance the particles this many fixed 60 Hz steps (in total, however often the effect
+   * re-runs), draw that frame and stop animating. Later visibility, opacity, CAMS or viewport
+   * changes are not drawn.
+   */
   freezeAtFrame?: number;
 };
 
@@ -297,6 +304,9 @@ export function useWindParticles(
     grid: null as WindGrid | null,
     gridMap: null as Map<string, number> | null,
     random,
+    freezeAtFrame,
+    /** Steps taken towards freezeAtFrame since the particles were last (re)initialised. */
+    frozenSteps: 0,
     visible: config.visible,
     opacity: config.opacity,
     viewport: FULL_VIEWPORT,
@@ -412,6 +422,7 @@ export function useWindParticles(
       gridMap: stateRef.current.gridMap,
       random: stateRef.current.random,
     });
+    stateRef.current.frozenSteps = 0;
   }, [wind]);
 
   // Animation loop — runs as long as the overlay, map, and wind data are present.
@@ -420,7 +431,8 @@ export function useWindParticles(
     if (!overlay || !map || !wind?.length) return;
     const ov = overlay; // capture non-null reference for the rAF closure
 
-    function frame(dt: number) {
+    // Advances the simulation by dt; draw() renders the current state.
+    function step(dt: number) {
       stateRef.current.clock += dt;
       // Rebase periodically to keep clock (and every particle's timestamps) far below
       // the float32 precision ceiling TripsLayer reads them at on the GPU — shifting
@@ -440,88 +452,99 @@ export function useWindParticles(
         random,
         particles,
         visible,
-        opacity,
         viewport,
         rawViewportWidth,
         containerWidthPx,
         clock,
       } = stateRef.current;
+      if (!visible || !grid) return;
 
-      if (!visible || !grid) {
-        ov.setProps({ layers: [] });
-      } else {
-        // Degrees-per-frame scale that keeps on-screen pixel speed constant across zoom and
-        // container width: exact inverse of how much pixels-per-degree has changed since the
-        // reference calibration (REF_PIXELS_PER_DEGREE).
-        const pixelsPerDegree = containerWidthPx / rawViewportWidth;
-        const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
-        const dtScale = (dt / BASE_STEP_MS) * velocityScale;
-        const { trailDurationMs, alpha: dynamicAlpha } = dynamicTrailParams({
-          rawViewportWidth,
-          containerWidthPx,
-        });
-        stepParticles({
-          particles,
-          grid,
-          dt,
-          dtScale,
-          spawnViewport: viewport,
-          gridMap,
-          trailDurationMs,
-          clock,
-          random,
-        });
-
-        const fadeWindowMs = trailDurationMs;
-        const buffers = packTrails({
-          particles,
-          buffers: stateRef.current.trailBuffers,
-          clock,
-          fadeWindowMs,
-          alphaScale: opacity * dynamicAlpha,
-          pixelsPerDegree,
-        });
-        stateRef.current.trailBuffers = buffers;
-        const { vertexCount } = buffers;
-
-        const layer = new TripsLayer({
-          id: 'wind-particles',
-          // Binary attributes (subarray views of the reused buffers, no copy) instead of
-          // per-particle accessors: deck.gl reads them directly rather than calling
-          // getPath/getColor/... for every particle on every frame.
-          data: {
-            length: buffers.pathCount,
-            startIndices: buffers.startIndices.subarray(0, buffers.pathCount),
-            attributes: {
-              getPath: { value: buffers.positions.subarray(0, vertexCount * 2), size: 2 },
-              getTimestamps: { value: buffers.timestamps.subarray(0, vertexCount), size: 1 },
-              getColor: {
-                value: buffers.colors.subarray(0, vertexCount * 4),
-                size: 4,
-                normalized: true,
-              },
-              getWidth: { value: buffers.widths.subarray(0, vertexCount), size: 1 },
-            },
-          },
-          // Paths are never closed loops; tells deck.gl to skip per-path loop detection.
-          _pathType: 'open',
-          currentTime: clock,
-          trailLength: fadeWindowMs,
-          fadeTrail: true,
-          capRounded: true,
-          jointRounded: true,
-          widthUnits: 'pixels',
-          parameters: { depthCompare: 'always' as const },
-          pickable: false,
-        });
-
-        ov.setProps({ layers: [layer] });
-      }
+      // Degrees-per-frame scale that keeps on-screen pixel speed constant across zoom and
+      // container width: exact inverse of how much pixels-per-degree has changed since the
+      // reference calibration (REF_PIXELS_PER_DEGREE).
+      const pixelsPerDegree = containerWidthPx / rawViewportWidth;
+      const velocityScale = REF_PIXELS_PER_DEGREE / pixelsPerDegree;
+      const dtScale = (dt / BASE_STEP_MS) * velocityScale;
+      const { trailDurationMs } = dynamicTrailParams({ rawViewportWidth, containerWidthPx });
+      stepParticles({
+        particles,
+        grid,
+        dt,
+        dtScale,
+        spawnViewport: viewport,
+        gridMap,
+        trailDurationMs,
+        clock,
+        random,
+      });
     }
 
+    function draw() {
+      const { grid, particles, visible, opacity, rawViewportWidth, containerWidthPx, clock } =
+        stateRef.current;
+      if (!visible || !grid) {
+        ov.setProps({ layers: [] });
+        return;
+      }
+
+      const pixelsPerDegree = containerWidthPx / rawViewportWidth;
+      const { trailDurationMs, alpha: dynamicAlpha } = dynamicTrailParams({
+        rawViewportWidth,
+        containerWidthPx,
+      });
+      const fadeWindowMs = trailDurationMs;
+      const buffers = packTrails({
+        particles,
+        buffers: stateRef.current.trailBuffers,
+        clock,
+        fadeWindowMs,
+        alphaScale: opacity * dynamicAlpha,
+        pixelsPerDegree,
+      });
+      stateRef.current.trailBuffers = buffers;
+      const { vertexCount } = buffers;
+
+      const layer = new TripsLayer({
+        id: 'wind-particles',
+        // Binary attributes (subarray views of the reused buffers, no copy) instead of
+        // per-particle accessors: deck.gl reads them directly rather than calling
+        // getPath/getColor/... for every particle on every frame.
+        data: {
+          length: buffers.pathCount,
+          startIndices: buffers.startIndices.subarray(0, buffers.pathCount),
+          attributes: {
+            getPath: { value: buffers.positions.subarray(0, vertexCount * 2), size: 2 },
+            getTimestamps: { value: buffers.timestamps.subarray(0, vertexCount), size: 1 },
+            getColor: {
+              value: buffers.colors.subarray(0, vertexCount * 4),
+              size: 4,
+              normalized: true,
+            },
+            getWidth: { value: buffers.widths.subarray(0, vertexCount), size: 1 },
+          },
+        },
+        // Paths are never closed loops; tells deck.gl to skip per-path loop detection.
+        _pathType: 'open',
+        currentTime: clock,
+        trailLength: fadeWindowMs,
+        fadeTrail: true,
+        capRounded: true,
+        jointRounded: true,
+        widthUnits: 'pixels',
+        parameters: { depthCompare: 'always' as const },
+        pickable: false,
+      });
+
+      ov.setProps({ layers: [layer] });
+    }
+
+    const { freezeAtFrame } = stateRef.current;
     if (freezeAtFrame !== undefined) {
       // Fixed-length steps instead of rAF timing, so the frozen frame is reproducible.
-      for (let i = 0; i < freezeAtFrame; i++) frame(BASE_STEP_MS);
+      for (; stateRef.current.frozenSteps < freezeAtFrame; stateRef.current.frozenSteps++) {
+        step(BASE_STEP_MS);
+      }
+      draw();
       return;
     }
 
@@ -531,13 +554,14 @@ export function useWindParticles(
     function tick(time: number) {
       const dt = lastTime ? Math.min(time - lastTime, 50) : BASE_STEP_MS;
       lastTime = time;
-      frame(dt);
+      step(dt);
+      draw();
       animId = requestAnimationFrame(tick);
     }
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [overlay, map, wind, freezeAtFrame]);
+  }, [overlay, map, wind]);
 }
 
 // ─── viewport ─────────────────────────────────────────────────────────────────

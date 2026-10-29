@@ -99,7 +99,13 @@ data will be pruned from production too.
     Seed: a 10-line mulberry32 in `story-harness/seeded-random.ts`. Two loads of the wind
     story (seed 1, frame 120): **0 differing pixels** (4,633 non-background px). Unit tests mount the
     real hook: same seed gives identical trail positions, a different seed differs, and frozen
-    mode never calls `requestAnimationFrame`. The live app still animates (two screenshots
+    mode never calls `requestAnimationFrame`. After review, the loop body is split into
+    `step(dt)` and `draw()`: frozen mode steps N times (counted in hook state, so an effect
+    re-run from a new overlay/map object doesn't step past N), then draws once, also at frame 0.
+    Both options are read once at mount. Same frame as before the split (4,633 px, 0 different).
+    A StrictMode-based test for the re-run case passed on the *old* code too: StrictMode also
+    re-runs the effect that rebuilds the particles, so it never exposed the bug; the test now
+    re-renders with a new overlay object instead, and fails on the old code. The live app still animates (two screenshots
     500 ms apart differ; no console errors).
   - *Not output, but test flakiness*: the first cold `test:storybook` run failed because Vite
     discovered deck.gl mid-run and reloaded. Fixed with `optimizeDeps.include` in the

@@ -67,6 +67,8 @@ const meta = {
   title: 'Map/Wind particles',
   component: WindParticles,
   args: { seed: 1, frame: 120 },
+  // Bounded: each frame is simulated synchronously before the first paint.
+  argTypes: { frame: { control: { type: 'range', min: 0, max: 600, step: 10 } } },
   // Remount on control changes: the seed and frame are only read when the particles start.
   render: (args) => <WindParticles key={`${args.seed}-${args.frame}`} {...args} />,
 } satisfies Meta<typeof WindParticles>;
