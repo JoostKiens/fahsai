@@ -156,11 +156,11 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
         querystring: Type.Object({
           station_id: Type.String({ minLength: 1 }),
           hours: Type.Optional(
-            wholeNumber({
-              minimum: 1,
+            Type.Number({
+              exclusiveMinimum: 0,
               maximum: MAX_HISTORY_HOURS,
               default: DEFAULT_HISTORY_HOURS,
-              description: 'How many hours back to look, at most 7 days.',
+              description: 'How many hours back to look, at most 7 days. May be a fraction.',
             }),
           ),
         }),

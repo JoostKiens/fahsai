@@ -265,7 +265,7 @@ GET /api/v1/station-readings/latest?bbox=...&date=YYYY-MM-DD
   do NOT remove the pagination or stations will silently disappear from the map.
 
 GET /api/v1/station-readings/history?station_id=...&hours=24
-  Returns the PM2.5 time series for a single station. hours defaults to 24, max 168 (7 days).
+  Returns the PM2.5 time series for a single station. hours defaults to 24, max 168 (7 days), and may be a fraction.
 
 GET /api/v1/stations/:stationId/history?days=7&date=YYYY-MM-DD
   Returns `days` daily rows (oldest-first, default 7, max 30) ending on `date` (BKK timezone,

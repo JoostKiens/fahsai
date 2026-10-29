@@ -649,6 +649,13 @@ describe('current success responses of the data routes', () => {
       `);
     });
 
+    it('GET /api/station-readings/history accepts a fraction of an hour', async () => {
+      expect(await get('/api/station-readings/history?station_id=s1&hours=0.5')).toMatchObject({
+        status: 200,
+        body: { data: [] },
+      });
+    });
+
     it('GET /api/station-readings/history (default hours)', async () => {
       expect(await get('/api/station-readings/history?station_id=s1')).toMatchInlineSnapshot(`
         {

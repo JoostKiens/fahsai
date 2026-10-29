@@ -152,8 +152,8 @@ const CASES: Record<string, ErrorCase[]> = {
     invalid(
       'history with hours=0',
       '/api/station-readings/history?station_id=s1&hours=0',
-      'Invalid parameter hours: must be >= 1',
-      [{ path: '/hours', message: 'must be >= 1' }],
+      'Invalid parameter hours: must be > 0',
+      [{ path: '/hours', message: 'must be > 0' }],
     ),
     invalid(
       'history with too many hours',
@@ -165,12 +165,6 @@ const CASES: Record<string, ErrorCase[]> = {
       'history with hours=true',
       '/api/station-readings/history?station_id=s1&hours=true',
       'hours',
-    ),
-    invalid(
-      'history with fractional hours',
-      '/api/station-readings/history?station_id=s1&hours=1.5',
-      'Invalid parameter hours: must be a whole number',
-      [{ path: '/hours', message: 'must be multiple of 1' }],
     ),
     invalid(
       'station history with fractional days',
