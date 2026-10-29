@@ -139,11 +139,44 @@ data will be pruned from production too.
 
 ## Phase 4: the gap
 
-| Planted bug | Interaction test result | Expected |
-|---|---|---|
-| lat/lng swap | | fail |
-| inverted ramp | | fail |
-| empty fire data | | fail |
+**The ordinary test.** `Map/Layer toggles` (`LayerToggles.stories.tsx`) wires `LayerGroups` (the
+real sidebar) to the PM2.5 grid and fire layers the way `MapView` does: store visibility picks
+the layers. Its play function is the kind of check an agent typically writes. It waits for
+`data-render-ready`, checks the legend (`µg/m³` and the six ranges `0–9` … `225+`), clicks the
+Fires switch, then checks `aria-checked`, the store's `fires.visible`, and readiness again. It
+looks at nothing inside the canvas. Supporting changes: English i18next set up in
+`.storybook/preview.tsx` (not `src/i18n.ts`, which can redirect the page), and `i18next` and
+`react-i18next` added to `optimizeDeps.include`. Their first cold run failed with the same
+mid-run reload as deck.gl did in Phase 2.
+
+**The bugs**, as one-line patches in `docs/experiments/storybook-canvas/bugs/` (apply with
+`git apply <patch>`, undo with `git apply -R <patch>`; never committed as code):
+
+- `cams-latlng-swap.patch`: the CAMS worker computes each point's grid row from its longitude
+  and its column from its latitude (the classic copy-paste swap). The grid comes out transposed
+  and cropped: the northern band is empty and the pattern is mirrored. Plausible at a glance.
+- `inverted-ramp.patch`: `pm25ToRgba` returns the colour of the mirrored AQI category, so clean
+  air is drawn hazardous and vice versa. Almost the whole map turns purple and dark red. The
+  legend stays correct, because it reads `AQI_CATEGORIES` directly.
+- `empty-fires.patch`: `createFiresLayer` passes `data: []`. The fires story draws **0**
+  non-background pixels (4,650 without the bug).
+
+**Result: every story test passes with every bug.** All 8 (the 4 Toggle stories, the 3 layer
+stories that only await readiness, and the layer-toggle story) stay green, and typecheck stays
+clean. Baseline: also 8/8.
+
+| Planted bug | Interaction test result | Other story tests | Unit tests | Expected |
+|---|---|---|---|---|
+| lat/lng swap | **pass** | 7/7 pass | 134/134 pass | fail |
+| inverted ramp | **pass** | 7/7 pass | **1 fails** | fail |
+| empty fire data | **pass** | 7/7 pass | 134/134 pass | fail |
+
+The one catch is not from Storybook. An existing unit test (`aqiColors.test.ts`, "appends alpha
+to the rgb tuple") pins `pm25ToRgba`'s output, so the inverted ramp fails it. That works only
+because the bug was planted in a function with its own unit test. Put the same inversion in the
+worker or the bitmap layer and nothing would notice. `test-run` (the Storybook MCP tool agents
+are told to use instead of package.json scripts) runs only the story tests, so an agent following
+that instruction would see all green for all three bugs.
 
 ## Phase 5: checks
 

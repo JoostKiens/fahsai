@@ -28,7 +28,7 @@ export default defineConfig({
           tailwindcss(),
           storybookTest({ configDir: resolve(import.meta.dirname, '.storybook') }),
         ],
-        // Pre-bundle the map libraries: discovering them mid-run makes Vite reload and fail the
+        // Pre-bundle the map and i18n libraries: discovering them mid-run makes Vite reload and fail the
         // first cold run.
         optimizeDeps: {
           include: [
@@ -36,6 +36,8 @@ export default defineConfig({
             '@deck.gl/extensions',
             '@deck.gl/geo-layers',
             '@deck.gl/layers',
+            'i18next',
+            'react-i18next',
             'supercluster',
           ],
         },

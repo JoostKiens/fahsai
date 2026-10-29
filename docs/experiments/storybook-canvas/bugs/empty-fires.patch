@@ -1,0 +1,13 @@
+diff --git a/packages/frontend/src/components/Map/FiresLayer.ts b/packages/frontend/src/components/Map/FiresLayer.ts
+index 7039bb2..5f984e4 100644
+--- a/packages/frontend/src/components/Map/FiresLayer.ts
++++ b/packages/frontend/src/components/Map/FiresLayer.ts
+@@ -140,7 +140,7 @@ export function createFiresLayer(
+ ): Layer {
+   return new FireGlowLayer({
+     id: 'fire-glow',
+-    data,
++    data: [],
+     opacity,
+     getPosition: (d) => [d.lng, d.lat],
+     radiusUnits: 'pixels',
