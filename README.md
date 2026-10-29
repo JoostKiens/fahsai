@@ -96,4 +96,6 @@ See [CLAUDE.md](CLAUDE.md) for local setup, environment variables, and dev comma
 
 The backend serves its API under `/api/v1`. With `pnpm dev` running, the interactive API docs are at <http://localhost:3001/docs> and the OpenAPI document at <http://localhost:3001/docs/json>.
 
+The frontend components are in Storybook. Run `pnpm --filter frontend storybook` and open <http://localhost:6006>. Each component has a Docs page, and every story runs as a test, including an accessibility check, with `pnpm --filter frontend test:storybook`.
+
 Issues welcome.
