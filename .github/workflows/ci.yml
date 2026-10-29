@@ -139,3 +139,7 @@ jobs:
 
       # Every story as a test in headless Chromium, including its axe accessibility check.
       - run: pnpm --filter frontend test:storybook
+        env:
+          # lib/api.ts builds /api/v1 URLs from this. Unset, they'd start with /undefined/ and
+          # slip past the preview's unmocked-request check, which matches paths starting /api/.
+          VITE_API_BASE_URL: http://localhost:3001
