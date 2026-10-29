@@ -43,7 +43,7 @@ export const FORMAT_HINTS: Record<string, string> = {
 // refers to it. Keep it in step with ApiError in packages/types.
 export const ApiErrorSchema = Type.Object(
   {
-    error: Type.String({ description: 'The one human-readable text.' }),
+    error: Type.String({ description: 'A message a person can read.' }),
     code: Type.Enum(ERROR_CODES, { description: 'What went wrong, for programs.' }),
     reason: Type.Optional(
       Type.Enum(RATE_LIMIT_REASONS, { description: 'Which limit was hit; only for rate_limited.' }),

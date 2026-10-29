@@ -16,7 +16,7 @@ export async function registerApiDocs(app: FastifyInstance): Promise<void> {
       info: {
         title: 'Fahsai API',
         description:
-          'Fires, PM2.5, wind and weather data for Thailand and its neighbours. Every error is { error, code }.',
+          'Fires, PM2.5, wind and weather data for Thailand and its neighbours.\n\nEvery error has the same shape: `{ error, code }`.',
         version: '1.0.0',
       },
     },
