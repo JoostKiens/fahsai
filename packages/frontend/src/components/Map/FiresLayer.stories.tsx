@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import firesResponse from './story-harness/fixtures/2026-10-24/fires.json';
-import { DeckHarness, waitForRenderReady } from './story-harness/DeckHarness';
-import { createFiresLayer } from './FiresLayer';
+import { waitForRenderReady } from './story-harness/DeckHarness';
+import { firePoints } from './story-harness/fixture-data';
+import { Fires } from './story-harness/Fires';
+import { expectPicked } from './story-harness/probes';
 
-/** NASA FIRMS fire detections for 2026-10-24 (556 points), as the map draws them. */
-function Fires() {
-  return <DeckHarness layers={[createFiresLayer(firesResponse.data, 1, () => {})]} />;
-}
+// Mainland box with spread-out fires; overlapping glows hide some from picking (48 of 57 found).
+const PROBE_BBOX: [number, number, number, number] = [97, 14, 106, 23];
+const PICKABLE_SHARE = 0.75;
 
 const meta = {
   title: 'Map/Fires layer',
@@ -18,6 +18,19 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   play: async ({ canvasElement }) => {
-    await waitForRenderReady(canvasElement);
+    const deck = await waitForRenderReady(canvasElement);
+    const [west, south, east, north] = PROBE_BBOX;
+    const inBox = firePoints.filter(
+      ({ lng, lat }) => lng >= west && lng <= east && lat >= south && lat <= north,
+    ).length;
+    // Otherwise the minimum below is 0 and the check passes without testing anything.
+    if (inBox === 0) throw new Error(`Fires: the fixture has no fires in ${PROBE_BBOX.join(', ')}`);
+    expectPicked({
+      deck,
+      bbox: PROBE_BBOX,
+      layerId: 'fire-glow',
+      min: Math.ceil(inBox * PICKABLE_SHARE),
+      label: `Fires (${inBox} in the fixture for this box)`,
+    });
   },
 };

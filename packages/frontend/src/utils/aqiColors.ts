@@ -108,3 +108,6 @@ export function pm25ToSoftRgb(pm25: number): RGB {
   }
   return AQI_SOFT_BG[AQI_SOFT_BG.length - 1];
 }
+
+/** Alpha (0–255) the CAMS heatmap bitmap is painted with. */
+export const HEATMAP_ALPHA = 55;
