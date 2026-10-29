@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import Fastify from 'fastify';
 import { clearTables, gridPoints, seed } from '../test/integration/db.js';
 import { latestDateRoutes } from './latest-date.js';
+import { buildTestApp } from '../test/test-app.js';
 
 const { redisGet, redisSet } = vi.hoisted(() => ({ redisGet: vi.fn(), redisSet: vi.fn() }));
 vi.mock('../cache/client.js', () => ({ redis: { get: redisGet, set: redisSet } }));
@@ -40,8 +40,8 @@ async function resetDb() {
 }
 
 async function getLatestDate() {
-  const app = Fastify();
-  latestDateRoutes(app);
+  const app = buildTestApp();
+  void app.register(latestDateRoutes, { prefix: '/api' });
   const res = await app.inject({ method: 'GET', url: '/api/latest-date' });
   await app.close();
   return res;
@@ -98,7 +98,10 @@ describe('GET /api/latest-date against a real database', () => {
     const res = await getLatestDate();
 
     expect(res.statusCode).toBe(404);
-    expect(res.json()).toEqual({ error: 'No complete date found in the last 7 days' });
+    expect(res.json()).toEqual({
+      error: 'No complete date found in the last 7 days',
+      code: 'no_data',
+    });
   });
 
   it('looks back 7 days: the 7th day back counts, the 8th does not', async () => {

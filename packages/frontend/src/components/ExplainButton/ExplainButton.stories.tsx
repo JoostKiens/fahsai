@@ -6,8 +6,7 @@ import { ExplainButton } from './ExplainButton';
 
 // /api/explain is rate-limited and every call costs a Gemini request, so these responses are
 // written by hand in the format useExplain parses: a "__PROMPT__" debug line, then plain text
-// streamed in chunks (bold as **…**), with "[ERROR:…]" or "[ERROR_JSON:{…}]" for mid-stream
-// failures.
+// streamed in chunks (bold as **…**), with "[ERROR_JSON:{…}]" for a mid-stream failure.
 const EXPLANATION_CHUNKS = [
   '__PROMPT__"(prompt omitted)"\n',
   '**PM2.5 is moderate** at this station today, close to the usual level for late October.\n\n',
@@ -16,6 +15,17 @@ const EXPLANATION_CHUNKS = [
 ];
 
 const RESET_IN_MS = 5 * 60_000;
+
+// The line a failed stream ends with (routes/explain.ts): the shared ApiError, as one line of JSON.
+const STREAM_ERROR_LINE = '\n[ERROR_JSON:{"error":"Explanation unavailable","code":"unavailable"}]';
+
+// The 429 body of POST /api/explain: the shared ApiError with the limit that was hit.
+const rateLimitBody = (reason: 'ip_ratelimit' | 'quota_exceeded') => ({
+  error: 'Rate limit exceeded',
+  code: 'rate_limited',
+  reason,
+  resetAtMs: Date.now() + RESET_IN_MS,
+});
 
 function streamOf(chunks: string[]) {
   const encoder = new TextEncoder();
@@ -90,10 +100,7 @@ export const RateLimited: Story = {
     msw: {
       handlers: [
         http.post('*/api/explain', () =>
-          HttpResponse.json(
-            { type: 'ip_ratelimit', resetAtMs: Date.now() + RESET_IN_MS },
-            { status: 429 },
-          ),
+          HttpResponse.json(rateLimitBody('ip_ratelimit'), { status: 429 }),
         ),
       ],
     },
@@ -106,7 +113,7 @@ export const RateLimited: Story = {
     ).toBeVisible();
     await expect(button).toBeDisabled();
     await expect(args.rateLimitControl.onSet).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'ip_ratelimit' }),
+      expect.objectContaining({ reason: 'ip_ratelimit' }),
     );
   },
 };
@@ -116,10 +123,7 @@ export const DailyLimitReached: Story = {
     msw: {
       handlers: [
         http.post('*/api/explain', () =>
-          HttpResponse.json(
-            { type: 'quota_exceeded', resetAtMs: Date.now() + RESET_IN_MS },
-            { status: 429 },
-          ),
+          HttpResponse.json(rateLimitBody('quota_exceeded'), { status: 429 }),
         ),
       ],
     },
@@ -142,8 +146,8 @@ export const Unavailable: Story = {
   },
 };
 
-// The model failed part-way. The backend appends "\n\n[ERROR: <message>]" (routes/explain.ts):
-// the partial text stays, cut at the marker, with a note that it was cut off.
+// The model failed part-way. The backend ends the stream with an "[ERROR_JSON:…]" line
+// (routes/explain.ts): the partial text stays, without the line, with a note that it was cut off.
 export const FailsMidStream: Story = {
   parameters: {
     msw: {
@@ -152,11 +156,7 @@ export const FailsMidStream: Story = {
           '*/api/explain',
           () =>
             new HttpResponse(
-              streamOf([
-                EXPLANATION_CHUNKS[0],
-                EXPLANATION_CHUNKS[1],
-                '\n\n[ERROR: model overloaded]',
-              ]),
+              streamOf([EXPLANATION_CHUNKS[0], EXPLANATION_CHUNKS[1], STREAM_ERROR_LINE]),
             ),
         ),
       ],
@@ -180,8 +180,7 @@ export const FailsBeforeAnyText: Story = {
       handlers: [
         http.post(
           '*/api/explain',
-          () =>
-            new HttpResponse(streamOf([EXPLANATION_CHUNKS[0], '\n\n[ERROR: model overloaded]'])),
+          () => new HttpResponse(streamOf([EXPLANATION_CHUNKS[0], STREAM_ERROR_LINE])),
         ),
       ],
     },

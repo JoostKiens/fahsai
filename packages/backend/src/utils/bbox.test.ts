@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { parseBbox } from './bbox.js';
 
+function catchError(fn: () => unknown): unknown {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+}
+
 describe('parseBbox', () => {
   it('parses a valid bbox string', () => {
     expect(parseBbox('89,1,114,30')).toEqual({ west: 89, south: 1, east: 114, north: 30 });
@@ -15,11 +24,20 @@ describe('parseBbox', () => {
     expect(result).toEqual({ west: -10, south: -5, east: 10, north: 5 });
   });
 
-  it('throws on too few parts', () => {
-    expect(() => parseBbox('1,2,3')).toThrow('Invalid bbox');
+  it('rejects too few parts as an invalid request', () => {
+    expect(catchError(() => parseBbox('1,2,3'))).toMatchObject({
+      statusCode: 400,
+      body: {
+        error: 'Invalid bbox: "1,2,3" — expected "west,south,east,north"',
+        code: 'invalid_request',
+      },
+    });
   });
 
-  it('throws when a part is non-numeric', () => {
-    expect(() => parseBbox('1,two,3,4')).toThrow('Invalid bbox');
+  it('rejects a non-numeric part as an invalid request', () => {
+    expect(catchError(() => parseBbox('1,two,3,4'))).toMatchObject({
+      statusCode: 400,
+      body: { code: 'invalid_request' },
+    });
   });
 });

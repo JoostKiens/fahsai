@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Type, TypeBoxTypeProvider, type Static } from '@fastify/type-provider-typebox';
 import type { BaselineStat, BaselineRow } from '@thailand-aq/types';
 import { mapBaselineRow } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
@@ -8,46 +9,48 @@ import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { forEachPage } from '../utils/backfill.js';
 import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 import { offsetDate } from '../utils/trajectory.js';
+import { AppError } from '../lib/app-error.js';
+import { Bbox, DateString, errorResponses, wholeNumber } from '../schemas/common.js';
+import {
+  BaselineResponseSchema,
+  LatestMeasurementSchema,
+  MeasurementSchema,
+  StationDayHistorySchema,
+  StationHistoryResponseSchema,
+} from '../schemas/station-readings.js';
 
+const DEFAULT_HISTORY_HOURS = 24;
 const MAX_HISTORY_HOURS = 168; // 7 days
+const DEFAULT_HISTORY_DAYS = 7;
+const MAX_HISTORY_DAYS = 30;
 const CURRENT_DATE_TTL_SECONDS = 3600;
 
-interface WeatherData {
-  windSpeedKmh: number | null;
-  windDirectionDeg: number | null;
-  precipitationSumMm: number | null;
-  relativeHumidity2m: number | null;
-}
-
-interface DayData {
-  date: string;
-  pm25: number;
-  readingCount: number;
-  weather: WeatherData | null;
-  baseline: BaselineStat | null;
-}
-
-interface Measurement {
-  stationId: string;
-  value: number;
-  measuredAt: string;
-}
-
-interface LatestMeasurement {
-  stationId: string;
-  stationName: string;
-  lat: number;
-  lng: number;
-  country: string | null;
-  provider: string | null;
-  value: number;
-  measuredAt: string;
-}
+type DayData = Static<typeof StationDayHistorySchema>;
+type WeatherData = NonNullable<DayData['weather']>;
+type Measurement = Static<typeof MeasurementSchema>;
+type LatestMeasurement = Static<typeof LatestMeasurementSchema>;
 
 export function stationReadingsRoutes(app: FastifyInstance): void {
-  // GET /api/station-readings/latest?bbox=...&date=YYYY-MM-DD
-  app.get<{ Querystring: { bbox?: string; date?: string } }>(
-    '/api/station-readings/latest',
+  const typed = app.withTypeProvider<TypeBoxTypeProvider>();
+
+  typed.get(
+    '/station-readings/latest',
+    {
+      schema: {
+        summary: 'The latest PM2.5 reading of every station for a day',
+        description:
+          'One reading per station (the latest of the Bangkok day), inside the bbox. Without a date it is the last 24 hours. 404 (no_data) when there are none.',
+        tags: ['station-readings'],
+        querystring: Type.Object({
+          bbox: Type.Optional(Bbox),
+          date: Type.Optional(DateString),
+        }),
+        response: {
+          200: Type.Object({ data: Type.Array(LatestMeasurementSchema) }),
+          ...errorResponses(400, 404),
+        },
+      },
+    },
     async (req, reply) => {
       const rawBbox = req.query.bbox;
       const date = req.query.date; // optional; when absent, returns last 24h
@@ -132,7 +135,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       );
 
       if (latest.length === 0) {
-        return reply.status(404).send({ error: 'No station readings for this date.' });
+        throw new AppError({ code: 'no_data', message: 'No station readings for this date.' });
       }
 
       if (isDefaultBbox) {
@@ -143,24 +146,33 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/station-readings/history?station_id=...&hours=24
-  app.get<{ Querystring: { station_id?: string; hours?: string } }>(
-    '/api/station-readings/history',
+  typed.get(
+    '/station-readings/history',
+    {
+      schema: {
+        summary: 'Every PM2.5 reading of a station in the last hours',
+        description: 'Oldest first. For a station that does not exist the list is empty.',
+        tags: ['station-readings'],
+        querystring: Type.Object({
+          station_id: Type.String({ minLength: 1 }),
+          hours: Type.Optional(
+            Type.Number({
+              exclusiveMinimum: 0,
+              maximum: MAX_HISTORY_HOURS,
+              default: DEFAULT_HISTORY_HOURS,
+              description: 'How many hours back to look, at most 7 days. May be a fraction.',
+            }),
+          ),
+        }),
+        response: {
+          200: Type.Object({ data: Type.Array(MeasurementSchema) }),
+          ...errorResponses(400),
+        },
+      },
+    },
     async (req, reply) => {
-      const { station_id: stationId, hours: rawHours } = req.query;
-
-      if (!stationId)
-        return reply.status(400).send({ error: 'Missing required param: station_id' });
-
-      const hours = rawHours !== undefined ? Number(rawHours) : 24;
-      if (isNaN(hours) || hours <= 0) {
-        return reply.status(400).send({ error: 'hours must be a positive number' });
-      }
-      if (hours > MAX_HISTORY_HOURS) {
-        return reply
-          .status(400)
-          .send({ error: `hours cannot exceed ${MAX_HISTORY_HOURS} (7 days)` });
-      }
+      const { station_id: stationId } = req.query;
+      const hours = req.query.hours ?? DEFAULT_HISTORY_HOURS;
 
       const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
@@ -183,23 +195,35 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/stations/:stationId/history?days=7&date=YYYY-MM-DD
   // date = selected end date in BKK timezone (defaults to today BKK).
   // Returns `days` rows ending on that date (inclusive), oldest-first.
   // Weather comes from station_weather (pre-computed at ingest time), not weather_readings.
-  app.get<{ Params: { stationId: string }; Querystring: { days?: string; date?: string } }>(
-    '/api/stations/:stationId/history',
+  typed.get(
+    '/stations/:stationId/history',
+    {
+      schema: {
+        summary: 'A station’s recent days',
+        description:
+          'The latest reading, reading count, weather and seasonal baseline for each of the days up to date, oldest first. An unknown station is a 200 with zeros, not a 404.',
+        tags: ['station-readings'],
+        params: Type.Object({ stationId: Type.String() }),
+        querystring: Type.Object({
+          days: Type.Optional(
+            wholeNumber({
+              minimum: 1,
+              maximum: MAX_HISTORY_DAYS,
+              default: DEFAULT_HISTORY_DAYS,
+              description: 'How many days, at most 30.',
+            }),
+          ),
+          date: Type.Optional(DateString),
+        }),
+        response: { 200: StationHistoryResponseSchema, ...errorResponses(400) },
+      },
+    },
     async (req, reply) => {
       const { stationId } = req.params;
-      const rawDays = req.query.days;
-      const days = rawDays !== undefined ? Number(rawDays) : 7;
-
-      if (isNaN(days) || days <= 0) {
-        return reply.status(400).send({ error: 'days must be a positive number' });
-      }
-      if (days > 30) {
-        return reply.status(400).send({ error: 'days cannot exceed 30' });
-      }
+      const days = req.query.days ?? DEFAULT_HISTORY_DAYS;
 
       // Anchor the window to the requested end date (BKK); default to today BKK.
       const endDateStr = req.query.date ?? bangkokDateString();
@@ -311,9 +335,18 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/stations/:stationId/baseline
-  app.get<{ Params: { stationId: string } }>(
-    '/api/stations/:stationId/baseline',
+  typed.get(
+    '/stations/:stationId/baseline',
+    {
+      schema: {
+        summary: 'A station’s seasonal PM2.5 baseline',
+        description:
+          'The median and quartiles of PM2.5 for each calendar day, from past years, ordered by month and day. An unknown station gets an empty list.',
+        tags: ['station-readings'],
+        params: Type.Object({ stationId: Type.String() }),
+        response: { 200: BaselineResponseSchema, ...errorResponses() },
+      },
+    },
     async (req, reply) => {
       const { stationId } = req.params;
 

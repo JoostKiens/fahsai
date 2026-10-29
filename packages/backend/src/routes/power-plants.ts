@@ -1,7 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import type { PowerPlantCollection, PowerPlantProperties } from '@thailand-aq/types';
 import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { errorResponses } from '../schemas/common.js';
+import { PowerPlantCollectionSchema } from '../schemas/power-plant.js';
+import { AppError } from '../lib/app-error.js';
 
 const CACHE_KEY = 'power_plants:geojson';
 
@@ -9,7 +14,7 @@ interface PlantRow {
   id: number;
   name: string;
   country: string;
-  fuel_type: string;
+  fuel_type: PowerPlantProperties['fuel_type']; // a CHECK constraint keeps it to these four
   capacity_mw: number | null;
   owner: string | null;
   commissioned_year: number | null;
@@ -18,40 +23,59 @@ interface PlantRow {
 }
 
 export function powerPlantsRoutes(app: FastifyInstance): void {
-  app.get('/api/power-plants', async (_req, reply) => {
-    const cached = await redis.get<object>(CACHE_KEY);
-    if (cached !== null) return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
+  app.withTypeProvider<TypeBoxTypeProvider>().get(
+    '/power-plants',
+    {
+      schema: {
+        summary: 'Fossil-fuel power plants',
+        description:
+          'Every Coal, Gas, Oil and Diesel plant in the region, as a GeoJSON FeatureCollection.',
+        tags: ['power-plants'],
+        response: { 200: PowerPlantCollectionSchema, ...errorResponses(503) },
+      },
+    },
+    async (req, reply) => {
+      const cached = await redis.get<PowerPlantCollection>(CACHE_KEY);
+      if (cached !== null)
+        return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
 
-    let allRows: PlantRow[];
-    try {
-      allRows = await fetchAllPages<PlantRow>(
-        (from, to) =>
-          supabase
-            .from('power_plants')
-            .select('id, name, country, fuel_type, capacity_mw, owner, commissioned_year, lat, lng')
-            .order('capacity_mw', { ascending: false, nullsFirst: false })
-            .range(from, to),
-        1000,
-      );
-    } catch {
-      return reply
-        .status(503)
-        .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
-    }
+      let allRows: PlantRow[];
+      try {
+        allRows = await fetchAllPages<PlantRow>(
+          (from, to) =>
+            supabase
+              .from('power_plants')
+              .select(
+                'id, name, country, fuel_type, capacity_mw, owner, commissioned_year, lat, lng',
+              )
+              .order('capacity_mw', { ascending: false, nullsFirst: false })
+              .range(from, to),
+          1000,
+        );
+      } catch (err) {
+        // a database failure and a table that was never ingested look the same to the client
+        req.log.error({ err }, 'power_plants query failed');
+        throw new AppError({
+          code: 'unavailable',
+          message: 'Power plant data unavailable — run ingest:power-plants',
+        });
+      }
 
-    if (allRows.length === 0) {
-      return reply
-        .status(503)
-        .send({ error: 'Power plant data unavailable — run ingest:power-plants' });
-    }
+      if (allRows.length === 0) {
+        throw new AppError({
+          code: 'unavailable',
+          message: 'Power plant data unavailable — run ingest:power-plants',
+        });
+      }
 
-    const geojson = buildGeojson(allRows);
-    await redis.set(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
-    return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(geojson);
-  });
+      const geojson = buildGeojson(allRows);
+      await redis.set(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
+      return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(geojson);
+    },
+  );
 }
 
-function buildGeojson(rows: PlantRow[]): object {
+function buildGeojson(rows: PlantRow[]): PowerPlantCollection {
   return {
     type: 'FeatureCollection',
     features: rows.map((r) => ({

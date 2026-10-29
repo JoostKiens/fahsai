@@ -1,6 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import i18next from 'i18next';
-import { MS_PER_HOUR } from '@thailand-aq/consts';
+import type { RateLimit } from '@thailand-aq/types';
+import {
+  parseApiError,
+  parseStreamError,
+  toRateLimit,
+  withoutStreamError,
+} from './utils.api-error';
 
 const API = import.meta.env.VITE_API_BASE_URL;
 
@@ -9,11 +15,6 @@ interface ExplainOptions {
   lat: number;
   lng: number;
   date: string; // YYYY-MM-DD in BKK timezone — anchors the fire/peer/measurement windows
-}
-
-export interface RateLimit {
-  type: string;
-  resetAtMs: number;
 }
 
 interface ExplainState {
@@ -32,6 +33,19 @@ const INITIAL: ExplainState = {
   error: null,
   rateLimit: null,
 };
+
+// The state of an answer that failed: the part that arrived is kept and marked as cut off, and
+// when nothing arrived there is only the failure.
+function cutOff(received: string): ExplainState {
+  const text = received.trimEnd();
+  return {
+    text,
+    loading: false,
+    phase: null,
+    error: text ? 'interrupted' : 'unavailable',
+    rateLimit: null,
+  };
+}
 
 export function useExplain() {
   const [state, setState] = useState<ExplainState>(INITIAL);
@@ -65,16 +79,13 @@ export function useExplain() {
     }
 
     if (res.status === 429) {
-      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      const type = typeof body.type === 'string' ? body.type : 'quota_exceeded';
-      const resetAtMs =
-        typeof body.resetAtMs === 'number' ? body.resetAtMs : Date.now() + MS_PER_HOUR;
+      const error = parseApiError(await res.json().catch(() => null));
       setState({
         text: '',
         loading: false,
         phase: null,
         error: null,
-        rateLimit: { type, resetAtMs },
+        rateLimit: toRateLimit(error, Date.now()),
       });
       return;
     }
@@ -118,37 +129,33 @@ export function useExplain() {
           promptStripped = true;
         }
 
-        // Structured rate-limit error from Gemini (mid-stream)
-        const errorJsonMatch = /\[ERROR_JSON:(\{[^}]+\})\]/.exec(accumulated);
-        if (errorJsonMatch) {
-          try {
-            const parsed = JSON.parse(errorJsonMatch[1]) as RateLimit;
-            setState({ text: '', loading: false, phase: null, error: null, rateLimit: parsed });
-          } catch {
-            setState({
-              text: '',
-              loading: false,
-              phase: null,
-              error: 'unavailable',
-              rateLimit: null,
-            });
-          }
-          break;
-        }
-
-        // The backend appends "[ERROR: <message>]" when the model fails mid-answer; show only
-        // the text before it.
-        const errorAt = accumulated.indexOf('[ERROR:');
-        const hasError = errorAt !== -1;
-        const text = hasError ? accumulated.slice(0, errorAt).trimEnd() : accumulated;
+        // The error line a failed stream ends with is hidden here and read once the stream is done.
         setState({
-          text,
-          loading: !hasError,
-          phase: hasError ? null : 'thinking',
-          error: hasError ? (text ? 'interrupted' : 'unavailable') : null,
+          text: withoutStreamError(accumulated),
+          loading: true,
+          phase: 'thinking',
+          error: null,
           rateLimit: null,
         });
-        if (hasError) break;
+      }
+
+      const streamError = parseStreamError(accumulated);
+      if (streamError?.code === 'rate_limited') {
+        setState({
+          text: '',
+          loading: false,
+          phase: null,
+          error: null,
+          rateLimit: toRateLimit(streamError, Date.now()),
+        });
+      } else if (streamError) {
+        setState(cutOff(withoutStreamError(accumulated)));
+      }
+    } catch {
+      // a new request or a reset aborts the pending read, which rejects: that is not an error
+      if (!signal.aborted) {
+        // the connection dropped mid-stream
+        setState(cutOff(withoutStreamError(accumulated)));
       }
     } finally {
       if (!signal.aborted) {
