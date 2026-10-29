@@ -208,7 +208,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
                   }}
                 />
                 <span
-                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-400' : 'text-zinc-700'}`}
+                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-400' : 'text-zinc-500'}`}
                 >
                   {formatDateLabel(date)}
                 </span>

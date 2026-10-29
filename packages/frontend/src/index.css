@@ -11,6 +11,8 @@
 @theme {
   --font-sans: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
+  /* Lifted from #71717b so small secondary text passes WCAG AA (4.5:1) on zinc-900 and zinc-800. */
+  --color-zinc-500: #8e8e97;
 }
 
 @custom-variant pointer-coarse {
