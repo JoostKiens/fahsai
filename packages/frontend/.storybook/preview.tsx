@@ -6,14 +6,21 @@ import th from '../src/locales/th.json';
 import '../src/index.css';
 import './preview.css';
 
-// Not src/i18n.ts: it redirects the page to /th/ when the stored language is Thai. Stories that
-// import from '@/i18n' (e.g. dateLocale in InfoPanel, Scrubber) would still run that code.
+// Not src/i18n.ts: it redirects the page to /th/ when the stored language is Thai. Components
+// take the pure locale helpers from '@/utils/locale', so no story imports it.
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, th: { translation: th } },
   lng: 'en',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });
+
+// Portal root from index.html; History's bar tooltip renders into it.
+if (!document.getElementById('tooltip')) {
+  const tooltipRoot = document.createElement('div');
+  tooltipRoot.id = 'tooltip';
+  document.body.append(tooltipRoot);
+}
 
 const preview: Preview = {
   parameters: {
