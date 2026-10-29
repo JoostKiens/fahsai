@@ -1,6 +1,6 @@
 import { createFiresLayer } from '../FiresLayer';
 import { DeckHarness } from './DeckHarness';
-import firesResponse from './fixtures/2026-10-24/fires.json';
+import { firePoints } from './fixture-data';
 
 /**
  * Story-only wrapper, not an app component.
@@ -13,5 +13,5 @@ import firesResponse from './fixtures/2026-10-24/fires.json';
  * fixture's fires there to be found.
  */
 export function Fires() {
-  return <DeckHarness layers={[createFiresLayer(firesResponse.data, 1, () => {})]} />;
+  return <DeckHarness layers={[createFiresLayer(firePoints, 1, () => {})]} />;
 }

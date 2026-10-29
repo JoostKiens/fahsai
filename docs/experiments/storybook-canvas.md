@@ -186,17 +186,23 @@ that instruction would see all green for all three bugs.
 
 - `expectPixelNear({ deck, lngLat, expected, tolerance, label })`: projects a longitude/latitude
   with the Deck's own viewport, reads that canvas pixel back (copy to a 2D canvas, then
-  `getImageData`), and compares per channel. `pm25ColorOnBackground(pm25)` gives the expected
-  colour: the AQI category colour blended at the bitmap's 55/255 alpha over the zinc-900
-  background. The PM2.5 story probes one Unhealthy cell (62.4 µg/m³, 23°N 89.4°E) and one Good
+  `getImageData`), and compares per channel. `heatmapColorOnBackground(rgb)` gives the expected
+  colour: an AQI category colour blended at the bitmap's 55/255 alpha over the zinc-900
+  background. The category colours are written out in the story, not imported. A first
+  version derived them with the app's own `pm25ToRgb`, so an inverted ramp *there* would have
+  changed both sides and passed (found in review; inverting `pm25ToRgb` now fails the story). The PM2.5 story probes one Unhealthy cell (62.4 µg/m³, 23°N 89.4°E) and one Good
   cell (7 µg/m³, 19.8°N 101.4°E). Both sit inside blocks of one AQI category, chosen from the
   fixture by script, and their values are read from the fixture at test time.
 - `expectPicked({ deck, bbox, layerId, min, label })`: `deck.pickObjects` over the box's screen
   rectangle; counts distinct objects. The fires story requires 75% of the fixture's fires in
-  97–106°E 14–23°N (57 → at least 43). Overlapping glows hide some from picking: 48 of 57 are
+  97–106°E 14–23°N (57 → at least 43), and fails outright if the fixture has none there
+  (otherwise the minimum would be 0 and the check would pass on nothing). Overlapping glows hide some from picking: 48 of 57 are
   found here, 383 of 556 over the whole grid.
 - `expectDrawnPixels({ deck, bbox, min, label })`: counts pixels that differ from the background.
-  The wind story requires at least 2,000 in the grid (4,632 drawn at seed 1, frame 120).
+  The wind story requires at least 2,000 in the grid (4,632 drawn at seed 1, frame 120), and
+  only at those default controls. It says nothing about where trails are or what colour.
+  Boxes are clipped to the canvas (off-canvas pixels read as transparent, which would count as
+  drawn), and a box that misses the canvas gets a readable error instead of `IndexSizeError`.
 - **Visual expectations in docs.** Each story's component has a JSDoc paragraph saying what correct
   output looks like (extent, colours, where the highs and the dense fire bands are) and what the
   play function checks. *This only reached agents after moving each story's component into its
@@ -226,6 +232,16 @@ that instruction would see all green for all three bugs.
   The two CAMS bugs give the *same* message by coincidence. Under the swap that pixel shows
   the value from 1.4°N 111°E (36.1 µg/m³), which is also in the orange category. The DOM-only
   `Layer toggles` story still passes all three, as intended: it's the Phase 4 control.
+- **What the probes did *not* catch: a real app bug.** A code review of this PR noticed that
+  `createPM25BitmapLayer` never set `_imageCoordinateSystem`. The worker paints the bitmap
+  with rows evenly spaced in latitude, but deck.gl stretched it evenly in Web Mercator, so the
+  live heatmap was drawn up to ~0.8° off (worst around 15–20°N). Measured by reading every
+  land cell centre against its own category colour: **83.2%** matched (1,931 / 2,320; 75% in
+  the 15°N band), **100%** with `COORDINATE_SYSTEM.LNGLAT`. Fixed in a separate app PR (#65).
+  The two-cell probe passed throughout, because the cells were chosen inside blocks of one
+  category. The very choice that makes a probe robust makes it blind to a sub-cell shift. The
+  full-grid sweep that found it catches the swap and the inverted ramp too, and is the
+  natural next probe once #65 is merged.
 - **Headless WebGL issues:** colours were stable (SwiftShader; 0 pixels different between
   loads). The real problems were in the harness, and only showed up once something read
   pixels: a shared background layer instance that failed in the second `Deck` of a page, and a

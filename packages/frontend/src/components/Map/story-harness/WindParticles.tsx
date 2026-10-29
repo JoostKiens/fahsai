@@ -3,8 +3,7 @@ import { WebMercatorViewport } from '@deck.gl/core';
 import type { Layer } from '@deck.gl/core';
 import { useWindParticles } from '../useWindParticles';
 import { DeckHarness, HARNESS_HEIGHT_PX, HARNESS_WIDTH_PX, STORY_VIEW_STATE } from './DeckHarness';
-import windResponse from './fixtures/2026-10-24/wind.json';
-import { camsPoints } from './Pm25Grid';
+import { camsPoints, windReadings } from './fixture-data';
 import { seededRandom } from './seeded-random';
 
 // Stand-in for the Mapbox map: reports the harness's fixed view, never moves.
@@ -46,16 +45,9 @@ export function WindParticles({ seed, frame }: WindParticlesProps) {
     setProps: (props: { layers: Layer[] }) => setLayers(props.layers),
   }));
   const [random] = useState(() => seededRandom(seed));
-  useWindParticles(
-    overlay,
-    storyMap,
-    windResponse.data,
-    { visible: true, opacity: 1 },
-    camsPoints,
-    {
-      random,
-      freezeAtFrame: frame,
-    },
-  );
+  useWindParticles(overlay, storyMap, windReadings, { visible: true, opacity: 1 }, camsPoints, {
+    random,
+    freezeAtFrame: frame,
+  });
   return <DeckHarness layers={layers} />;
 }

@@ -1,10 +1,7 @@
-import { parseCamsGridResponse } from '@/utils/camsColumns';
 import { createLandMaskLayer, createPM25BitmapLayer } from '../PM25Layer';
 import { useCamsBitmap } from '../useCamsBitmap';
 import { DeckHarness } from './DeckHarness';
-import camsResponse from './fixtures/2026-10-24/cams.json';
-
-export const camsPoints = parseCamsGridResponse(camsResponse.data);
+import { camsPoints } from './fixture-data';
 
 /**
  * Story-only wrapper, not an app component.

@@ -5,8 +5,7 @@ import { createFiresLayer } from '../FiresLayer';
 import { createLandMaskLayer, createPM25BitmapLayer } from '../PM25Layer';
 import { useCamsBitmap } from '../useCamsBitmap';
 import { DeckHarness } from './DeckHarness';
-import firesResponse from './fixtures/2026-10-24/fires.json';
-import { camsPoints } from './Pm25Grid';
+import { camsPoints, firePoints } from './fixture-data';
 
 const handleFireClick = () => {};
 
@@ -25,7 +24,7 @@ export function LayerToggles() {
   const bitmap = useCamsBitmap(camsPoints);
   // Like MapView: fires don't wait for the CAMS bitmap and take their opacity from the store.
   const firesLayer = useMemo(
-    () => fires.visible && createFiresLayer(firesResponse.data, fires.opacity, handleFireClick),
+    () => fires.visible && createFiresLayer(firePoints, fires.opacity, handleFireClick),
     [fires.visible, fires.opacity],
   );
   const ambientLayers = useMemo(

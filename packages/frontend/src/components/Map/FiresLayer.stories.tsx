@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import firesResponse from './story-harness/fixtures/2026-10-24/fires.json';
 import { waitForRenderReady } from './story-harness/DeckHarness';
+import { firePoints } from './story-harness/fixture-data';
 import { Fires } from './story-harness/Fires';
 import { expectPicked } from './story-harness/probes';
 
@@ -20,9 +20,11 @@ export const Default: Story = {
   play: async ({ canvasElement }) => {
     const deck = await waitForRenderReady(canvasElement);
     const [west, south, east, north] = PROBE_BBOX;
-    const inBox = firesResponse.data.filter(
+    const inBox = firePoints.filter(
       ({ lng, lat }) => lng >= west && lng <= east && lat >= south && lat <= north,
     ).length;
+    // Otherwise the minimum below is 0 and the check passes without testing anything.
+    if (inBox === 0) throw new Error(`Fires: the fixture has no fires in ${PROBE_BBOX.join(', ')}`);
     expectPicked({
       deck,
       bbox: PROBE_BBOX,
