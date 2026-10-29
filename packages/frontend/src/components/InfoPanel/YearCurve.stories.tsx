@@ -47,5 +47,5 @@ export const NoReading: Story = {
   },
 };
 
-// A baseline with missing days: the line and band bridge the gaps.
+// A baseline with missing days: Fang has 308 of 365.
 export const BaselineWithGaps: Story = { args: { data: fangBaseline, currentPm25: 18 } };

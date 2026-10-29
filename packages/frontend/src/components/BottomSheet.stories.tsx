@@ -94,8 +94,10 @@ export const CloseButtonCloses: Story = {
 };
 
 export const EscapeCloses: Story = {
-  play: async ({ args, userEvent }) => {
+  play: async ({ args, canvasElement, userEvent }) => {
+    const page = within(canvasElement.ownerDocument.body);
     await userEvent.keyboard('{Escape}');
     await expect(args.onClose).toHaveBeenCalledOnce();
+    await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull());
   },
 };

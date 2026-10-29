@@ -14,9 +14,9 @@ const meta = {
     timeline: { control: false },
     // A 'YYYY-MM-DD' string; the preview's date matcher would pass a timestamp instead.
     latestDate: { control: 'text' },
-    // The ranges the settings menu offers; the fixture only covers the last 30 days.
-    scrubberDays: { control: 'select', options: [30, 60, 90, 120] },
-    scrubberDay: { control: { type: 'range', min: 0, max: 119, step: 1 } },
+    // Fixed at the fixture's 30 days; a control's range can't follow another arg.
+    scrubberDays: { control: false },
+    scrubberDay: { control: { type: 'range', min: 0, max: 29, step: 1 } },
   },
   // Roughly the scrubber's width on desktop.
   decorators: [
