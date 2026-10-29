@@ -47,6 +47,7 @@ export default defineConfig({
             '@deck.gl/layers',
             'i18next',
             'motion/react',
+            'sonner',
             'msw/browser',
             'msw/http',
             'msw-storybook-addon/csf3',
