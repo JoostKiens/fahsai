@@ -8,7 +8,7 @@ vi.mock('sonner', () => ({ toast: { error: toastError } }));
 vi.mock('@/lib/rollbar', () => ({ rollbar: { error: rollbarError } }));
 
 import { HttpError } from './api';
-import { handleQueryError } from './queryErrors';
+import { BACKGROUND_QUERY_META, handleQueryError } from './queryErrors';
 
 describe('handleQueryError', () => {
   beforeEach(() => {
@@ -40,6 +40,15 @@ describe('handleQueryError', () => {
     handleQueryError(new TypeError('Failed to fetch'));
 
     expect(toastError).toHaveBeenCalledTimes(1);
+    expect(rollbarError).not.toHaveBeenCalled();
+  });
+
+  it('says nothing about a background query', () => {
+    handleQueryError(new HttpError('fires fetch failed: 500', 500), {
+      meta: BACKGROUND_QUERY_META,
+    });
+
+    expect(toastError).not.toHaveBeenCalled();
     expect(rollbarError).not.toHaveBeenCalled();
   });
 });

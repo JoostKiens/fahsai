@@ -58,8 +58,9 @@ JSON>]`.
 
 Backend: `lib/gemini-error.ts` (`classifyGeminiError`, `formatStreamError`). Frontend:
 `components/ExplainButton/utils.api-error.ts`: the error line is hidden while it is still arriving
-and read once the stream is done (`parseStreamError`). On any error the explanation box shows the
-rate-limit or unavailable message only, never partial text.
+and read once the stream is done (`parseStreamError`). A rate limit shows the
+countdown message only. Any other failure keeps the part of the answer that arrived and marks it as
+cut off (`interrupted`); with nothing arrived it shows the unavailable message.
 
 ---
 

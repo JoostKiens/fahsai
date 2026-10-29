@@ -5,6 +5,7 @@ import { fetchFires } from '@/hooks/useFires';
 import { fetchStationReadings } from '@/hooks/useStationReadings';
 import { fetchCamsGrid } from '@/hooks/useCamsGrid';
 import { fetchWind } from '@/hooks/useWind';
+import { BACKGROUND_QUERY_META } from '@/lib/queryErrors';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 
 function shiftDate(date: string, days: number): string {
@@ -29,24 +30,28 @@ export function usePrefetchAdjacentDates() {
         queryKey: ['fires', date],
         queryFn: () => fetchFires(date),
         staleTime: staleTimeForArray,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['aqi-latest', 'pm25', date],
         queryFn: () => fetchStationReadings(date),
         staleTime: staleTimeForArray,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['cams-grid', date],
         queryFn: () => fetchCamsGrid(date),
         staleTime: Infinity,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['weather-wind', date],
         queryFn: () => fetchWind(date),
         staleTime: Infinity,
+        meta: BACKGROUND_QUERY_META,
       });
     }
   }, [queryClient, selectedDate, latestDate, latestDateResolved]);
