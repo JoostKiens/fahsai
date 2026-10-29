@@ -94,6 +94,7 @@
   "explain.thinking": "Thinking…",
   "explain.refresh": "Refresh",
   "explain.unavailable": "Explanation unavailable. Try again later.",
+  "explain.interrupted": "The explanation was cut off. Try again later.",
   "explain.rateLimitIp": "Too many requests. Try again in {{count}} {{unit}}.",
   "explain.rateLimitQuota": "Daily limit reached. Try again after {{time}}.",
   "explain.rateLimitGeminiBusy": "AI is busy. Try again in {{count}} seconds.",

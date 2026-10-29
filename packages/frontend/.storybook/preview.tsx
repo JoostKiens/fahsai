@@ -1,4 +1,8 @@
 import type { Preview } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupWorker } from 'msw/browser';
+import { mswLoader } from 'msw-storybook-addon/csf3';
+import { expect, waitFor } from 'storybook/test';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from '../src/locales/en.json';
@@ -18,6 +22,42 @@ void i18n.use(initReactI18next).init({
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });
+
+// Stories mock the network with MSW (`parameters.msw.handlers`). A request to our API or Mapbox
+// that no handler answers is errored, so it never reaches localhost, production or Mapbox (with
+// the real token), and is listed when afterEach fails the story.
+const unhandledRequests: string[] = [];
+
+async function startMockWorker() {
+  const worker = setupWorker();
+  await worker.start({
+    quiet: true,
+    // msw 3 renamed onUnhandledRequest to onUnhandledFrame. Returning lets the request through
+    // (defaults.error() only prints); throwing is what makes msw error it.
+    onUnhandledFrame({ frame }) {
+      const { data }: { data: unknown } = frame;
+      const request =
+        typeof data === 'object' && data !== null && 'request' in data && data.request;
+      if (!(request instanceof Request)) return;
+      const url = new URL(request.url);
+      const isAppRequest = url.pathname.startsWith('/api/') || url.hostname.endsWith('mapbox.com');
+      if (!isAppRequest) return;
+      unhandledRequests.push(`${request.method} ${request.url}`);
+      throw new Error(`Unmocked request: ${request.method} ${request.url}`);
+    },
+  });
+  return worker;
+}
+
+// One client per story, so cached responses never carry over; created in beforeEach rather than
+// the decorator so re-renders from Controls keep the cache.
+let queryClient = createQueryClient();
+
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
+}
 
 const preview: Preview = {
   parameters: {
@@ -43,11 +83,24 @@ const preview: Preview = {
     },
   },
   initialGlobals: { locale: 'en' },
+  loaders: [mswLoader(startMockWorker)],
   // The stores are module singletons: reset them so no story sees another's state. Stories set
   // the state they need in their own beforeEach.
   beforeEach: () => {
-    for (const store of [useLayerStore, useSettingsStore, useTimeStore, useUIStore]) {
-      store.setState(store.getInitialState(), true);
+    queryClient = createQueryClient();
+    // afterEach doesn't run when a play function throws, so don't inherit that story's list.
+    unhandledRequests.length = 0;
+    useLayerStore.setState(useLayerStore.getInitialState(), true);
+    useSettingsStore.setState(useSettingsStore.getInitialState(), true);
+    useTimeStore.setState(useTimeStore.getInitialState(), true);
+    useUIStore.setState(useUIStore.getInitialState(), true);
+  },
+  // Queries start fetching on mount, so wait for them to settle before checking.
+  afterEach: async () => {
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    const unmocked = unhandledRequests.splice(0);
+    if (unmocked.length > 0) {
+      throw new Error(`Unmocked requests (add an MSW handler): ${unmocked.join(', ')}`);
     }
   },
   decorators: [
@@ -55,7 +108,11 @@ const preview: Preview = {
       // Resources are bundled, so this switches before the story renders.
       void i18n.changeLanguage(globals.locale);
       document.documentElement.lang = globals.locale;
-      return <Story />;
+      return (
+        <QueryClientProvider client={queryClient}>
+          <Story />
+        </QueryClientProvider>
+      );
     },
   ],
 };

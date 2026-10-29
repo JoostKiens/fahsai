@@ -5,7 +5,7 @@ import type { RateLimit } from './useExplain';
 import { useTimeStore } from '@/store/timeStore';
 import { sanitizeExplanation, parseBoldSegments } from './utils.sanitize';
 
-interface RateLimitControl {
+export interface RateLimitControl {
   value: RateLimit | null;
   onSet: (v: RateLimit) => void;
   onClear: () => void;
@@ -137,6 +137,9 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
       {msg && <p className="mt-1 text-[12px] text-amber-400">{msg}</p>}
       {error === 'unavailable' && (
         <p className="mt-1 text-[12px] text-red-400">{t('explain.unavailable')}</p>
+      )}
+      {error === 'interrupted' && (
+        <p className="mt-1 text-[12px] text-red-400">{t('explain.interrupted')}</p>
       )}
     </div>
   );

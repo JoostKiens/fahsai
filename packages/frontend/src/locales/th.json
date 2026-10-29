@@ -94,6 +94,7 @@
   "explain.thinking": "กำลังคิด…",
   "explain.refresh": "รีเฟรช",
   "explain.unavailable": "ไม่สามารถอธิบายได้ในขณะนี้ — ลองใหม่อีกครั้ง",
+  "explain.interrupted": "คำอธิบายถูกตัดกลางคัน — ลองใหม่อีกครั้ง",
   "explain.rateLimitIp": "คำขอมากเกินไป โปรดลองใหม่ใน {{count}} {{unit}}",
   "explain.rateLimitQuota": "ถึงขีดจำกัดรายวันแล้ว โปรดลองใหม่หลัง {{time}}",
   "explain.rateLimitGeminiBusy": "AI ยุ่งอยู่ โปรดลองใหม่ใน {{count}} วินาที",
