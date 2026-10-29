@@ -441,6 +441,17 @@ describe('POST /api/explain errors after the stream has started', () => {
     expect(mockReportError).toHaveBeenCalledTimes(1);
   });
 
+  it('reports a failure with another HTTP status even when its error class was just reported', async () => {
+    const failure = (status: number) =>
+      Object.assign(new Error('request refused'), { name: 'StatusKeyedError', status });
+    streamThatFails(failure(503));
+    await explain();
+    streamThatFails(failure(403));
+    await explain();
+
+    expect(mockReportError).toHaveBeenCalledTimes(2);
+  });
+
   it('reports the same Gemini rate limit once, however many requests hit it', async () => {
     const limit = Object.assign(new Error('Too many tokens per minute'), { status: 429 });
     streamThatFails(limit);

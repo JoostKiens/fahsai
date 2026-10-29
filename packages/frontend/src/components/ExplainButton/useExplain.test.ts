@@ -111,12 +111,24 @@ describe('useExplain', () => {
     });
   });
 
-  it('turns any other error at the end of the stream into unavailable, without the raw text', async () => {
+  it('keeps the part of the answer that arrived when any other error ends the stream', async () => {
     await explainWith(
       streamOf(
         'Partial words',
         errorLine({ error: 'Explanation unavailable', code: 'unavailable' }),
       ),
+    );
+
+    expect(latest()).toMatchObject({
+      text: 'Partial words',
+      error: 'interrupted',
+      rateLimit: null,
+    });
+  });
+
+  it('is unavailable when any other error ends a stream that gave no text', async () => {
+    await explainWith(
+      streamOf(errorLine({ error: 'Explanation unavailable', code: 'unavailable' })),
     );
 
     expect(latest()).toMatchObject({ text: '', error: 'unavailable', rateLimit: null });
@@ -157,7 +169,7 @@ describe('useExplain', () => {
       stream.close();
       await finished;
     });
-    expect(latest()).toMatchObject({ text: '', error: 'unavailable' });
+    expect(latest()).toMatchObject({ text: 'Some words', error: 'interrupted' });
   });
   it('resolves quietly when a reset aborts the stream that is being read', async () => {
     const encoder = new TextEncoder();
@@ -196,7 +208,7 @@ describe('useExplain', () => {
     expect(latest()).toMatchObject({ text: '', loading: false, error: null, rateLimit: null });
   });
 
-  it('shows unavailable when the connection drops in the middle of the stream', async () => {
+  it('keeps the part that arrived when the connection drops in the middle of the stream', async () => {
     const encoder = new TextEncoder();
     let stream!: ReadableStreamDefaultController<Uint8Array>;
     const body = new ReadableStream<Uint8Array>({
@@ -220,6 +232,6 @@ describe('useExplain', () => {
       await finished;
     });
 
-    expect(latest()).toMatchObject({ text: '', loading: false, error: 'unavailable' });
+    expect(latest()).toMatchObject({ text: 'Some words', loading: false, error: 'interrupted' });
   });
 });

@@ -1,0 +1,8 @@
+/* index.css locks html/body/#root to the viewport for the full-screen map; let stories and
+   docs pages grow and scroll instead. */
+html,
+body,
+#root {
+  height: auto;
+  overflow: auto;
+}

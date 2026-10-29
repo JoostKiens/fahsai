@@ -1,0 +1,14 @@
+diff --git a/packages/frontend/src/utils/aqiColors.ts b/packages/frontend/src/utils/aqiColors.ts
+index cb9e02b..62429fc 100644
+--- a/packages/frontend/src/utils/aqiColors.ts
++++ b/packages/frontend/src/utils/aqiColors.ts
+@@ -72,7 +72,8 @@ export function pm25ToRgbLerped(pm25: number): RGB {
+ }
+ 
+ export function pm25ToRgba(pm25: number, alpha: number): RGBA {
+-  const [r, g, b] = pm25ToRgb(pm25);
++  const index = AQI_CATEGORIES.indexOf(pm25ToCategory(pm25));
++  const [r, g, b] = AQI_CATEGORIES[AQI_CATEGORIES.length - 1 - index].rgb;
+   return [r, g, b, alpha];
+ }
+ 

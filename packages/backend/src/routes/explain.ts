@@ -17,12 +17,21 @@ import { DateString, errorResponses } from '../schemas/common.js';
 import { ExplainRequestSchema, ScientificContextSchema } from '../schemas/explain.js';
 
 const DAILY_QUOTA_LIMIT = 450;
-const EXPLAIN_CACHE_VERSION = 10;
+const EXPLAIN_CACHE_VERSION = 11;
 const EXPLAIN_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 const IP_RATELIMIT_ENABLED = process.env.NODE_ENV === 'production';
 const EMIT_DEBUG_PROMPT = process.env.NODE_ENV !== 'production';
 
 const mayReportGeminiProblem = createReportThrottle({ windowMs: REPORT_THROTTLE_WINDOW_MS });
+
+// Failures of one kind are reported once per window. The HTTP status is part of the kind: an
+// overload (503) and a revoked key (403) are the same error class but different problems, and the
+// second must not stay hidden behind the first.
+function geminiFailureKey(err: unknown): string {
+  if (!(err instanceof Error)) return `failed:${typeof err}`;
+  const status = 'status' in err ? String(err.status) : '';
+  return `failed:${err.name}:${status}`;
+}
 
 export type ExplainCase =
   | 'OUTLIER_HIGH'
@@ -194,9 +203,7 @@ export function explainRoutes(app: FastifyInstance): void {
               resetAtMs: streamError.resetAtMs,
             });
           }
-        } else if (
-          mayReportGeminiProblem(`failed:${err instanceof Error ? err.name : typeof err}`)
-        ) {
+        } else if (mayReportGeminiProblem(geminiFailureKey(err))) {
           reportError(err, { path: req.url, method: req.method, requestId: req.id });
         }
         reply.raw.write(formatStreamError(streamError));

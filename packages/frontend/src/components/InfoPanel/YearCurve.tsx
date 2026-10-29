@@ -1,7 +1,7 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BaselineDay } from '@thailand-aq/types';
-import { dateLocale } from '@/i18n';
+import { dateLocale } from '@/utils/locale';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
 import { niceMax } from '@/utils/niceMax';
 
@@ -44,23 +44,39 @@ export function YearCurve({
     const x = (doy: number) => PAD_L + ((doy - 1) / (YEAR_DAYS - 1)) * PLOT_W;
     const y = (val: number) => PAD_T + PLOT_H * (1 - val / maxVal);
 
-    const sorted = [...data].sort((a, b) => dayOfYear(a.month, a.day) - dayOfYear(b.month, b.day));
+    const points = data
+      .map((d) => ({ ...d, doy: dayOfYear(d.month, d.day) }))
+      .sort((a, b) => a.doy - b.doy);
 
-    const bandUpper = sorted.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p75Pm25)}`);
-    const bandLower = [...sorted]
-      .reverse()
-      .map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.p25Pm25)}`);
-    const bandPath = `M${bandUpper.join('L')}L${bandLower.join('L')}Z`;
+    // Break the line and band at missing days so a gap isn't drawn as if it were data.
+    const segments: (typeof points)[] = [];
+    points.forEach((point, i) => {
+      const startsSegment = i === 0 || point.doy - points[i - 1].doy > 1;
+      if (startsSegment) segments.push([]);
+      segments[segments.length - 1].push(point);
+    });
 
-    const medianPath =
-      'M' + sorted.map((d) => `${x(dayOfYear(d.month, d.day))},${y(d.medianPm25)}`).join('L');
+    const bandPath = segments
+      .map((segment) => {
+        const upper = segment.map((p) => `${x(p.doy)},${y(p.p75Pm25)}`);
+        const lower = [...segment].reverse().map((p) => `${x(p.doy)},${y(p.p25Pm25)}`);
+        return `M${upper.join('L')}L${lower.join('L')}Z`;
+      })
+      .join('');
+
+    // A lone day becomes a zero-length line, which the round caps below draw as a dot; a bare
+    // move ("M x,y") is never stroked.
+    const medianPath = segments
+      .map((segment) => (segment.length === 1 ? [segment[0], segment[0]] : segment))
+      .map((segment) => 'M' + segment.map((p) => `${x(p.doy)},${y(p.medianPm25)}`).join('L'))
+      .join('');
     const yTicks: number[] = [];
     for (let v = step; v < maxVal; v += step) yTicks.push(v);
 
-    const gradientStops = sorted.map((d) => {
-      const [r, g, b] = pm25ToRgbLerped(d.medianPm25);
+    const gradientStops = points.map((p) => {
+      const [r, g, b] = pm25ToRgbLerped(p.medianPm25);
       return {
-        offset: `${((x(dayOfYear(d.month, d.day)) - PAD_L) / PLOT_W) * 100}%`,
+        offset: `${((x(p.doy) - PAD_L) / PLOT_W) * 100}%`,
         color: `rgb(${r},${g},${b})`,
       };
     });
@@ -115,7 +131,15 @@ export function YearCurve({
         <path d={bandPath} fill="rgba(113,113,122,0.4)" />
 
         {/* Median line */}
-        <path d={medianPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={1.2} />
+        <path
+          d={medianPath}
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth={1.2}
+          // Draws the zero-length segment of a lone baseline day as a dot.
+          strokeLinecap="round"
+          data-testid="median-line"
+        />
 
         {/* Today marker line */}
         <line

@@ -118,6 +118,18 @@ describe('classifyCase', () => {
     ).toBe('PLAUSIBLE_CLEAN');
   });
 
+  it('does not apply the clean gate above 12 with water origin and clean CAMS', () => {
+    expect(
+      classifyCase({
+        ...base,
+        latestPm25: 13,
+        camsMaxPm25: 12,
+        originIsWater: true,
+        areaScore: 60,
+      }),
+    ).toBe('PLAUSIBLE_FIRE_TRANSPORT');
+  });
+
   it('returns PLAUSIBLE_CLEAN for washout even with high fire pressure (Ko Yawn: 76.2 mm, 21.9, pathScore 30)', () => {
     expect(
       classifyCase({
