@@ -69,6 +69,14 @@ describe('contrastColor', () => {
   it('returns black text on a light background', () => {
     expect(contrastColor([255, 255, 255])).toEqual([0, 0, 0, 255]);
   });
+
+  it('returns black text on the Unhealthy red, where white only reaches 4:1', () => {
+    expect(contrastColor([255, 0, 0])).toEqual([0, 0, 0, 255]);
+  });
+
+  it('returns white text on the Very unhealthy purple', () => {
+    expect(contrastColor([143, 63, 151])).toEqual([255, 255, 255, 255]);
+  });
 });
 
 describe('pm25ToRgbLerped', () => {

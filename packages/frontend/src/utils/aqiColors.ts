@@ -85,10 +85,17 @@ export function pm25ToCategory(pm25: number): AqiCategory {
   );
 }
 
-// Returns black text for light backgrounds, white for dark ones.
+// Returns whichever of black or white text has the higher WCAG contrast on this background. Above
+// a relative luminance of 0.179 black wins; a brightness heuristic put white on pure red (4:1).
 export function contrastColor(rgb: RGB): RGBA {
-  const lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  return lum > 150 ? [0, 0, 0, 255] : [255, 255, 255, 255];
+  const [r, g, b] = rgb.map(toLinear);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.179 ? [0, 0, 0, 255] : [255, 255, 255, 255];
+}
+
+function toLinear(channel: number): number {
+  const srgb = channel / 255;
+  return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
 }
 
 // Soft (tinted) backgrounds — used inside the InfoPanel badge and History bars only.
