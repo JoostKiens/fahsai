@@ -4,12 +4,14 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Analytics } from '@vercel/analytics/react';
 import App from './App';
+import { shouldRetry } from '@/lib/api';
 import './index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      retry: shouldRetry,
     },
   },
 });

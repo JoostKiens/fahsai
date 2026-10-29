@@ -50,6 +50,7 @@ describe('useFires', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/v1\/fires\?date=2026-10-17$/),
+      undefined,
     );
   });
 
