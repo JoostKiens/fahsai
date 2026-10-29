@@ -79,8 +79,14 @@ It detected that it was running in Claude Code ("Proceeding with agentic install
 
 ## Open questions / what didn't work
 
-- **Story tests and the Storybook UI can disagree.** `Toggle` is controlled, so its story uses
-  the documented `useArgs` pattern to flip `checked` on click. In the Storybook UI the switch
-  toggles. Under the Vitest addon (what `test-run` uses) `updateArgs` never re-renders the story,
-  so a play function asserting the new `aria-checked` fails. The play now only asserts the
-  `onChange` call. An agent trusting `test-run` would have "fixed" a working story here.
+- **Story tests and the Storybook UI can disagree.** `Toggle` is controlled, so the story needs
+  to flip `checked` itself. With Storybook's documented `useArgs` pattern:
+  - in the **Storybook UI**, `updateArgs` re-renders the story, which re-runs the loader that
+    restores all `fn()` mocks, so `expect(onChange).toHaveBeenCalledOnce()` fails with 0 calls;
+  - under the **Vitest addon** (what `test-run` uses), `updateArgs` never re-renders, so the call
+    is counted but the switch never flips.
+  The same play function failed in one place and passed in the other, for opposite reasons. Fixed
+  by keeping `checked` in React state in a small story wrapper (no args round-trip): identical in
+  both, so the play asserts the call and the flip again. Two lessons for agents: `test-run`
+  passing does not mean the story works in the UI, and play functions also run in the UI, so a
+  play that clicks changes what a reader sees.
