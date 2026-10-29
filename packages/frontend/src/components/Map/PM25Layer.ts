@@ -6,6 +6,7 @@ import {
   IconLayer,
 } from '@deck.gl/layers';
 import type { SolidPolygonLayerProps } from '@deck.gl/layers';
+import { COORDINATE_SYSTEM } from '@deck.gl/core';
 import type { Layer, PickingInfo, Position } from '@deck.gl/core';
 import { MaskExtension } from '@deck.gl/extensions';
 import Supercluster from 'supercluster';
@@ -83,6 +84,9 @@ export function createPM25BitmapLayer(bitmap: ImageBitmap, beforeId?: string) {
     id: 'pm25-bitmap',
     image: bitmap,
     bounds: BITMAP_BOUNDS,
+    // The worker paints rows evenly spaced in latitude. Without this, deck.gl stretches the image
+    // evenly in Web Mercator instead, shifting cells by up to ~0.8° (most at 15–20°N).
+    _imageCoordinateSystem: COORDINATE_SYSTEM.LNGLAT,
     parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
     ...({ extensions: [maskExt], maskId: 'land-mask', beforeId } as object),
   });
