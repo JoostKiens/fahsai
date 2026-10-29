@@ -78,3 +78,9 @@ It detected that it was running in Claude Code ("Proceeding with agentic install
 - Surprises:
 
 ## Open questions / what didn't work
+
+- **Story tests and the Storybook UI can disagree.** `Toggle` is controlled, so its story uses
+  the documented `useArgs` pattern to flip `checked` on click. In the Storybook UI the switch
+  toggles. Under the Vitest addon (what `test-run` uses) `updateArgs` never re-renders the story,
+  so a play function asserting the new `aria-checked` fails. The play now only asserts the
+  `onChange` call. An agent trusting `test-run` would have "fixed" a working story here.
