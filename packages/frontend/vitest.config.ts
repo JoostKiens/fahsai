@@ -38,6 +38,7 @@ export default defineConfig({
             '@deck.gl/geo-layers',
             '@deck.gl/layers',
             'i18next',
+            'motion/react',
             'react-i18next',
             'supercluster',
           ],

@@ -1,7 +1,7 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BaselineDay } from '@thailand-aq/types';
-import { dateLocale } from '@/i18n';
+import { dateLocale } from '@/utils/locale';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
 import { niceMax } from '@/utils/niceMax';
 
