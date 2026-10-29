@@ -68,6 +68,8 @@ export function Search() {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  // The query the current places answer, so "No results" waits for a pending geocode.
+  const [geocodedQuery, setGeocodedQuery] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -123,9 +125,12 @@ export function Search() {
             lat: f.center[1],
           })) ?? [],
         );
+        setGeocodedQuery(debouncedQuery);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setPlaces([]);
+        if (controller.signal.aborted) return;
+        setPlaces([]);
+        setGeocodedQuery(debouncedQuery);
       });
     return () => controller.abort();
   }, [debouncedQuery, language]);
@@ -209,6 +214,8 @@ export function Search() {
 
   const hasResults = allResults.length > 0;
   const showDropdown = isOpen && query.length >= 1;
+  const isGeocodePending = query.length >= 2 && geocodedQuery !== query;
+  const showNoResults = showDropdown && !hasResults && !isGeocodePending;
 
   const placeStartIndex = stationResults.length;
 
@@ -253,18 +260,18 @@ export function Search() {
         {showDropdown && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
             <AppScrollArea viewportClassName="max-h-80 overflow-x-hidden rounded-[inherit]">
-              {/* Outside the listbox, which may only contain options; status announces it. */}
-              {!hasResults && (
-                <p role="status" className="px-3 py-2 text-[12px] text-zinc-500">
+              {/* Screen readers hear this from the status region below, not from here. */}
+              {showNoResults && (
+                <p aria-hidden className="px-3 py-2 text-[12px] text-zinc-500">
                   {t('search.noResults')}
                 </p>
               )}
               <div id={listboxId} role="listbox" className="w-0 min-w-full overflow-hidden">
                 {stationResults.length > 0 && (
-                  <>
+                  <div role="group" aria-labelledby="search-group-stations">
                     <p
+                      id="search-group-stations"
                       className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                      role="presentation"
                     >
                       {t('search.stations')}
                     </p>
@@ -287,14 +294,14 @@ export function Search() {
                         </span>
                       </button>
                     ))}
-                  </>
+                  </div>
                 )}
 
                 {places.length > 0 && (
-                  <>
+                  <div role="group" aria-labelledby="search-group-places">
                     <p
+                      id="search-group-places"
                       className="px-3 pt-2 pb-1 text-[10px] font-medium text-zinc-500 uppercase tracking-wider"
-                      role="presentation"
                     >
                       {t('search.places')}
                     </p>
@@ -332,7 +339,7 @@ export function Search() {
                         </button>
                       );
                     })}
-                  </>
+                  </div>
                 )}
               </div>
             </AppScrollArea>
@@ -344,6 +351,10 @@ export function Search() {
 
   return (
     <>
+      {/* Always mounted, so screen readers announce the text when it changes. */}
+      <p role="status" className="sr-only">
+        {showNoResults ? t('search.noResults') : ''}
+      </p>
       {/* Desktop: inline in header (unmount when mobile overlay is open to avoid shared refs) */}
       <div className="hidden md:flex flex-1 justify-center">
         {!mobileOpen && renderSearchInput()}
