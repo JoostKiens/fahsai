@@ -51,9 +51,32 @@ export const NoReading: Story = {
 // line and band break there instead of bridging the gaps with made-up values.
 export const BaselineWithGaps: Story = {
   args: { data: fangBaseline, currentPm25: 18 },
-  play: async ({ canvasElement }) => {
-    const medianLine = canvasElement.querySelector('path[fill="none"]');
-    const segmentCount = medianLine?.getAttribute('d')?.match(/M/g)?.length;
+  play: async ({ canvas }) => {
+    const medianLine = canvas.getByTestId('median-line');
+    const segmentCount = medianLine.getAttribute('d')?.match(/M/g)?.length;
     await expect(segmentCount).toBe(3);
+  },
+};
+
+// Days with no neighbour on either side (1 January, 15 June), as a newly filled-in station can
+// have. Each still shows as a dot on the median line.
+export const SingleDayIslands: Story = {
+  args: {
+    data: saraphiBaseline.filter(
+      ({ month, day }) => !(month === 1 && day >= 2 && day <= 10) && !(month === 6 && day !== 15),
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    // querySelector, not getByTestId: Testing Library's queries are typed for HTML elements.
+    const medianLine = canvasElement.querySelector<SVGPathElement>('[data-testid="median-line"]');
+    if (!medianLine) throw new Error('Median line not rendered');
+    // A lone day is a zero-length segment: "M x,y L x,y", followed by the next "M" or the end.
+    const islands = [
+      ...(medianLine.getAttribute('d') ?? '').matchAll(/M([\d.]+),([\d.]+)L\1,\2(?=M|$)/g),
+    ];
+    await expect(islands).toHaveLength(2);
+    for (const [, x, y] of islands) {
+      await expect(medianLine.isPointInStroke(new DOMPoint(Number(x), Number(y)))).toBe(true);
+    }
   },
 };
