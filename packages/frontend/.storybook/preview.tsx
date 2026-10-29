@@ -95,6 +95,8 @@ const preview: Preview = {
     },
     // axe runs on every story, and a violation fails it.
     a11y: { test: 'error' },
+    // Stories sit on the app's zinc-900, on Docs pages too (index.css only colours the canvas body).
+    backgrounds: { options: { app: { name: 'App', value: '#18181b' } } },
   },
   globalTypes: {
     locale: {
@@ -110,7 +112,7 @@ const preview: Preview = {
       },
     },
   },
-  initialGlobals: { locale: 'en' },
+  initialGlobals: { locale: 'en', backgrounds: { value: 'app' } },
   loaders: [mswLoader(startMockWorker)],
   // The stores are module singletons: reset them so no story sees another's state. Stories set
   // the state they need in their own beforeEach.
