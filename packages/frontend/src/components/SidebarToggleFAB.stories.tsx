@@ -8,6 +8,8 @@ import { SidebarToggleFAB } from './SidebarToggleFAB';
 const meta = {
   component: SidebarToggleFAB,
   globals: { viewport: { value: 'mobile1', isRotated: false } },
+  // The mobile viewport also puts it in a phone-width iframe on the Docs page; this is its height.
+  parameters: { docs: { story: { iframeHeight: 160 } } },
 } satisfies Meta<typeof SidebarToggleFAB>;
 
 export default meta;

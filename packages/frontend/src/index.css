@@ -43,6 +43,11 @@
   }
 }
 
+:root {
+  /* zinc-900; Storybook's backgrounds use it too */
+  --app-background: #18181b;
+}
+
 *,
 *::before,
 *::after {
@@ -56,7 +61,7 @@ body,
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  background-color: #18181b; /* zinc-900 */
+  background-color: var(--app-background);
 }
 html {
   scrollbar-color: var(--color-zinc-600) transparent;

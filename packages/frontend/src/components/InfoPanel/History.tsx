@@ -94,6 +94,11 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
   );
 }
 
+/**
+ * A station's last few days in the info panel: a bar per day for PM2.5, coloured by category, and
+ * a weather table (wind, rain, humidity) below. Days without readings keep their date but have no
+ * bar, and missing weather shows a dash.
+ */
 export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);

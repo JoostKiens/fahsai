@@ -23,6 +23,11 @@ function dayOfYear(month: number, day: number): number {
   return doy + day;
 }
 
+/**
+ * A station's typical year, so a reading can be compared with what's usual for the date: the
+ * median PM2.5 for each calendar day, the usual range (25th to 75th percentile) as a band, and the
+ * selected day's reading as a dot.
+ */
 export function YearCurve({
   data,
   currentPm25,

@@ -57,6 +57,7 @@ export default defineConfig({
             // addon-a11y imports these lazily, on the first story's check
             'axe-core',
             'storybook/internal/preview-errors',
+            'storybook/viewport',
           ],
         },
         test: {

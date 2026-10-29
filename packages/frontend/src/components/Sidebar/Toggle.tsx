@@ -7,6 +7,10 @@ interface Props {
   labelledBy: string;
 }
 
+/**
+ * The on/off switch in the layer lists. It has no text of its own: `labelledBy` points to the
+ * visible text that names it. Controlled: the parent owns `checked`.
+ */
 export function Toggle({ checked, onChange, labelledBy }: Props) {
   return (
     <Switch.Root

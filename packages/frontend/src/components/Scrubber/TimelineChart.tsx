@@ -15,6 +15,11 @@ interface Props {
   scrubberDays: number;
 }
 
+/**
+ * The line behind the scrubber's slider: each day's PM2.5 across the region (the 95th percentile
+ * of the CAMS model grid), coloured by category, with a marker on the selected day. Days without
+ * data break the line.
+ */
 export function TimelineChart({ timeline, scrubberDay, latestDate, scrubberDays }: Props) {
   if (!timeline?.size) {
     return <div style={{ height: CHART_HEIGHT_PX }} aria-hidden />;

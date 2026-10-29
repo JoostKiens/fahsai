@@ -110,10 +110,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Nothing selected: a prompt to click the map.
-export const NothingSelected: Story = {};
-
-// A station: live reading, place name, the week's history, and the typical year.
+// A station: live reading, place name, the week's history, and the typical year. First, so the
+// Docs page shows a selected point.
 export const Station: Story = {
   beforeEach: selecting(SARAPHI),
   play: async ({ canvas }) => {
@@ -125,6 +123,9 @@ export const Station: Story = {
     await expect(await panel.findByText('Weather')).toBeVisible();
   },
 };
+
+// Nothing selected: a prompt to click the map.
+export const NothingSelected: Story = {};
 
 // Selected after mount: the panel clears a fire selection whenever the date changes, and that
 // effect also runs on mount. In the app the panel mounts before anything is clicked.

@@ -5,6 +5,10 @@ interface Props {
   onToggle: () => void;
 }
 
+/**
+ * Plays or pauses the time scrubber, which then steps the map through the days. Controlled: the
+ * parent owns `playing`.
+ */
 export function PlayButton({ playing, onToggle }: Props) {
   const { t } = useTranslation();
   return (

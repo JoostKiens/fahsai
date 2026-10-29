@@ -48,6 +48,16 @@ function StatefulBottomSheet({
 
 const meta = {
   component: BottomSheet,
+  // Here, not as a comment on the component: BottomSheet returns createPortal(…), which the docgen
+  // doesn't recognise as a component, so it reads no description from it.
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A sheet that slides up from the bottom of the screen on mobile. With one height and a backdrop it's the layer menu: modal, and tapping outside closes it. With `detents` it has two stops, peek and full, and `showBackdrop={false}` keeps the map behind it tappable, as the info panel does.",
+      },
+    },
+  },
   args: {
     open: true,
     ariaLabel: 'Map layers',

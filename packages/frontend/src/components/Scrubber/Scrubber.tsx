@@ -35,6 +35,11 @@ function formatTickDate(dateStr: string, locale: string): string {
   });
 }
 
+/**
+ * The time scrubber below the map: a slider over recent days that sets the date every map layer
+ * shows. On desktop it adds a play button and a chart of PM2.5 across the region behind the
+ * slider; on mobile the date sits above the slider.
+ */
 export function Scrubber() {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);

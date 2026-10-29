@@ -7,6 +7,11 @@ import { TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;
 
+/**
+ * Mobile only: hidden from 768 px up. A hint over the map, "Tap a marker for details", that
+ * appears shortly after it mounts while no point is selected. Selecting a point hides it until the
+ * point is deselected; tapping it, or leaving it for a few seconds, dismisses it for good.
+ */
 export function HintPill() {
   const { t } = useTranslation();
   const selectedPoint = useUIStore((s) => s.selectedPoint);
