@@ -284,7 +284,8 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
   `*.integration.test.ts` files run separately against a local Supabase (see
   `docs/claude/conventions.md`)
 - Storybook (`packages/frontend/.storybook`): stories run as a second Vitest project
-  (`storybook`, Playwright Chromium), local only, not in CI or the git hooks. The Storybook MCP
+  (`storybook`, Playwright Chromium), local only, not in CI or the git hooks. Each story also
+  gets an axe accessibility check (`addon-a11y`, warnings only for now). The Storybook MCP
   (`.mcp.json`) tells agents to use its `test-run` tool instead of package.json test scripts;
   `test-run` only covers stories, so still run `pnpm test` for unit tests.
   Never delete `node_modules/.cache/storybook` or `.vite` while a Storybook dev server is

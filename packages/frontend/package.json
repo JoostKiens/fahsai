@@ -45,6 +45,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "^10.6.5",
     "@storybook/addon-docs": "^10.6.5",
     "@storybook/addon-mcp": "^10.6.5",
     "@storybook/addon-vitest": "^10.6.5",

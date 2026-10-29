@@ -77,6 +77,9 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+    // axe runs on every story; 'todo' reports violations as warnings until the existing ones are
+    // fixed, then this becomes 'error'.
+    a11y: { test: 'todo' },
   },
   globalTypes: {
     locale: {

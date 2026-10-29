@@ -330,6 +330,10 @@ Stories live next to their component (`Foo.stories.tsx`) and run as tests via
   `findBy`/`waitFor`'s timeout to 3 s; the Storybook UI keeps its animations. Still wrap a first
   visibility check in `waitFor` (content can start at opacity 0), and open Base UI popups (Menu,
   Select) from the keyboard: pointer clicks on their triggers were flaky under load.
+- **Accessibility:** `@storybook/addon-a11y` runs axe on every story. It is set to `'todo'` in
+  `.storybook/preview.tsx`, so violations show in the a11y panel and test UI without failing the
+  run; switch to `'error'` once the existing ones are fixed. A story whose violations are out of
+  our hands opts out with `parameters: { a11y: { test: 'off' } }` and a comment saying why.
 - **Expected colours are literals**, not values from `aqiColors`, so a broken scale can't
   change both sides of the check.
 - **Portalled UI** (`BottomSheet`, tooltips) renders outside the canvas: query it with

@@ -3,7 +3,12 @@ import { msw } from 'msw/vite';
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
-  addons: ['@storybook/addon-vitest', '@storybook/addon-docs', '@storybook/addon-mcp'],
+  addons: [
+    '@storybook/addon-vitest',
+    '@storybook/addon-docs',
+    '@storybook/addon-mcp',
+    '@storybook/addon-a11y',
+  ],
   framework: '@storybook/react-vite',
   // Exposes documented components to agents via the MCP addon's docs-list / docs-show tools.
   features: { componentsManifest: true },
