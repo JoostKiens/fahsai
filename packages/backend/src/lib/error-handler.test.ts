@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import compress from '@fastify/compress';
 import { AppError } from './app-error.js';
-import { registerErrorHandling } from './error-handler.js';
+import { frameworkErrors, registerErrorHandling } from './error-handler.js';
 
 // asymmetric matchers are typed `any`; typing it `unknown` keeps no-unsafe-assignment satisfied
 const anyRequestId: unknown = expect.any(String);
@@ -15,6 +15,7 @@ type LogLine = { level: number; msg?: string; err?: { message?: string } };
 
 function buildApp(logLines: LogLine[] = []): FastifyInstance {
   const app = Fastify({
+    frameworkErrors,
     logger: {
       level: 'info',
       stream: { write: (line: string) => logLines.push(JSON.parse(line) as LogLine) },
@@ -64,6 +65,9 @@ function buildApp(logLines: LogLine[] = []): FastifyInstance {
   app.get('/cached-then-fails', (_req, reply) => {
     void reply.header('Cache-Control', 'public, max-age=604800');
     throw new AppError({ code: 'unavailable', message: 'Power plant data unavailable' });
+  });
+  app.get('/http-error', () => {
+    throw Object.assign(new Error('Forbidden: /srv/secret/path'), { status: 403, statusCode: 403 });
   });
   app.post('/json', () => ({ ok: true }));
   return app;
@@ -145,6 +149,26 @@ describe('central error handling', () => {
         status: 404,
         body: { error: 'Route not found', code: 'not_found' },
       });
+    });
+  });
+
+  describe('an http-errors style 4xx from a plugin (status and statusCode both set)', () => {
+    it('is answered as a client error with a generic text, and not reported', async () => {
+      expect(await get('/http-error')).toEqual({
+        status: 403,
+        body: { error: 'Invalid request', code: 'invalid_request' },
+      });
+      expect(reportError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a URL that cannot be decoded', () => {
+    it('is answered in the shared error shape, and never cached', async () => {
+      const res = await app.inject({ method: 'GET', url: '/things/%E0%A4%A' });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: 'Invalid URL', code: 'invalid_request' });
+      expect(res.headers['cache-control']).toBe('no-store');
     });
   });
 

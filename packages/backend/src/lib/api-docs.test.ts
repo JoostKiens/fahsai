@@ -51,6 +51,18 @@ describe('API docs', () => {
     ]);
   });
 
+  // @fastify/static answers a request it refuses with its own errors; none of them is our bug
+  it.each([
+    ['a path it refuses', '/docs/static/%00', {}, 403],
+    ['a failed If-Match', '/docs/static/swagger-ui.css', { 'if-match': '"nope"' }, 412],
+    ['an unsatisfiable Range', '/docs/static/swagger-ui.css', { range: 'bytes=99999999-' }, 416],
+  ])('answers %s as a client error', async (_name, url, headers, status) => {
+    const res = await app.inject({ method: 'GET', url, headers });
+
+    expect(res.statusCode).toBe(status);
+    expect(res.json()).toEqual({ error: 'Invalid request', code: 'invalid_request' });
+  });
+
   it('serves the interactive docs page', async () => {
     const res = await app.inject({ method: 'GET', url: '/docs' });
 

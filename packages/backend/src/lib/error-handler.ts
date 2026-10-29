@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiError, ApiErrorDetail, ErrorCode } from '@thailand-aq/types';
 import { AppError } from './app-error.js';
 import { formatValidationError, missingProperties } from './validation-error.js';
@@ -45,6 +45,21 @@ export function registerErrorHandling(app: FastifyInstance, reporters: ErrorRepo
   });
 }
 
+// The router answers some errors (a URL that cannot be decoded) before any route or error handler
+// is involved, with Fastify's own body. Passed to Fastify() as `frameworkErrors`.
+export function frameworkErrors(
+  error: FastifyError,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): void {
+  const { statusCode, body } =
+    error.code === 'FST_ERR_BAD_URL'
+      ? { statusCode: 400, body: { error: 'Invalid URL', code: 'invalid_request' } as ApiError }
+      : classifyError(error);
+  request.log.info({ code: body.code }, body.error);
+  void reply.status(statusCode).header('Cache-Control', 'no-store').send(body);
+}
+
 export function classifyError(error: unknown): ClassifiedError {
   if (error instanceof AppError) {
     return {
@@ -66,17 +81,20 @@ function severityOfServerError(statusCode: number, code: ErrorCode): 'error' | '
   return code === 'unavailable' ? 'warning' : 'error';
 }
 
-// Fastify's own 4xx errors (schema validation, malformed JSON, oversized body): their messages are
-// written by Fastify, not derived from our internals, so they are safe to send. A 4xx-looking error
-// from anywhere else (a library we call) is our failure, not the client's, and is not trusted here.
+// Fastify's own 4xx errors (schema validation, malformed JSON, oversized body) and the http-errors
+// style 4xx of the plugins it serves (the /docs static files answer a refused path with a 403, a
+// failed If-Match with a 412): the first have messages written by Fastify, so they are safe to send;
+// for the second the text is ours. A 4xx-looking error from anywhere else (a library we call) is
+// our failure, not the client's, and is not trusted here.
 function asClientError(error: unknown): ClassifiedError | null {
   if (typeof error !== 'object' || error === null) return null;
-  if (!isFastifyError(error)) return null;
+  const fromFastify = isFastifyError(error);
+  if (!fromFastify && !isHttpError(error)) return null;
   if (!('statusCode' in error) || typeof error.statusCode !== 'number') return null;
   const { statusCode } = error;
   if (statusCode < 400 || statusCode >= 500) return null;
 
-  const message = error instanceof Error ? error.message : 'Invalid request';
+  const message = fromFastify && error instanceof Error ? error.message : 'Invalid request';
   const details = validationDetails(error);
   const body: ApiError = {
     error: message,
@@ -89,6 +107,12 @@ function asClientError(error: unknown): ClassifiedError | null {
 function isFastifyError(error: object): boolean {
   if ('validation' in error && Array.isArray(error.validation)) return true;
   return 'code' in error && typeof error.code === 'string' && error.code.startsWith('FST_');
+}
+
+// The http-errors package sets `status` and `statusCode` to the same number; an error from a
+// client library that has only one of them does not match.
+function isHttpError(error: object): boolean {
+  return 'status' in error && 'statusCode' in error && error.status === error.statusCode;
 }
 
 function codeForClientStatus(statusCode: number): ErrorCode {
