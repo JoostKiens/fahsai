@@ -9,6 +9,7 @@ export const STORY_VIEW_STATE: MapViewState = { longitude: 101.4, latitude: 15.9
 // The app's page background (zinc-900), drawn as the first layer so pixel readback matches what
 // a viewer sees; a CSS background would leave the canvas transparent. Not a view clearColor: the
 // MaskExtension's mask pass would clear to it too and stop clipping the PM2.5 grid to land.
+export const HARNESS_BACKGROUND_RGB: [number, number, number] = [24, 24, 27];
 const WORLD_POLYGON: Position[] = [
   [-180, -85],
   [180, -85],
@@ -23,7 +24,7 @@ function createBackgroundLayer() {
     id: 'story-background',
     data: [WORLD_POLYGON],
     getPolygon: (polygon) => polygon,
-    getFillColor: [24, 24, 27],
+    getFillColor: HARNESS_BACKGROUND_RGB,
   });
 }
 export const HARNESS_WIDTH_PX = 800;

@@ -182,9 +182,55 @@ that instruction would see all green for all three bugs.
 
 ## Phase 5: checks
 
-- Pixel probe tolerance needed:
-- Which check caught which bug:
-- Headless WebGL issues:
+**What was added** (`src/components/Map/story-harness/probes.ts`, ~140 lines, no dependencies):
+
+- `expectPixelNear({ deck, lngLat, expected, tolerance, label })`: projects a longitude/latitude
+  with the Deck's own viewport, reads that canvas pixel back (copy to a 2D canvas, then
+  `getImageData`), and compares per channel. `pm25ColorOnBackground(pm25)` gives the expected
+  colour: the AQI category colour blended at the bitmap's 55/255 alpha over the zinc-900
+  background. The PM2.5 story probes one Unhealthy cell (62.4 µg/m³, 23°N 89.4°E) and one Good
+  cell (7 µg/m³, 19.8°N 101.4°E). Both sit inside blocks of one AQI category, chosen from the
+  fixture by script, and their values are read from the fixture at test time.
+- `expectPicked({ deck, bbox, layerId, min, label })`: `deck.pickObjects` over the box's screen
+  rectangle; counts distinct objects. The fires story requires 75% of the fixture's fires in
+  97–106°E 14–23°N (57 → at least 43). Overlapping glows hide some from picking: 48 of 57 are
+  found here, 383 of 556 over the whole grid.
+- `expectDrawnPixels({ deck, bbox, min, label })`: counts pixels that differ from the background.
+  The wind story requires at least 2,000 in the grid (4,632 drawn at seed 1, frame 120).
+- **Visual expectations in docs.** Each story's component has a JSDoc paragraph saying what correct
+  output looks like (extent, colours, where the highs and the dense fire bands are) and what the
+  play function checks. *This only reached agents after moving each story's component into its
+  own file* (`story-harness/Pm25Grid.tsx`, `Fires.tsx`, `WindParticles.tsx`, `LayerToggles.tsx`).
+  The components manifest reported `No component file found for the "Pm25Grid" component` for
+  components defined inside the story file, and `docs-show` then returned only the story list.
+  `parameters.docs.description.component` didn't reach `docs-show` either. After the move,
+  `docs-show` returns the full paragraph plus a usage snippet. The descriptions were checked
+  against screenshots, and two were wrong on the first try (the wind loop's latitude, a missed
+  fire band).
+- **Visual snapshots** would sit on top of this as the regression layer (e.g. a stored PNG per
+  story compared at a small threshold). Not built. Probes say *what* is wrong in words an agent
+  can act on; a snapshot diff only says *that* something changed.
+
+- **Pixel probe tolerance needed:** 8 per channel. On the clean build the Good cell matched
+  the computed blend exactly and the Unhealthy cell was off by 4 in one channel (`#4a1715` vs
+  `#4a1315`, bitmap texture filtering). After blending, the closest pair of AQI categories
+  (Moderate vs Unhealthy for sensitive groups) is 18 apart, so a wrong category can't pass.
+- **Which check caught which bug** (each patch applied on its own; all 8 story tests otherwise):
+
+| Planted bug | Caught by | Failure message |
+|---|---|---|
+| lat/lng swap | PM2.5 story, pixel probe | `PM2.5 cell (62.4 µg/m³): expected ~#4a1315 at (178, 161) [89.4°E 23°N], got #4a2a15 (max channel difference 23, tolerance 8)` |
+| inverted ramp | PM2.5 story, pixel probe | same message: Unhealthy (red) became Unhealthy for sensitive groups (orange) |
+| empty fire data | Fires story, picking | `Fires (57 in the fixture for this box): expected at least 43 'fire-glow' objects picked in [97°E 14°N – 106°E 23°N], got 0` |
+
+  The two CAMS bugs give the *same* message by coincidence. Under the swap that pixel shows
+  the value from 1.4°N 111°E (36.1 µg/m³), which is also in the orange category. The DOM-only
+  `Layer toggles` story still passes all three, as intended: it's the Phase 4 control.
+- **Headless WebGL issues:** colours were stable (SwiftShader; 0 pixels different between
+  loads). The real problems were in the harness, and only showed up once something read
+  pixels: a shared background layer instance that failed in the second `Deck` of a page, and a
+  ready signal that fired while the canvas was still 300×150 (see Phase 2–3; fixed in the
+  harness PR). Picking works under SwiftShader.
 
 ## Phase 6: agent run
 

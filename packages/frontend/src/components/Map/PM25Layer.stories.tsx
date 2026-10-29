@@ -1,16 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { parseCamsGridResponse } from '@/utils/camsColumns';
-import camsResponse from './story-harness/fixtures/2026-10-24/cams.json';
-import { DeckHarness, waitForRenderReady } from './story-harness/DeckHarness';
-import { createLandMaskLayer, createPM25BitmapLayer } from './PM25Layer';
-import { useCamsBitmap } from './useCamsBitmap';
+import { waitForRenderReady } from './story-harness/DeckHarness';
+import { Pm25Grid, camsPoints } from './story-harness/Pm25Grid';
+import { PIXEL_TOLERANCE, expectPixelNear, pm25ColorOnBackground } from './story-harness/probes';
 
-const points = parseCamsGridResponse(camsResponse.data);
+// Probe cells sit inside blocks of one AQI category, so the drawn colour is that category's.
+const UNHEALTHY_CELL: [number, number] = [89.4, 23];
+const CLEAN_CELL: [number, number] = [101.4, 19.8];
 
-/** CAMS PM2.5 grid for 2026-10-24, painted by the real web worker and clipped to land. */
-function Pm25Grid() {
-  const bitmap = useCamsBitmap(points);
-  return <DeckHarness layers={bitmap && [createLandMaskLayer(), createPM25BitmapLayer(bitmap)]} />;
+function pm25At([lng, lat]: [number, number]): number {
+  const point = camsPoints.find(
+    (p) => Math.abs(p.lng - lng) < 0.01 && Math.abs(p.lat - lat) < 0.01,
+  );
+  if (!point) throw new Error(`No CAMS fixture point at ${lng}°E ${lat}°N`);
+  return point.pm25;
 }
 
 const meta = {
@@ -23,6 +25,16 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   play: async ({ canvasElement }) => {
-    await waitForRenderReady(canvasElement);
+    const deck = await waitForRenderReady(canvasElement);
+    for (const cell of [UNHEALTHY_CELL, CLEAN_CELL]) {
+      const pm25 = pm25At(cell);
+      expectPixelNear({
+        deck,
+        lngLat: cell,
+        expected: pm25ColorOnBackground(pm25),
+        tolerance: PIXEL_TOLERANCE,
+        label: `PM2.5 cell (${pm25} µg/m³)`,
+      });
+    }
   },
 };
