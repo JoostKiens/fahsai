@@ -94,4 +94,6 @@ server for AI agents.
 
 See [CLAUDE.md](CLAUDE.md) for local setup, environment variables, and dev commands. Database schema, API reference, and ingestion job docs are in [docs/claude/](docs/claude/).
 
+The backend serves its API under `/api/v1`. With `pnpm dev` running, the interactive API docs are at <http://localhost:3001/docs> and the OpenAPI document at <http://localhost:3001/docs/json>.
+
 Issues welcome.
