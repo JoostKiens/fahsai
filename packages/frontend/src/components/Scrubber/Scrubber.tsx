@@ -10,7 +10,7 @@ import {
 } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
 import { usePm25Timeline } from '@/hooks';
-import { dateLocale } from '@/i18n';
+import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
 import { TimelineChart } from './TimelineChart';

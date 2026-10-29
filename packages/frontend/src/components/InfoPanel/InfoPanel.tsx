@@ -16,7 +16,7 @@ import { CountryFlag, alpha2ToIso3 } from './CountryFlag';
 import { findNearestWind, degToCompass } from './utils.ambient';
 import { useStationReadings, useWind, useNearestCamsPoint } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
-import { dateLocale, toDisplayYear } from '@/i18n';
+import { dateLocale, toDisplayYear } from '@/utils/locale';
 import { History, ShimmerHistory } from './History';
 import { YearCurve } from './YearCurve';
 import { useStationBaseline } from './useStationBaseline';

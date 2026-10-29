@@ -7,7 +7,7 @@ import type { StationDayHistory } from '@thailand-aq/types';
 import { pm25ToRgb, pm25ToSoftRgb } from '@/utils/aqiColors';
 import { niceMax } from '@/utils/niceMax';
 import { degToCompass } from './utils.ambient';
-import { dateLocale } from '@/i18n';
+import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
 
