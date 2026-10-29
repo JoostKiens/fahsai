@@ -41,6 +41,12 @@ export async function isNoData(res: Response): Promise<boolean> {
   return typeof body === 'object' && body !== null && 'code' in body && body.code === NO_DATA_CODE;
 }
 
+// GETs a route and returns its JSON body. Any response that is not OK throws an HttpError carrying
+// the status, which is what the retry rule and the Rollbar report in queryErrors.ts go by.
+export async function fetchJson<T>(path: string, label: string, init?: RequestInit): Promise<T> {
+  return readJson<T>(await fetch(apiUrl(path), init), label);
+}
+
 // GETs a route that answers { data }. A day with no data gives `empty`; any other failure throws
 // an HttpError carrying the status.
 export async function fetchApiData<T>(
@@ -51,6 +57,10 @@ export async function fetchApiData<T>(
 ): Promise<T> {
   const res = await fetch(apiUrl(path), init);
   if (await isNoData(res)) return empty;
+  return (await readJson<{ data: T }>(res, label)).data;
+}
+
+async function readJson<T>(res: Response, label: string): Promise<T> {
   if (!res.ok) throw new HttpError(`${label} fetch failed: ${res.status}`, res.status);
-  return ((await res.json()) as { data: T }).data;
+  return (await res.json()) as T;
 }

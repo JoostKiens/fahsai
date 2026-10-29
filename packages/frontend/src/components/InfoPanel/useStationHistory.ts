@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
-import { apiUrl } from '@/lib/api';
+import { fetchJson } from '@/lib/api';
 
 export function useStationHistory(stationId: string | null) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
@@ -17,9 +17,10 @@ export function useStationHistory(stationId: string | null) {
   const query = useQuery({
     queryKey: ['station-history', stationId, selectedDate],
     queryFn: async () => {
-      const res = await fetch(apiUrl(`/stations/${stationId!}/history?days=6&date=${nextDay}`));
-      if (!res.ok) throw new Error(`station history fetch failed: ${res.status}`);
-      const body = (await res.json()) as { stationId: string; days: StationDayHistory[] };
+      const body = await fetchJson<{ stationId: string; days: StationDayHistory[] }>(
+        `/stations/${stationId!}/history?days=6&date=${nextDay}`,
+        'station history',
+      );
       return body.days;
     },
     staleTime: Infinity, // historical dates are immutable after ingestion

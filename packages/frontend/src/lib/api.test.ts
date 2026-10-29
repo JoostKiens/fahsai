@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiUrl, fetchApiData, HttpError, isNoData, shouldRetry } from './api';
+import { apiUrl, fetchApiData, fetchJson, HttpError, isNoData, shouldRetry } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -78,6 +78,32 @@ describe('fetchApiData', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(apiUrl('/x'), { cache: 'no-cache' });
   });
+});
+
+describe('fetchJson', () => {
+  it('returns the body of the response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ date: '2026-10-17' })));
+
+    expect(await fetchJson<{ date: string }>('/latest-date', 'latest date')).toEqual({
+      date: '2026-10-17',
+    });
+  });
+
+  it.each([404, 500, 503])(
+    'fails with the status of a %i, never an empty result',
+    async (status) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(Response.json({ code: 'no_data' }, { status })),
+      );
+
+      await expect(fetchJson('/latest-date', 'latest date')).rejects.toMatchObject({
+        name: 'HttpError',
+        message: `latest date fetch failed: ${status}`,
+        status,
+      });
+    },
+  );
 });
 
 describe('shouldRetry', () => {
