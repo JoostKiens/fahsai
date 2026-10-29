@@ -250,6 +250,9 @@ that instruction would see all green for all three bugs.
 
 ## Phase 6: agent run
 
+Kit and branches: `storybook-canvas/phase6.md`. Two blind runs, `exp/no-probes` and
+`exp/with-probes`, on the same pre-planted lat/lng swap. Runs pending.
+
 - Task given:
 - Without probes:
 - With probes:
