@@ -140,7 +140,9 @@ export function BottomSheet({
                 }
               }}
               className={[
-                'fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden',
+                // outline-none: the sheet is only focused by script so screen readers announce it;
+                // it isn't a control. Keyboard users get a visible ring on the close button.
+                'fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 rounded-t-2xl z-50 flex flex-col pointer-events-auto md:hidden outline-none',
                 detents ? '' : 'max-h-[70vh]',
               ]
                 .join(' ')
