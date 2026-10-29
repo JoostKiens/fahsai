@@ -53,8 +53,8 @@ It detected that it was running in Claude Code ("Proceeding with agentic install
   *Correction:* all of the above was checked with `curl` against the endpoint, not through
   Claude Code. Claude Code keeps servers from a project `.mcp.json` "pending approval" until
   someone approves them in an interactive session, so no agent used the Storybook tools until
-  Phase 6. There, both runs called them (`test-run`, `stories-find-by-component`,
-  `stories-preview`) after approval.
+  Phase 6. There, after approval, the no-probes run called `stories-find-by-component` and
+  `test-run`, and the with-probes run called `test-run` and `stories-preview`.
 
 ## Phase 2–3: determinism
 
@@ -272,7 +272,7 @@ only in what the self-check said and what each agent reported.
 | | Without probes | With probes |
 |---|---|---|
 | Unit tests, typecheck, lint | 134 pass | 134 pass |
-| Storybook MCP calls | `stories-find-by-component` → `test-run` on the PM2.5 and layer-toggle stories | `test-run` (first try with a wrong story id), `stories-preview`, `test-run` |
+| Storybook MCP calls | `stories-find-by-component` → `test-run` on the PM2.5 and layer-toggle stories | `test-run` (first try with a wrong export name), `stories-preview`, `test-run` |
 | `test-run` result | **both pass**, on a transposed, cropped heatmap | **PM2.5 story fails**: `PM2.5 cell (62.4 µg/m³, Unhealthy): expected ~#4a1315 at (178, 161) [89.4°E 23°N], got #4a2f16 (max channel difference 28, tolerance 8)` |
 | Noticed the map is wrong | no | yes, from the probe message |
 | Response | reported done | stashed its own change, re-ran the story, saw the same failure, and concluded the bug predates its change |
@@ -300,12 +300,15 @@ only in what the self-check said and what each agent reported.
   - Neither agent opened the stories it changed, though the with-probes agent produced the
     preview links. The MCP server's own instructions require `stories-preview` but not looking.
     In practice, "verify your work" meant "run the tests".
-  - The with-probes agent's first `test-run` failed on a wrong story export name and it
-    recovered by grepping the story file. The MCP addressing (export name vs story id) costs a
-    round trip.
-  - Neither run went near `git log -p` or the deleted experiment notes. The blinding held, apart
-    from commit subjects in the start-up context, which is exactly where the false claim came
-    from.
+  - The with-probes agent's first `test-run` failed because it guessed the export name: it asked
+    for `Default` in the layer-toggle story, whose only export is `LegendAndFireToggle`. It
+    recovered by grepping the story file and calling again. Addressing stories by file path plus
+    export name invites guessing, where a story id from `docs-list` or
+    `stories-find-by-component` would not.
+  - Neither run looked at git history (`git show`, `git log -p`), where the deleted notes and the
+    planted patch were one command away (see the blinding limit in `phase6.md`). So the blinding
+    held only because neither agent looked. Commit subjects in the start-up context still leaked,
+    and that is exactly where the false claim came from.
 
 ## Open questions / what didn't work
 

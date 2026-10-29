@@ -5,10 +5,16 @@ differ only in whether the map stories carry the pixel and picking probes.
 
 ## The branches (local only, never merge)
 
-Both start from `feat/storybook-grid-sweep` (#66) and add two ordinary-looking commits:
+Both start from commit `92a9d04`, the first version of #66's full-grid check (1% mismatch
+allowance, hard-coded 2,320 cells). That is *not* the tip of #66: its review fix `ee58088`
+tightened the check (0 mismatches, drawn-cell bounds from the land-mask geometry). The runs
+below used `92a9d04`. The with-probes failure came from the two-cell check, which `ee58088`
+didn't change, so the result doesn't depend on the version. To reproduce exactly, build from
+`92a9d04`. Both branches add two ordinary-looking commits:
 
-1. `chore: remove experiment notes from this branch`: deletes `docs/experiments/` (this log,
-   the bug patches, this file) so the agent can't read the answer.
+1. `chore: remove experiment notes from this branch`: deletes `docs/experiments/storybook-canvas.md`
+   and the three bug patches so the agent can't read the answer. This file didn't exist yet.
+   When rebuilding from a newer base, delete all of `docs/experiments/`, including this file.
 2. `refactor(frontend): compute CAMS grid indices up front`: the planted bug. It's the
    `cams-latlng-swap` patch: the worker takes the grid row from longitude and the column from
    latitude, so the heatmap comes out transposed and cropped.
@@ -18,12 +24,14 @@ Both start from `feat/storybook-grid-sweep` (#66) and add two ordinary-looking c
 | `exp/with-probes` | — | PM2.5 story **fails** (colour probe); 7/8 pass |
 | `exp/no-probes` | `test(frontend): keep map story play functions to the ready check` (probes removed; "correct output" descriptions kept) | 8/8 pass |
 
-Unit tests (134) and typecheck pass on both. The "correct output" descriptions that
-`docs-show` returns are the same on both branches, so the only difference is the automated
-probes.
+Unit tests (134) and typecheck pass on both (all counts measured on the `92a9d04` base). The
+"correct output" descriptions that `docs-show` returns are the same on both branches, so the
+only difference is the automated probes.
 
-**Blinding limit:** `main`'s history still contains the log and patches. An agent that runs
-`git log -p` across `main` could find them. Note it if a run does.
+**Blinding limit:** deleting the notes hides them from the working tree, not from git. On the
+experiment branches, `git show e1677b9` (the chore commit) prints the deleted log *and*
+`bugs/cams-latlng-swap.patch`, the planted bug itself, and `main`'s history has them too. The
+answer is one `git show` away. Note it if a run looks at history.
 
 ## The task (paste exactly, in both runs)
 
@@ -45,9 +53,13 @@ agent notices a broken map it didn't break.
 3. Start a **fresh** Claude Code session in the repo root (no earlier context). Approve the
    project's `storybook` MCP server when asked.
 4. Paste the task. Don't hint at the map, the probes or the bug. Answer questions neutrally.
-5. When it reports back, run `/export` to save the transcript, and save `git diff` and
-   `git log --oneline -5`.
-6. Reset for the next run: `git switch -f main` (discards the agent's changes; export first).
+5. When it reports back, run `/export` and save the transcript **outside the repo** (the reset
+   below deletes untracked files). Save the agent's changes, including anything it committed or
+   created: `git add -A && git diff --cached <start> > ~/phase6-<branch>.diff`, where `<start>`
+   is the branch's starting commit (`b6024fa` for no-probes, `32e40bb` for with-probes).
+6. Reset for the next run: `git reset --hard <start> && git clean -fd`, then switch branches.
+   `git switch -f` alone keeps untracked files, so the next agent could see the previous one's
+   new files.
 
 Run `exp/no-probes` first, then `exp/with-probes`.
 
