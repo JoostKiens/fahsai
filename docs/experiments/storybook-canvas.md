@@ -59,24 +59,32 @@ Scanned every day still stored (fires via `/api/fires/range`):
 
 - 2026-09-15 had the most fires (1,941), but 1,867 sit in one 2° cell offshore of southern
   Vietnam (≈8°N 106°E), likely gas flares. A misleading picture of "fire activity"; rejected.
-- 2026-10-24 has 556 fires, mostly north of 14°N, and a usable PM2.5 contrast: 0.4–83 µg/m³
-  (median 8.6), highest in the north-west corner of the grid (≈27°N 95°E).
+- 2026-10-24 has 556 fires, mostly north of 14°N, and a usable PM2.5 contrast: 0.4–105.5 µg/m³
+  (median 8.6). The maximum (105.5 at 1°N 108.2°E) is over sea, where the land mask hides it;
+  on land the highest values are in the north-west corner of the grid (83.5 at ≈27.4°N 95°E).
 
-The snapshots are the raw API responses, minified (`cams` 98 KB, `fires` 72 KB, `wind` 320 KB)
-under `src/components/Map/story-harness/fixtures/2026-10-24/`. Stories run them through the
+The snapshots are the raw API responses, minified (`cams` 98 KB, `fires` 72 KB; `wind` 320 KB
+arrives with the wind story) under `src/components/Map/story-harness/fixtures/2026-10-24/`. Stories run them through the
 app's own parsers (`parseCamsGridResponse`). Committing them matters more than planned: the
 data will be pruned from production too.
 
 - **What made output non-deterministic, and the fix for each:**
   - *Mapbox basemap* (token, network tiles): not used. `DeckHarness` runs a standalone `Deck`
-    on a plain `bg-zinc-900` background.
+    with the app's page background (zinc-900) drawn into the canvas as a first, non-pickable
+    `SolidPolygonLayer`, so pixel readback matches what a viewer sees. (A CSS background, the
+    first version, leaves the canvas itself transparent. A view `clearColor`, the second, broke
+    the land mask: the MaskExtension's mask pass clears to it as well, so every pixel counted as
+    land and the PM2.5 grid covered the sea. Still 0 pixels different between loads, i.e.
+    deterministic and wrong. Caught only by looking at a screenshot.)
   - *Viewport / device pixel ratio*: fixed 800×600 canvas, fixed `viewState`
-    (101.4°E 15.4°N, zoom 4), `useDevicePixels: 1`.
+    (101.4°E 15.93°N, zoom 3.7: the whole CAMS grid, 466×567 px, centred on its Mercator
+    midpoint; zoom 4 cut off 630 of 4,599 cells and 23 fires), `useDevicePixels: 1`.
   - *Live data*: committed fixtures passed as props; no TanStack Query or fetch in the stories.
   - *Readback*: `deviceProps.webgl.preserveDrawingBuffer: true`. Already the deck.gl v9 default,
     set explicitly because the probes depend on it.
   - CAMS and fires needed nothing else. Two loads of each story in fresh headless Chromium
-    pages give **0 differing pixels** (CAMS 167,014 drawn px; fires 4,073). WebGL renderer:
+    pages give **0 differing pixels** (non-background pixels: CAMS 137,169; fires 4,650). WebGL
+    renderer:
     `ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device …))`, i.e. software rendering.
   - *Not output, but test flakiness*: the first cold `test:storybook` run failed because Vite
     discovered deck.gl mid-run and reloaded. Fixed with `optimizeDeps.include` in the
@@ -84,14 +92,20 @@ data will be pruned from production too.
 - **Render-ready approach used:** `DeckHarness` takes `layers: Layer[] | null` (`null` = story
   data not ready, e.g. the CAMS worker hasn't returned its bitmap). On every `onAfterRender`
   it sets `data-render-ready` to whether layers are set and every layer's `isLoaded` is true;
-  any `layers` change resets it to `false`. `layerManager` is protected in deck.gl 9.4, so it
+  any `layers` change resets it to `false` and forces a `deck.redraw()`, so a frame (and a
+  chance to become ready again) always follows. `layerManager` is protected in deck.gl 9.4, so it
   checks the layer instances it passed in (deck.gl keeps those instances after diffing).
   `waitForRenderReady(canvasElement)` polls for it (10 s default) and returns the `Deck` for
   probes and picking. On timeout it says why: no harness, `layers` still `null`, which layers
   are loading, or "loaded but no frame since". Both canvas stories await it in `play`.
-- **Note for Phase 5:** the PM2.5 bitmap is drawn at `HEATMAP_ALPHA` 55/255 over a dark
-  background, so ramp colours come out dark and close together. Probes must compute the
-  expected colour after blending, not compare against raw ramp hex values.
+- **Cleanup:** on unmount the harness calls `deck.finalize()` and then `device.loseDevice()`.
+  Neither `finalize()` nor luma.gl 9.4's `device.destroy()` releases the WebGL context (by
+  design, for React strict mode); without `loseDevice()` every story mount leaks a context
+  (checked: `isContextLost()` stays `false` after unmount with `destroy()`, `true` with
+  `loseDevice()`).
+- **Note for Phase 5:** the PM2.5 bitmap is drawn at `HEATMAP_ALPHA` 55/255 over the zinc-900
+  background layer, so ramp colours come out dark and close together. Probes must compute the
+  expected colour blended over (24, 24, 27), not compare against raw ramp hex values.
 
 ## Phase 4: the gap
 
