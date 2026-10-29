@@ -2,7 +2,7 @@ import type { StorybookConfig } from '@storybook/react-vite';
 import { msw } from 'msw/vite';
 
 const config: StorybookConfig = {
-  stories: ['../src/**/*.stories.@(ts|tsx)'],
+  stories: ['../src/**/*.mdx', '../src/**/*.stories.@(ts|tsx)'],
   addons: [
     '@storybook/addon-vitest',
     '@storybook/addon-docs',
