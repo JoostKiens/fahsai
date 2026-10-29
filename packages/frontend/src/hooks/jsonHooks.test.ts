@@ -45,7 +45,9 @@ describe.each(hooks)('%s', (_name, useHook, path, queryKey) => {
   it('fails a 404 after one request, because asking again cannot help', async () => {
     const { client, fetchMock, settle } = renderQueryHook(useHook, notFound);
 
-    await settle(() => client.getQueryCache().find({ queryKey })?.state.status === 'error');
+    await settle(
+      () => client.getQueryCache().find({ queryKey, exact: false })?.state.status === 'error',
+    );
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([expect.stringContaining(path)]);
   });
