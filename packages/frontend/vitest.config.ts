@@ -28,6 +28,11 @@ export default defineConfig({
           tailwindcss(),
           storybookTest({ configDir: resolve(import.meta.dirname, '.storybook') }),
         ],
+        // Pre-bundle the map libraries: discovering them mid-run makes Vite reload and fail the
+        // first cold run.
+        optimizeDeps: {
+          include: ['@deck.gl/core', '@deck.gl/extensions', '@deck.gl/layers', 'supercluster'],
+        },
         test: {
           name: 'storybook',
           browser: {
