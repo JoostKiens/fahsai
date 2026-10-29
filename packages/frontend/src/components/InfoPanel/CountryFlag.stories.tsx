@@ -1,16 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, waitFor } from 'storybook/test';
-import { CountryFlag } from './CountryFlag';
+import { CountryFlag, ISO3_TO_ISO2 } from './CountryFlag';
 
 const meta = {
   component: CountryFlag,
   // Every code with a flag file, plus one without (FRA).
-  argTypes: {
-    iso3: {
-      control: 'select',
-      options: ['THA', 'MMR', 'LAO', 'KHM', 'MYS', 'VNM', 'CHN', 'IND', 'BGD', 'BTN', 'FRA'],
-    },
-  },
+  argTypes: { iso3: { control: 'select', options: [...Object.keys(ISO3_TO_ISO2), 'FRA'] } },
 } satisfies Meta<typeof CountryFlag>;
 
 export default meta;

@@ -15,13 +15,6 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
-// Portal root from index.html; History's bar tooltip renders into it.
-if (!document.getElementById('tooltip')) {
-  const tooltipRoot = document.createElement('div');
-  tooltipRoot.id = 'tooltip';
-  document.body.append(tooltipRoot);
-}
-
 const preview: Preview = {
   parameters: {
     controls: {

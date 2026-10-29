@@ -1,4 +1,4 @@
-const ISO3_TO_ISO2: Record<string, string> = {
+export const ISO3_TO_ISO2: Record<string, string> = {
   THA: 'th',
   MMR: 'mm',
   LAO: 'la',

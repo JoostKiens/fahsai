@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { expect } from 'storybook/test';
+import { expect, within } from 'storybook/test';
 import historyResponse from './fixtures/2026-10-24/history-saraphi.json';
 import { History, ShimmerHistory } from './History';
 
@@ -25,12 +25,12 @@ type Story = StoryObj<typeof meta>;
 
 export const Week: Story = {};
 
-// Hovering a bar shows its rounded value in the #tooltip portal.
+// Hovering a bar shows its rounded value in a tooltip portalled to <body>.
 export const HoverShowsValue: Story = {
   play: async ({ canvas, userEvent }) => {
     const [lastBarLabel] = canvas.getAllByText('24 Oct');
     await userEvent.hover(lastBarLabel);
-    await expect(document.getElementById('tooltip')).toHaveTextContent('22 µg/m³');
+    await expect(await within(document.body).findByText('22')).toHaveTextContent('22 µg/m³');
   },
 };
 
