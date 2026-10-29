@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayerStore } from '@/store/layerStore';
 import { AQI_CATEGORIES } from '@/utils/aqiColors';
@@ -32,18 +33,19 @@ function GroupHeader({
   label,
   checked,
   onToggle,
-  toggleLabel,
 }: {
   label: string;
   checked?: boolean;
   onToggle?: () => void;
-  toggleLabel?: string;
 }) {
+  const labelId = useId();
   return (
     <div className="flex items-center justify-between">
-      <p className="text-[12px] font-medium text-zinc-300 mb-2">{label}</p>
-      {onToggle && toggleLabel && checked !== undefined && (
-        <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
+      <p id={labelId} className="text-[12px] font-medium text-zinc-300 mb-2">
+        {label}
+      </p>
+      {onToggle && checked !== undefined && (
+        <Toggle checked={checked} onChange={onToggle} labelledBy={labelId} />
       )}
     </div>
   );
@@ -54,23 +56,24 @@ function SubRow({
   description,
   checked,
   onToggle,
-  toggleLabel,
 }: {
   label: string;
   description?: string;
   checked: boolean;
   onToggle: () => void;
-  toggleLabel: string;
 }) {
+  const labelId = useId();
   return (
     <div className="flex items-start gap-2 py-1">
       <div className="flex-1">
-        <span className="text-[13px] text-zinc-100 font-medium">{label}</span>
+        <span id={labelId} className="text-[13px] text-zinc-100 font-medium">
+          {label}
+        </span>
         {description && (
           <p className="text-[12px] text-zinc-400 leading-tight mt-0.5">{description}</p>
         )}
       </div>
-      <Toggle checked={checked} onChange={onToggle} label={toggleLabel} />
+      <Toggle checked={checked} onChange={onToggle} labelledBy={labelId} />
     </div>
   );
 }
@@ -89,7 +92,6 @@ function AirQualityGroup() {
         description={t('layers.stationReadingsDesc')}
         checked={aqStations}
         onToggle={() => toggleLayer('aqStations')}
-        toggleLabel={t('layers.toggleStationReadings')}
       />
       <LayerAttribution href="https://openaq.org/">{t('layers.viaOpenAQ')}</LayerAttribution>
       <SubRow
@@ -97,7 +99,6 @@ function AirQualityGroup() {
         description={t('layers.ambientDesc')}
         checked={aqGrid}
         onToggle={() => toggleLayer('aqGrid')}
-        toggleLabel={t('layers.toggleAmbient')}
       />
       <LayerAttribution href="https://open-meteo.com/">
         {t('layers.viaCamsOpenMeteo')}
@@ -138,7 +139,6 @@ function FiresGroup() {
         label={t('layers.fires')}
         checked={visible}
         onToggle={() => toggleLayer('fires')}
-        toggleLabel={t('layers.toggleFires')}
       />
       {visible && (
         <div className="mt-2.5 space-y-1">
@@ -188,7 +188,6 @@ function WindGroup() {
         label={t('layers.wind')}
         checked={visible}
         onToggle={() => toggleLayer('wind')}
-        toggleLabel={t('layers.toggleWind')}
       />
       {visible && (
         <div className="mt-1 space-y-0.5">
@@ -214,7 +213,6 @@ function PowerPlantsGroup() {
         label={t('layers.powerPlants')}
         checked={visible}
         onToggle={() => toggleLayer('powerPlants')}
-        toggleLabel={t('layers.togglePowerPlants')}
       />
       {visible && (
         <div className="mt-2.5 space-y-1.5">
