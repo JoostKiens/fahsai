@@ -9,19 +9,23 @@ export const STORY_VIEW_STATE: MapViewState = { longitude: 101.4, latitude: 15.9
 // The app's page background (zinc-900), drawn as the first layer so pixel readback matches what
 // a viewer sees; a CSS background would leave the canvas transparent. Not a view clearColor: the
 // MaskExtension's mask pass would clear to it too and stop clipping the PM2.5 grid to land.
-const BACKGROUND_LAYER = new SolidPolygonLayer<Position[]>({
-  id: 'story-background',
-  data: [
-    [
-      [-180, -85],
-      [180, -85],
-      [180, 85],
-      [-180, 85],
-    ],
-  ],
-  getPolygon: (polygon) => polygon,
-  getFillColor: [24, 24, 27],
-});
+const WORLD_POLYGON: Position[] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+];
+
+// A fresh instance per update, like any deck.gl layer: one shared instance breaks the second
+// Deck that mounts it (deck.gl assertion, so no background is drawn).
+function createBackgroundLayer() {
+  return new SolidPolygonLayer<Position[]>({
+    id: 'story-background',
+    data: [WORLD_POLYGON],
+    getPolygon: (polygon) => polygon,
+    getFillColor: [24, 24, 27],
+  });
+}
 const WIDTH_PX = 800;
 const HEIGHT_PX = 600;
 
@@ -68,7 +72,8 @@ export function DeckHarness({ layers, viewState = STORY_VIEW_STATE }: Props) {
           harness.device = device;
         },
         onAfterRender: () => {
-          container.dataset.renderReady = String(pendingLayerIds(harness.layers)?.length === 0);
+          const isReady = hasFinalSize(canvas) && pendingLayerIds(harness.layers)?.length === 0;
+          container.dataset.renderReady = String(isReady);
         },
       }),
     };
@@ -87,7 +92,7 @@ export function DeckHarness({ layers, viewState = STORY_VIEW_STATE }: Props) {
     if (!harness) return;
     harness.layers = layers;
     container.dataset.renderReady = 'false';
-    harness.deck.setProps({ layers: [BACKGROUND_LAYER, ...(layers ?? [])], viewState });
+    harness.deck.setProps({ layers: [createBackgroundLayer(), ...(layers ?? [])], viewState });
     // Guarantee a frame, and so an onAfterRender that can set ready again, after every change.
     harness.deck.redraw('DeckHarness layers changed');
   }, [layers, viewState]);
@@ -98,12 +103,18 @@ export function DeckHarness({ layers, viewState = STORY_VIEW_STATE }: Props) {
       data-render-ready="false"
       style={{ width: WIDTH_PX, height: HEIGHT_PX }}
     >
-      <canvas ref={canvasRef} />
+      {/* Sized up front: a story that draws at mount can otherwise render into the default
+          300×150 buffer before deck.gl resizes it. */}
+      <canvas ref={canvasRef} width={WIDTH_PX} height={HEIGHT_PX} />
     </div>
   );
 }
 
 /** Ids of layers still loading async props; `null` while the story has no layers yet. */
+function hasFinalSize(canvas: HTMLCanvasElement): boolean {
+  return canvas.width === WIDTH_PX && canvas.height === HEIGHT_PX;
+}
+
 function pendingLayerIds(layers: Layer[] | null): string[] | null {
   return layers && layers.filter((layer) => !layer.isLoaded).map((layer) => layer.id);
 }
@@ -130,6 +141,10 @@ export async function waitForRenderReady(
 
 function describePending(harness: Harness | undefined): string {
   if (!harness) return 'no DeckHarness found in the story.';
+  const canvas = harness.deck.getCanvas();
+  if (canvas && !hasFinalSize(canvas)) {
+    return `canvas is ${canvas.width}×${canvas.height}, not ${WIDTH_PX}×${HEIGHT_PX}.`;
+  }
   const pending = pendingLayerIds(harness.layers);
   if (pending === null) return 'layers is still null (story data not loaded).';
   if (pending.length > 0) return `layers still loading: ${pending.join(', ')}.`;

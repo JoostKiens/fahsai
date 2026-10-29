@@ -98,6 +98,15 @@ data will be pruned from production too.
   `waitForRenderReady(canvasElement)` polls for it (10 s default) and returns the `Deck` for
   probes and picking. On timeout it says why: no harness, `layers` still `null`, which layers
   are loading, or "loaded but no frame since". Both canvas stories await it in `play`.
+- **Two harness bugs the first pixel probes exposed (Phase 5).** Both passed every test until
+  something read the canvas, because "ready" only ever meant "a frame rendered":
+  - The background layer was one module-level instance shared by every `Deck`. Vitest renders
+    all stories in one page, so the second `Deck` hit a deck.gl assertion and drew no background;
+    the canvas stayed transparent. Now a fresh layer per update, as deck.gl expects.
+  - A story that draws at mount (wind) could render, and signal ready, into the canvas's default
+    300×150 buffer before deck.gl resized it to 800×600. Fresh-page screenshots never hit this;
+    the in-page Vitest run did. The `<canvas>` now has its size from the start, and readiness
+    also requires the drawing buffer to be 800×600 (the timeout message says so if not).
 - **Cleanup:** on unmount the harness calls `deck.finalize()` and then `device.loseDevice()`.
   Neither `finalize()` nor luma.gl 9.4's `device.destroy()` releases the WebGL context (by
   design, for React strict mode); without `loseDevice()` every story mount leaks a context
