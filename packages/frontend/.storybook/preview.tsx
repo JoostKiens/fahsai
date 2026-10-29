@@ -70,6 +70,8 @@ function createQueryClient() {
 }
 
 const preview: Preview = {
+  // A generated Docs page per component, which the MCP's docs-show also reads.
+  tags: ['autodocs'],
   parameters: {
     controls: {
       matchers: {
