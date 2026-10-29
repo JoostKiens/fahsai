@@ -2,6 +2,7 @@ import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupWorker } from 'msw/browser';
 import { mswLoader } from 'msw-storybook-addon/csf3';
+import { expect, waitFor } from 'storybook/test';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from '../src/locales/en.json';
@@ -23,15 +24,25 @@ void i18n.use(initReactI18next).init({
 });
 
 // Stories mock the network with MSW (`parameters.msw.handlers`). A request to our API or Mapbox
-// that no handler answers fails the story, so none silently reaches localhost or production.
+// that no handler answers is blocked and fails the story in afterEach, so none silently reaches
+// localhost or production.
+const unhandledRequests: string[] = [];
+
 async function startMockWorker() {
   const worker = setupWorker();
   await worker.start({
     quiet: true,
-    onUnhandledRequest(request, print) {
+    // msw 3 renamed onUnhandledRequest to onUnhandledFrame.
+    onUnhandledFrame({ frame, defaults }) {
+      const { data }: { data: unknown } = frame;
+      const request =
+        typeof data === 'object' && data !== null && 'request' in data && data.request;
+      if (!(request instanceof Request)) return;
       const url = new URL(request.url);
       const isAppRequest = url.pathname.startsWith('/api/') || url.hostname.endsWith('mapbox.com');
-      if (isAppRequest) print.error();
+      if (!isAppRequest) return;
+      unhandledRequests.push(`${request.method} ${request.url}`);
+      defaults.error();
     },
   });
   return worker;
@@ -76,8 +87,17 @@ const preview: Preview = {
   // the state they need in their own beforeEach.
   beforeEach: () => {
     queryClient = createQueryClient();
-    for (const store of [useLayerStore, useSettingsStore, useTimeStore, useUIStore]) {
-      store.setState(store.getInitialState(), true);
+    useLayerStore.setState(useLayerStore.getInitialState(), true);
+    useSettingsStore.setState(useSettingsStore.getInitialState(), true);
+    useTimeStore.setState(useTimeStore.getInitialState(), true);
+    useUIStore.setState(useUIStore.getInitialState(), true);
+  },
+  // Queries start fetching on mount, so wait for them to settle before checking.
+  afterEach: async () => {
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    const unmocked = unhandledRequests.splice(0);
+    if (unmocked.length > 0) {
+      throw new Error(`Unmocked requests (add an MSW handler): ${unmocked.join(', ')}`);
     }
   },
   decorators: [
