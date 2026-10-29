@@ -253,11 +253,13 @@ export function Search() {
         {showDropdown && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
             <AppScrollArea viewportClassName="max-h-80 overflow-x-hidden rounded-[inherit]">
+              {/* Outside the listbox, which may only contain options; status announces it. */}
+              {!hasResults && (
+                <p role="status" className="px-3 py-2 text-[12px] text-zinc-500">
+                  {t('search.noResults')}
+                </p>
+              )}
               <div id={listboxId} role="listbox" className="w-0 min-w-full overflow-hidden">
-                {!hasResults && (
-                  <p className="px-3 py-2 text-[12px] text-zinc-500">{t('search.noResults')}</p>
-                )}
-
                 {stationResults.length > 0 && (
                   <>
                     <p
