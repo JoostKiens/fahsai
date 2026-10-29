@@ -10,8 +10,6 @@ import { Scrubber } from './Scrubber';
 // The fixture covers the 30 days to 2026-10-24, so the stories use a 30-day range ending there.
 const LATEST_DATE = '2026-10-24';
 const SCRUBBER_DAYS = 30;
-// The play interval is 800 ms and the date is committed 300 ms after the last change.
-const STEP_TIMEOUT_MS = 2000;
 
 const summaryHandler = http.get('*/api/cams/summary', () => HttpResponse.json(summaryResponse));
 
@@ -70,9 +68,7 @@ export const ArrowKeyMovesADay: Story = {
     await userEvent.click(slider);
     await userEvent.keyboard('{ArrowLeft}');
     await expect(useUIStore.getState().scrubberDay).toBe(SCRUBBER_DAYS - 2);
-    await waitFor(() => expect(useTimeStore.getState().selectedDate).toBe('2026-10-23'), {
-      timeout: STEP_TIMEOUT_MS,
-    });
+    await waitFor(() => expect(useTimeStore.getState().selectedDate).toBe('2026-10-23'));
   },
 };
 
@@ -83,9 +79,7 @@ export const PlayAdvances: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Play' }));
-    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0), {
-      timeout: STEP_TIMEOUT_MS,
-    });
+    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0));
     await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
     await expect(useUIStore.getState().playing).toBe(false);
   },

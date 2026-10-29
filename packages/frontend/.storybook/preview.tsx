@@ -1,8 +1,9 @@
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MotionGlobalConfig } from 'motion/react';
 import { setupWorker } from 'msw/browser';
 import { mswLoader } from 'msw-storybook-addon/csf3';
-import { expect, waitFor } from 'storybook/test';
+import { configure, expect, waitFor } from 'storybook/test';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from '../src/locales/en.json';
@@ -22,6 +23,15 @@ void i18n.use(initReactI18next).init({
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });
+
+// Under test (Playwright sets navigator.webdriver) motion animations finish instantly: Chromium
+// throttles animation frames in the busy test iframes, so an exit animation could take seconds.
+// The Storybook UI keeps them.
+if (navigator.webdriver) MotionGlobalConfig.skipAnimations = true;
+
+// findBy* and waitFor give up after 1 s by default. Fade-ins, exit animations and mocked requests
+// take longer than that when the whole suite runs in parallel, so allow 3 s.
+configure({ asyncUtilTimeout: 3000 });
 
 // Stories mock the network with MSW (`parameters.msw.handlers`). A request to our API or Mapbox
 // that no handler answers is errored, so it never reaches localhost, production or Mapbox (with

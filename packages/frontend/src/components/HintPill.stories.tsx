@@ -6,8 +6,6 @@ import { HintPill } from './HintPill';
 // Shown after a 400 ms delay, until a point is selected or the pill is tapped; it also
 // dismisses itself after 6 s (not tested: it would slow every run).
 const ENTRY_WAIT_MS = 600;
-const EXIT_TIMEOUT_MS = 3000;
-
 const meta = {
   component: HintPill,
   // Mobile-only (hidden from md up); positioned absolutely over the map.
@@ -30,9 +28,7 @@ export const TapDismisses: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(await canvas.findByRole('button', { name: 'Dismiss hint' }));
     await expect(useUIStore.getState().hintDismissed).toBe(true);
-    await waitFor(() => expect(canvas.queryByRole('button')).toBeNull(), {
-      timeout: EXIT_TIMEOUT_MS,
-    });
+    await waitFor(() => expect(canvas.queryByRole('button')).toBeNull());
   },
 };
 

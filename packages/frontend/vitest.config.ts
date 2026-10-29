@@ -45,6 +45,7 @@ export default defineConfig({
             '@deck.gl/extensions',
             '@deck.gl/geo-layers',
             '@deck.gl/layers',
+            'fuse.js',
             'i18next',
             'motion/react',
             'sonner',
