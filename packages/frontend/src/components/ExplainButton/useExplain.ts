@@ -20,7 +20,8 @@ interface ExplainState {
   text: string;
   loading: boolean;
   phase: 'fetching' | 'thinking' | null;
-  error: 'unavailable' | null;
+  // interrupted: the model failed after part of the answer arrived; that part is kept.
+  error: 'unavailable' | 'interrupted' | null;
   rateLimit: RateLimit | null;
 }
 
@@ -135,12 +136,16 @@ export function useExplain() {
           break;
         }
 
-        const hasError = accumulated.includes('[ERROR:');
+        // The backend appends "[ERROR: <message>]" when the model fails mid-answer; show only
+        // the text before it.
+        const errorAt = accumulated.indexOf('[ERROR:');
+        const hasError = errorAt !== -1;
+        const text = hasError ? accumulated.slice(0, errorAt).trimEnd() : accumulated;
         setState({
-          text: accumulated,
+          text,
           loading: !hasError,
           phase: hasError ? null : 'thinking',
-          error: hasError ? 'unavailable' : null,
+          error: hasError ? (text ? 'interrupted' : 'unavailable') : null,
           rateLimit: null,
         });
         if (hasError) break;
