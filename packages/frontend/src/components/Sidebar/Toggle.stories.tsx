@@ -13,7 +13,7 @@ function StatefulToggle({ checked: initialChecked, onChange, labelledBy }: Toggl
   const [checked, setChecked] = useState(initialChecked);
   function handleChange() {
     onChange();
-    setChecked(!checked);
+    setChecked((current) => !current);
   }
   return <Toggle checked={checked} onChange={handleChange} labelledBy={labelledBy} />;
 }
@@ -24,7 +24,7 @@ const meta = {
   args: { labelledBy: 'layer-label', onChange: fn() },
   render: (args: ToggleProps) => (
     <div className="flex items-center gap-2">
-      <span id="layer-label" className="text-[13px] font-medium">
+      <span id={args.labelledBy} className="text-[13px] font-medium text-zinc-100">
         Fires
       </span>
       {/* Remount when the `checked` control changes so it resets the state. */}

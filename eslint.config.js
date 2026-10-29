@@ -7,7 +7,13 @@ import storybook from 'eslint-plugin-storybook';
 
 export default [
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/.vite/**', '**/coverage/**'],
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.vite/**',
+      '**/coverage/**',
+      '**/storybook-static/**',
+    ],
   },
 
   // TypeScript with type-checking for all packages
@@ -46,6 +52,12 @@ export default [
 
   // Storybook rules — *.stories.* files only
   ...storybook.configs['flat/recommended'],
+  // The Storybook preset switches rules-of-hooks off for stories; story render functions and
+  // components still have to follow it.
+  {
+    files: ['packages/frontend/src/**/*.stories.tsx'],
+    rules: { 'react-hooks/rules-of-hooks': 'error' },
+  },
 
   // Prettier last — disables all formatting rules that conflict with Prettier
   prettier,
