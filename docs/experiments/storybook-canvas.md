@@ -140,11 +140,13 @@ data will be pruned from production too.
 ## Phase 4: the gap
 
 **The ordinary test.** `Map/Layer toggles` (`LayerToggles.stories.tsx`) wires `LayerGroups` (the
-real sidebar) to the PM2.5 grid and fire layers the way `MapView` does: store visibility picks
-the layers. Its play function is the kind of check an agent typically writes. It waits for
-`data-render-ready`, checks the legend (`µg/m³` and the six ranges `0–9` … `225+`), clicks the
-Fires switch, then checks `aria-checked`, the store's `fires.visible`, and readiness again. It
-looks at nothing inside the canvas. Supporting changes: English i18next set up in
+real sidebar) to the PM2.5 grid and fire layers the way `MapView` does: store visibility and
+opacity pick the layers, fires don't wait for the CAMS bitmap, and layers are memoised. Its play
+function is the kind of check an agent typically writes. It checks the legend (`µg/m³` and the
+six ranges `0–9` … `225+`), waits for `data-render-ready`, and checks that `fire-glow` is in the
+Deck's layer list. Then it clicks the Fires switch and checks `aria-checked`, the store's
+`fires.visible`, and that `fire-glow` has left the layer list (not just that a frame rendered:
+the ready flag can still be from before the click). It looks at nothing inside the canvas. Supporting changes: English i18next set up in
 `.storybook/preview.tsx` (not `src/i18n.ts`, which can redirect the page), and `i18next` and
 `react-i18next` added to `optimizeDeps.include`. Their first cold run failed with the same
 mid-run reload as deck.gl did in Phase 2.
