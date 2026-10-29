@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { http, HttpResponse } from 'msw/http';
-import { expect, fn, waitFor } from 'storybook/test';
+import { expect, fn } from 'storybook/test';
 import { useTimeStore } from '@/store/timeStore';
 import { ExplainButton } from './ExplainButton';
 
@@ -142,9 +142,8 @@ export const Unavailable: Story = {
   },
 };
 
-// The model failed part-way. The backend appends "\n\n[ERROR: <message>]" (routes/explain.ts);
-// the partial text stays on screen, still followed by that raw marker, with the "unavailable"
-// message below.
+// The model failed part-way. The backend appends "\n\n[ERROR: <message>]" (routes/explain.ts):
+// the partial text stays, cut at the marker, with a note that it was cut off.
 export const FailsMidStream: Story = {
   parameters: {
     msw: {
@@ -165,10 +164,34 @@ export const FailsMidStream: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: "What's causing this?" }));
-    await waitFor(() =>
-      expect(canvas.getByText('Explanation unavailable. Try again later.')).toBeVisible(),
-    );
+    await expect(
+      await canvas.findByText('The explanation was cut off. Try again later.'),
+    ).toBeVisible();
     await expect(canvas.getByText('PM2.5 is moderate')).toBeVisible();
+    await expect(canvas.queryByText(/\[ERROR/)).toBeNull();
+    await expect(canvas.queryByText('Explanation unavailable. Try again later.')).toBeNull();
+  },
+};
+
+// The model failed before any text arrived: nothing to keep, so it's simply unavailable.
+export const FailsBeforeAnyText: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.post(
+          '*/api/explain',
+          () =>
+            new HttpResponse(streamOf([EXPLANATION_CHUNKS[0], '\n\n[ERROR: model overloaded]'])),
+        ),
+      ],
+    },
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: "What's causing this?" }));
+    await expect(
+      await canvas.findByText('Explanation unavailable. Try again later.'),
+    ).toBeVisible();
+    await expect(canvas.queryByText(/\[ERROR/)).toBeNull();
   },
 };
 

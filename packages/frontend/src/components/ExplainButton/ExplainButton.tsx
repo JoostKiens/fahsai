@@ -138,6 +138,9 @@ export function ExplainButton({ stationId, lat, lng, rateLimitControl, className
       {error === 'unavailable' && (
         <p className="mt-1 text-[12px] text-red-400">{t('explain.unavailable')}</p>
       )}
+      {error === 'interrupted' && (
+        <p className="mt-1 text-[12px] text-red-400">{t('explain.interrupted')}</p>
+      )}
     </div>
   );
 }
