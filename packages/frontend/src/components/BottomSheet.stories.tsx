@@ -8,10 +8,6 @@ type BottomSheetProps = ComponentProps<typeof BottomSheet>;
 
 const DETENTS = { peekHeight: 200, fullHeight: 500 };
 
-// The sheet leaves the DOM when its exit spring ends, which can pass waitFor's 1 s default
-// when the whole story suite runs in parallel.
-const EXIT_TIMEOUT_MS = 3000;
-
 // BottomSheet is controlled; this keeps `open` and the detent in React state so closing,
 // reopening and dragging work in the story (same approach as the Toggle stories).
 function StatefulBottomSheet({
@@ -94,9 +90,7 @@ export const CloseButtonCloses: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(page.getByRole('button', { name: 'Close' }));
     await expect(args.onClose).toHaveBeenCalledOnce();
-    await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull(), {
-      timeout: EXIT_TIMEOUT_MS,
-    });
+    await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull());
   },
 };
 
@@ -105,9 +99,7 @@ export const EscapeCloses: Story = {
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.keyboard('{Escape}');
     await expect(args.onClose).toHaveBeenCalledOnce();
-    await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull(), {
-      timeout: EXIT_TIMEOUT_MS,
-    });
+    await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull());
   },
 };
 

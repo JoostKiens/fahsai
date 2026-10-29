@@ -270,6 +270,15 @@ Stories live next to their component (`Foo.stories.tsx`) and run as tests via
   what an interaction changed.
 - **Language:** the toolbar's Language switch sets i18next for any story; a Thai variant sets
   `globals: { locale: 'th' }`.
+- **Network** is mocked with MSW: handlers from `msw/http` in `parameters.msw.handlers`. A
+  request to `/api/…` or Mapbox that no handler answers is blocked and fails the story, listing
+  the URL. Mapbox and `/api/explain` responses are written by hand (Mapbox needs the token; each
+  explain call costs a Gemini request); everything else uses recorded fixtures.
+- **Timing under load:** in test runs the preview makes motion animations finish instantly
+  (`MotionGlobalConfig.skipAnimations`, when `navigator.webdriver` is set) and raises
+  `findBy`/`waitFor`'s timeout to 3 s; the Storybook UI keeps its animations. Still wrap a first
+  visibility check in `waitFor` (content can start at opacity 0), and open Base UI popups (Menu,
+  Select) from the keyboard: pointer clicks on their triggers were flaky under load.
 - **Expected colours are literals**, not values from `aqiColors`, so a broken scale can't
   change both sides of the check.
 - **Portalled UI** (`BottomSheet`, tooltips) renders outside the canvas: query it with
