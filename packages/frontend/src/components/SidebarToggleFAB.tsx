@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { BottomSheet } from '@/components/BottomSheet';
 import { LayerGroups } from '@/components/Sidebar';
 
 export function SidebarToggleFAB() {
+  const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -21,6 +23,7 @@ export function SidebarToggleFAB() {
       <BottomSheet
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        ariaLabel={t('sidebar.ariaLabel')}
         closeAriaLabel="Close layer controls"
       >
         <LayerGroups />

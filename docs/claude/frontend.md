@@ -181,6 +181,24 @@ content wrapper inside the scroll area, and `overflow-x-hidden` to the
 
 ---
 
+## BottomSheet (mobile panels)
+
+`BottomSheet` is the mobile (`md:hidden`) shell for the layer menu and the info panel. It is a
+`role="dialog"` and needs an `ariaLabel`; reuse the desktop counterpart's label
+(`sidebar.ariaLabel`, `infoPanel.ariaLabel`). `showBackdrop` decides whether it is modal:
+
+- **With backdrop (layer menu): modal.** `aria-modal`, and every other child of `<body>` is
+  `inert` while it is open, so focus can't leave it.
+- **Without backdrop (info panel): non-modal.** The map behind stays usable.
+
+Either way, opening moves focus into the sheet and closing returns it to the opener. Anything
+portalled to `<body>` while a modal sheet is open (and not inside it) is not made inert.
+Focus and `inert` only apply below the md breakpoint (`useIsMobile`). Above it the sheet is
+hidden but can stay open (its state lives in the caller), and an inert page would have no
+visible way out.
+
+---
+
 ## Future layers (not in initial scope)
 
 - Burn scars — Sentinel-2 NDVI differencing via Copernicus
