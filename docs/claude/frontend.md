@@ -199,6 +199,25 @@ visible way out.
 
 ---
 
+## Data fetching
+
+Every request to the API goes through `src/lib/api.ts`:
+
+- `apiUrl(path)` puts a route under `/api/v1`. `/api/rollbar` is the only unversioned call and does
+  not go through it.
+- `fetchApiData` (routes that answer `{ data }`) and `fetchJson` throw an `HttpError` carrying the
+  status on any non-OK response. Hooks and prefetches share one fetcher per route (`fetchFires`,
+  `fetchWind`, ...), so their error handling cannot drift apart.
+- A 404 means an empty day only when its body has `code: 'no_data'` (`isNoData`); any other 404 is a
+  failure. Only date-keyed routes use `fetchApiData`; a route that answers an empty result with a
+  200 uses `fetchJson`.
+- The app retries only network errors and 5xx (`shouldRetry`), never a 4xx.
+- A failed query shows one toast (`handleQueryError`); an API error (`HttpError`) also goes to
+  Rollbar, once per message. A dropped connection is not reported. A query
+  nobody is looking at, such as the prefetch of a neighbouring day, sets
+  `meta: BACKGROUND_QUERY_META` to stay quiet.
+- Storybook's msw handlers must match `*/api/v1/...`: `*/api/...` does not match the versioned URLs.
+
 ## Future layers (not in initial scope)
 
 - Burn scars — Sentinel-2 NDVI differencing via Copernicus

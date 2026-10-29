@@ -17,10 +17,23 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "packages/*/src/**/*.{ts,tsx}": [
+    "packages/backend/src/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix"
-    ]
+      "eslint --fix",
+      "pnpm --filter backend exec vitest related --run --passWithNoTests"
+    ],
+    "packages/frontend/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix",
+      "pnpm --filter frontend exec vitest related --run --passWithNoTests --project unit"
+    ],
+    "packages/{consts,types}/src/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix",
+      "pnpm --filter backend exec vitest related --run --passWithNoTests",
+      "pnpm --filter frontend exec vitest related --run --passWithNoTests --project unit"
+    ],
+    "packages/frontend/src/locales/*.json": "pnpm --filter frontend exec vitest run --project unit i18n-parity"
   },
   "engines": {
     "node": "^24",

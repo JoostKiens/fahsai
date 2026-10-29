@@ -258,6 +258,9 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 - Config in `prettier.config.js` at repo root
 - Single quotes, semicolons, trailing commas, 100 char print width
 - Run `pnpm format` before committing
+- Run Prettier from the repo root (`pnpm format`, or `pnpm exec prettier --write <files>`): it only
+  reads `.prettierignore` from the current directory, so running it on a directory from inside
+  `packages/frontend` reformats `sea-land-mask.json` and the Storybook fixtures
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
 - `// eslint-disable-line react-hooks/exhaustive-deps` may be used sparingly. It must
@@ -272,8 +275,10 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
   - `eslint-plugin-react-hooks` for `packages/frontend` only
   - `eslint-config-prettier` applied last
 - Prettier: single quotes, semicolons, trailing commas, 100 char width
-- Husky + lint-staged: formats and lints staged files on pre-commit; pre-push runs
-  `pnpm typecheck` and `pnpm test`
+- Husky + lint-staged: pre-commit formats and lints staged files, runs the unit tests related to
+  them (`vitest related`; a change in `packages/consts` or `packages/types` runs the consumers'
+  tests in both packages; a change to a locale file runs the i18n parity test) and `pnpm typecheck`;
+  pre-push runs the full `pnpm test`
 - Commitlint: conventional commits enforced on commit-msg hook
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env). Backend
   `*.integration.test.ts` files run separately against a local Supabase (see
@@ -334,6 +339,8 @@ Turn tasks into verifiable goals (a failing test that then passes, tests green b
 ## 5. Verification & Testing
 
 Always run `tsc --noEmit` (typecheck) and the linter after making code edits, and fix any errors before considering the task done.
+
+When mutation-checking, undo the mutation with the inverse edit or from a copy made beforehand, not with `git checkout <file>`: that also reverts any uncommitted fix in the same file.
 
 ## 6. Working with Specs
 
