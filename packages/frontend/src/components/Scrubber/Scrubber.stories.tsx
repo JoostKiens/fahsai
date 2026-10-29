@@ -11,7 +11,7 @@ import { Scrubber } from './Scrubber';
 const LATEST_DATE = '2026-10-24';
 const SCRUBBER_DAYS = 30;
 
-const summaryHandler = http.get('*/api/cams/summary', () => HttpResponse.json(summaryResponse));
+const summaryHandler = http.get('*/api/v1/cams/summary', () => HttpResponse.json(summaryResponse));
 
 const meta = {
   component: Scrubber,
@@ -30,7 +30,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// The PM2.5 line comes from the mocked /api/cams/summary response.
+// The PM2.5 line comes from the mocked /api/v1/cams/summary response.
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     // The chart's SVG stretches to the slider width; the play icon's SVG doesn't.
@@ -51,12 +51,11 @@ export const WaitingForLatestDate: Story = {
   },
 };
 
-// The summary endpoint returns 404 when there is no data for the range: no line, same height.
+// The summary endpoint answers a range with no data with a 200 and an empty list (routes/cams.ts):
+// no line, same height.
 export const NoTimelineData: Story = {
   parameters: {
-    msw: {
-      handlers: [http.get('*/api/cams/summary', () => new HttpResponse(null, { status: 404 }))],
-    },
+    msw: { handlers: [http.get('*/api/v1/cams/summary', () => HttpResponse.json({ data: [] }))] },
   },
 };
 

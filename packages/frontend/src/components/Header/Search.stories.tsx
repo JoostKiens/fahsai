@@ -18,7 +18,7 @@ const PLACES = [
 ];
 
 const handlers = [
-  http.get('*/api/station-readings/latest', () => HttpResponse.json(stationReadings)),
+  http.get('*/api/v1/station-readings/latest', () => HttpResponse.json(stationReadings)),
   // …/mapbox.places/{query}.json
   http.get('https://api.mapbox.com/geocoding/v5/mapbox.places/:query', ({ params }) => {
     const query = decodeURIComponent(String(params.query))
