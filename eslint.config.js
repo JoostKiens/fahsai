@@ -3,6 +3,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
+import storybook from 'eslint-plugin-storybook';
 
 export default [
   {
@@ -42,6 +43,9 @@ export default [
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
+
+  // Storybook rules — *.stories.* files only
+  ...storybook.configs['flat/recommended'],
 
   // Prettier last — disables all formatting rules that conflict with Prettier
   prettier,
