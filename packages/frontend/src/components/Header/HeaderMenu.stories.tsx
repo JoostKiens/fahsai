@@ -22,11 +22,21 @@ type Story = StoryObj<typeof meta>;
 
 export const Closed: Story = {};
 
+// Opened from the keyboard: Base UI tells a click that opens from one that closes partly by
+// pointer-event timing, which made pointer clicks flaky when the whole suite runs in parallel.
+async function openFromKeyboard(
+  trigger: HTMLElement,
+  user: { keyboard: (text: string) => Promise<void> },
+) {
+  trigger.focus();
+  await user.keyboard('{Enter}');
+}
+
 // The menu is portalled to <body>, outside the story's canvas.
 export const ChoosingSettingsOpensSettings: Story = {
   play: async ({ canvas, canvasElement, userEvent }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByRole('button', { name: 'More options' }));
+    await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
     await userEvent.click(await page.findByRole('menuitem', { name: 'Settings' }));
     await expect(useUIStore.getState().settingsOpen).toBe(true);
     await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
@@ -36,7 +46,7 @@ export const ChoosingSettingsOpensSettings: Story = {
 export const ChoosingAboutOpensAbout: Story = {
   play: async ({ canvas, canvasElement, userEvent }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByRole('button', { name: 'More options' }));
+    await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
     await userEvent.click(await page.findByRole('menuitem', { name: 'About' }));
     await expect(useUIStore.getState().aboutOpen).toBe(true);
   },

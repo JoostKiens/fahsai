@@ -32,7 +32,10 @@ export const Thai: Story = {
 export const ListMarksCurrentLanguage: Story = {
   play: async ({ canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByRole('combobox', { name: 'Select language' }));
+    // Opened from the keyboard, as in the HeaderMenu stories: pointer clicks on Base UI popups
+    // were flaky when the whole suite runs in parallel.
+    canvas.getByRole('combobox', { name: 'Select language' }).focus();
+    await userEvent.keyboard('{Enter}');
     await expect(await page.findByRole('option', { name: 'English' })).toHaveAttribute(
       'aria-selected',
       'true',
