@@ -1,3 +1,4 @@
+import { Controls, Description, Primary, Subtitle, Title } from '@storybook/addon-docs/blocks';
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionGlobalConfig } from 'motion/react';
@@ -78,6 +79,19 @@ const preview: Preview = {
         color: /(background|color)$/i,
         date: /Date$/i,
       },
+    },
+    // A Docs page shows only the primary story. With all of them on one page they'd share i18next,
+    // the stores, the query client and MSW, so one story's language or handlers leak into others.
+    docs: {
+      page: () => (
+        <>
+          <Title />
+          <Subtitle />
+          <Description />
+          <Primary />
+          <Controls />
+        </>
+      ),
     },
     // axe runs on every story, and a violation fails it.
     a11y: { test: 'error' },
