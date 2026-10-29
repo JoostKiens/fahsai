@@ -1,6 +1,8 @@
-// dirDeg is the FROM-direction (meteorological convention per CLAUDE.md).
-// The arrow points in the TO direction (where wind is going) so +180 lives here only,
-// never on text labels.
+/**
+ * An arrow showing which way the wind blows. `dirDeg` is the direction the wind comes from (the
+ * meteorological convention); the arrow points where it goes, so it's turned 180°. That flip
+ * happens here only, never in text labels.
+ */
 export function WindArrow({
   dirDeg,
   size = 10,

@@ -37,6 +37,12 @@ function formatResetTime(resetAtMs: number): string {
   return reset.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * Asks the API for a short AI-written explanation of a station's reading (`/api/v1/explain`) and
+ * streams the answer in below the button. The API limits how often each visitor can ask; when the
+ * limit is reached, the button says when it can be used again. `rateLimitControl` shares that
+ * limit with the rest of the app through the UI store.
+ */
 export function ExplainButton({ stationId, lat, lng, rateLimitControl, className }: Props) {
   const { t } = useTranslation();
   const { text, loading, phase, error, rateLimit, explain, reset } = useExplain();

@@ -19,6 +19,10 @@ function MoreIcon() {
   );
 }
 
+/**
+ * The header's "More options" menu: Settings, About, and a link to the GitHub repository.
+ * Settings and About only set a flag in the UI store; `Header` renders the dialogs themselves.
+ */
 export function HeaderMenu() {
   const { t } = useTranslation();
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);

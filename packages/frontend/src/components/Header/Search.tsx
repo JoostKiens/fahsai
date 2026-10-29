@@ -56,6 +56,11 @@ function Pm25Dot({ value }: { value: number }) {
   );
 }
 
+/**
+ * Searches monitoring stations by name or ID, in the browser, and places through Mapbox
+ * geocoding. Choosing a station selects it and moves the map to it; choosing a place moves the
+ * map there. On mobile it opens from a search button as a full-width field.
+ */
 export function Search() {
   const { t } = useTranslation();
   const language = useSettingsStore((s) => s.language) ?? 'en';

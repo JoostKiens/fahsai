@@ -7,6 +7,10 @@ interface Props {
   source?: 'measured' | 'modelled';
 }
 
+/**
+ * A PM2.5 value with its US EPA category, coloured by the category. A `modelled` value, a CAMS
+ * estimate rather than a station reading, is hatched and its label says so.
+ */
 export function AqiBadge({ value, category, source = 'measured' }: Props) {
   const { t } = useTranslation();
   const rgb = pm25ToRgb(value);

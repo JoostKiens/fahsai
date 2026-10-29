@@ -7,6 +7,11 @@ import { TWEEN_ENTER, TWEEN_EXIT } from '@/utils/animation';
 const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;
 
+/**
+ * Mobile only: hidden from 768 px up, so this Docs page shows it in a phone-width frame. A hint
+ * over the map, "Tap a marker for details", that appears 400 ms after the page loads. It goes away
+ * when a point is selected, when it's tapped, or after 6 seconds.
+ */
 export function HintPill() {
   const { t } = useTranslation();
   const selectedPoint = useUIStore((s) => s.selectedPoint);

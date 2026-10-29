@@ -25,6 +25,10 @@ function ChevronDownIcon() {
   );
 }
 
+/**
+ * Switches the site between English and Thai. It shows the current language; choosing the other
+ * one reloads the page at `/` or `/th/`.
+ */
 export function LanguagePill() {
   const { t, i18n } = useTranslation();
   const setLanguage = useSettingsStore((s) => s.setLanguage);

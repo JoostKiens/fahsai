@@ -33,6 +33,12 @@ const PANEL_BASE =
 // ponytail: tune against real station content on a narrow viewport (≈375px)
 const PEEK_HEIGHT = 232;
 
+/**
+ * Details for the point selected on the map: a station (latest reading, place, the last few days,
+ * the typical year, weather), a fire detection or a power plant. On desktop it's a card at the top
+ * right; on mobile it's a bottom sheet with previous and next day buttons. With nothing selected,
+ * it asks the user to click the map.
+ */
 export function InfoPanel() {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);

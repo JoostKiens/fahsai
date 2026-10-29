@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { BottomSheet } from '@/components/BottomSheet';
 import { LayerGroups } from '@/components/Sidebar';
 
+/**
+ * Mobile only: hidden from 768 px up, so this Docs page shows it in a phone-width frame. A
+ * floating button that opens the map layer switches in a bottom sheet; on desktop the `Sidebar`
+ * shows them instead.
+ */
 export function SidebarToggleFAB() {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
