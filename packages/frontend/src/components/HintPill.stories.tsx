@@ -10,6 +10,8 @@ const meta = {
   component: HintPill,
   // Mobile-only (hidden from md up); positioned absolutely over the map.
   globals: { viewport: { value: 'mobile1', isRotated: false } },
+  // On the Docs page, a phone-width iframe, so md:hidden doesn't hide it.
+  parameters: { docs: { story: { inline: false, iframeHeight: 340 } } },
   decorators: [
     (Story) => (
       <div className="relative h-[300px]">

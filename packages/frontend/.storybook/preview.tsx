@@ -1,4 +1,11 @@
-import { Controls, Description, Primary, Subtitle, Title } from '@storybook/addon-docs/blocks';
+import {
+  Controls,
+  Description,
+  Primary,
+  Subtitle,
+  Title,
+  useOf,
+} from '@storybook/addon-docs/blocks';
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionGlobalConfig } from 'motion/react';
@@ -70,6 +77,37 @@ function createQueryClient() {
   });
 }
 
+// A Docs page shows only the primary story. With all of them on one page they'd share i18next,
+// the stores, the query client and MSW, so one story's language or handlers leak into others.
+function DocsPage() {
+  const resolved = useOf('meta');
+  // Mobile-only components are md:hidden, and a Docs page is desktop width. Their story files set
+  // a mobile viewport and `docs.story.inline: false`, so the story renders in an iframe, which
+  // media queries measure: a phone-width iframe shows them.
+  const viewport: unknown =
+    resolved.type === 'meta' ? resolved.csfFile.meta.globals?.viewport : undefined;
+  const isMobile =
+    typeof viewport === 'object' &&
+    viewport !== null &&
+    'value' in viewport &&
+    String(viewport.value).startsWith('mobile');
+  return (
+    <>
+      <Title />
+      <Subtitle />
+      <Description />
+      {isMobile ? (
+        <div style={{ maxWidth: 375 }}>
+          <Primary />
+        </div>
+      ) : (
+        <Primary />
+      )}
+      <Controls />
+    </>
+  );
+}
+
 const preview: Preview = {
   // A generated Docs page per component, which the MCP's docs-show also reads.
   tags: ['autodocs'],
@@ -82,17 +120,7 @@ const preview: Preview = {
     },
     // A Docs page shows only the primary story. With all of them on one page they'd share i18next,
     // the stores, the query client and MSW, so one story's language or handlers leak into others.
-    docs: {
-      page: () => (
-        <>
-          <Title />
-          <Subtitle />
-          <Description />
-          <Primary />
-          <Controls />
-        </>
-      ),
-    },
+    docs: { page: DocsPage },
     // axe runs on every story, and a violation fails it.
     a11y: { test: 'error' },
     // Stories sit on the app's zinc-900, on Docs pages too (index.css only colours the canvas body).
