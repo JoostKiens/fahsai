@@ -212,7 +212,8 @@ Every request to the API goes through `src/lib/api.ts`:
   failure. Only date-keyed routes use `fetchApiData`; a route that answers an empty result with a
   200 uses `fetchJson`.
 - The app retries only network errors and 5xx (`shouldRetry`), never a 4xx.
-- A failed query shows one toast and goes to Rollbar once per message (`handleQueryError`). A query
+- A failed query shows one toast (`handleQueryError`); an API error (`HttpError`) also goes to
+  Rollbar, once per message. A dropped connection is not reported. A query
   nobody is looking at, such as the prefetch of a neighbouring day, sets
   `meta: BACKGROUND_QUERY_META` to stay quiet.
 - Storybook's msw handlers must match `*/api/v1/...`: `*/api/...` does not match the versioned URLs.
