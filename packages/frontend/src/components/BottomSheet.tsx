@@ -165,7 +165,7 @@ export function BottomSheet({
               </div>
               {/* Disable scroll at peek so content clips rather than scrolls below the fold */}
               <div
-                className={`flex-1 min-h-0 ${detents && activeDetent === 'peek' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+                className={`flex-1 min-h-0 scheme-dark ${detents && activeDetent === 'peek' ? 'overflow-hidden' : 'overflow-y-auto'}`}
               >
                 {children}
               </div>
