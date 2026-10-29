@@ -5,7 +5,7 @@ import { HARNESS_BACKGROUND_RGB } from './DeckHarness';
 // Checks that look inside the Deck canvas. Failure messages say what was expected where, and
 // what was found, so they can be acted on without seeing the canvas.
 
-type Rgb = [number, number, number];
+export type Rgb = [number, number, number];
 type LngLat = [number, number];
 /** [west, south, east, north] in degrees. */
 type Bbox = [number, number, number, number];
@@ -43,11 +43,63 @@ export function expectPixelNear({
 }): void {
   const [x, y] = toCanvasPoint(deck, lngLat);
   const actual = readPixel(deck, x, y);
-  const delta = Math.max(...actual.map((channel, i) => Math.abs(channel - expected[i])));
+  const delta = maxChannelDifference(actual, expected);
   if (delta <= tolerance) return;
   throw new Error(
     `${label}: expected ~${toHex(expected)} at (${x}, ${y}) [${formatLngLat(lngLat)}], ` +
       `got ${toHex(actual)} (max channel difference ${delta}, tolerance ${tolerance})`,
+  );
+}
+
+/**
+ * Throws unless every drawn cell centre shows its expected colour, and the number of drawn
+ * (non-background) cells is within `drawn`. Cells drawn as background (sea under the land mask)
+ * are counted separately: too few drawn cells means blanked cells, too many means the mask stopped
+ * clipping.
+ */
+export function expectCellColors({
+  deck,
+  cells,
+  tolerance,
+  drawn,
+  label,
+}: {
+  deck: Deck;
+  cells: { lngLat: LngLat; expected: Rgb }[];
+  tolerance: number;
+  drawn: { min: number; max: number };
+  label: string;
+}): void {
+  const canvas = deck.getCanvas();
+  if (!canvas) throw new Error('Deck has no canvas to read from');
+  const { width, height } = canvas;
+  const pixels = readPixels(deck, 0, 0, width, height);
+  const viewport = deck.getViewports()[0];
+  let matching = 0;
+  let background = 0;
+  const mismatches: string[] = [];
+  for (const { lngLat, expected } of cells) {
+    const [x, y] = viewport.project(lngLat).map(Math.round);
+    if (x < 0 || y < 0 || x >= width || y >= height) continue;
+    const i = (y * width + x) * 4;
+    const actual: Rgb = [pixels[i], pixels[i + 1], pixels[i + 2]];
+    if (isBackground(actual)) {
+      background++;
+    } else if (maxChannelDifference(actual, expected) <= tolerance) {
+      matching++;
+    } else {
+      mismatches.push(
+        `${formatLngLat(lngLat)}: expected ~${toHex(expected)}, got ${toHex(actual)}`,
+      );
+    }
+  }
+  const drawnCount = matching + mismatches.length;
+  const isDrawnInRange = drawnCount >= drawn.min && drawnCount <= drawn.max;
+  if (mismatches.length === 0 && isDrawnInRange) return;
+  throw new Error(
+    `${label}: ${matching} cells match their colour, ${mismatches.length} don't, ${background} ` +
+      `are background; expected 0 mismatches and ${drawn.min}–${drawn.max} drawn cells, got ` +
+      `${drawnCount}. First mismatches: ${mismatches.slice(0, 3).join('; ') || 'none'}`,
   );
 }
 
@@ -90,8 +142,7 @@ export function expectDrawnPixels({
   const pixels = readPixels(deck, x, y, width, height);
   let count = 0;
   for (let i = 0; i < pixels.length; i += 4) {
-    const isBackground = HARNESS_BACKGROUND_RGB.every((channel, c) => pixels[i + c] === channel);
-    if (!isBackground) count++;
+    if (!isBackground([pixels[i], pixels[i + 1], pixels[i + 2]])) count++;
   }
   if (count >= min) return;
   throw new Error(
@@ -140,12 +191,20 @@ function readPixels(deck: Deck, x: number, y: number, width: number, height: num
   return context.getImageData(0, 0, width, height).data;
 }
 
+function isBackground(rgb: Rgb): boolean {
+  return HARNESS_BACKGROUND_RGB.every((channel, i) => rgb[i] === channel);
+}
+
+function maxChannelDifference(actual: Rgb, expected: Rgb): number {
+  return Math.max(...actual.map((channel, i) => Math.abs(channel - expected[i])));
+}
+
 function toHex(rgb: Rgb): string {
   return `#${rgb.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function formatLngLat([lng, lat]: LngLat): string {
-  return `${lng}°E ${lat}°N`;
+  return `${+lng.toFixed(2)}°E ${+lat.toFixed(2)}°N`;
 }
 
 function formatBbox([west, south, east, north]: Bbox): string {
