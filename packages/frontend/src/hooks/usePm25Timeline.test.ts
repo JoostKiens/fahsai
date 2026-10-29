@@ -15,14 +15,17 @@ describe('usePm25Timeline', () => {
     expect(latest().data).toEqual(new Map());
   });
 
-  it('treats a 404 as a failure, since this route has no no_data answer', async () => {
+  it('treats a 404 as a failure, asked once since this route has no no_data answer', async () => {
     useTimeStore.setState({ latestDate: '2026-10-17', latestDateResolved: true });
-    const { settle, latest } = renderQueryHook(usePm25Timeline, () =>
+    const { fetchMock, settle, latest } = renderQueryHook(usePm25Timeline, () =>
       Response.json({ error: 'Route not found', code: 'not_found' }, { status: 404 }),
     );
 
     await settle(() => latest().isError);
 
     expect(latest().data).toBeUndefined();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      expect.stringContaining('/api/v1/cams/summary'),
+    ]);
   });
 });
