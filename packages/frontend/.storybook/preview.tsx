@@ -24,16 +24,17 @@ void i18n.use(initReactI18next).init({
 });
 
 // Stories mock the network with MSW (`parameters.msw.handlers`). A request to our API or Mapbox
-// that no handler answers is blocked and fails the story in afterEach, so none silently reaches
-// localhost or production.
+// that no handler answers is errored, so it never reaches localhost, production or Mapbox (with
+// the real token), and is listed when afterEach fails the story.
 const unhandledRequests: string[] = [];
 
 async function startMockWorker() {
   const worker = setupWorker();
   await worker.start({
     quiet: true,
-    // msw 3 renamed onUnhandledRequest to onUnhandledFrame.
-    onUnhandledFrame({ frame, defaults }) {
+    // msw 3 renamed onUnhandledRequest to onUnhandledFrame. Returning lets the request through
+    // (defaults.error() only prints); throwing is what makes msw error it.
+    onUnhandledFrame({ frame }) {
       const { data }: { data: unknown } = frame;
       const request =
         typeof data === 'object' && data !== null && 'request' in data && data.request;
@@ -42,7 +43,7 @@ async function startMockWorker() {
       const isAppRequest = url.pathname.startsWith('/api/') || url.hostname.endsWith('mapbox.com');
       if (!isAppRequest) return;
       unhandledRequests.push(`${request.method} ${request.url}`);
-      defaults.error();
+      throw new Error(`Unmocked request: ${request.method} ${request.url}`);
     },
   });
   return worker;
@@ -87,6 +88,8 @@ const preview: Preview = {
   // the state they need in their own beforeEach.
   beforeEach: () => {
     queryClient = createQueryClient();
+    // afterEach doesn't run when a play function throws, so don't inherit that story's list.
+    unhandledRequests.length = 0;
     useLayerStore.setState(useLayerStore.getInitialState(), true);
     useSettingsStore.setState(useSettingsStore.getInitialState(), true);
     useTimeStore.setState(useTimeStore.getInitialState(), true);

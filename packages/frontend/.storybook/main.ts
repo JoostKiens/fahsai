@@ -8,9 +8,9 @@ const config: StorybookConfig = {
   // Exposes documented components to agents via the MCP addon's docs-list / docs-show tools.
   features: { componentsManifest: true },
   core: { disableTelemetry: true },
-  // Serves MSW's worker script (/mockServiceWorker.js) from the dev server, so nothing is added to
-  // public/ and the app build never sees it. shortcut: build-storybook output has no worker, so
-  // mocked stories only work in dev; emit it here if Storybook is ever published.
+  // Serves MSW's worker script (/mockServiceWorker.js) from the dev server and emits it in
+  // build-storybook output, so nothing is added to public/. Only Storybook's config has the
+  // plugin, so the app build never contains it.
   viteFinal: (viteConfig) => ({
     ...viteConfig,
     plugins: [...(viteConfig.plugins ?? []), msw({ mode: 'worker-only' })],

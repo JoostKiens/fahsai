@@ -142,7 +142,9 @@ export const Unavailable: Story = {
   },
 };
 
-// The model failed part-way: the partial text is replaced by the error message.
+// The model failed part-way. The backend appends "\n\n[ERROR: <message>]" (routes/explain.ts);
+// the partial text stays on screen, still followed by that raw marker, with the "unavailable"
+// message below.
 export const FailsMidStream: Story = {
   parameters: {
     msw: {
@@ -151,7 +153,11 @@ export const FailsMidStream: Story = {
           '*/api/explain',
           () =>
             new HttpResponse(
-              streamOf([EXPLANATION_CHUNKS[0], EXPLANATION_CHUNKS[1], '[ERROR: model]']),
+              streamOf([
+                EXPLANATION_CHUNKS[0],
+                EXPLANATION_CHUNKS[1],
+                '\n\n[ERROR: model overloaded]',
+              ]),
             ),
         ),
       ],
@@ -162,6 +168,7 @@ export const FailsMidStream: Story = {
     await waitFor(() =>
       expect(canvas.getByText('Explanation unavailable. Try again later.')).toBeVisible(),
     );
+    await expect(canvas.getByText('PM2.5 is moderate')).toBeVisible();
   },
 };
 
