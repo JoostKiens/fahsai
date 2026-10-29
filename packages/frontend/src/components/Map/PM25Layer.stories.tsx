@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { waitForRenderReady } from './story-harness/DeckHarness';
+import seaLandMask from './sea-land-mask.json';
 import { camsPoints } from './story-harness/fixture-data';
 import { Pm25Grid } from './story-harness/Pm25Grid';
 import {
@@ -22,20 +23,45 @@ const CATEGORIES: { name: string; upTo: number; rgb: Rgb }[] = [
 ];
 
 function categoryOf(pm25: number) {
-  return CATEGORIES.find(({ upTo }) => pm25 <= upTo) ?? CATEGORIES[CATEGORIES.length - 1];
+  const category = CATEGORIES.find(({ upTo }) => pm25 <= upTo);
+  if (!category) throw new Error(`Not a PM2.5 value: ${pm25}`);
+  return category;
 }
 
 // Two cells inside blocks of one category: a readable first check. Robust to small shifts, so
 // the full-grid check below is what catches a misplaced grid.
-const PROBE_CELLS: [number, number][] = [
-  [89.4, 23],
-  [101.4, 19.8],
+const PROBE_CELLS: { cell: [number, number]; category: string }[] = [
+  { cell: [89.4, 23], category: 'Unhealthy' },
+  { cell: [101.4, 19.8], category: 'Good' },
 ];
 
-// Every land cell centre shows its own colour on a correct render: 2,320 of 2,320 on the
-// 2026-10-24 fixture. 1% slack for mask-edge differences between GPUs; the 0.8° Mercator shift
-// fixed in #65 left only 1,931.
-const MIN_MATCHING_LAND_CELLS = Math.floor(2320 * 0.99);
+// How many cells should be drawn, from the land mask's geometry rather than a render: 2,347 on
+// the 2026-10-24 fixture vs 2,320 drawn (cells right on a coastline can go either way). A broken
+// mask draws all 4,599; the swap and the Mercator shift blank or recolour hundreds.
+const DRAWN_CELL_SLACK = 0.02;
+type MaskGeometry =
+  | { type: 'Polygon'; coordinates: number[][][] }
+  | { type: 'MultiPolygon'; coordinates: number[][][][] };
+const LAND_RINGS = (seaLandMask as { features: { geometry: MaskGeometry }[] }).features.flatMap(
+  ({ geometry }) =>
+    geometry.type === 'Polygon'
+      ? [geometry.coordinates[0]]
+      : geometry.coordinates.map((polygon) => polygon[0]),
+);
+
+// Even-odd ray casting against the mask's outer rings, as createLandMaskLayer draws them.
+function isOnLand([lng, lat]: [number, number]): boolean {
+  return LAND_RINGS.some((ring) => {
+    let isInside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      const crosses = yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+      if (crosses) isInside = !isInside;
+    }
+    return isInside;
+  });
+}
 
 function pm25At([lng, lat]: [number, number]): number {
   const point = camsPoints.find(
@@ -56,9 +82,12 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const deck = await waitForRenderReady(canvasElement);
-    for (const cell of PROBE_CELLS) {
+    for (const { cell, category } of PROBE_CELLS) {
       const pm25 = pm25At(cell);
       const { name, rgb } = categoryOf(pm25);
+      if (name !== category) {
+        throw new Error(`Probe cell ${cell.join(', ')} is ${name} in the fixture, not ${category}`);
+      }
       expectPixelNear({
         deck,
         lngLat: cell,
@@ -67,6 +96,7 @@ export const Default: Story = {
         label: `PM2.5 cell (${pm25} µg/m³, ${name})`,
       });
     }
+    const landCellCount = camsPoints.filter(({ lng, lat }) => isOnLand([lng, lat])).length;
     expectCellColors({
       deck,
       cells: camsPoints.map(({ lng, lat, pm25 }) => ({
@@ -74,7 +104,10 @@ export const Default: Story = {
         expected: heatmapColorOnBackground(categoryOf(pm25).rgb),
       })),
       tolerance: PIXEL_TOLERANCE,
-      min: MIN_MATCHING_LAND_CELLS,
+      drawn: {
+        min: Math.floor(landCellCount * (1 - DRAWN_CELL_SLACK)),
+        max: Math.ceil(landCellCount * (1 + DRAWN_CELL_SLACK)),
+      },
       label: 'PM2.5 grid',
     });
   },

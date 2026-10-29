@@ -52,47 +52,54 @@ export function expectPixelNear({
 }
 
 /**
- * Throws unless at least `min` of `cells` show their expected colour at their own position.
- * Cells drawn as background (sea under the land mask) are skipped, so `min` must come from a
- * known-good render: a bug that blanks cells shows up as too few matches.
+ * Throws unless every drawn cell centre shows its expected colour, and the number of drawn
+ * (non-background) cells is within `drawn`. Cells drawn as background (sea under the land mask)
+ * are counted separately: too few drawn cells means blanked cells, too many means the mask stopped
+ * clipping.
  */
 export function expectCellColors({
   deck,
   cells,
   tolerance,
-  min,
+  drawn,
   label,
 }: {
   deck: Deck;
   cells: { lngLat: LngLat; expected: Rgb }[];
   tolerance: number;
-  min: number;
+  drawn: { min: number; max: number };
   label: string;
 }): void {
   const canvas = deck.getCanvas();
   if (!canvas) throw new Error('Deck has no canvas to read from');
   const { width, height } = canvas;
   const pixels = readPixels(deck, 0, 0, width, height);
+  const viewport = deck.getViewports()[0];
   let matching = 0;
+  let background = 0;
   const mismatches: string[] = [];
   for (const { lngLat, expected } of cells) {
-    const [x, y] = toCanvasPoint(deck, lngLat);
+    const [x, y] = viewport.project(lngLat).map(Math.round);
     if (x < 0 || y < 0 || x >= width || y >= height) continue;
     const i = (y * width + x) * 4;
     const actual: Rgb = [pixels[i], pixels[i + 1], pixels[i + 2]];
-    if (isBackground(actual)) continue;
-    if (maxChannelDifference(actual, expected) <= tolerance) {
+    if (isBackground(actual)) {
+      background++;
+    } else if (maxChannelDifference(actual, expected) <= tolerance) {
       matching++;
-    } else if (mismatches.length < 3) {
+    } else {
       mismatches.push(
         `${formatLngLat(lngLat)}: expected ~${toHex(expected)}, got ${toHex(actual)}`,
       );
     }
   }
-  if (matching >= min) return;
+  const drawnCount = matching + mismatches.length;
+  const isDrawnInRange = drawnCount >= drawn.min && drawnCount <= drawn.max;
+  if (mismatches.length === 0 && isDrawnInRange) return;
   throw new Error(
-    `${label}: expected at least ${min} cells to show their own colour, ${matching} did ` +
-      `(cells drawn as background don't count). First mismatches: ${mismatches.join('; ') || 'none'}`,
+    `${label}: ${matching} cells match their colour, ${mismatches.length} don't, ${background} ` +
+      `are background; expected 0 mismatches and ${drawn.min}–${drawn.max} drawn cells, got ` +
+      `${drawnCount}. First mismatches: ${mismatches.slice(0, 3).join('; ') || 'none'}`,
   );
 }
 
