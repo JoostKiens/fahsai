@@ -29,7 +29,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Off: Story = {
+export const Off: Story = { args: { checked: false } };
+
+export const On: Story = { args: { checked: true } };
+
+// Starts off and is clicked by its play function, so it ends up on in the Storybook UI.
+export const ClickCallsOnChange: Story = {
   args: { checked: false },
   play: async ({ args, canvas, userEvent }) => {
     const toggle = canvas.getByRole('switch', { name: 'Fires' });
@@ -40,8 +45,6 @@ export const Off: Story = {
     await expect(args.onChange).toHaveBeenCalledOnce();
   },
 };
-
-export const On: Story = { args: { checked: true } };
 
 // Proves Tailwind loaded: the checked track is `bg-teal-600`; fails with an unstyled transparent track.
 export const CssCheck: Story = {
