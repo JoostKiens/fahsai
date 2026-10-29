@@ -6,6 +6,7 @@ import { WindArrow } from './WindArrow';
 const meta = {
   component: WindArrow,
   args: { size: 32, color: '#a1a1aa' },
+  argTypes: { dirDeg: { control: { type: 'range', min: 0, max: 359, step: 1 } } },
 } satisfies Meta<typeof WindArrow>;
 
 export default meta;

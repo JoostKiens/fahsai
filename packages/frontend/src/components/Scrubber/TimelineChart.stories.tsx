@@ -10,7 +10,14 @@ const timeline = new Map(summaryResponse.data.map((d) => [d.date, d.pm25]));
 const meta = {
   component: TimelineChart,
   args: { timeline, latestDate: '2026-10-24', scrubberDays: 30, scrubberDay: 29 },
-  argTypes: { timeline: { control: false } },
+  argTypes: {
+    timeline: { control: false },
+    // A 'YYYY-MM-DD' string; the preview's date matcher would pass a timestamp instead.
+    latestDate: { control: 'text' },
+    // The ranges the settings menu offers; the fixture only covers the last 30 days.
+    scrubberDays: { control: 'select', options: [30, 60, 90, 120] },
+    scrubberDay: { control: { type: 'range', min: 0, max: 119, step: 1 } },
+  },
   // Roughly the scrubber's width on desktop.
   decorators: [
     (Story) => (

@@ -12,6 +12,11 @@ const fangBaseline: BaselineDay[] = fangResponse.data;
 const meta = {
   component: YearCurve,
   args: { data: saraphiBaseline, currentPm25: 22.1, selectedDate: '2026-10-24' },
+  argTypes: {
+    data: { control: false },
+    // A 'YYYY-MM-DD' string; the preview's date matcher would pass a timestamp instead.
+    selectedDate: { control: 'text' },
+  },
   // The info panel's content width.
   decorators: [
     (Story) => (

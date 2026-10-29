@@ -4,6 +4,13 @@ import { CountryFlag } from './CountryFlag';
 
 const meta = {
   component: CountryFlag,
+  // Every code with a flag file, plus one without (FRA).
+  argTypes: {
+    iso3: {
+      control: 'select',
+      options: ['THA', 'MMR', 'LAO', 'KHM', 'MYS', 'VNM', 'CHN', 'IND', 'BGD', 'BTN', 'FRA'],
+    },
+  },
 } satisfies Meta<typeof CountryFlag>;
 
 export default meta;

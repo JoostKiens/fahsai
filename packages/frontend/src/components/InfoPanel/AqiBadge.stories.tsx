@@ -1,11 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect } from 'storybook/test';
+import { AQI_CATEGORIES } from '@/utils/aqiColors';
 import { AqiBadge } from './AqiBadge';
 
 // One story per US EPA category. `category` is the translated label the info panel passes in.
 const meta = {
   component: AqiBadge,
   args: { source: 'measured' },
+  argTypes: {
+    category: { control: 'select', options: AQI_CATEGORIES.map(({ label }) => label) },
+  },
 } satisfies Meta<typeof AqiBadge>;
 
 export default meta;
