@@ -116,3 +116,30 @@ jobs:
         with:
           path: /tmp/supabase-images.tar
           key: supabase-images-${{ env.SUPABASE_CLI_VERSION }}
+
+  storybook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      # Every story as a test in headless Chromium, including its axe accessibility check.
+      - run: pnpm --filter frontend test:storybook
+        env:
+          # lib/api.ts builds /api/v1 URLs from this. Unset, they'd start with /undefined/ and
+          # slip past the preview's unmocked-request check, which matches paths starting /api/.
+          VITE_API_BASE_URL: http://localhost:3001
