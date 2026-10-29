@@ -55,6 +55,7 @@ body,
   height: 100dvh;
   overflow: hidden;
   background-color: #18181b; /* zinc-900 */
-  color-scheme: dark;
-  scrollbar-color: #52525b transparent; /* zinc-600 thumb, no track */
+}
+html {
+  scrollbar-color: var(--color-zinc-600) transparent;
 }
