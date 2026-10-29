@@ -20,7 +20,9 @@
     "packages/*/src/**/*.{ts,tsx}": [
       "prettier --write",
       "eslint --fix"
-    ]
+    ],
+    "packages/backend/src/**/*.ts": "pnpm --filter backend exec vitest related --run --passWithNoTests",
+    "packages/frontend/src/**/*.{ts,tsx}": "pnpm --filter frontend exec vitest related --run --passWithNoTests --project unit"
   },
   "engines": {
     "node": "^24",

@@ -272,8 +272,8 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
   - `eslint-plugin-react-hooks` for `packages/frontend` only
   - `eslint-config-prettier` applied last
 - Prettier: single quotes, semicolons, trailing commas, 100 char width
-- Husky + lint-staged: formats and lints staged files on pre-commit; pre-push runs
-  `pnpm typecheck` and `pnpm test`
+- Husky + lint-staged: pre-commit formats and lints staged files, runs the unit tests related to
+  them (`vitest related`) and `pnpm typecheck`; pre-push runs the full `pnpm test`
 - Commitlint: conventional commits enforced on commit-msg hook
 - Vitest: `packages/backend` (node env) and `packages/frontend` (jsdom env). Backend
   `*.integration.test.ts` files run separately against a local Supabase (see
@@ -334,6 +334,8 @@ Turn tasks into verifiable goals (a failing test that then passes, tests green b
 ## 5. Verification & Testing
 
 Always run `tsc --noEmit` (typecheck) and the linter after making code edits, and fix any errors before considering the task done.
+
+Mutation-check only committed code: reverting the mutation with `git checkout <file>` also reverts any uncommitted fix in that file. Commit first, mutate, confirm the test fails, then `git checkout`.
 
 ## 6. Working with Specs
 
