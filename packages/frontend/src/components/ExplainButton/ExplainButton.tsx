@@ -5,7 +5,7 @@ import type { RateLimit } from './useExplain';
 import { useTimeStore } from '@/store/timeStore';
 import { sanitizeExplanation, parseBoldSegments } from './utils.sanitize';
 
-interface RateLimitControl {
+export interface RateLimitControl {
   value: RateLimit | null;
   onSet: (v: RateLimit) => void;
   onClear: () => void;
