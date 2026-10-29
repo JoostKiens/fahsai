@@ -329,15 +329,7 @@ Stories live next to their component (`Foo.stories.tsx`) and run as tests via
   (`MotionGlobalConfig.skipAnimations`, when `navigator.webdriver` is set) and raises
   `findBy`/`waitFor`'s timeout to 3 s; the Storybook UI keeps its animations. Still wrap a first
   visibility check in `waitFor` (content can start at opacity 0), and open Base UI popups (Menu,
-  Select) from the keyboard: pointer clicks on their triggers were flaky under load. Check that a
-  Base UI popup closed via its trigger's `aria-expanded="false"`, not by waiting for it to leave
-  the DOM: it unmounts on a later animation frame, and in a full parallel run a frame can take
-  over a second.
-- **Accessibility:** `@storybook/addon-a11y` runs axe on every story and a violation fails it
-  (`a11y: { test: 'error' }` in `.storybook/preview.tsx`). Fix the component rather than the
-  story. When a rule misfires on markup outside our control, turn off only that rule on that
-  story or file, with a comment saying why: see the meta in `HeaderMenu.stories.tsx` (Base UI's
-  focus guards on a closing menu). Small text needs 4.5:1, which is why `index.css` lifts `zinc-500`.
+  Select) from the keyboard: pointer clicks on their triggers were flaky under load.
 - **Expected colours are literals**, not values from `aqiColors`, so a broken scale can't
   change both sides of the check.
 - **Portalled UI** (`BottomSheet`, tooltips) renders outside the canvas: query it with
