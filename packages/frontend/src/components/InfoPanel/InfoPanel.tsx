@@ -254,6 +254,7 @@ export function InfoPanel() {
       <BottomSheet
         open={isOpen}
         onClose={() => setSelectedPoint(null)}
+        ariaLabel={t('infoPanel.ariaLabel')}
         closeAriaLabel={t('infoPanel.dismiss')}
         detents={{ peekHeight: PEEK_HEIGHT, fullHeight }}
         activeDetent={detent}

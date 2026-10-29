@@ -54,6 +54,7 @@ const meta = {
   component: BottomSheet,
   args: {
     open: true,
+    ariaLabel: 'Map layers',
     closeAriaLabel: 'Close',
     onClose: fn(),
     onDetentChange: fn(),
@@ -107,5 +108,42 @@ export const EscapeCloses: Story = {
     await waitFor(() => expect(page.queryByRole('button', { name: 'Close' })).toBeNull(), {
       timeout: EXIT_TIMEOUT_MS,
     });
+  },
+};
+
+// The layer menu is modal: opening it moves focus into the sheet, the page behind can't take
+// focus, and closing returns focus to whatever opened it.
+export const ModalFocus: Story = {
+  args: { open: false },
+  play: async ({ canvasElement, userEvent }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const opener = page.getByRole('button', { name: 'Open sheet' });
+    await userEvent.click(opener);
+    const sheet = await page.findByRole('dialog', { name: 'Map layers' });
+    await expect(sheet).toHaveAttribute('aria-modal', 'true');
+    await expect(sheet).toHaveFocus();
+
+    // Inert content can't take focus by Tab, click or script.
+    opener.focus();
+    await expect(opener).not.toHaveFocus();
+
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(opener).toHaveFocus());
+  },
+};
+
+// The info panel sheet is non-modal: focus moves in, but the map behind stays usable.
+export const NonModalFocus: Story = {
+  args: { open: false, detents: DETENTS, activeDetent: 'peek', showBackdrop: false },
+  play: async ({ canvasElement, userEvent }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const opener = page.getByRole('button', { name: 'Open sheet' });
+    await userEvent.click(opener);
+    const sheet = await page.findByRole('dialog', { name: 'Map layers' });
+    await expect(sheet).not.toHaveAttribute('aria-modal');
+    await expect(sheet).toHaveFocus();
+
+    opener.focus();
+    await expect(opener).toHaveFocus();
   },
 };
