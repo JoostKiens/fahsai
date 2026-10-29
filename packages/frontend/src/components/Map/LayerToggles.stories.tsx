@@ -8,9 +8,6 @@ import { LayerToggles } from './story-harness/LayerToggles';
 const meta = {
   title: 'Map/Layer toggles',
   component: LayerToggles,
-  beforeEach: () => {
-    useLayerStore.setState(useLayerStore.getInitialState());
-  },
 } satisfies Meta<typeof LayerToggles>;
 
 export default meta;
