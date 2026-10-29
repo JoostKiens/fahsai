@@ -239,9 +239,13 @@ that instruction would see all green for all three bugs.
   land cell centre against its own category colour: **83.2%** matched (1,931 / 2,320; 75% in
   the 15°N band), **100%** with `COORDINATE_SYSTEM.LNGLAT`. Fixed in a separate app PR (#65).
   The two-cell probe passed throughout, because the cells were chosen inside blocks of one
-  category. The very choice that makes a probe robust makes it blind to a sub-cell shift. The
-  full-grid sweep that found it catches the swap and the inverted ramp too, and is the
-  natural next probe once #65 is merged.
+  category. The very choice that makes a probe robust makes it blind to a sub-cell shift.
+  **Follow-up:** `expectCellColors` now sweeps every CAMS cell centre in the PM2.5 story,
+  against a category table written out in the story. A correct render matches 2,320 land
+  cells; the check requires 99% of that. Cells drawn as background are skipped, which is why
+  the minimum comes from a known-good render: a bug that blanks cells shows up as too few
+  matches. With #65's one-line fix undone, it fails with `expected at least 2296 cells to show
+  their own colour, 1931 did`, plus the first three mismatches with coordinates and colours.
 - **Headless WebGL issues:** colours were stable (SwiftShader; 0 pixels different between
   loads). The real problems were in the harness, and only showed up once something read
   pixels: a shared background layer instance that failed in the second `Deck` of a page, and a

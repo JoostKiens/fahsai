@@ -5,7 +5,7 @@ import { HARNESS_BACKGROUND_RGB } from './DeckHarness';
 // Checks that look inside the Deck canvas. Failure messages say what was expected where, and
 // what was found, so they can be acted on without seeing the canvas.
 
-type Rgb = [number, number, number];
+export type Rgb = [number, number, number];
 type LngLat = [number, number];
 /** [west, south, east, north] in degrees. */
 type Bbox = [number, number, number, number];
@@ -43,11 +43,56 @@ export function expectPixelNear({
 }): void {
   const [x, y] = toCanvasPoint(deck, lngLat);
   const actual = readPixel(deck, x, y);
-  const delta = Math.max(...actual.map((channel, i) => Math.abs(channel - expected[i])));
+  const delta = maxChannelDifference(actual, expected);
   if (delta <= tolerance) return;
   throw new Error(
     `${label}: expected ~${toHex(expected)} at (${x}, ${y}) [${formatLngLat(lngLat)}], ` +
       `got ${toHex(actual)} (max channel difference ${delta}, tolerance ${tolerance})`,
+  );
+}
+
+/**
+ * Throws unless at least `min` of `cells` show their expected colour at their own position.
+ * Cells drawn as background (sea under the land mask) are skipped, so `min` must come from a
+ * known-good render: a bug that blanks cells shows up as too few matches.
+ */
+export function expectCellColors({
+  deck,
+  cells,
+  tolerance,
+  min,
+  label,
+}: {
+  deck: Deck;
+  cells: { lngLat: LngLat; expected: Rgb }[];
+  tolerance: number;
+  min: number;
+  label: string;
+}): void {
+  const canvas = deck.getCanvas();
+  if (!canvas) throw new Error('Deck has no canvas to read from');
+  const { width, height } = canvas;
+  const pixels = readPixels(deck, 0, 0, width, height);
+  let matching = 0;
+  const mismatches: string[] = [];
+  for (const { lngLat, expected } of cells) {
+    const [x, y] = toCanvasPoint(deck, lngLat);
+    if (x < 0 || y < 0 || x >= width || y >= height) continue;
+    const i = (y * width + x) * 4;
+    const actual: Rgb = [pixels[i], pixels[i + 1], pixels[i + 2]];
+    if (isBackground(actual)) continue;
+    if (maxChannelDifference(actual, expected) <= tolerance) {
+      matching++;
+    } else if (mismatches.length < 3) {
+      mismatches.push(
+        `${formatLngLat(lngLat)}: expected ~${toHex(expected)}, got ${toHex(actual)}`,
+      );
+    }
+  }
+  if (matching >= min) return;
+  throw new Error(
+    `${label}: expected at least ${min} cells to show their own colour, ${matching} did ` +
+      `(cells drawn as background don't count). First mismatches: ${mismatches.join('; ') || 'none'}`,
   );
 }
 
@@ -90,8 +135,7 @@ export function expectDrawnPixels({
   const pixels = readPixels(deck, x, y, width, height);
   let count = 0;
   for (let i = 0; i < pixels.length; i += 4) {
-    const isBackground = HARNESS_BACKGROUND_RGB.every((channel, c) => pixels[i + c] === channel);
-    if (!isBackground) count++;
+    if (!isBackground([pixels[i], pixels[i + 1], pixels[i + 2]])) count++;
   }
   if (count >= min) return;
   throw new Error(
@@ -140,12 +184,20 @@ function readPixels(deck: Deck, x: number, y: number, width: number, height: num
   return context.getImageData(0, 0, width, height).data;
 }
 
+function isBackground(rgb: Rgb): boolean {
+  return HARNESS_BACKGROUND_RGB.every((channel, i) => rgb[i] === channel);
+}
+
+function maxChannelDifference(actual: Rgb, expected: Rgb): number {
+  return Math.max(...actual.map((channel, i) => Math.abs(channel - expected[i])));
+}
+
 function toHex(rgb: Rgb): string {
   return `#${rgb.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function formatLngLat([lng, lat]: LngLat): string {
-  return `${lng}°E ${lat}°N`;
+  return `${+lng.toFixed(2)}°E ${+lat.toFixed(2)}°N`;
 }
 
 function formatBbox([west, south, east, north]: Bbox): string {
