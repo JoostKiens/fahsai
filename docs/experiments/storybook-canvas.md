@@ -86,6 +86,27 @@ data will be pruned from production too.
     pages give **0 differing pixels** (non-background pixels: CAMS 137,169; fires 4,650). WebGL
     renderer:
     `ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device …))`, i.e. software rendering.
+  - *Wind particles* (`Math.random` spawning, `requestAnimationFrame` timing, Mapbox inputs):
+    the only production change. `useWindParticles` takes an optional last argument
+    `{ random, freezeAtFrame }`; with neither set, the app runs exactly as before
+    (`Math.random`, endless rAF loop). `random` is captured once at mount and threaded down to
+    `resetParticle`, the only place randomness enters. `freezeAtFrame` runs that many fixed
+    16.67 ms steps synchronously, renders once and starts no rAF loop. The two Mapbox
+    parameters were narrowed to the members the hook uses (`setProps`; `getBounds`,
+    `getContainer().clientWidth`, `on`/`off`), so the story passes a stand-in map that reports
+    the harness's fixed view, and a layer target that feeds `DeckHarness`. The `MapView` call
+    site is unchanged and still typechecks with the real `MapboxOverlay`/`mapboxgl.Map`.
+    Seed: a 10-line mulberry32 in `story-harness/seeded-random.ts`. Two loads of the wind
+    story (seed 1, frame 120): **0 differing pixels** (4,633 non-background px). Unit tests mount the
+    real hook: same seed gives identical trail positions, a different seed differs, and frozen
+    mode never calls `requestAnimationFrame`. After review, the loop body is split into
+    `step(dt)` and `draw()`: frozen mode steps N times (counted in hook state, so an effect
+    re-run from a new overlay/map object doesn't step past N), then draws once, also at frame 0.
+    Both options are read once at mount. Same frame as before the split (4,633 px, 0 different).
+    A StrictMode-based test for the re-run case passed on the *old* code too: StrictMode also
+    re-runs the effect that rebuilds the particles, so it never exposed the bug; the test now
+    re-renders with a new overlay object instead, and fails on the old code. The live app still animates (two screenshots
+    500 ms apart differ; no console errors).
   - *Not output, but test flakiness*: the first cold `test:storybook` run failed because Vite
     discovered deck.gl mid-run and reloaded. Fixed with `optimizeDeps.include` in the
     storybook Vitest project.

@@ -26,8 +26,8 @@ function createBackgroundLayer() {
     getFillColor: [24, 24, 27],
   });
 }
-const WIDTH_PX = 800;
-const HEIGHT_PX = 600;
+export const HARNESS_WIDTH_PX = 800;
+export const HARNESS_HEIGHT_PX = 600;
 
 type Harness = {
   deck: Deck;
@@ -61,8 +61,8 @@ export function DeckHarness({ layers, viewState = STORY_VIEW_STATE }: Props) {
       device: null,
       deck: new Deck({
         canvas,
-        width: WIDTH_PX,
-        height: HEIGHT_PX,
+        width: HARNESS_WIDTH_PX,
+        height: HARNESS_HEIGHT_PX,
         useDevicePixels: 1,
         // Already the v9 default; set explicitly because pixel probes read the canvas back.
         deviceProps: { webgl: { preserveDrawingBuffer: true } },
@@ -101,18 +101,18 @@ export function DeckHarness({ layers, viewState = STORY_VIEW_STATE }: Props) {
     <div
       ref={containerRef}
       data-render-ready="false"
-      style={{ width: WIDTH_PX, height: HEIGHT_PX }}
+      style={{ width: HARNESS_WIDTH_PX, height: HARNESS_HEIGHT_PX }}
     >
       {/* Sized up front: a story that draws at mount can otherwise render into the default
           300×150 buffer before deck.gl resizes it. */}
-      <canvas ref={canvasRef} width={WIDTH_PX} height={HEIGHT_PX} />
+      <canvas ref={canvasRef} width={HARNESS_WIDTH_PX} height={HARNESS_HEIGHT_PX} />
     </div>
   );
 }
 
 /** Ids of layers still loading async props; `null` while the story has no layers yet. */
 function hasFinalSize(canvas: HTMLCanvasElement): boolean {
-  return canvas.width === WIDTH_PX && canvas.height === HEIGHT_PX;
+  return canvas.width === HARNESS_WIDTH_PX && canvas.height === HARNESS_HEIGHT_PX;
 }
 
 function pendingLayerIds(layers: Layer[] | null): string[] | null {
@@ -143,7 +143,7 @@ function describePending(harness: Harness | undefined): string {
   if (!harness) return 'no DeckHarness found in the story.';
   const canvas = harness.deck.getCanvas();
   if (canvas && !hasFinalSize(canvas)) {
-    return `canvas is ${canvas.width}×${canvas.height}, not ${WIDTH_PX}×${HEIGHT_PX}.`;
+    return `canvas is ${canvas.width}×${canvas.height}, not ${HARNESS_WIDTH_PX}×${HARNESS_HEIGHT_PX}.`;
   }
   const pending = pendingLayerIds(harness.layers);
   if (pending === null) return 'layers is still null (story data not loaded).';
