@@ -145,7 +145,11 @@ Never modify existing migrations. Regenerate `supabase/schema-snapshot.sql` with
 **Unit vs integration tests (backend)** — `*.test.ts` files are DB-free unit tests and run in
 `pnpm test`, the pre-push hook and CI's `ci` job. `*.integration.test.ts` files run against a real
 local Supabase (PostgREST included) and are excluded from `pnpm test`; run them with
-`pnpm test:integration` (needs Docker and the Supabase CLI). Write an integration test when the
+`pnpm test:integration` (needs Docker and the Supabase CLI). The Docker engine must be running, not
+just the `docker` CLI: wait until `~/.docker/run/docker.sock` exists and `docker version` shows a
+server, or the Supabase CLI fails with "failed to connect to the docker API". A container left by
+an earlier run ("not ready: starting") needs `supabase stop --no-backup` first. Write an integration
+test when the
 behaviour lives in the query: pagination past the 1000-row cap, filter edges, LIKE escaping, day
 boundaries. A mocked query chain cannot catch those (e.g. a page size above the server cap passes
 a mocked test).
