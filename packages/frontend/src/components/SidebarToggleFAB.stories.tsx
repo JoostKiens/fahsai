@@ -8,8 +8,8 @@ import { SidebarToggleFAB } from './SidebarToggleFAB';
 const meta = {
   component: SidebarToggleFAB,
   globals: { viewport: { value: 'mobile1', isRotated: false } },
-  // On the Docs page, a phone-width iframe, so md:hidden doesn't hide it.
-  parameters: { docs: { story: { inline: false, iframeHeight: 160 } } },
+  // The mobile viewport also puts it in a phone-width iframe on the Docs page; this is its height.
+  parameters: { docs: { story: { iframeHeight: 160 } } },
 } satisfies Meta<typeof SidebarToggleFAB>;
 
 export default meta;

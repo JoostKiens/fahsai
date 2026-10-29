@@ -3,9 +3,9 @@ import { LayerGroups } from './LayerGroups';
 import { AppScrollArea } from '@/components/AppScrollArea';
 
 /**
- * The desktop layer panel, hidden below 768 px: a switch for each map layer, with its legend.
- * Which layers are on is kept in the layer store; on mobile, `SidebarToggleFAB` opens the same
- * switches.
+ * The desktop layer panel, hidden below 768 px: a switch for each map layer, and the PM2.5
+ * category scale under the air-quality layers. Which layers are on is kept in the layer store; on
+ * mobile, `SidebarToggleFAB` opens the same switches.
  */
 export function Sidebar() {
   const { t } = useTranslation();

@@ -8,9 +8,9 @@ const ENTRY_DELAY_MS = 400;
 const AUTO_DISMISS_MS = 6000;
 
 /**
- * Mobile only: hidden from 768 px up, so this Docs page shows it in a phone-width frame. A hint
- * over the map, "Tap a marker for details", that appears 400 ms after the page loads. It goes away
- * when a point is selected, when it's tapped, or after 6 seconds.
+ * Mobile only: hidden from 768 px up. A hint over the map, "Tap a marker for details", that
+ * appears shortly after it mounts while no point is selected. Selecting a point hides it until the
+ * point is deselected; tapping it, or leaving it for a few seconds, dismisses it for good.
  */
 export function HintPill() {
   const { t } = useTranslation();

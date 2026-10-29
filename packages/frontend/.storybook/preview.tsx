@@ -1,6 +1,8 @@
 import {
+  Canvas,
   Controls,
   Description,
+  DocsContext,
   Primary,
   Subtitle,
   Title,
@@ -8,10 +10,12 @@ import {
 } from '@storybook/addon-docs/blocks';
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useContext } from 'react';
 import { MotionGlobalConfig } from 'motion/react';
 import { setupWorker } from 'msw/browser';
 import { mswLoader } from 'msw-storybook-addon/csf3';
 import { configure, expect, waitFor } from 'storybook/test';
+import { MINIMAL_VIEWPORTS } from 'storybook/viewport';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from '../src/locales/en.json';
@@ -80,25 +84,23 @@ function createQueryClient() {
 // A Docs page shows only the primary story. With all of them on one page they'd share i18next,
 // the stores, the query client and MSW, so one story's language or handlers leak into others.
 function DocsPage() {
-  const resolved = useOf('meta');
-  // Mobile-only components are md:hidden, and a Docs page is desktop width. Their story files set
-  // a mobile viewport and `docs.story.inline: false`, so the story renders in an iframe, which
-  // media queries measure: a phone-width iframe shows them.
-  const viewport: unknown =
-    resolved.type === 'meta' ? resolved.csfFile.meta.globals?.viewport : undefined;
-  const isMobile =
-    typeof viewport === 'object' &&
-    viewport !== null &&
-    'value' in viewport &&
-    String(viewport.value).startsWith('mobile');
+  const { csfFile } = useOf('meta', ['meta']);
+  // Mobile-only components are md:hidden, and a Docs page is desktop width. For a story file with
+  // a mobile viewport the primary story renders in an iframe that wide, which media queries
+  // measure, so the component shows.
+  const viewport = mobileViewport(csfFile.meta.globals?.viewport);
+  // The file's first story, as the Primary block picks it.
+  const primary = useContext(DocsContext).componentStories()[0];
   return (
     <>
       <Title />
       <Subtitle />
       <Description />
-      {isMobile ? (
-        <div style={{ maxWidth: 375 }}>
-          <Primary />
+      {viewport && primary ? (
+        // Storybook frames an iframe story with an 8 px border on each side, and the story block
+        // has a 1 px border, so the iframe itself is exactly the viewport's width.
+        <div style={{ maxWidth: `calc(${viewport.styles.width} + 18px)` }}>
+          <Canvas of={primary.moduleExport} story={{ inline: false }} />
         </div>
       ) : (
         <Primary />
@@ -106,6 +108,13 @@ function DocsPage() {
       <Controls />
     </>
   );
+}
+
+// The phone viewport a story file sets as its `viewport` global, if any.
+function mobileViewport(global: unknown) {
+  if (typeof global !== 'object' || global === null || !('value' in global)) return undefined;
+  const { value } = global;
+  return value === 'mobile1' || value === 'mobile2' ? MINIMAL_VIEWPORTS[value] : undefined;
 }
 
 const preview: Preview = {
@@ -118,13 +127,13 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    // A Docs page shows only the primary story. With all of them on one page they'd share i18next,
-    // the stores, the query client and MSW, so one story's language or handlers leak into others.
-    docs: { page: DocsPage },
+    // iframeHeight applies only to Docs stories rendered in an iframe, the mobile ones; it's
+    // mobile1's height, and a story file can set its own.
+    docs: { page: DocsPage, story: { iframeHeight: MINIMAL_VIEWPORTS.mobile1.styles.height } },
     // axe runs on every story, and a violation fails it.
     a11y: { test: 'error' },
-    // Stories sit on the app's zinc-900, on Docs pages too (index.css only colours the canvas body).
-    backgrounds: { options: { app: { name: 'App', value: '#18181b' } } },
+    // Stories sit on the app background, on Docs pages too (index.css only colours the canvas body).
+    backgrounds: { options: { app: { name: 'App', value: 'var(--app-background)' } } },
   },
   globalTypes: {
     locale: {
