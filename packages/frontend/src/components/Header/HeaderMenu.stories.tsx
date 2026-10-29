@@ -22,6 +22,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Closed: Story = {};
 
+// The popup leaves the DOM when its exit animation ends, which can pass waitFor's 1 s default
+// when the whole story suite runs in parallel.
+const EXIT_TIMEOUT_MS = 3000;
+
 // Opened from the keyboard: Base UI tells a click that opens from one that closes partly by
 // pointer-event timing, which made pointer clicks flaky when the whole suite runs in parallel.
 async function openFromKeyboard(
@@ -39,7 +43,9 @@ export const ChoosingSettingsOpensSettings: Story = {
     await openFromKeyboard(canvas.getByRole('button', { name: 'More options' }), userEvent);
     await userEvent.click(await page.findByRole('menuitem', { name: 'Settings' }));
     await expect(useUIStore.getState().settingsOpen).toBe(true);
-    await waitFor(() => expect(page.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(page.queryByRole('menu')).toBeNull(), {
+      timeout: EXIT_TIMEOUT_MS,
+    });
   },
 };
 
