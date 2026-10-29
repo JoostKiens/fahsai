@@ -31,7 +31,13 @@ export default defineConfig({
         // Pre-bundle the map libraries: discovering them mid-run makes Vite reload and fail the
         // first cold run.
         optimizeDeps: {
-          include: ['@deck.gl/core', '@deck.gl/extensions', '@deck.gl/layers', 'supercluster'],
+          include: [
+            '@deck.gl/core',
+            '@deck.gl/extensions',
+            '@deck.gl/geo-layers',
+            '@deck.gl/layers',
+            'supercluster',
+          ],
         },
         test: {
           name: 'storybook',

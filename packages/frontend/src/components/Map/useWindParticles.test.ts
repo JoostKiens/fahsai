@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Layer } from '@deck.gl/core';
 import type { WindReading } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
 import {
@@ -13,8 +16,11 @@ import {
   MIN_HEAD_WIDTH,
   MIN_TRAIL_ASPECT,
   createTrailBuffers,
+  useWindParticles,
   type Particle,
+  type WindParticleOptions,
 } from './useWindParticles';
+import { seededRandom } from './story-harness/seeded-random';
 
 describe('viewportParticleCount', () => {
   // A fixed geographic viewport isolates the zoom-compensation math from the
@@ -246,5 +252,53 @@ describe('packTrails', () => {
       pathCount: 0,
       vertexCount: 0,
     });
+  });
+});
+
+describe('useWindParticles options', () => {
+  // React only flushes act() updates in environments that opt in.
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+  const bounds = { getWest: () => 95, getSouth: () => 10, getEast: () => 105, getNorth: () => 20 };
+  const map = {
+    getBounds: () => bounds,
+    getContainer: () => ({ clientWidth: 800 }),
+    on: () => undefined,
+    off: () => undefined,
+  };
+
+  // Mounts the hook frozen at `freezeAtFrame` and returns the wind layer's path positions.
+  function renderFrozenPaths(options: WindParticleOptions): number[] {
+    let layers: Layer[] = [];
+    const overlay = { setProps: (props: { layers: Layer[] }) => (layers = props.layers) };
+    function Probe() {
+      useWindParticles(overlay, map, readings, { visible: true, opacity: 1 }, null, options);
+      return null;
+    }
+    const root = createRoot(document.createElement('div'));
+    act(() => root.render(createElement(Probe)));
+    act(() => root.unmount());
+    const data = layers[0].props.data as { attributes: { getPath: { value: Float32Array } } };
+    return Array.from(data.attributes.getPath.value);
+  }
+
+  it('renders the same frame for the same seed', () => {
+    const first = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const second = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    expect(first.length).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+  });
+
+  it('renders a different frame for a different seed', () => {
+    const first = renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 30 });
+    const other = renderFrozenPaths({ random: seededRandom(2), freezeAtFrame: 30 });
+    expect(other).not.toEqual(first);
+  });
+
+  it('starts no animation loop when frozen', () => {
+    const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
+    renderFrozenPaths({ random: seededRandom(1), freezeAtFrame: 1 });
+    expect(requestFrame).not.toHaveBeenCalled();
+    requestFrame.mockRestore();
   });
 });

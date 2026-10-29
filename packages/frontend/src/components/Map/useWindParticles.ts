@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TripsLayer } from '@deck.gl/geo-layers';
-import { MapboxOverlay } from '@deck.gl/mapbox';
+import type { Layer } from '@deck.gl/core';
 import type { WindReading, PM25GridPoint } from '@thailand-aq/types';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
 import { PM25_CAT_BREAKPOINTS } from '@/utils/aqiColors';
@@ -260,18 +260,43 @@ function trailHeadWidth({
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
+// Only the parts of MapboxOverlay / mapboxgl.Map the hook uses, so a standalone Deck and a
+// stand-in map (Storybook) fit too.
+type LayerTarget = { setProps(props: { layers: Layer[] }): void };
+type ViewportSource = {
+  getBounds(): {
+    getWest(): number;
+    getSouth(): number;
+    getEast(): number;
+    getNorth(): number;
+  } | null;
+  getContainer(): { clientWidth: number };
+  on(type: 'zoom' | 'move' | 'resize', listener: () => void): unknown;
+  off(type: 'zoom' | 'move' | 'resize', listener: () => void): unknown;
+};
+
+/** Testing hooks; leave unset in the app. */
+export type WindParticleOptions = {
+  /** Replaces Math.random for particle spawning, e.g. a seeded generator. */
+  random?: () => number;
+  /** Advance this many fixed-length frames at once, render that frame, and stop animating. */
+  freezeAtFrame?: number;
+};
+
 export function useWindParticles(
-  overlay: MapboxOverlay | null,
-  map: mapboxgl.Map | null,
+  overlay: LayerTarget | null,
+  map: ViewportSource | null,
   wind: WindReading[] | undefined,
   config: { visible: boolean; opacity: number },
   aqGrid?: PM25GridPoint[] | null,
+  { random = Math.random, freezeAtFrame }: WindParticleOptions = {},
 ): void {
   // Use a single mutable ref object to avoid stale closure issues in the rAF loop.
   const stateRef = useRef({
     particles: [] as Particle[],
     grid: null as WindGrid | null,
     gridMap: null as Map<string, number> | null,
+    random,
     visible: config.visible,
     opacity: config.opacity,
     viewport: FULL_VIEWPORT,
@@ -308,6 +333,7 @@ export function useWindParticles(
         containerWidthPx: initialContainerWidthPx,
         grid: s.grid,
         gridMap: s.gridMap,
+        random: s.random,
       });
     }
 
@@ -326,6 +352,7 @@ export function useWindParticles(
         containerWidthPx,
         grid: s2.grid,
         gridMap: s2.gridMap,
+        random: s2.random,
       });
     };
     map.on('zoom', onMove);
@@ -383,6 +410,7 @@ export function useWindParticles(
       containerWidthPx: stateRef.current.containerWidthPx,
       grid: stateRef.current.grid,
       gridMap: stateRef.current.gridMap,
+      random: stateRef.current.random,
     });
   }, [wind]);
 
@@ -392,12 +420,7 @@ export function useWindParticles(
     if (!overlay || !map || !wind?.length) return;
     const ov = overlay; // capture non-null reference for the rAF closure
 
-    let animId: number;
-    let lastTime = 0;
-
-    function tick(time: number) {
-      const dt = lastTime ? Math.min(time - lastTime, 50) : BASE_STEP_MS;
-      lastTime = time;
+    function frame(dt: number) {
       stateRef.current.clock += dt;
       // Rebase periodically to keep clock (and every particle's timestamps) far below
       // the float32 precision ceiling TripsLayer reads them at on the GPU — shifting
@@ -414,6 +437,7 @@ export function useWindParticles(
       const {
         grid,
         gridMap,
+        random,
         particles,
         visible,
         opacity,
@@ -445,6 +469,7 @@ export function useWindParticles(
           gridMap,
           trailDurationMs,
           clock,
+          random,
         });
 
         const fadeWindowMs = trailDurationMs;
@@ -492,18 +517,32 @@ export function useWindParticles(
 
         ov.setProps({ layers: [layer] });
       }
+    }
 
+    if (freezeAtFrame !== undefined) {
+      // Fixed-length steps instead of rAF timing, so the frozen frame is reproducible.
+      for (let i = 0; i < freezeAtFrame; i++) frame(BASE_STEP_MS);
+      return;
+    }
+
+    let animId: number;
+    let lastTime = 0;
+
+    function tick(time: number) {
+      const dt = lastTime ? Math.min(time - lastTime, 50) : BASE_STEP_MS;
+      lastTime = time;
+      frame(dt);
       animId = requestAnimationFrame(tick);
     }
 
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [overlay, map, wind]);
+  }, [overlay, map, wind, freezeAtFrame]);
 }
 
 // ─── viewport ─────────────────────────────────────────────────────────────────
 
-function mapViewport(map: mapboxgl.Map): Viewport {
+function mapViewport(map: ViewportSource): Viewport {
   const b = map.getBounds();
   if (!b) return FULL_VIEWPORT;
   return [
@@ -523,14 +562,14 @@ function mapViewport(map: mapboxgl.Map): Viewport {
 // as a zoom signal. Any new zoom-dependent calculation must go through
 // zoomOnlyWidth(rawViewportWidth, containerWidthPx) first; see the "wind particle
 // density" gotcha in docs/claude/conventions.md.
-function mapRawViewportWidth(map: mapboxgl.Map): number {
+function mapRawViewportWidth(map: ViewportSource): number {
   const b = map.getBounds();
   return b ? b.getEast() - b.getWest() : REF_VIEWPORT_DEG_WIDTH;
 }
 
 // Real container width (CSS px) — used to derive an exact pixels-per-degree ratio for velocity,
 // instead of assuming the REF_CONTAINER_WIDTH_PX the reference calibration was tuned against.
-function mapContainerWidthPx(map: mapboxgl.Map): number {
+function mapContainerWidthPx(map: ViewportSource): number {
   return map.getContainer().clientWidth || REF_CONTAINER_WIDTH_PX;
 }
 
@@ -557,6 +596,7 @@ function reconcileParticleCount({
   containerWidthPx,
   grid,
   gridMap,
+  random,
 }: {
   particles: Particle[];
   viewport: Viewport;
@@ -564,11 +604,12 @@ function reconcileParticleCount({
   containerWidthPx: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
+  random: () => number;
 }): void {
   const target = viewportParticleCount({ viewport, rawViewportWidth, containerWidthPx });
   if (particles.length < target) {
     for (let i = particles.length; i < target; i++) {
-      particles.push(spawnParticle({ viewport, grid, gridMap, scatterAge: true }));
+      particles.push(spawnParticle({ viewport, grid, gridMap, random, scatterAge: true }));
     }
   } else if (particles.length > target) {
     particles.length = target;
@@ -581,17 +622,19 @@ function initParticles({
   containerWidthPx,
   grid,
   gridMap,
+  random,
 }: {
   viewport: Viewport;
   rawViewportWidth: number;
   containerWidthPx: number;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
+  random: () => number;
 }): Particle[] {
   const count = viewportParticleCount({ viewport, rawViewportWidth, containerWidthPx });
   // scatterAge=true distributes initial ages so they don't all fade out simultaneously
   return Array.from({ length: count }, () =>
-    spawnParticle({ viewport, grid, gridMap, scatterAge: true }),
+    spawnParticle({ viewport, grid, gridMap, random, scatterAge: true }),
   );
 }
 
@@ -604,6 +647,7 @@ export function stepParticles({
   gridMap,
   trailDurationMs,
   clock,
+  random,
 }: {
   particles: Particle[];
   grid: WindGrid;
@@ -613,6 +657,7 @@ export function stepParticles({
   gridMap: Map<string, number> | null;
   trailDurationMs: number;
   clock: number;
+  random?: () => number;
 }): void {
   for (const p of particles) {
     const [dx, dy] = sampleWind(p.lng, p.lat, grid);
@@ -644,7 +689,7 @@ export function stepParticles({
       p.lng < GRID_LNG_MIN || p.lng > GRID_LNG_MAX || p.lat < GRID_LAT_MIN || p.lat > GRID_LAT_MAX;
 
     if (p.age >= p.maxAge || oob) {
-      resetParticle(p, { viewport: spawnViewport, grid, gridMap, scatterAge: false });
+      resetParticle(p, { viewport: spawnViewport, grid, gridMap, random, scatterAge: false });
     }
   }
 }
@@ -717,6 +762,7 @@ interface SpawnOptions {
   viewport: Viewport;
   grid: WindGrid | null;
   gridMap: Map<string, number> | null;
+  random?: () => number;
   scatterAge?: boolean;
 }
 
@@ -740,12 +786,15 @@ export function spawnParticle(options: SpawnOptions): Particle {
 }
 
 // Starts a new life for `p` in place, keeping its trail buffers so respawns don't allocate.
-function resetParticle(p: Particle, { viewport, grid, gridMap, scatterAge = false }: SpawnOptions) {
+function resetParticle(
+  p: Particle,
+  { viewport, grid, gridMap, random = Math.random, scatterAge = false }: SpawnOptions,
+) {
   const [west, south, east, north] = viewport;
-  p.lng = west + Math.random() * (east - west);
-  p.lat = south + Math.random() * (north - south);
-  p.maxAge = MIN_AGE_MS + Math.random() * (MAX_AGE_MS - MIN_AGE_MS);
-  p.age = scatterAge ? Math.random() * p.maxAge : 0;
+  p.lng = west + random() * (east - west);
+  p.lat = south + random() * (north - south);
+  p.maxAge = MIN_AGE_MS + random() * (MAX_AGE_MS - MIN_AGE_MS);
+  p.age = scatterAge ? random() * p.maxAge : 0;
   p.pointCount = 0;
   p.color = sampleSpawnColor({ lng: p.lng, lat: p.lat, grid, gridMap });
 }
