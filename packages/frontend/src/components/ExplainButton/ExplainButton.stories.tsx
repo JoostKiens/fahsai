@@ -53,6 +53,8 @@ const meta = {
     className:
       'block w-full text-center text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded py-1.5 mt-1.5 transition-colors ease-out hover:duration-175',
   },
+  // An object of spies: its object control printed their source.
+  argTypes: { rateLimitControl: { control: false } },
   parameters: { msw: { handlers: [answerHandler] } },
   beforeEach: () => {
     useTimeStore.setState({ selectedDate: '2026-10-24' });
