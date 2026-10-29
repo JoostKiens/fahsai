@@ -258,6 +258,9 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 - Config in `prettier.config.js` at repo root
 - Single quotes, semicolons, trailing commas, 100 char print width
 - Run `pnpm format` before committing
+- Run Prettier from the repo root (`pnpm format`, or `pnpm exec prettier --write <files>`): it only
+  reads `.prettierignore` from the current directory, so running it on a directory from inside
+  `packages/frontend` reformats `sea-land-mask.json` and the Storybook fixtures
 - Never use loose equality (`==` / `!=`). Always use strict equality (`===` / `!==`).
   For null+undefined checks use `=== null || === undefined` or TypeScript narrowing.
 - `// eslint-disable-line react-hooks/exhaustive-deps` may be used sparingly. It must
