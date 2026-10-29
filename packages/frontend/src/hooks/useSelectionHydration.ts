@@ -24,9 +24,11 @@ export function useSelectionHydration() {
   // Subscribe to the three sources unconditionally so we get cache hits when a
   // peer component (MapView, InfoPanel) already mounted the same query. Power
   // plants are gated by `enabled`, so force-enable only while we need them.
-  const { data: stations } = useStationReadings();
-  const { data: fires } = useFires();
-  const { data: plants } = usePowerPlants(pendingSelection?.kind === 'plant');
+  const { data: stations, isError: stationsFailed } = useStationReadings();
+  const { data: fires, isError: firesFailed } = useFires();
+  const { data: plants, isError: plantsFailed } = usePowerPlants(
+    pendingSelection?.kind === 'plant',
+  );
 
   useEffect(() => {
     if (!pendingSelection) return;
@@ -42,6 +44,11 @@ export function useSelectionHydration() {
     };
 
     if (pendingSelection.kind === 'station') {
+      if (stationsFailed) {
+        // the failed query already told the user; there is nothing left to wait for
+        setPendingSelection(null);
+        return;
+      }
       if (!stations) return;
       const m = stations.find((s) => s.stationId === pendingSelection.id);
       if (!m) {
@@ -63,6 +70,11 @@ export function useSelectionHydration() {
     }
 
     if (pendingSelection.kind === 'fire') {
+      if (firesFailed) {
+        // the failed query already told the user; there is nothing left to wait for
+        setPendingSelection(null);
+        return;
+      }
       if (!fires) return;
       const idNum = Number(pendingSelection.id);
       const f = Number.isFinite(idNum) ? fires.find((x) => x.id === idNum) : undefined;
@@ -83,6 +95,11 @@ export function useSelectionHydration() {
     }
 
     if (pendingSelection.kind === 'plant') {
+      if (plantsFailed) {
+        // the failed query already told the user; there is nothing left to wait for
+        setPendingSelection(null);
+        return;
+      }
       if (!plants) return;
       const idNum = Number(pendingSelection.id);
       const feat = Number.isFinite(idNum)
@@ -110,8 +127,11 @@ export function useSelectionHydration() {
     pendingSelection,
     selectedPoint,
     stations,
+    stationsFailed,
     fires,
+    firesFailed,
     plants,
+    plantsFailed,
     setSelectedPoint,
     setPendingSelection,
     t,
