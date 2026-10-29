@@ -1,0 +1,15 @@
+diff --git a/packages/frontend/src/components/Map/camsCanvas.worker.ts b/packages/frontend/src/components/Map/camsCanvas.worker.ts
+index 832667e..5dd6988 100644
+--- a/packages/frontend/src/components/Map/camsCanvas.worker.ts
++++ b/packages/frontend/src/components/Map/camsCanvas.worker.ts
+@@ -36,8 +36,8 @@ self.onmessage = async (e: MessageEvent<{ data: PM25GridPoint[] }>) => {
+     Array<number | null>(AQ_LNG_COUNT).fill(null),
+   );
+   for (const pt of data) {
+-    const latIdx = Math.round((pt.lat - AQ_LAT_MIN) / AQ_STEP);
+-    const lngIdx = Math.round((pt.lng - AQ_LNG_MIN) / AQ_STEP);
++    const latIdx = Math.round((pt.lng - AQ_LNG_MIN) / AQ_STEP);
++    const lngIdx = Math.round((pt.lat - AQ_LAT_MIN) / AQ_STEP);
+     if (latIdx >= 0 && latIdx < AQ_LAT_COUNT && lngIdx >= 0 && lngIdx < AQ_LNG_COUNT) {
+       grid[latIdx][lngIdx] = pt.pm25;
+     }

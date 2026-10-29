@@ -23,19 +23,22 @@ export default defineConfig({
       {
         // Runs every story as a test in real Chromium; see `test:storybook`.
         extends: true,
-        // vitest.config.ts replaces vite.config.ts, so Tailwind must be re-added for stories to be styled.
+        // vitest.config.ts replaces vite.config.ts, so Tailwind must be re-added for stories to be
+        // styled.
         plugins: [
           tailwindcss(),
           storybookTest({ configDir: resolve(import.meta.dirname, '.storybook') }),
         ],
-        // Pre-bundle the map libraries: discovering them mid-run makes Vite reload and fail the
-        // first cold run.
+        // Pre-bundle the map and i18n libraries: discovering them mid-run makes Vite reload and
+        // fail the first cold run.
         optimizeDeps: {
           include: [
             '@deck.gl/core',
             '@deck.gl/extensions',
             '@deck.gl/geo-layers',
             '@deck.gl/layers',
+            'i18next',
+            'react-i18next',
             'supercluster',
           ],
         },
