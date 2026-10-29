@@ -1,3 +1,7 @@
 node_modules/
 dist/
 pnpm-lock.yaml
+
+# Committed minified; formatting them adds thousands of lines of noise.
+**/fixtures/**/*.json
+packages/frontend/src/components/Map/sea-land-mask.json

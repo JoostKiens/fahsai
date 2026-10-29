@@ -281,7 +281,11 @@ Most `ingest:*`/`backfill:*` commands above also have a `railway:*`-prefixed twi
 - Storybook (`packages/frontend/.storybook`): stories run as a second Vitest project
   (`storybook`, Playwright Chromium), local only, not in CI or the git hooks. The Storybook MCP
   (`.mcp.json`) tells agents to use its `test-run` tool instead of package.json test scripts;
-  `test-run` only covers stories, so still run `pnpm test` for unit tests
+  `test-run` only covers stories, so still run `pnpm test` for unit tests.
+  Never delete `node_modules/.cache/storybook` or `.vite` while a Storybook dev server is
+  running: it breaks that server (504 "Outdated Optimize Dep") until restarted. If a cold
+  `test:storybook` run fails with "Failed to fetch dynamically imported module", a newly used
+  dependency was optimised mid-run: add it to `optimizeDeps.include` in `vitest.config.ts`.
 - `.vscode/settings.json`: formatOnSave, eslint fixOnSave, rulers at 100
 
 ## Internationalisation (i18n)
@@ -291,6 +295,11 @@ Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
 **Whenever you add or rename a string in either file, update both files.** The keys in
 `en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
 this and will fail CI if they diverge.
+
+`src/i18n.ts` runs on import: it detects the language and may redirect to `/th/`. Keep it to
+setup only. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
+components must not import from `@/i18n`, or they can't render in Storybook or tests
+without that side effect.
 
 ---
 
