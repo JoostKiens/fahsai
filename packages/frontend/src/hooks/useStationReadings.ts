@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import { staleTimeForArray } from '@/utils/queryHelpers';
-
-const API = import.meta.env.VITE_API_BASE_URL;
+import { fetchApiData } from '@/lib/api';
 
 export interface LatestMeasurement {
   stationId: string;
@@ -15,17 +14,16 @@ export interface LatestMeasurement {
   measuredAt: string;
 }
 
+export function fetchStationReadings(date: string): Promise<LatestMeasurement[]> {
+  return fetchApiData<LatestMeasurement[]>(`/station-readings/latest?date=${date}`, 'aqi', []);
+}
+
 export function useStationReadings() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
     queryKey: ['aqi-latest', 'pm25', selectedDate],
-    queryFn: async () => {
-      const res = await fetch(`${API}/api/station-readings/latest?date=${selectedDate}`);
-      if (res.status === 404) return [];
-      if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
-      return ((await res.json()) as { data: LatestMeasurement[] }).data;
-    },
+    queryFn: () => fetchStationReadings(selectedDate),
     staleTime: staleTimeForArray,
     enabled: latestDateResolved,
   });

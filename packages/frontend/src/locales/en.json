@@ -129,6 +129,7 @@
   "toast.noWind": "No wind data for this date",
   "toast.noCams": "No ambient PM2.5 model data for this date",
   "toast.selectionNotFound": "Shared selection no longer available",
+  "toast.loadFailed": "Some data could not be loaded. Please try again later.",
   "infoPanel.prevDay": "Previous day",
   "infoPanel.prevDayDate": "Previous day, {{date}}",
   "infoPanel.nextDay": "Next day",

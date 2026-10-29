@@ -4,7 +4,7 @@ import { expect, fn } from 'storybook/test';
 import { useTimeStore } from '@/store/timeStore';
 import { ExplainButton } from './ExplainButton';
 
-// /api/explain is rate-limited and every call costs a Gemini request, so these responses are
+// /api/v1/explain is rate-limited and every call costs a Gemini request, so these responses are
 // written by hand in the format useExplain parses: a "__PROMPT__" debug line, then plain text
 // streamed in chunks (bold as **…**), with "[ERROR_JSON:{…}]" for a mid-stream failure.
 const EXPLANATION_CHUNKS = [
@@ -19,7 +19,7 @@ const RESET_IN_MS = 5 * 60_000;
 // The line a failed stream ends with (routes/explain.ts): the shared ApiError, as one line of JSON.
 const STREAM_ERROR_LINE = '\n[ERROR_JSON:{"error":"Explanation unavailable","code":"unavailable"}]';
 
-// The 429 body of POST /api/explain: the shared ApiError with the limit that was hit.
+// The 429 body of POST /api/v1/explain: the shared ApiError with the limit that was hit.
 const rateLimitBody = (reason: 'ip_ratelimit' | 'quota_exceeded') => ({
   error: 'Rate limit exceeded',
   code: 'rate_limited',
@@ -38,7 +38,7 @@ function streamOf(chunks: string[]) {
 }
 
 const answerHandler = http.post(
-  '*/api/explain',
+  '*/api/v1/explain',
   () => new HttpResponse(streamOf(EXPLANATION_CHUNKS)),
 );
 
@@ -86,7 +86,7 @@ export const StreamedAnswer: Story = {
 // The request never answers, so the button stays in its first loading state.
 export const Fetching: Story = {
   parameters: {
-    msw: { handlers: [http.post('*/api/explain', () => new Promise<never>(() => {}))] },
+    msw: { handlers: [http.post('*/api/v1/explain', () => new Promise<never>(() => {}))] },
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: "What's causing this?" }));
@@ -99,7 +99,7 @@ export const RateLimited: Story = {
   parameters: {
     msw: {
       handlers: [
-        http.post('*/api/explain', () =>
+        http.post('*/api/v1/explain', () =>
           HttpResponse.json(rateLimitBody('ip_ratelimit'), { status: 429 }),
         ),
       ],
@@ -122,7 +122,7 @@ export const DailyLimitReached: Story = {
   parameters: {
     msw: {
       handlers: [
-        http.post('*/api/explain', () =>
+        http.post('*/api/v1/explain', () =>
           HttpResponse.json(rateLimitBody('quota_exceeded'), { status: 429 }),
         ),
       ],
@@ -136,7 +136,9 @@ export const DailyLimitReached: Story = {
 
 export const Unavailable: Story = {
   parameters: {
-    msw: { handlers: [http.post('*/api/explain', () => new HttpResponse(null, { status: 500 }))] },
+    msw: {
+      handlers: [http.post('*/api/v1/explain', () => new HttpResponse(null, { status: 500 }))],
+    },
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: "What's causing this?" }));
@@ -153,7 +155,7 @@ export const FailsMidStream: Story = {
     msw: {
       handlers: [
         http.post(
-          '*/api/explain',
+          '*/api/v1/explain',
           () =>
             new HttpResponse(
               streamOf([EXPLANATION_CHUNKS[0], EXPLANATION_CHUNKS[1], STREAM_ERROR_LINE]),
@@ -179,7 +181,7 @@ export const FailsBeforeAnyText: Story = {
     msw: {
       handlers: [
         http.post(
-          '*/api/explain',
+          '*/api/v1/explain',
           () => new HttpResponse(streamOf([EXPLANATION_CHUNKS[0], STREAM_ERROR_LINE])),
         ),
       ],

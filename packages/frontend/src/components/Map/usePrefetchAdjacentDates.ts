@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { FirePoint, WindReading, PM25GridColumns, PM25GridPoint } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
-import type { LatestMeasurement } from '@/hooks';
+import { fetchFires } from '@/hooks/useFires';
+import { fetchStationReadings } from '@/hooks/useStationReadings';
+import { fetchCamsGrid } from '@/hooks/useCamsGrid';
+import { fetchWind } from '@/hooks/useWind';
+import { BACKGROUND_QUERY_META } from '@/lib/queryErrors';
 import { staleTimeForArray } from '@/utils/queryHelpers';
-import { parseCamsGridResponse } from '@/utils/camsColumns';
-
-const API = import.meta.env.VITE_API_BASE_URL;
 
 function shiftDate(date: string, days: number): string {
   const d = new Date(date);
@@ -28,46 +28,30 @@ export function usePrefetchAdjacentDates() {
 
       void queryClient.prefetchQuery({
         queryKey: ['fires', date],
-        queryFn: async () => {
-          const res = await fetch(`${API}/api/fires?date=${date}`);
-          if (res.status === 404) return [];
-          if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
-          return ((await res.json()) as { data: FirePoint[] }).data;
-        },
+        queryFn: () => fetchFires(date),
         staleTime: staleTimeForArray,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['aqi-latest', 'pm25', date],
-        queryFn: async () => {
-          const res = await fetch(`${API}/api/station-readings/latest?date=${date}`);
-          if (res.status === 404) return [];
-          if (!res.ok) throw new Error(`aqi fetch failed: ${res.status}`);
-          return ((await res.json()) as { data: LatestMeasurement[] }).data;
-        },
+        queryFn: () => fetchStationReadings(date),
         staleTime: staleTimeForArray,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['cams-grid', date],
-        queryFn: async () => {
-          const res = await fetch(`${API}/api/cams?date=${date}`);
-          if (res.status === 404) return [];
-          if (!res.ok) throw new Error(`cams grid fetch failed: ${res.status}`);
-          const { data } = (await res.json()) as { data: PM25GridColumns | PM25GridPoint[] };
-          return parseCamsGridResponse(data);
-        },
+        queryFn: () => fetchCamsGrid(date),
         staleTime: Infinity,
+        meta: BACKGROUND_QUERY_META,
       });
 
       void queryClient.prefetchQuery({
         queryKey: ['weather-wind', date],
-        queryFn: async () => {
-          const res = await fetch(`${API}/api/weather/wind?date=${date}`);
-          if (!res.ok) throw new Error(`wind fetch failed: ${res.status}`);
-          return ((await res.json()) as { data: WindReading[] }).data;
-        },
+        queryFn: () => fetchWind(date),
         staleTime: Infinity,
+        meta: BACKGROUND_QUERY_META,
       });
     }
   }, [queryClient, selectedDate, latestDate, latestDateResolved]);

@@ -34,7 +34,7 @@ const FIRE: SelectedPoint = {
   fire: { id: 2063404, frp: 3.46, confidence: 'n', detectedAt: '2026-10-24T07:22:00+00:00' },
 };
 
-// From /api/power-plants (WRI Global Power Plant Database).
+// From /api/v1/power-plants (WRI Global Power Plant Database).
 const MAE_MAH: SelectedPoint = {
   lngLat: [99.7499, 18.2963],
   powerPlant: {
@@ -66,11 +66,11 @@ function geocodeFor(lng: number) {
 }
 
 const handlers = [
-  http.get('*/api/station-readings/latest', () => HttpResponse.json(stationReadings)),
-  http.get('*/api/weather/wind', () => HttpResponse.json(windResponse)),
-  http.get('*/api/stations/:id/history', () => HttpResponse.json(historySaraphi)),
-  http.get('*/api/stations/:id/baseline', () => HttpResponse.json(baselineSaraphi)),
-  http.get('*/api/cams/nearest', ({ request }) => {
+  http.get('*/api/v1/station-readings/latest', () => HttpResponse.json(stationReadings)),
+  http.get('*/api/v1/weather/wind', () => HttpResponse.json(windResponse)),
+  http.get('*/api/v1/stations/:id/history', () => HttpResponse.json(historySaraphi)),
+  http.get('*/api/v1/stations/:id/baseline', () => HttpResponse.json(baselineSaraphi)),
+  http.get('*/api/v1/cams/nearest', ({ request }) => {
     const lng = Number(new URL(request.url).searchParams.get('lng'));
     // The nearest CAMS cells to the fire and to Mae Mah.
     const point =

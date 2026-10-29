@@ -2,20 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import type { FirePoint } from '@thailand-aq/types';
 import { staleTimeForArray } from '@/utils/queryHelpers';
+import { fetchApiData } from '@/lib/api';
 
-const API = import.meta.env.VITE_API_BASE_URL;
+export function fetchFires(date: string): Promise<FirePoint[]> {
+  return fetchApiData<FirePoint[]>(`/fires?date=${date}`, 'fires', []);
+}
 
 export function useFires() {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
     queryKey: ['fires', selectedDate],
-    queryFn: async () => {
-      const res = await fetch(`${API}/api/fires?date=${selectedDate}`);
-      if (res.status === 404) return [];
-      if (!res.ok) throw new Error(`fires fetch failed: ${res.status}`);
-      return ((await res.json()) as { data: FirePoint[] }).data;
-    },
+    queryFn: () => fetchFires(selectedDate),
     staleTime: staleTimeForArray,
     enabled: latestDateResolved,
   });
