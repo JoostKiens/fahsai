@@ -264,6 +264,12 @@ Stories live next to their component (`Foo.stories.tsx`) and run as tests via
   options the app actually passes. `.storybook/preview.tsx` turns any arg ending in `Date` into
   a date picker that passes a timestamp; `'YYYY-MM-DD'` string props need
   `control: 'text'`.
+- **Stores** are reset to their initial state before every story (`.storybook/preview.tsx`).
+  A story that needs other state sets it in its own `beforeEach`, e.g.
+  `useUIStore.setState({ selectedPoint: … })`; read the store in the play function to check
+  what an interaction changed.
+- **Language:** the toolbar's Language switch sets i18next for any story; a Thai variant sets
+  `globals: { locale: 'th' }`.
 - **Expected colours are literals**, not values from `aqiColors`, so a broken scale can't
   change both sides of the check.
 - **Portalled UI** (`BottomSheet`, tooltips) renders outside the canvas: query it with
