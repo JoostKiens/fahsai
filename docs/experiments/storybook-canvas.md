@@ -5,7 +5,7 @@ interaction and accessibility tests can't see inside `<canvas>`, so a self-check
 map is visibly wrong. This log records the setup, the gap, and the checks that close it, including
 the parts that didn't work.
 
-**Versions:** Storybook 10.6.5 · deck.gl 9.4 · React 19.3 · Vite 8.3 · Vitest 5.0.3 ·
+**Versions:** Storybook 10.6.5 · deck.gl 9.4.0 (luma.gl 9.4.2) · React 19.3 · Vite 8.3 · Vitest 5.0.3 ·
 Playwright 1.64.1 (Chromium for Testing 156)
 
 ## Phase 1: agent-driven setup
@@ -53,8 +53,45 @@ It detected that it was running in Claude Code ("Proceeding with agentic install
 
 ## Phase 2–3: determinism
 
-- What made output non-deterministic, and the fix for each:
-- Render-ready approach used:
+**Fixture day: 2026-10-24, not 2026-04-17.** The production API returns 404 for all three layers
+on 17 April: `prune` keeps 140 days (`RETENTION_DAYS`), so nothing before ~11 June 2026 exists.
+Scanned every day still stored (fires via `/api/fires/range`):
+
+- 2026-09-15 had the most fires (1,941), but 1,867 sit in one 2° cell offshore of southern
+  Vietnam (≈8°N 106°E), likely gas flares. A misleading picture of "fire activity"; rejected.
+- 2026-10-24 has 556 fires, mostly north of 14°N, and a usable PM2.5 contrast: 0.4–83 µg/m³
+  (median 8.6), highest in the north-west corner of the grid (≈27°N 95°E).
+
+The snapshots are the raw API responses, minified (`cams` 98 KB, `fires` 72 KB, `wind` 320 KB)
+under `src/components/Map/story-harness/fixtures/2026-10-24/`. Stories run them through the
+app's own parsers (`parseCamsGridResponse`). Committing them matters more than planned: the
+data will be pruned from production too.
+
+- **What made output non-deterministic, and the fix for each:**
+  - *Mapbox basemap* (token, network tiles): not used. `DeckHarness` runs a standalone `Deck`
+    on a plain `bg-zinc-900` background.
+  - *Viewport / device pixel ratio*: fixed 800×600 canvas, fixed `viewState`
+    (101.4°E 15.4°N, zoom 4), `useDevicePixels: 1`.
+  - *Live data*: committed fixtures passed as props; no TanStack Query or fetch in the stories.
+  - *Readback*: `deviceProps.webgl.preserveDrawingBuffer: true`. Already the deck.gl v9 default,
+    set explicitly because the probes depend on it.
+  - CAMS and fires needed nothing else. Two loads of each story in fresh headless Chromium
+    pages give **0 differing pixels** (CAMS 167,014 drawn px; fires 4,073). WebGL renderer:
+    `ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device …))`, i.e. software rendering.
+  - *Not output, but test flakiness*: the first cold `test:storybook` run failed because Vite
+    discovered deck.gl mid-run and reloaded. Fixed with `optimizeDeps.include` in the
+    storybook Vitest project.
+- **Render-ready approach used:** `DeckHarness` takes `layers: Layer[] | null` (`null` = story
+  data not ready, e.g. the CAMS worker hasn't returned its bitmap). On every `onAfterRender`
+  it sets `data-render-ready` to whether layers are set and every layer's `isLoaded` is true;
+  any `layers` change resets it to `false`. `layerManager` is protected in deck.gl 9.4, so it
+  checks the layer instances it passed in (deck.gl keeps those instances after diffing).
+  `waitForRenderReady(canvasElement)` polls for it (10 s default) and returns the `Deck` for
+  probes and picking. On timeout it says why: no harness, `layers` still `null`, which layers
+  are loading, or "loaded but no frame since". Both canvas stories await it in `play`.
+- **Note for Phase 5:** the PM2.5 bitmap is drawn at `HEATMAP_ALPHA` 55/255 over a dark
+  background, so ramp colours come out dark and close together. Probes must compute the
+  expected colour after blending, not compare against raw ramp hex values.
 
 ## Phase 4: the gap
 
