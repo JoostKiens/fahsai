@@ -230,10 +230,12 @@ The prune job deletes rows older than **140 days** (uniform across all tables it
 
 Basis: the 120-day max scrubber window (`MAX_DAYS` in `uiStore.ts`) + a 7-day buffer for the Explain
 feature's measurement history + a timezone/prune-timing buffer is roughly 130 days. Retention is
-set to 140 for history margin. At the current per-table growth rate (~2.98 MB/day
-across the five retention-scaling tables, measured against a live ~400 MB / 120-day baseline),
-140 days projects to roughly **0.46 GB** of Supabase's 0.5 GB free-tier limit — about a 40 MB
-buffer. `fire_points` is the only strongly seasonal table, while the grids (`weather_readings`,
-`cams_grid`) scale linearly per day. This is close to the practical ceiling for the free tier;
-going materially higher risks read-only mode and requires either Supabase Pro or migrating off
-the 500 MB cap entirely.
+set to 140 for history margin.
+
+Measured on 2026-10-30, at 95% of Supabase's 0.5 GB free-tier limit (477 MB) before dropping
+~65 MB of redundant indexes: the grids (`weather_readings` 152 MB, `cams_grid` 86 MB) are at
+steady state (4,599 points × 140 days ≈ 644K rows each), so they no longer grow. `fire_points`
+is the only strongly seasonal table: 98 MB for 33K off-season rows, because Postgres keeps the
+pages from the last burning-season peak for reuse instead of returning them. A burning season
+bigger than that peak is the main growth risk; above 500 MB the database goes read-only (see
+`docs/claude/costs.md`).
