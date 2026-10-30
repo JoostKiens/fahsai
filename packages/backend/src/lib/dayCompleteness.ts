@@ -14,28 +14,38 @@ export type DayCompleteness = {
 // the newest complete day, and the pipeline-health job, which alerts when yesterday isn't.
 // No fires gate: 0 detections is a valid day (rain, cloud cover), and both fires runs
 // (10:00, 23:00 UTC) finish before cams/station_readings land at ~23:30 UTC anyway.
+// Throws when a count query fails: a database error must not read as "no data yet".
 export async function checkDayCompleteness(date: string): Promise<DayCompleteness> {
-  const [camsResult, readingsResult, weatherResult] = await Promise.all([
-    supabase.from('cams_grid').select('*', { count: 'exact', head: true }).eq('date', date),
-    supabase
-      .from('station_readings')
-      .select('*', { count: 'exact', head: true })
-      .gte('measured_at', bangkokMidnightIso(date))
-      .lt('measured_at', bangkokMidnightIso(offsetDate(date, 1))),
-    supabase.from('weather_readings').select('*', { count: 'exact', head: true }).eq('date', date),
+  const [camsGrid, stationReadings, weatherReadings] = await Promise.all([
+    countRows('cams_grid', supabase.from('cams_grid').select('*', HEAD_COUNT).eq('date', date)),
+    countRows(
+      'station_readings',
+      supabase
+        .from('station_readings')
+        .select('*', HEAD_COUNT)
+        .gte('measured_at', bangkokMidnightIso(date))
+        .lt('measured_at', bangkokMidnightIso(offsetDate(date, 1))),
+    ),
+    countRows(
+      'weather_readings',
+      supabase.from('weather_readings').select('*', HEAD_COUNT).eq('date', date),
+    ),
   ]);
-
-  const counts = {
-    camsGrid: camsResult.count ?? 0,
-    stationReadings: readingsResult.count ?? 0,
-    weatherReadings: weatherResult.count ?? 0,
-  };
 
   return {
     isComplete:
-      counts.camsGrid >= CAMS_GRID_MIN_ROWS &&
-      counts.stationReadings >= 1 &&
-      counts.weatherReadings >= WEATHER_MIN_ROWS,
-    counts,
+      camsGrid >= CAMS_GRID_MIN_ROWS && stationReadings >= 1 && weatherReadings >= WEATHER_MIN_ROWS,
+    counts: { camsGrid, stationReadings, weatherReadings },
   };
+}
+
+const HEAD_COUNT = { count: 'exact', head: true } as const;
+
+async function countRows(
+  table: string,
+  query: PromiseLike<{ count: number | null; error: { message: string } | null }>,
+): Promise<number> {
+  const { count, error } = await query;
+  if (error) throw new Error(`${table} count failed: ${error.message}`);
+  return count ?? 0;
 }
