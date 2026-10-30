@@ -139,7 +139,8 @@ working in a file, mention it rather than fixing it silently.
   `ratelimit:explain`) and `explainContextRatelimit` for `GET /api/explain/context`
   (sliding window, 20 req/min, prefix `ratelimit:explain-context`); Upstash errors
   fail open so legitimate users are never blocked by infrastructure issues
-- Upstash Redis (hot cache), Supabase (Postgres)
+- Upstash Redis (hot cache), Supabase (Postgres). Cache access goes through `cache/safe.ts`
+  (`cacheGet`/`cacheSet`/`cacheDel`), which never throw: a Redis failure falls back to Supabase
 - `@google/generative-ai` (Gemini, powers `/api/explain`), `p-retry` (backfill/ingest
   retries), `pino` (structured logging), Rollbar (error tracking), `csv-parse`
   (power plant CSV ingest), `@turf/boolean-point-in-polygon` (geo classification)
