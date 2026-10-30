@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { describeFetchError } from '../utils/fetchError.js';
 import { supabase } from '../db/client.js';
-import { redis } from '../cache/client.js';
+import { cacheDel } from '../cache/safe.js';
 import { fetchFirms, FirmsHttpError } from '../utils/firms.js';
 import { reportWarning } from '../lib/rollbar.js';
 
@@ -93,7 +93,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
   // Invalidate rather than set: the fires route paginates and applies bbox filtering before
   // caching, so the cached value is not the raw upserted rows. Deleting the key lets the
   // route repopulate with the correct shape on the next request.
-  await redis.del(`fires:date:${targetDate}`);
+  await cacheDel(`fires:date:${targetDate}`);
 
   console.log(`[fires-ingest] Inserted ${inserted} of ${records.length} rows (duplicates skipped)`);
   return { inserted };

@@ -8,6 +8,7 @@ try {
   const date = process.argv[2] === '--today' ? undefined : process.argv[2];
   const result = await runStationReadingsIngest(date);
   console.log('[station-readings-ingest] done', result);
+  await waitForRollbar();
   process.exit(0);
 } catch (err) {
   reportError(err);

@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import pRetry, { AbortError } from 'p-retry';
 import { supabase } from '../db/client.js';
-import { redis } from '../cache/client.js';
+import { cacheDel } from '../cache/safe.js';
 import { fetchSensorDailyAverage } from '../utils/openaq.js';
 import { getYesterdayBkk } from '../utils/bkkDate.js';
 import { fetchAllPages } from '../utils/backfill.js';
@@ -173,10 +173,10 @@ export async function runStationReadingsIngest(date?: string): Promise<{
   // does not compute — it only has raw measurement rows. Deleting the keys lets the route
   // repopulate with the correct shape on the next request.
   // Only invalidate pm25 — that is the only parameter this job ingests.
-  await Promise.all([
-    redis.del(`station-readings:latest:pm25:current`),
-    redis.del(`station-readings:latest:pm25:${targetDate}`),
-  ]);
+  await cacheDel(
+    `station-readings:latest:pm25:current`,
+    `station-readings:latest:pm25:${targetDate}`,
+  );
 
   const failedRatio = sensorsFailed / sensorsQueried;
   console.log(

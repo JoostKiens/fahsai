@@ -1,6 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { describeFetchError } from '../utils/fetchError.js';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
@@ -125,8 +126,8 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
       wind_direction_deg: r.wind_direction_deg,
     }));
     await Promise.all([
-      redis.set(weatherCacheKey(targetDate), readings, { ex: HISTORICAL_TTL_SECONDS }),
-      redis.set(windCacheKey(targetDate), windReadings, { ex: HISTORICAL_TTL_SECONDS }),
+      cacheSet(weatherCacheKey(targetDate), readings, { ex: HISTORICAL_TTL_SECONDS }),
+      cacheSet(windCacheKey(targetDate), windReadings, { ex: HISTORICAL_TTL_SECONDS }),
     ]);
     console.log(
       `[weather-ingest] Stored in Redis as weather:${targetDate} and weather:wind:${targetDate} (TTL 7d)`,
