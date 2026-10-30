@@ -18,7 +18,8 @@ All alerts go to **dev@joostkiens.com**.
 
 ## Headroom on 2026-10-30
 
-- Supabase database: **477 / 500 MB (95%)**. This is the nearest limit; see JOO-81.
+- Supabase database: ~413 / 500 MB (~83%) after dropping redundant indexes (was 95%). Still the
+  nearest limit; see JOO-81.
 - Railway: $1.11 of the $5 included usage this cycle.
 - Vercel: 1.64 / 100 GB Fast Data Transfer, 251 MB / 10 GB Fast Origin Transfer.
 - Upstash: 6K commands, $0.02 this cycle.

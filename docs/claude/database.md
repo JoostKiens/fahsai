@@ -230,10 +230,11 @@ Basis: the 120-day max scrubber window (`MAX_DAYS` in `uiStore.ts`) + a 7-day bu
 feature's measurement history + a timezone/prune-timing buffer is roughly 130 days. Retention is
 set to 140 for history margin.
 
-Measured on 2026-10-30, at 95% of Supabase's 0.5 GB free-tier limit (477 MB) before dropping
-~65 MB of redundant indexes: the grids (`weather_readings` 152 MB, `cams_grid` 86 MB) are at
-steady state (4,599 points × 140 days ≈ 644K rows each), so they no longer grow. `fire_points`
-is the only strongly seasonal table: 98 MB for 33K off-season rows, because Postgres keeps the
+Measured on 2026-10-30, after dropping 64 MB of redundant indexes (95% → ~83% of Supabase's
+0.5 GB free-tier limit; `pg_database_size` reads 376 MB, the dashboard ~37 MB more): the grids
+(`weather_readings` 103 MB, `cams_grid` 80 MB) are at steady state (4,599 points × 140 days ≈
+644K rows each), so they no longer grow. `fire_points` is the only strongly seasonal table:
+89 MB for 33K off-season rows, because Postgres keeps the
 pages from the last burning-season peak for reuse instead of returning them. A burning season
 bigger than that peak is the main growth risk; above 500 MB the database goes read-only (see
 `docs/claude/costs.md`).
