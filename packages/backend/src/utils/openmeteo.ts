@@ -311,6 +311,20 @@ async function fetchAQBatch(
     .filter((p): p is PM25GridPoint => p !== null);
 }
 
+// undici wraps the socket error in `cause`; with IPv4+IPv6 (happy eyeballs) that is an
+// AggregateError holding one error per address tried. Lists "address code" for each.
+export function describeConnectError(err: unknown): string {
+  const cause = (err as { cause?: unknown }).cause;
+  if (!(cause instanceof Error)) return 'no cause';
+  const errors = cause instanceof AggregateError ? (cause.errors as unknown[]) : [cause];
+  return errors
+    .map((e) => {
+      const { address, code } = e as { address?: string; code?: string };
+      return `${address ?? '?'} ${code ?? (e as Error).message}`;
+    })
+    .join(', ');
+}
+
 export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]> {
   // Build flat list of all grid points
   const allLats: number[] = [];
@@ -353,6 +367,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
     const chunkResults = await Promise.all(
       chunk.map(async (b) => {
         for (let attempt = 0; attempt <= AQ_BATCH_CONNECT_RETRIES; attempt++) {
+          const startedAt = Date.now();
           try {
             return await fetchAQBatch(b.lats, b.lngs, date);
           } catch (err) {
@@ -363,7 +378,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
                 (err as { name?: string }).name === 'TimeoutError');
             if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
             console.warn(
-              `[openmeteo] batch ${i} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
+              `[openmeteo] batch ${i} connection error after ${Date.now() - startedAt}ms [${describeConnectError(err)}] (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
             );
             await sleep(AQ_BATCH_CONNECT_RETRY_DELAY_MS);
           }
