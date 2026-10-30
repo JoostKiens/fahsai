@@ -7,7 +7,7 @@ describe('stationCountryIso3', () => {
     expect(stationCountryIso3('LA', 'THA')).toBe('THA');
   });
 
-  it('falls back to the stored country while the geocode is missing', () => {
+  it('falls back to the stored country when the geocode has no country', () => {
     expect(stationCountryIso3('TH', null)).toBe('THA');
   });
 

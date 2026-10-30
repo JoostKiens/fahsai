@@ -22,8 +22,8 @@ export function alpha2ToIso3(alpha2: string): string | null {
 
 /**
  * The geocoded country wins because it matches the place name shown beside the flag. OpenAQ's
- * stored code is wrong for some border stations, so it is only the fallback while the geocode
- * loads or after it fails.
+ * stored code is wrong for some border stations, so it is only the fallback when the geocode
+ * finds a place but no country we have a flag for.
  */
 export function stationCountryIso3(
   storedAlpha2: string | null | undefined,

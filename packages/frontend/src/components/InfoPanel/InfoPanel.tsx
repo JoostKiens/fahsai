@@ -64,12 +64,20 @@ export function InfoPanel() {
     setPlaceName(null);
     setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
+    // A slow response for a previous selection must not overwrite the current one's name and flag.
+    let isCurrent = true;
     void reverseGeocode(lng, lat, TOKEN, i18n.language)
       .then(({ placeName: name, countryAlpha2 }) => {
+        if (!isCurrent) return;
         setPlaceName(name);
         setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
       })
-      .finally(() => setGeocodeLoading(false));
+      .finally(() => {
+        if (isCurrent) setGeocodeLoading(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [coordKey, i18n.language]);
 
   const stationId = selectedPoint?.station?.stationId ?? null;
