@@ -73,11 +73,15 @@ async function ipRateLimitResetMs({
 
 // Counts this request against today's global quota. Fails open like the IP limit: Gemini is on the
 // free tier, so a Redis outage letting extra requests through costs nothing, and Gemini's own 429
-// still caps usage.
+// still caps usage. INCR and EXPIRE run in one transaction so a failure between them can't leave
+// the key without a TTL.
 async function dailyQuotaCount(quotaKey: string, log: FastifyBaseLogger): Promise<number> {
   try {
-    const count = await redis.incr(quotaKey);
-    if (count === 1) await redis.expire(quotaKey, 86400);
+    const [count] = await redis
+      .multi()
+      .incr(quotaKey)
+      .expire(quotaKey, 86400)
+      .exec<[number, number]>();
     return count;
   } catch (err) {
     log.error({ err }, 'daily quota: Upstash error — failing open');
