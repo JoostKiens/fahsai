@@ -328,24 +328,6 @@ ALTER TABLE ONLY "public"."weather_readings"
     ADD CONSTRAINT "weather_readings_pkey" PRIMARY KEY ("date", "lat", "lng");
 
 --
--- Name: cams_grid_date_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "cams_grid_date_idx" ON "public"."cams_grid" USING "btree" ("date");
-
---
--- Name: fire_points_confidence_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "fire_points_confidence_idx" ON "public"."fire_points" USING "btree" ("confidence");
-
---
--- Name: fire_points_detected_at_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "fire_points_detected_at_idx" ON "public"."fire_points" USING "btree" ("detected_at");
-
---
 -- Name: fire_points_detected_at_lat_lng_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -398,18 +380,6 @@ CREATE INDEX "stations_lat_idx" ON "public"."stations" USING "btree" ("lat");
 --
 
 CREATE INDEX "stations_lng_idx" ON "public"."stations" USING "btree" ("lng");
-
---
--- Name: weather_readings_date_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "weather_readings_date_idx" ON "public"."weather_readings" USING "btree" ("date");
-
---
--- Name: weather_readings_lat_lng_date_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX "weather_readings_lat_lng_date_idx" ON "public"."weather_readings" USING "btree" ("lat", "lng", "date");
 
 --
 -- Name: station_baseline station_baseline_station_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
