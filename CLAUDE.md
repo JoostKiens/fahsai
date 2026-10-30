@@ -24,6 +24,8 @@ simplicity and correctness over premature optimization.
 - Rollbar error tracking (what's captured, env vars, ErrorBoundary): `docs/claude/rollbar.md`
 - Costs, spending caps, behaviour at cap per service: `docs/claude/costs.md`
 - Use cases (researchers, journalists, policymakers, NGOs): `docs/use-cases.md`
+- Human-facing overview and decision records: `docs/architecture.md`, `docs/adr/` (add an ADR
+  when a change makes a decision a future reader would otherwise question)
 
 ---
 
