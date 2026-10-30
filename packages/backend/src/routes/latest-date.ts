@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { MS_PER_DAY } from '@thailand-aq/consts';
-import { redis } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { bangkokDateString, bangkokMidnightIso } from '../utils/bkkDate.js';
 import { DateString, errorResponses } from '../schemas/common.js';
@@ -28,7 +28,7 @@ export function latestDateRoutes(app: FastifyInstance): void {
     async (_req, reply) => {
       const CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=60';
 
-      const cached = await redis.get<string>(CACHE_KEY);
+      const cached = await cacheGet<string>(CACHE_KEY);
       if (cached) return reply.header('Cache-Control', CACHE_CONTROL).send({ date: cached });
 
       const now = Date.now();
@@ -59,7 +59,7 @@ export function latestDateRoutes(app: FastifyInstance): void {
           (measResult.count ?? 0) >= 1 &&
           (windResult.count ?? 0) >= WIND_MIN_ROWS
         ) {
-          await redis.set(CACHE_KEY, date, { ex: CACHE_TTL_SECONDS });
+          await cacheSet(CACHE_KEY, date, { ex: CACHE_TTL_SECONDS });
           return reply.header('Cache-Control', CACHE_CONTROL).send({ date });
         }
       }

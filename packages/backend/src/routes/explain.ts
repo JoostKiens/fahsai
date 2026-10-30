@@ -3,6 +3,7 @@ import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { redis } from '../cache/client.js';
 import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { explainRatelimit, explainContextRatelimit } from '../cache/ratelimit.js';
 import { reportError, reportWarning } from '../lib/rollbar.js';
 import { classifyGeminiError, formatStreamError } from '../lib/gemini-error.js';
@@ -144,7 +145,7 @@ export function explainRoutes(app: FastifyInstance): void {
       const normalizedLang = lang === 'th' ? 'th' : 'en';
 
       if (EXPLAIN_CACHE_ENABLED) {
-        const cached = await redis.get<string>(
+        const cached = await cacheGet<string>(
           explainCacheKey(stationId, selectedDate, normalizedLang),
         );
         if (cached) {
@@ -212,7 +213,7 @@ export function explainRoutes(app: FastifyInstance): void {
       reply.raw.end();
 
       if (EXPLAIN_CACHE_ENABLED && accumulatedForCache && selectedDate !== todayBkk) {
-        void redis.set(
+        void cacheSet(
           explainCacheKey(stationId, selectedDate, normalizedLang),
           accumulatedForCache,
           { ex: HISTORICAL_TTL_SECONDS },

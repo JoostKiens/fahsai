@@ -4,7 +4,8 @@ import type { BaselineStat, BaselineRow } from '@thailand-aq/types';
 import { mapBaselineRow } from '@thailand-aq/types';
 import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
-import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { forEachPage } from '../utils/backfill.js';
 import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
@@ -60,7 +61,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       const cacheKey = `station-readings:latest:pm25:${date ?? 'current'}`;
 
       if (isDefaultBbox) {
-        const cached = await redis.get<LatestMeasurement[]>(cacheKey);
+        const cached = await cacheGet<LatestMeasurement[]>(cacheKey);
         if (cached !== null && cached.length > 0)
           return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
       }
@@ -139,7 +140,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       }
 
       if (isDefaultBbox) {
-        await redis.set(cacheKey, latest, { ex: HISTORICAL_TTL_SECONDS });
+        await cacheSet(cacheKey, latest, { ex: HISTORICAL_TTL_SECONDS });
       }
 
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: latest });

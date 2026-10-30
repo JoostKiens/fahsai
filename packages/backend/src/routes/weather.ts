@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { WeatherReading, WindReading } from '@thailand-aq/types';
-import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { parseBbox } from '../utils/bbox.js';
 import { weatherCacheKey, windCacheKey } from '../jobs/weather-ingest.js';
@@ -61,7 +62,7 @@ export function weatherRoutes(app: FastifyInstance): void {
       const { date, bbox: rawBbox } = req.query;
 
       const cacheKey = windCacheKey(date);
-      let readings = await redis.get<WindReading[]>(cacheKey);
+      let readings = await cacheGet<WindReading[]>(cacheKey);
 
       if (!readings?.length || readings.length < 4000) {
         readings = await fetchWindFromDb(date);
@@ -74,7 +75,7 @@ export function weatherRoutes(app: FastifyInstance): void {
         }
 
         if (readings.length >= MIN_COMPLETE_POINTS) {
-          await redis.set(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
+          await cacheSet(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
         }
       }
 
@@ -106,7 +107,7 @@ export function weatherRoutes(app: FastifyInstance): void {
     async (req, reply) => {
       const { date, bbox: rawBbox } = req.query;
 
-      let readings = await redis.get<WeatherReading[]>(weatherCacheKey(date));
+      let readings = await cacheGet<WeatherReading[]>(weatherCacheKey(date));
 
       if (!readings?.length || readings.length < 4000) {
         readings = await fetchWeatherFromDb(date);
@@ -119,7 +120,7 @@ export function weatherRoutes(app: FastifyInstance): void {
         }
 
         if (readings.length >= MIN_COMPLETE_POINTS) {
-          await redis.set(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
+          await cacheSet(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
         }
       }
 

@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { FirePoint } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
-import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { parseBbox, DEFAULT_BBOX } from '../utils/bbox.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { bangkokMidnightIso } from '../utils/bkkDate.js';
@@ -37,7 +38,7 @@ export function firesRoutes(app: FastifyInstance): void {
 
       // Redis cache — only for default bbox requests
       if (isDefaultBbox) {
-        const cached = await redis.get<FirePoint[]>(`fires:date:${date}`);
+        const cached = await cacheGet<FirePoint[]>(`fires:date:${date}`);
         if (cached !== null && cached.length > 0)
           return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: cached });
       }
@@ -49,7 +50,7 @@ export function firesRoutes(app: FastifyInstance): void {
       }
 
       if (isDefaultBbox) {
-        await redis.set(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
+        await cacheSet(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
       }
 
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
