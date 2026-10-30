@@ -102,7 +102,16 @@ export default defineRailway(() => {
     env: sharedEnv,
   });
 
+  // After the last ingest touching yesterday's data (baseline, 04:40 UTC).
+  const pipelineHealth = service("pipeline-health", {
+    source: fahsai,
+    start: "pnpm --filter backend run railway:pipeline-health",
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    deploy: { cronSchedule: "0 6 * * *", restartPolicyType: "NEVER" },
+    env: { ...sharedEnv, API_BASE_URL: preserve(), HEALTHCHECK_PING_URL: preserve() },
+  });
+
   return project("fahsai", {
-    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams],
+    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams, pipelineHealth],
   });
 });
