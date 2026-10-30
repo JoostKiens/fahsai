@@ -42,7 +42,7 @@ All errors are the `ApiError` shape (`{ error, code, reason?, resetAtMs? }`, see
 - 404 `not_found`: unknown station.
 - 429 `rate_limited` with `reason: 'ip_ratelimit'` (the per-IP limits above) or
   `reason: 'quota_exceeded'` (450 explanations a day, resetting at Bangkok midnight), plus
-  `resetAtMs`.
+  `resetAtMs`. Both fail open on an Upstash error, since Gemini's free tier can't bill.
 - 503 `unavailable`: no `GEMINI_API_KEY` configured.
 
 **After the stream has started** the HTTP status is already 200 and the response is hijacked, so a

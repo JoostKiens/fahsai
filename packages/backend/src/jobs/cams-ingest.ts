@@ -1,6 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { describeFetchError } from '../utils/fetchError.js';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { fetchAirQualityGrid, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
@@ -89,10 +90,14 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
   // Redis. Supabase accumulates partial rows above so subsequent ingests can reach the
   // full 4,599 points even when Redis is skipped.
   if (points.length >= MIN_COMPLETE_POINTS) {
-    await redis.set(`cams:pm25:${targetDate}`, points, { ex: HISTORICAL_TTL_SECONDS });
-    console.log(
-      `[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL ${HISTORICAL_TTL_SECONDS})`,
-    );
+    const isCached = await cacheReplace(`cams:pm25:${targetDate}`, points, {
+      ex: HISTORICAL_TTL_SECONDS,
+    });
+    if (isCached) {
+      console.log(
+        `[cams-ingest] Stored in Redis as cams:pm25:${targetDate} (TTL ${HISTORICAL_TTL_SECONDS})`,
+      );
+    }
 
     // Pre-compute the daily p95 that powers the scrubber timeline chart. Gated on a complete
     // grid so a rate-limited partial ingest never produces a misleading percentile.

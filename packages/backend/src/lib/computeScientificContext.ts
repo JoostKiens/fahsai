@@ -1,5 +1,6 @@
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import regions from '../data/geo-regions.json' with { type: 'json' };
 import { URBAN_SOURCES } from '../data/urbanSources.js';
@@ -76,12 +77,8 @@ export async function computeScientificContext(
   const isToday = date === bangkokDateString();
 
   if (!isToday) {
-    try {
-      const cached = await redis.get<ScientificContext>(contextCacheKey(stationId, date));
-      if (cached) return cached;
-    } catch (err) {
-      logger.warn({ err }, 'computeScientificContext: Redis cache read failed, recomputing');
-    }
+    const cached = await cacheGet<ScientificContext>(contextCacheKey(stationId, date));
+    if (cached) return cached;
   }
 
   // ----------------------------------------------------------------
@@ -453,13 +450,7 @@ export async function computeScientificContext(
   // Don't persist a result built from a degraded fire query — a transient outage
   // would otherwise get baked into the cache for HISTORICAL_TTL_SECONDS.
   if (!isToday && !fireQueryFailed) {
-    try {
-      await redis.set(contextCacheKey(stationId, date), scientificCtx, {
-        ex: HISTORICAL_TTL_SECONDS,
-      });
-    } catch (err) {
-      logger.warn({ err }, 'computeScientificContext: Redis cache write failed');
-    }
+    await cacheSet(contextCacheKey(stationId, date), scientificCtx, { ex: HISTORICAL_TTL_SECONDS });
   }
 
   return scientificCtx;

@@ -1,5 +1,5 @@
 import { supabase } from '../db/client.js';
-import { redis } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { offsetDate } from '../utils/trajectory.js';
 import { fetchAllPages } from '../utils/backfill.js';
@@ -53,12 +53,12 @@ export interface ExplainContext {
 }
 
 async function getCachedGrid<T>(cacheKey: string, fetch: () => Promise<T[]>): Promise<T[]> {
-  const cached = await redis.get<T[]>(cacheKey);
+  const cached = await cacheGet<T[]>(cacheKey);
   if (cached && cached.length >= GRID_MIN_COMPLETE) return cached;
 
   const all = await fetch();
   if (!all.length) return [];
-  void redis.set(cacheKey, all, { ex: HISTORICAL_TTL_SECONDS });
+  void cacheSet(cacheKey, all, { ex: HISTORICAL_TTL_SECONDS });
   return all;
 }
 

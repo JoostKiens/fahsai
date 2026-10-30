@@ -4,6 +4,7 @@ import { reportError, waitForRollbar } from '../lib/rollbar.js';
 try {
   const result = await runCamsIngest(process.argv[2]);
   console.log('[cams-ingest] done', result);
+  await waitForRollbar();
   process.exit(0);
 } catch (err) {
   reportError(err);

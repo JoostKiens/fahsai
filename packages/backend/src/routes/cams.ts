@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { PM25DailySummary, PM25GridPoint } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
-import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { RETENTION_DAYS } from '../jobs/prune.js';
 import { parseBbox } from '../utils/bbox.js';
@@ -38,14 +39,14 @@ async function fetchCamsGridFromDb(date: string): Promise<PM25GridPoint[]> {
 }
 
 async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
-  let points = await redis.get<PM25GridPoint[]>(`cams:pm25:${date}`);
+  let points = await cacheGet<PM25GridPoint[]>(`cams:pm25:${date}`);
 
   if (!points?.length || points.length < MIN_COMPLETE_POINTS) {
     points = await fetchCamsGridFromDb(date);
 
     // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
     if (points.length >= MIN_COMPLETE_POINTS) {
-      await redis.set(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
+      void cacheSet(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
     }
   }
 
@@ -160,7 +161,7 @@ export function camsRoutes(app: FastifyInstance): void {
       }
 
       const cacheKey = `cams:summary:${start}:${end}`;
-      const cached = await redis.get<PM25DailySummary[]>(cacheKey);
+      const cached = await cacheGet<PM25DailySummary[]>(cacheKey);
       if (cached?.length) {
         return reply.header('Cache-Control', CACHE_CONTROL_SUMMARY).send({ data: cached });
       }
@@ -180,7 +181,7 @@ export function camsRoutes(app: FastifyInstance): void {
       }));
 
       if (summary.length) {
-        await redis.set(cacheKey, summary, { ex: SUMMARY_TTL_SECONDS });
+        void cacheSet(cacheKey, summary, { ex: SUMMARY_TTL_SECONDS });
         return reply.header('Cache-Control', CACHE_CONTROL_SUMMARY).send({ data: summary });
       }
 

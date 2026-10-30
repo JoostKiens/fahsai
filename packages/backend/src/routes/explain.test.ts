@@ -24,7 +24,7 @@ const {
   mockCompute: vi.fn(),
   mockLimit: vi.fn(),
   mockPostLimit: vi.fn(),
-  mockIncr: vi.fn(),
+  mockIncr: vi.fn<() => Promise<number>>(),
   mockGenerateStream: vi.fn(),
   mockReportError: vi.fn(),
   mockReportWarning: vi.fn(),
@@ -58,7 +58,18 @@ vi.mock('../cache/ratelimit.js', () => ({
 }));
 
 vi.mock('../cache/client.js', () => ({
-  redis: { get: vi.fn(), set: vi.fn(), incr: mockIncr, expire: vi.fn() },
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+    multi: () => {
+      const tx = {
+        incr: () => tx,
+        expire: () => tx,
+        exec: async () => [await mockIncr(), 1],
+      };
+      return tx;
+    },
+  },
   HISTORICAL_TTL_SECONDS: 604800,
   CACHE_CONTROL_IMMUTABLE: 'public, max-age=604800',
 }));
@@ -329,6 +340,16 @@ describe('POST /api/explain error responses', () => {
 
   it('fails open when Upstash errors, and goes on to look up the station', async () => {
     mockPostLimit.mockRejectedValue(new Error('Upstash unreachable'));
+    mockCompute.mockResolvedValue(null);
+
+    const res = await post(validBody);
+
+    expect(res.statusCode).toBe(404);
+    expect(mockCompute).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails open when the daily quota counter errors, and goes on to look up the station', async () => {
+    mockIncr.mockRejectedValue(new Error('database is stopped'));
     mockCompute.mockResolvedValue(null);
 
     const res = await post(validBody);

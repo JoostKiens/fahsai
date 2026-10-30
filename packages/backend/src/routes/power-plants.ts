@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { PowerPlantCollection, PowerPlantProperties } from '@thailand-aq/types';
-import { redis, HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { errorResponses } from '../schemas/common.js';
@@ -35,7 +36,7 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
       },
     },
     async (req, reply) => {
-      const cached = await redis.get<PowerPlantCollection>(CACHE_KEY);
+      const cached = await cacheGet<PowerPlantCollection>(CACHE_KEY);
       if (cached !== null)
         return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(cached);
 
@@ -69,7 +70,7 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
       }
 
       const geojson = buildGeojson(allRows);
-      await redis.set(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
+      void cacheSet(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(geojson);
     },
   );
