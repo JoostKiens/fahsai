@@ -13,10 +13,11 @@ import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { RETENTION_DAYS } from '../jobs/prune.js';
 import { runStationFirePressure } from '../jobs/station-fire-pressure.js';
-import { parseDateFlag } from '../utils/backfill.js';
+import { fetchAllPages, parseDateFlag } from '../utils/backfill.js';
 
 const LOG = '[backfill-station-fire-pressure]';
 const MAX_DAYS = RETENTION_DAYS;
+const STATIONS_PAGE_SIZE = 1000;
 
 const startDate = parseDateFlag('start', LOG);
 const endDate = parseDateFlag('end', LOG);
@@ -48,14 +49,17 @@ interface StationRow {
   lng: number;
 }
 
-async function fetchActiveStations(): Promise<StationRow[]> {
-  const { data, error } = await supabase
-    .from('stations')
-    .select('id, lat, lng')
-    .neq('pm25_sensor_ids', '{}');
-
-  if (error) throw new Error(`${LOG} stations query failed: ${error.message}`);
-  return data ?? [];
+function fetchActiveStations(): Promise<StationRow[]> {
+  return fetchAllPages<StationRow>(
+    (from, to) =>
+      supabase
+        .from('stations')
+        .select('id, lat, lng')
+        .neq('pm25_sensor_ids', '{}')
+        .order('id')
+        .range(from, to),
+    STATIONS_PAGE_SIZE,
+  );
 }
 
 async function existingRowCount(date: string): Promise<number> {
