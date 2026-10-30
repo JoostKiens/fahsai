@@ -366,8 +366,9 @@ POST /api/rollbar
   outage never surfaces as an app error.
 
 GET /health
-  Returns { status: 'ok', cache: 'connected', db: 'connected' }, or HTTP 503 with
-  status 'degraded' and 'error' for whichever of cache/db failed.
+  Returns { status: 'ok', cache: 'connected', db: 'connected' }. Status 'degraded' with 'error'
+  for whichever of cache/db failed: HTTP 503 when the db is down, 200 when only the cache is
+  (routes then serve from the db).
 ```
 
 ---

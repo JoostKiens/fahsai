@@ -15,7 +15,8 @@ export function healthRoutes(app: FastifyInstance): void {
     {
       schema: {
         summary: 'Is the API healthy?',
-        description: 'Checks the cache and the database. 503 when either is down.',
+        description:
+          'Checks the cache and the database. 503 when the database is down; a cache failure is reported as degraded with 200, since routes then serve from the database.',
         tags: ['system'],
         response: { 200: HealthSchema, 503: HealthSchema },
       },
@@ -23,10 +24,11 @@ export function healthRoutes(app: FastifyInstance): void {
     async (_req, reply) => {
       const [cacheStatus, dbStatus] = await Promise.all([checkCache(), checkDb()]);
 
-      const ok = cacheStatus === 'connected' && dbStatus === 'connected';
+      const isDbUp = dbStatus === 'connected';
+      const isHealthy = isDbUp && cacheStatus === 'connected';
 
-      return reply.status(ok ? 200 : 503).send({
-        status: ok ? 'ok' : 'degraded',
+      return reply.status(isDbUp ? 200 : 503).send({
+        status: isHealthy ? 'ok' : 'degraded',
         cache: cacheStatus,
         db: dbStatus,
       });
