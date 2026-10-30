@@ -181,6 +181,15 @@ prune                 — daily     (0 2 * * *)    deletes fire_points, station_
                                                   station_fire_pressure, cams_daily_summary
                                                   rows > 140 days
 
+pipeline-health       — daily     (0 6 * * *)    after the last ingest for yesterday. Checks that
+                                                  yesterday is complete (the /latest-date gate,
+                                                  lib/dayCompleteness.ts) and that API_BASE_URL/health
+                                                  reports db and cache up; each problem goes to
+                                                  Rollbar. Then pings HEALTHCHECK_PING_URL
+                                                  (Healthchecks.io, /fail on a problem), so a missing
+                                                  run (Railway stopped) also emails an alert.
+                                                  Every cron reports its own failures to Rollbar.
+
 backfill-weather      — one-off   (manual)        ERA5 reanalysis backfill for weather_readings.
   backfill:weather                                Single CDS API request for full date range → one
                                                   NetCDF → Python parse (era5-parse.py) → resample
