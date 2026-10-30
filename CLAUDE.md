@@ -22,6 +22,7 @@ simplicity and correctness over premature optimization.
 - Conventions, gotchas, wind direction: `docs/claude/conventions.md`
 - `/api/explain` implementation (cache, back-trajectory, urban sources): `docs/claude/explain.md`
 - Rollbar error tracking (what's captured, env vars, ErrorBoundary): `docs/claude/rollbar.md`
+- Costs, spending caps, behaviour at cap per service: `docs/claude/costs.md`
 - Use cases (researchers, journalists, policymakers, NGOs): `docs/use-cases.md`
 
 ---
@@ -151,7 +152,7 @@ working in a file, mention it rather than fixing it silently.
 ### Deployment
 
 - Frontend → Vercel (Hobby), Backend + cron → Railway (Hobby ~$5/mo)
-- Database → Supabase (free tier), Redis → Upstash (free tier)
+- Database → Supabase (free tier), Redis → Upstash (pay as you go, $20 budget)
 
 ---
 
