@@ -12,7 +12,7 @@ import { pm25ToCategory } from '@/utils/aqiColors';
 import { reverseGeocode } from './utils.geocode';
 import { AppScrollArea } from '@/components/AppScrollArea';
 import { Shimmer } from '@/components/Shimmer';
-import { CountryFlag, alpha2ToIso3 } from './CountryFlag';
+import { CountryFlag, alpha2ToIso3, stationCountryIso3 } from './CountryFlag';
 import { findNearestWind, degToCompass } from './utils.ambient';
 import { useStationReadings, useWind, useNearestCamsPoint } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
@@ -164,9 +164,7 @@ export function InfoPanel() {
 
   const countryIso3 =
     panelType === 'station'
-      ? displayStation?.country
-        ? (alpha2ToIso3(displayStation.country) ?? geocodeCountryIso3)
-        : geocodeCountryIso3
+      ? stationCountryIso3(displayStation?.country, geocodeCountryIso3)
       : panelType === 'powerPlant'
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3;
