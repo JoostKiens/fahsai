@@ -71,6 +71,20 @@ async function ipRateLimitResetMs({
   }
 }
 
+// Counts this request against today's global quota. Fails open like the IP limit: Gemini is on the
+// free tier, so a Redis outage letting extra requests through costs nothing, and Gemini's own 429
+// still caps usage.
+async function dailyQuotaCount(quotaKey: string, log: FastifyBaseLogger): Promise<number> {
+  try {
+    const count = await redis.incr(quotaKey);
+    if (count === 1) await redis.expire(quotaKey, 86400);
+    return count;
+  } catch (err) {
+    log.error({ err }, 'daily quota: Upstash error — failing open');
+    return 0;
+  }
+}
+
 function ipRateLimited(resetAtMs: number): AppError {
   return new AppError({
     code: 'rate_limited',
@@ -126,8 +140,7 @@ export function explainRoutes(app: FastifyInstance): void {
 
       const todayBkk = bangkokDateString();
       const quotaKey = `explain:quota:${todayBkk}`;
-      const count = await redis.incr(quotaKey);
-      if (count === 1) await redis.expire(quotaKey, 86400);
+      const count = await dailyQuotaCount(quotaKey, req.log);
       if (count > DAILY_QUOTA_LIMIT) {
         const startOfBkkDayUtcMs =
           Math.floor((Date.now() + ICT_OFFSET_MS) / MS_PER_DAY) * MS_PER_DAY - ICT_OFFSET_MS;

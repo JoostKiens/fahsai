@@ -336,6 +336,16 @@ describe('POST /api/explain error responses', () => {
     expect(res.statusCode).toBe(404);
     expect(mockCompute).toHaveBeenCalledTimes(1);
   });
+
+  it('fails open when the daily quota counter errors, and goes on to look up the station', async () => {
+    mockIncr.mockRejectedValue(new Error('database is stopped'));
+    mockCompute.mockResolvedValue(null);
+
+    const res = await post(validBody);
+
+    expect(res.statusCode).toBe(404);
+    expect(mockCompute).toHaveBeenCalledTimes(1);
+  });
 });
 
 // Like Gemini's stream: chunks arrive asynchronously, then it either ends or fails.
