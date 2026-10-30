@@ -128,7 +128,8 @@ working in a file, mention it rather than fixing it silently.
 
 - Node.js 24 + TypeScript, Fastify
 - `@fastify/cors` — registered before all routes; allows
-  `https://fahsai.fyi` in all environments plus
+  `https://fahsai.fyi` and this project's Vercel preview origins
+  (`https://fahsai-*-joost-kiens-projects.vercel.app`) in all environments, plus
   `http://localhost:5173` when `NODE_ENV !== 'production'`; methods: GET, POST only
 - `@fastify/compress` — response compression
 - `trustProxy: true` set on the Fastify instance — required for correct `request.ip`
