@@ -11,7 +11,7 @@ import { golden as goldenCleanCoastal } from '../scripts/eval/golden/12-plausibl
 import { golden as goldenCleanFireSeasonGood } from '../scripts/eval/golden/13-plausible-clean-khong-champasack-30-04-2026.js';
 import { golden as goldenRegionalBackground } from '../scripts/eval/golden/11-plausible-regional-background-chanthaburi-06-04-2026.js';
 
-export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+export const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 const SLOW_WIND_THRESHOLD_KMH = 10;
 const STAGNATION_AREA_SCORE_MIN = 40;
@@ -219,8 +219,10 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
-    const rangeStr = p.range ? `${p.range.min.toFixed(1)}–${p.range.max.toFixed(1)} µg/m³` : 'n/a';
-    const header = `${p.stationCount} stations — distance-weighted mean ${p.weightedMean.toFixed(1)} µg/m³ (unweighted median ${p.unweightedMedian.toFixed(1)} µg/m³), range ${rangeStr}`;
+    const rangeStr = p.range
+      ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³`
+      : 'n/a';
+    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}`;
     if (p.distribution) {
       peerStr = `${header}\nDistribution by AQI category: ${p.distribution}`;
     } else if (p.stationCount <= 2) {
@@ -229,7 +231,7 @@ ${trajectoryStr}`;
         .sort((a, b) => a.distanceKm - b.distanceKm)
         .map(
           (s) =>
-            `  ${s.name}: ${s.value.toFixed(1)} µg/m³ — ${pm25Cat(s.value)} (${s.distanceKm.toFixed(0)} km)`,
+            `  ${s.name}: ${Math.round(s.value)} µg/m³ — ${pm25Cat(s.value)} (${s.distanceKm.toFixed(0)} km)`,
         )
         .join('\n');
       peerStr = `${header}\n${stationLines}`;
@@ -247,7 +249,7 @@ ${trajectoryStr}`;
   return `
 <scientific_data>
 STATION: ${ctx.station.name} (${ctx.station.lat.toFixed(3)}°N, ${ctx.station.lng.toFixed(3)}°E)
-CURRENT PM2.5: ${ctx.currentPm25.toFixed(1)} µg/m³ — ${ctx.aqiCategory}
+CURRENT PM2.5: ${Math.round(ctx.currentPm25)} µg/m³ — ${ctx.aqiCategory}
 CASE: ${ctx.explainCase}
 DATE: ${ctx.date} (UTC+7)
 SEASONAL CONTEXT: ${ctx.seasonContext}
