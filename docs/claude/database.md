@@ -120,7 +120,6 @@ create table if not exists cams_grid (
   pm25  float8  not null,
   primary key (date, lat, lng)
 );
-create index if not exists cams_grid_date_idx on cams_grid (date);
 
 -- Weather grid (Open-Meteo, snapshot at 14:00 BKK / Asia/Bangkok)
 -- `date` is a Bangkok calendar day for the same reason as cams_grid above.
@@ -135,9 +134,6 @@ create table if not exists weather_readings (
   relative_humidity_2m      float8,           -- % at 14:00 BKK snapshot
   primary key (date, lat, lng)
 );
-create index if not exists weather_readings_date_idx on weather_readings (date);
--- (lat, lng, date) index added in migration 017 for efficient per-station lookups
-create index if not exists weather_readings_lat_lng_date_idx on weather_readings (lat, lng, date);
 
 -- Pre-computed weather per station per day (migration 018_station_weather.sql)
 -- Populated by weather-ingest after the grid is stored. `date` is a Bangkok
