@@ -56,13 +56,13 @@ When a station reads at least twice (or less than 40% of) the distance-weighted 
 
 ## Data
 
-| Source                                                           | What                                        | Cadence | License        |
-| ---------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
+| Source                                                              | What                                        | Cadence | License        |
+| ------------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
 | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
-| [OpenAQ](https://openaq.org/) v3                                 | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
-| [Open-Meteo](https://open-meteo.com/)                            | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
-| [WRI Global Power Plant Database](https://resourcewatch.org/)    | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
-| [Mapbox](https://www.mapbox.com/)                                | Base map                                    | —       | Mapbox TOS     |
+| [OpenAQ](https://openaq.org/) v3                                    | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
+| [Open-Meteo](https://open-meteo.com/)                               | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
+| [WRI Global Power Plant Database](https://resourcewatch.org/)       | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
+| [Mapbox](https://www.mapbox.com/)                                   | Base map                                    | —       | Mapbox TOS     |
 
 ---
 
@@ -91,6 +91,8 @@ server for AI agents.
 ---
 
 ## Development
+
+For how the system fits together and why, read [docs/architecture.md](docs/architecture.md) and the [architecture decision records](docs/adr/README.md).
 
 See [CLAUDE.md](CLAUDE.md) for local setup, environment variables, and dev commands. Database schema, API reference, and ingestion job docs are in [docs/claude/](docs/claude/).
 
