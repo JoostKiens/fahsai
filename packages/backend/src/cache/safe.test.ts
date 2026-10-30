@@ -11,7 +11,7 @@ vi.mock('./client.js', () => ({ redis: { get: redisGet, set: redisSet, del: redi
 vi.mock('../lib/rollbar.js', () => ({ reportError }));
 vi.mock('../lib/logger.js', () => ({ logger: { warn: vi.fn(), error: vi.fn() } }));
 
-import { cacheGet, cacheSet, cacheDel } from './safe.js';
+import { cacheGet, cacheSet, cacheReplace, cacheDel } from './safe.js';
 
 const upstashStopped = new Error('database is stopped');
 
@@ -39,13 +39,35 @@ describe('cacheGet', () => {
 describe('cacheSet', () => {
   it('writes with the given TTL', async () => {
     redisSet.mockResolvedValue('OK');
-    await cacheSet('k', [1], { ex: 60 });
+    expect(await cacheSet('k', [1], { ex: 60 })).toBe(true);
     expect(redisSet).toHaveBeenCalledWith('k', [1], { ex: 60 });
   });
 
-  it('resolves instead of throwing when Redis fails', async () => {
+  it('returns false instead of throwing when Redis fails', async () => {
     redisSet.mockRejectedValue(upstashStopped);
-    await expect(cacheSet('k', [1], { ex: 60 })).resolves.toBeUndefined();
+    expect(await cacheSet('k', [1], { ex: 60 })).toBe(false);
+  });
+});
+
+describe('cacheReplace', () => {
+  it('writes the new value and leaves the key in place', async () => {
+    redisSet.mockResolvedValue('OK');
+    expect(await cacheReplace('k', [1], { ex: 60 })).toBe(true);
+    expect(redisDel).not.toHaveBeenCalled();
+  });
+
+  it('deletes the old value when the write fails', async () => {
+    redisSet.mockRejectedValue(upstashStopped);
+    redisDel.mockResolvedValue(1);
+    expect(await cacheReplace('k', [1], { ex: 60 })).toBe(false);
+    expect(redisDel).toHaveBeenCalledWith('k');
+  });
+
+  it('reports when neither the write nor the delete lands', async () => {
+    redisSet.mockRejectedValue(upstashStopped);
+    redisDel.mockRejectedValue(upstashStopped);
+    expect(await cacheReplace('k', [1], { ex: 60 })).toBe(false);
+    expect(reportError).toHaveBeenCalledWith(upstashStopped, { keys: ['k'] });
   });
 });
 

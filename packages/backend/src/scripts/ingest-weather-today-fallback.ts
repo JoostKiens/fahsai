@@ -24,6 +24,7 @@ try {
   console.log(`[weather-fallback] only ${count ?? 0} rows for ${yesterday} — running ingest`);
   const result = await runWeatherIngest(yesterday);
   console.log('[weather-fallback] done', result);
+  await waitForRollbar();
   process.exit(0);
 } catch (err) {
   reportError(err);

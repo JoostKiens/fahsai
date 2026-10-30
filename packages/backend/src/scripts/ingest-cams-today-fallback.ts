@@ -27,6 +27,7 @@ try {
   console.log(`[cams-fallback] only ${count ?? 0} rows for ${targetDate} — running ingest`);
   const result = await runCamsIngest(targetDate);
   console.log('[cams-fallback] done', result);
+  await waitForRollbar();
   process.exit(0);
 } catch (err) {
   reportError(err);
