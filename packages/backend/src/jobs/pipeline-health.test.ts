@@ -72,6 +72,18 @@ describe('runPipelineHealth', () => {
     ]);
   });
 
+  it('keeps the status of a non-JSON error page from the edge', async () => {
+    mockFetch.mockResolvedValue(
+      new Response('<html>Application failed to respond</html>', { status: 502 }),
+    );
+    expect(await run()).toEqual([
+      {
+        message: 'API health degraded',
+        details: { status: 502, body: '<html>Application failed to respond</html>' },
+      },
+    ]);
+  });
+
   it('reports an unreachable API', async () => {
     mockFetch.mockRejectedValue(new TypeError('fetch failed'));
     expect(await run()).toEqual([

@@ -35,7 +35,9 @@ async function checkApiHealth(apiBaseUrl: string): Promise<PipelineProblem | nul
     const res = await fetch(`${apiBaseUrl}/health`, {
       signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
     });
-    const body: unknown = await res.json();
+    // Text first: when the API is down, Railway's edge answers with an HTML error page, and its
+    // status code is the useful part.
+    const body = parseJsonOrText(await res.text());
     const isOk =
       res.ok &&
       typeof body === 'object' &&
@@ -48,5 +50,13 @@ async function checkApiHealth(apiBaseUrl: string): Promise<PipelineProblem | nul
       message: 'API health check failed',
       details: { error: err instanceof Error ? err.message : String(err) },
     };
+  }
+}
+
+function parseJsonOrText(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text.slice(0, 500);
   }
 }
