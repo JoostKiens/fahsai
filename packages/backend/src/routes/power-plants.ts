@@ -70,7 +70,7 @@ export function powerPlantsRoutes(app: FastifyInstance): void {
       }
 
       const geojson = buildGeojson(allRows);
-      await cacheSet(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
+      void cacheSet(CACHE_KEY, geojson, { ex: HISTORICAL_TTL_SECONDS });
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send(geojson);
     },
   );

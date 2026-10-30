@@ -140,7 +140,7 @@ export function stationReadingsRoutes(app: FastifyInstance): void {
       }
 
       if (isDefaultBbox) {
-        await cacheSet(cacheKey, latest, { ex: HISTORICAL_TTL_SECONDS });
+        void cacheSet(cacheKey, latest, { ex: HISTORICAL_TTL_SECONDS });
       }
 
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data: latest });

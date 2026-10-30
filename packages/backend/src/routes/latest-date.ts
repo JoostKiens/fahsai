@@ -59,7 +59,7 @@ export function latestDateRoutes(app: FastifyInstance): void {
           (measResult.count ?? 0) >= 1 &&
           (windResult.count ?? 0) >= WIND_MIN_ROWS
         ) {
-          await cacheSet(CACHE_KEY, date, { ex: CACHE_TTL_SECONDS });
+          void cacheSet(CACHE_KEY, date, { ex: CACHE_TTL_SECONDS });
           return reply.header('Cache-Control', CACHE_CONTROL).send({ date });
         }
       }

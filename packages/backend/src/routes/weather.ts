@@ -75,7 +75,7 @@ export function weatherRoutes(app: FastifyInstance): void {
         }
 
         if (readings.length >= MIN_COMPLETE_POINTS) {
-          await cacheSet(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
+          void cacheSet(cacheKey, readings, { ex: HISTORICAL_TTL_SECONDS });
         }
       }
 
@@ -120,7 +120,7 @@ export function weatherRoutes(app: FastifyInstance): void {
         }
 
         if (readings.length >= MIN_COMPLETE_POINTS) {
-          await cacheSet(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
+          void cacheSet(weatherCacheKey(date), readings, { ex: HISTORICAL_TTL_SECONDS });
         }
       }
 

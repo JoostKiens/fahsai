@@ -46,7 +46,7 @@ async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
 
     // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
     if (points.length >= MIN_COMPLETE_POINTS) {
-      await cacheSet(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
+      void cacheSet(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
     }
   }
 
@@ -181,7 +181,7 @@ export function camsRoutes(app: FastifyInstance): void {
       }));
 
       if (summary.length) {
-        await cacheSet(cacheKey, summary, { ex: SUMMARY_TTL_SECONDS });
+        void cacheSet(cacheKey, summary, { ex: SUMMARY_TTL_SECONDS });
         return reply.header('Cache-Control', CACHE_CONTROL_SUMMARY).send({ data: summary });
       }
 

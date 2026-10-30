@@ -50,7 +50,7 @@ export function firesRoutes(app: FastifyInstance): void {
       }
 
       if (isDefaultBbox) {
-        await cacheSet(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
+        void cacheSet(`fires:date:${date}`, data, { ex: HISTORICAL_TTL_SECONDS });
       }
 
       return reply.header('Cache-Control', CACHE_CONTROL_IMMUTABLE).send({ data });
