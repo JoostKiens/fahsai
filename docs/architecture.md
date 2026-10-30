@@ -49,14 +49,17 @@ flowchart LR
 - **Supabase** holds everything. The browser never connects to it: only the API and the crons do,
   with a service-role key ([ADR 0004](adr/0004-backend-only-db-access-and-redis-cache-aside.md)).
 - **The API** (Fastify, TypeScript) serves read-only JSON for the map. Responses for past days are
-  immutable, so they're cached in Redis for 7 days and marked `Cache-Control: immutable`.
+  immutable, so they're cached in Redis for 7 days and sent with
+  `Cache-Control: public, max-age=604800` (7 days).
 - **The frontend** (React, Vite) draws the layers with Deck.gl over a Mapbox base map. The PM2.5
   grid is interpolated in a Web Worker.
 - **`/api/explain`** builds a structured context for one station on one day (trend, wind, a
   72-hour backward trajectory, upwind fires, cities and power plants, nearby stations) and streams
   a plain-language explanation from Gemini. The same context is available without the model at
-  `/api/v1/explain/context`, which the separate
-  [fahsai-mcp-server](https://github.com/JoostKiens/fahsai-mcp-server) package uses.
+  `/api/v1/explain/context`. The separate
+  [fahsai-mcp-server](https://github.com/JoostKiens/fahsai-mcp-server) package calls the older
+  unversioned paths (`/api/...`), which stay registered for it but are left out of the OpenAPI
+  document, so treat them as a public contract.
 
 ## Daily data flow
 
@@ -76,7 +79,10 @@ All times UTC. Bangkok is UTC+7, so "yesterday" in the app is the Bangkok calend
 
 The app shows the newest day that is **complete**: a full CAMS grid, a full wind grid and at
 least one station reading. `/api/latest-date` checks this, so a day with a failed ingest is skipped
-rather than shown half-empty. Yesterday's data usually appears by about 06:30 Bangkok time. Why
+rather than shown half-empty. Yesterday's data usually appears at about **09:10 Bangkok time**
+(02:10 UTC), when the wind grid lands: CAMS and station readings are in by about 06:30, but the
+check waits for wind. `/api/latest-date` caches its answer for 30 minutes, so allow until about
+09:40. Why
 OpenAQ runs twice and CAMS once is in [ADR 0001](adr/0001-two-pass-ingest-schedule.md).
 
 ## Key trade-offs
@@ -92,20 +98,20 @@ OpenAQ runs twice and CAMS once is in [ADR 0001](adr/0001-two-pass-ingest-schedu
 4. **Spatial work in TypeScript, not PostGIS.** All database queries are bounding boxes; distances,
    trajectories and radii are computed in tested application code
    ([ADR 0003](adr/0003-plain-lat-lng-no-postgis.md)).
-5. **Freshness vs completeness.** Ingest is scheduled so yesterday is visible by Bangkok morning,
+5. **Freshness vs completeness.** Ingest is scheduled so yesterday is visible by mid-morning in Bangkok,
    but a day only appears once it's complete, which costs a second OpenAQ pass and fallback runs
    ([ADR 0001](adr/0001-two-pass-ingest-schedule.md)).
 
 ## Failure modes
 
-| What fails                                     | What visitors see                                            | How it's noticed                                                                               |
-| ---------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| An ingest cron                                 | The map keeps showing the last complete day                  | The cron reports to Rollbar; `pipeline-health` reports yesterday as incomplete                 |
-| Upstash (outage, or stopped at its $20 budget) | Slower responses, served from Supabase                       | `/health` reports `cache: "error"`; `pipeline-health` alerts                                   |
-| Supabase over 500 MB                           | Read-only database: ingest fails, the map shows an older day | Crons report `INSERT` failures; `pipeline-health` reports the day incomplete                   |
-| Supabase or API down                           | Retries, then a "Some data could not be loaded" message      | `/health` returns 503; `pipeline-health` alerts                                                |
-| Railway stopped (hard spending limit hit)      | API down, no new data                                        | `pipeline-health` doesn't run, so its Healthchecks.io ping is missing and that alerts by email |
-| Gemini rate limit or quota                     | The explain button says to try later                         | Logged; not an outage                                                                          |
+| What fails                                     | What visitors see                                                                       | How it's noticed                                                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| An ingest cron                                 | The map shows the newest complete day of the last 7; after 7 days without one, no data  | The cron reports to Rollbar; `pipeline-health` reports yesterday as incomplete                                   |
+| Upstash (outage, or stopped at its $20 budget) | Slower responses, served from Supabase                                                  | `/health` reports `cache: "error"`; `pipeline-health` alerts                                                     |
+| Supabase over 500 MB                           | Read-only database: ingest fails, the map shows an older day, then no data after 7 days | Crons report `INSERT` failures; `pipeline-health` reports the day incomplete                                     |
+| Supabase or API down                           | Retries, then a "Some data could not be loaded" message                                 | `/health` returns 503 when Supabase is down, or doesn't answer when the API is; `pipeline-health` alerts on both |
+| Railway stopped (hard spending limit hit)      | API down, no new data                                                                   | `pipeline-health` doesn't run, so its Healthchecks.io ping is missing and that alerts by email                   |
+| Gemini rate limit or quota                     | The explain button says to try later                                                    | Logged; not an outage                                                                                            |
 
 `pipeline-health` runs daily at 06:00 UTC, reports problems to Rollbar and pings a
 Healthchecks.io dead-man's switch (`docs/claude/architecture.md` has the details).

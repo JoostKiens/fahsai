@@ -16,23 +16,27 @@ metadata) that's awkward to express as a single PostgREST query.
 
 1. **The browser never talks to Supabase.** All reads and writes go through the Fastify API on
    Railway, which uses the Supabase **service-role key**. RLS is enabled on every table with **no
-   policies** (legacy migration 006), so the `anon` key can read nothing even if someone finds the
-   project URL.
+   policies**, so the `anon` key can read nothing even if someone finds the project URL. Legacy
+   migration 006 enabled it on the original tables; since then an event trigger in the baseline
+   schema (`rls_auto_enable`) enables it on every new table in `public`. Keep that trigger in any
+   future baseline.
 2. **Redis (Upstash) is a cache-aside layer in front of Supabase.** A route reads its key from
    Redis. On a miss it queries Supabase, then writes the result back with a 7-day TTL. This works
    because almost everything the map shows is historical and immutable once ingested. Ingest jobs
    either warm a key with the exact value the route serves (CAMS, weather) or delete it so the
    route rebuilds it (fires, station readings).
-3. **Redis is only a cache.** Every Redis call goes through `cache/safe.ts`, which never throws: a
-   failed read is a miss, a failed write is skipped. See [ADR 0006](0006-upstash-failures-fail-open.md).
+3. **Redis is only a cache.** Every cache read and write goes through `cache/safe.ts`, which never
+   throws: a failed read is a miss, a failed write is skipped. The rate limiters, the daily quota
+   and `/health` call Redis directly, each with its own fail-open `try/catch`. See
+   [ADR 0006](0006-upstash-failures-fail-open.md).
 
 ## Alternatives considered
 
 - **Browser → Supabase with `anon` key + RLS read policies.** Less code, but it pushes processing
   into the client, exposes the schema as a public API, and gives no place to cache processed
   responses. Every visitor would hit Postgres.
-- **HTTP caching only (CDN), no Redis.** Responses already carry `Cache-Control: immutable` for
-  historical days, but a CDN miss would still hit Postgres. Redis gives a shared, warmable cache
+- **HTTP caching only (CDN), no Redis.** Responses for historical days already carry a 7-day
+  `Cache-Control: public, max-age=604800`, but a CDN miss would still hit Postgres. Redis gives a shared, warmable cache
   in front of the free-tier database.
 
 ## Consequences

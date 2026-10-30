@@ -31,7 +31,8 @@ for 10–14 seconds before failing.
 - **Fast failure:** the client makes one attempt with a 2-second timeout, and no retries
   (`cache/client.ts`).
 - **Ingest jobs** don't fail when the cache step fails after a successful database write. If they
-  can't overwrite or delete a cached value, they report it to Rollbar, because an outdated value
+  can't overwrite a cached value, they delete it instead so the route rebuilds it from Supabase
+  (logged only). If the delete fails too, they report it to Rollbar, because the outdated value
   could otherwise be served for up to 7 days.
 
 ## Alternatives considered

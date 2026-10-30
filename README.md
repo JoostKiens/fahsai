@@ -38,7 +38,7 @@ All panels show the reverse-geocoded place name and country flag for the clicked
 
 The bottom slider steps through the selected history window. Press **Play** (or hit **Space**) to animate through dates automatically at 800 ms per step.
 
-The history window — 30, 60, 90, or 120 days — is configurable in Settings and persisted across sessions. New data is typically available by 06:30 Bangkok time each morning.
+The history window — 30, 60, 90, or 120 days — is configurable in Settings and persisted across sessions. New data is typically available by about 09:10 Bangkok time each morning.
 
 Map position, zoom, and selected date are reflected in the URL, so any view is fully shareable.
 

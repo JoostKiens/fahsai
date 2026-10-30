@@ -203,7 +203,9 @@ The UI shows the most recent date where all three gating sources have complete d
 (cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
 served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
 both fires runs finish before the other sources land.
-The date typically becomes available at ~23:30 UTC (06:30 BKK).
+The date typically becomes available at ~02:10 UTC (09:10 BKK), when weather_readings lands:
+cams_grid and station_readings are in by ~23:30 UTC (06:30 BKK), but the gate waits for wind.
+The 30-minute `latest-complete-date` cache can add up to half an hour.
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
 
