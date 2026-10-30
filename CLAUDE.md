@@ -210,6 +210,7 @@ pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV p
 pnpm --filter backend run ingest:station-fire-pressure
 pnpm --filter backend run ingest:station-baseline
 pnpm --filter backend run prune                   # retention cleanup
+API_BASE_URL=https://api-server-service-production.up.railway.app pnpm --filter backend run pipeline-health [YYYY-MM-DD]  # freshness + /health check
 
 # One-time backfill after deploying migration 018_station_weather.sql (archived in supabase/migrations-legacy/)
 pnpm --filter backend run backfill:station-weather

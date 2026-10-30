@@ -1,6 +1,6 @@
 import { defineRailway, github, preserve, project, service } from "railway/iac";
 
-export default defineRailway(() => {
+export default defineRailway((ctx) => {
   const fahsai = github("JoostKiens/fahsai", { checkSuites: false });
 
   // Hand-written: `railway config pull` would inline this back into every service.
@@ -102,7 +102,25 @@ export default defineRailway(() => {
     env: sharedEnv,
   });
 
+  // After the last ingest touching yesterday's data (baseline, 04:40 UTC). References the shared
+  // variables instead of preserve(): a new service has no values to preserve, and an empty env
+  // would leave the monitor itself failing silently.
+  const pipelineHealth = service("pipeline-health", {
+    source: fahsai,
+    start: "pnpm --filter backend run railway:pipeline-health",
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    deploy: { cronSchedule: "0 6 * * *", restartPolicyType: "NEVER" },
+    env: {
+      NODE_ENV: ctx.shared.NODE_ENV,
+      ROLLBAR_TOKEN: ctx.shared.ROLLBAR_TOKEN,
+      SUPABASE_SERVICE_ROLE_KEY: ctx.shared.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_URL: ctx.shared.SUPABASE_URL,
+      API_BASE_URL: preserve(),
+      HEALTHCHECK_PING_URL: preserve(),
+    },
+  });
+
   return project("fahsai", {
-    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams],
+    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams, pipelineHealth],
   });
 });

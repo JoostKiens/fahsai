@@ -15,6 +15,7 @@
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { supabase } from '../db/client.js';
 import { dayOfYear, doyToMonthDay, runStationBaseline, WINDOW } from '../jobs/station-baseline.js';
+import { reportError, waitForRollbar } from '../lib/rollbar.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { bangkokDateString, bangkokMidnightUtcMs, getYesterdayBkk } from '../utils/bkkDate.js';
 import { offsetDate } from '../utils/trajectory.js';
@@ -103,8 +104,7 @@ try {
   ]);
 
   if (!stations.length) {
-    console.error(`${LOG} no stations found`);
-    process.exit(1);
+    throw new Error(`no stations found`);
   }
 
   // This year's contribution to the pool. Multiple readings can fold onto the same
@@ -149,5 +149,7 @@ try {
   process.exit(0);
 } catch (err) {
   console.error(`${LOG} failed`, err);
+  reportError(err);
+  await waitForRollbar();
   process.exit(1);
 }
