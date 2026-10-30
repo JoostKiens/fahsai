@@ -124,6 +124,18 @@ export const Station: Story = {
   },
 };
 
+// OpenAQ's stored country is wrong for some border stations (JOO-94): the flag follows the
+// geocode, which also supplies the place name beside it.
+export const StoredCountryDisagrees: Story = {
+  beforeEach: selecting({ ...SARAPHI, station: { ...SARAPHI.station!, country: 'LA' } }),
+  play: async ({ canvas, canvasElement }) => {
+    const panel = within(canvas.getByRole('region', { name: 'Point details' }));
+    await panel.findByText('Nong Phueng · Saraphi');
+    await expect(canvasElement.querySelector('img[src="/flags/th.svg"]')).not.toBeNull();
+    await expect(canvasElement.querySelector('img[src="/flags/la.svg"]')).toBeNull();
+  },
+};
+
 // Nothing selected: a prompt to click the map.
 export const NothingSelected: Story = {};
 

@@ -21,6 +21,18 @@ export function alpha2ToIso3(alpha2: string): string | null {
 }
 
 /**
+ * The geocoded country wins because it matches the place name shown beside the flag. OpenAQ's
+ * stored code is wrong for some border stations, so it is only the fallback when the geocode
+ * finds a place but no country we have a flag for.
+ */
+export function stationCountryIso3(
+  storedAlpha2: string | null | undefined,
+  geocodedIso3: string | null,
+): string | null {
+  return geocodedIso3 ?? (storedAlpha2 ? alpha2ToIso3(storedAlpha2) : null);
+}
+
+/**
  * Small SVG flag from flagcdn.com (14×10 px, rounded corners, hairline border).
  * Accepts ISO 3166-1 alpha-3 codes (e.g. "THA"). Unknown codes render nothing.
  */

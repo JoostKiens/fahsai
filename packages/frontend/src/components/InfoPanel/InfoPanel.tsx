@@ -12,7 +12,7 @@ import { pm25ToCategory } from '@/utils/aqiColors';
 import { reverseGeocode } from './utils.geocode';
 import { AppScrollArea } from '@/components/AppScrollArea';
 import { Shimmer } from '@/components/Shimmer';
-import { CountryFlag, alpha2ToIso3 } from './CountryFlag';
+import { CountryFlag, alpha2ToIso3, stationCountryIso3 } from './CountryFlag';
 import { findNearestWind, degToCompass } from './utils.ambient';
 import { useStationReadings, useWind, useNearestCamsPoint } from '@/hooks';
 import { useStationHistory } from './useStationHistory';
@@ -64,12 +64,20 @@ export function InfoPanel() {
     setPlaceName(null);
     setGeocodeCountryIso3(null);
     setGeocodeLoading(true);
+    // A slow response for a previous selection must not overwrite the current one's name and flag.
+    let isCurrent = true;
     void reverseGeocode(lng, lat, TOKEN, i18n.language)
       .then(({ placeName: name, countryAlpha2 }) => {
+        if (!isCurrent) return;
         setPlaceName(name);
         setGeocodeCountryIso3(countryAlpha2 ? alpha2ToIso3(countryAlpha2) : null);
       })
-      .finally(() => setGeocodeLoading(false));
+      .finally(() => {
+        if (isCurrent) setGeocodeLoading(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [coordKey, i18n.language]);
 
   const stationId = selectedPoint?.station?.stationId ?? null;
@@ -164,9 +172,7 @@ export function InfoPanel() {
 
   const countryIso3 =
     panelType === 'station'
-      ? displayStation?.country
-        ? (alpha2ToIso3(displayStation.country) ?? geocodeCountryIso3)
-        : geocodeCountryIso3
+      ? stationCountryIso3(displayStation?.country, geocodeCountryIso3)
       : panelType === 'powerPlant'
         ? (selectedPoint?.powerPlant?.country ?? null)
         : geocodeCountryIso3;
