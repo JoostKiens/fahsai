@@ -1,4 +1,5 @@
 import pRetry, { AbortError } from 'p-retry';
+import { describeFetchError } from '../utils/fetchError.js';
 import { supabase } from '../db/client.js';
 import { redis } from '../cache/client.js';
 import { fetchFirms, FirmsHttpError } from '../utils/firms.js';
@@ -23,10 +24,7 @@ export async function runFiresIngest(date?: string): Promise<{ inserted: number 
       minTimeout: 2000,
       factor: 2,
       onFailedAttempt: ({ error, attemptNumber, retriesLeft }) => {
-        const cause =
-          error.cause instanceof Error
-            ? ((error.cause as { code?: string }).code ?? error.cause.name ?? error.cause.message)
-            : undefined;
+        const cause = describeFetchError(error);
         console.warn(
           `[fires-ingest] attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}${cause ? ` (${cause})` : ''}`,
         );

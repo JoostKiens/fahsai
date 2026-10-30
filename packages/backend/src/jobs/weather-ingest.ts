@@ -1,4 +1,5 @@
 import pRetry, { AbortError } from 'p-retry';
+import { describeFetchError } from '../utils/fetchError.js';
 import { redis, HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { supabase } from '../db/client.js';
 import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
@@ -50,10 +51,7 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
       minTimeout: 60 * 1000,
       factor: 2,
       onFailedAttempt: ({ error, attemptNumber, retriesLeft }) => {
-        const cause =
-          error.cause instanceof Error
-            ? ((error.cause as { code?: string }).code ?? error.cause.name ?? error.cause.message)
-            : undefined;
+        const cause = describeFetchError(error);
         console.warn(
           `[weather-ingest] attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}${cause ? ` (${cause})` : ''}`,
         );
