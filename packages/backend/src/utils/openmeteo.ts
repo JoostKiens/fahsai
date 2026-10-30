@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { WeatherReading, PM25GridPoint } from '@thailand-aq/types';
+import { describeFetchError } from './fetchError.js';
 import {
   MS_PER_HOUR,
   AQ_STEP,
@@ -259,7 +260,16 @@ async function fetchAQBatch(
 
   let res: Response | undefined;
   for (let attempt = 0; attempt <= AQ_RETRY_DELAYS_MS.length; attempt++) {
-    res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    const startedAt = Date.now();
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    } catch (err) {
+      // Timed here, not by the caller, so 429 sleeps above don't count toward the figure.
+      console.warn(
+        `[openmeteo] AQ fetch failed after ${Date.now() - startedAt}ms: ${describeFetchError(err) ?? (err as Error).message}`,
+      );
+      throw err;
+    }
     if (res.status !== 429) break;
 
     const body = (await res.json().catch(() => null)) as { reason?: string } | null;
@@ -311,20 +321,6 @@ async function fetchAQBatch(
     .filter((p): p is PM25GridPoint => p !== null);
 }
 
-// undici wraps the socket error in `cause`; with IPv4+IPv6 (happy eyeballs) that is an
-// AggregateError holding one error per address tried. Lists "address code" for each.
-export function describeConnectError(err: unknown): string {
-  const cause = (err as { cause?: unknown }).cause;
-  if (!(cause instanceof Error)) return 'no cause';
-  const errors = cause instanceof AggregateError ? (cause.errors as unknown[]) : [cause];
-  return errors
-    .map((e) => {
-      const { address, code } = e as { address?: string; code?: string };
-      return `${address ?? '?'} ${code ?? (e as Error).message}`;
-    })
-    .join(', ');
-}
-
 export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]> {
   // Build flat list of all grid points
   const allLats: number[] = [];
@@ -367,7 +363,6 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
     const chunkResults = await Promise.all(
       chunk.map(async (b) => {
         for (let attempt = 0; attempt <= AQ_BATCH_CONNECT_RETRIES; attempt++) {
-          const startedAt = Date.now();
           try {
             return await fetchAQBatch(b.lats, b.lngs, date);
           } catch (err) {
@@ -378,7 +373,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
                 (err as { name?: string }).name === 'TimeoutError');
             if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
             console.warn(
-              `[openmeteo] batch ${i} connection error after ${Date.now() - startedAt}ms [${describeConnectError(err)}] (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
+              `[openmeteo] batch ${i + 1} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES + 1}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
             );
             await sleep(AQ_BATCH_CONNECT_RETRY_DELAY_MS);
           }

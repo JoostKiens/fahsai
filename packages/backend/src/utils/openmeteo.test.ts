@@ -5,34 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 // module scope and throws when SUPABASE_* env vars are absent in tests.
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 
-import { describeConnectError, targetHourIndex } from './openmeteo.js';
-
-describe('describeConnectError', () => {
-  const socketError = (address: string, code: string) =>
-    Object.assign(new Error(`connect ${code} ${address}:443`), { address, code });
-
-  it('lists every address from a happy-eyeballs AggregateError', () => {
-    const cause = new AggregateError([
-      socketError('2a0a:4cc0:c0:2003::1', 'ENETUNREACH'),
-      socketError('152.53.84.73', 'ETIMEDOUT'),
-    ]);
-    const err = new TypeError('fetch failed', { cause });
-    expect(describeConnectError(err)).toBe(
-      '2a0a:4cc0:c0:2003::1 ENETUNREACH, 152.53.84.73 ETIMEDOUT',
-    );
-  });
-
-  it('handles a single socket error cause', () => {
-    const err = new TypeError('fetch failed', { cause: socketError('152.53.84.73', 'ECONNRESET') });
-    expect(describeConnectError(err)).toBe('152.53.84.73 ECONNRESET');
-  });
-
-  it('reports a missing cause', () => {
-    expect(describeConnectError(new Error('The operation was aborted due to timeout'))).toBe(
-      'no cause',
-    );
-  });
-});
+import { targetHourIndex } from './openmeteo.js';
 
 describe('targetHourIndex', () => {
   it('picks the exact match when the target hour is present', () => {
