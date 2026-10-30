@@ -49,8 +49,6 @@ create table fire_points (
   confidence   text,             -- 'low', 'nominal', 'high'
   daynight     text              -- always 'D' (ingest filters out night detections)
 );
-create index on fire_points (detected_at);
-create index on fire_points (confidence);
 -- Dedup key: fires-ingest upserts with onConflict 'detected_at,lat,lng' (ignoreDuplicates)
 create unique index on fire_points (detected_at, lat, lng);
 
