@@ -5,7 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   integrations: [react()],
-  adapter: vercel(),
+  // The home pages are rendered on demand and cached (ISR), so the scrubber shows the API's latest
+  // data. An hour matches how long the API lets its answers be cached; a new day's data shows up
+  // within it, and the browser corrects the date as soon as it has loaded.
+  adapter: vercel({ isr: { expiration: 60 * 60 } }),
   server: { port: 5173 },
   // Astro adds script-src 'self' plus a hash per inline script and writes the CSP as a <meta> tag.
   // Not staticHeaders: that header replaces vercel.json's CSP header instead of merging with it,
