@@ -1,4 +1,4 @@
-import type { Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
 
 const ENGLISH_PAGE = '/';
 const THAI_PAGE = '/th/';

@@ -1,5 +1,5 @@
 import { Header } from '@/components/Header/Header';
-import type { Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
 import { ServerIslandRoot } from './ServerIslandRoot';
 
 export function HeaderIsland({ lang }: { lang: Language }) {

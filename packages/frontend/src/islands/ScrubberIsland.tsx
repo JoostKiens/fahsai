@@ -1,7 +1,7 @@
 import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { SCRUBBER_BAR_CLS } from '@/components/Scrubber/scrubberLayout';
 import type { ScrubberData } from '@/lib/scrubberData';
-import type { Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
 import { ServerIslandRoot } from './ServerIslandRoot';
 
 export function ScrubberIsland({ lang, data }: { lang: Language; data: ScrubberData | null }) {

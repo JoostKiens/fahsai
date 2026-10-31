@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer, PickingInfo } from '@deck.gl/core';
@@ -18,7 +19,6 @@ import { useWindParticles } from './useWindParticles';
 import { createLandMaskLayer, createPM25BitmapLayer, createPM25StationsLayers } from './PM25Layer';
 import { createPowerPlantsLayer, iconSizeForZoom } from './PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from './usePrefetchAdjacentDates';
-import { useSettingsStore } from '@/store/settingsStore';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const CENTER: [number, number] = [101.0, 15.5];
@@ -91,7 +91,8 @@ export function MapView() {
   const setMapZoom = useUIStore((s) => s.setMapZoom);
   const setMapCenter = useUIStore((s) => s.setMapCenter);
 
-  const language = useSettingsStore((s) => s.language) ?? 'en';
+  const { i18n } = useTranslation();
+  const language = i18n.language;
 
   const powerPlantsEnabled = powerPlantsConfig.visible || !!selectedPoint?.station;
   const { data: powerPlants } = usePowerPlants(powerPlantsEnabled);

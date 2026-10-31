@@ -27,8 +27,8 @@ import { useUIStore } from '../src/store/uiStore';
 import '../src/index.css';
 import './preview.css';
 
-// Not src/i18n.ts: it redirects the page to /th/ when the stored language is Thai. Components
-// take the pure locale helpers from '@/utils/locale', so no story imports it.
+// Not src/i18n.ts: it reads the page's address, which in Storybook is not a page of the site.
+// Components take the pure locale helpers from '@/utils/locale', so no story imports it.
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, th: { translation: th } },
   lng: 'en',
