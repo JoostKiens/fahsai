@@ -26,7 +26,7 @@ export const useSettingsStore = create<SettingsStore>()(
           // The language preference moved to a cookie that only the language switch sets (see
           // CONTEXT.md). The saved value mixed explicit choices with mere visits to a Thai page,
           // so it is dropped, not copied: keep only what is still stored here.
-          state = { scrubberDays: state.scrubberDays };
+          state = state.scrubberDays === undefined ? {} : { scrubberDays: state.scrubberDays };
         }
         return state as SettingsStore;
       },

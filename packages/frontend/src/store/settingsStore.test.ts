@@ -39,6 +39,12 @@ describe('settingsStore', () => {
     expect(store.getState().scrubberDays).toBe(30);
   });
 
+  it('keeps the default range when an old blob never had one', async () => {
+    const store = await loadStoreWith({ state: { language: 'th' }, version: 3 });
+
+    expect(store.getState().scrubberDays).toBe(120);
+  });
+
   it('starts with the 120-day range and saves only that', async () => {
     const store = await loadStoreWith();
 
