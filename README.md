@@ -46,7 +46,7 @@ Map position, zoom, and selected date are reflected in the URL, so any view is f
 
 ## How the AI explanation works
 
-Click any monitoring station and hit "What is causing this?" The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.1 Flash Lite.
+Click any monitoring station and hit "What is causing this?" The backend assembles a spatial context snapshot and streams an explanation from Gemini 3.5 Flash-Lite.
 
 The model sees more than just the PM2.5 number. It gets the 5-day daily trend, current wind speed and direction, and fires discovered via a 72-hour backward trajectory: the backend runs a 5-member backward trajectory ensemble, tracing the air mass from the station and four cardinal offsets, stepping back in 6-hour increments over 72 hours using stored wind grids. Fires within the combined footprint of all five paths are then scored by FRP, recency, and proximity to the trajectory corridor. A pre-computed daily per-station fire pressure score (fire count and total FRP within 75km of the station over 14 days) is used to distinguish sustained local fire activity from transported smoke passing through the area. Major cities, industrial zones, and power plants near the trajectory footprint are also evaluated as upwind emission sources, each scored by population or emission proxy and minimum distance to the ensemble trajectory footprint, and included only if they fall within the widening trajectory cone and their bearing from the station aligns with the wind direction. It also gets the distance-weighted mean PM2.5 from all peer stations within 75 km that have reported in the last 24 hours.
 
