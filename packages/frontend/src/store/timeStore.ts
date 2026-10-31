@@ -24,15 +24,18 @@ function initialDateFromUrl(): string {
   return raw;
 }
 
-const initialDate = initialDateFromUrl();
-
 export const useTimeStore = create<TimeStore>((set) => ({
   latestDate: yesterdayICT,
   latestDateResolved: false,
-  selectedDate: initialDate,
+  selectedDate: yesterdayICT,
   setLatestDate: (date) => set({ latestDate: date, latestDateResolved: true }),
   setDate: (date) => set({ selectedDate: date }),
 }));
+
+// The URL's date is applied after the store exists, not in its initial state; see uiStore.ts.
+if (typeof window !== 'undefined') {
+  useTimeStore.setState({ selectedDate: initialDateFromUrl() });
+}
 
 // True once the real latestDate is known from the API AND selectedDate is within the valid range.
 // Toasts and other "settled" UI should gate on this selector.

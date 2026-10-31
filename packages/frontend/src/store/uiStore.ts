@@ -92,11 +92,12 @@ export const useUIStore = create<UIStore>((set, get) => ({
       pendingSelection: null,
       hintDismissed: p ? true : get().hintDismissed,
     }),
-  pendingSelection: parsePendingSelectionFromSearch(currentSearch()),
+  pendingSelection: null,
   setPendingSelection: (p) => set({ pendingSelection: p }),
   hintDismissed: false,
   dismissHint: () => set({ hintDismissed: true }),
-  scrubberDay: initialScrubberDayFromUrl(),
+  // The saved range's last day, like the server renders; the URL's date is applied below.
+  scrubberDay: useSettingsStore.getInitialState().scrubberDays - 1,
   setScrubberDay: (day) => set({ scrubberDay: day }),
   sessionScrubberDays: null,
   setSessionScrubberDays: (days) => set({ sessionScrubberDays: days }),
@@ -113,6 +114,16 @@ export const useUIStore = create<UIStore>((set, get) => ({
   settingsOpen: false,
   setSettingsOpen: (v) => set({ settingsOpen: v }),
 }));
+
+// What the page URL asks for is applied after the store exists, not in its initial state: an island
+// the server rendered hydrates against the initial state, which has to be what the server used.
+// Browser-only islands first render after this runs, so they see the URL's values from the start.
+if (typeof window !== 'undefined') {
+  useUIStore.setState({
+    pendingSelection: parsePendingSelectionFromSearch(currentSearch()),
+    scrubberDay: initialScrubberDayFromUrl(),
+  });
+}
 
 // day 0 = (days-1) days before latestDate, day (days-1) = latestDate.
 export function dayToDate(day: number, latestDate: string, days = 30): string {
