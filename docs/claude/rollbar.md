@@ -110,7 +110,7 @@ shift, and shows a short message:
 | `MapView`   | Full-size dark div with "Map unavailable" (inside a `Suspense`)          |
 | `Sidebar`   | `w-65` aside (desktop only) with "Controls unavailable"                  |
 | `InfoPanel` | Absolute-positioned `w-[260px]` card (desktop only), "Panel unavailable" |
-| `Scrubber`  | Bar with `md:h-13` and "Timeline unavailable"                            |
+| `Scrubber`  | Bar with the scrubber's reserved height and "Timeline unavailable"       |
 
 The reusable `<ErrorBoundary name="..." fallback={...}>` lives at
 `packages/frontend/src/components/ErrorBoundary.tsx` (flat, no `ui/` subdirectory — see the

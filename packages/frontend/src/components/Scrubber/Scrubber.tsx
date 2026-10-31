@@ -14,6 +14,7 @@ import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
 import { TimelineChart } from './TimelineChart';
+import { SCRUBBER_MIN_HEIGHT_CLS } from './scrubberLayout';
 
 const PLAY_INTERVAL_MS = 800;
 const DEBOUNCE_MS = 300;
@@ -122,8 +123,8 @@ export function Scrubber() {
 
   return (
     <div
-      className="bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
-                 flex flex-col gap-1 py-1.5"
+      className={`bg-zinc-900 border-t border-zinc-800 pointer-events-auto px-4
+                 flex flex-col gap-1 py-1.5 ${SCRUBBER_MIN_HEIGHT_CLS}`}
     >
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">

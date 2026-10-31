@@ -11,6 +11,21 @@ import { Scrubber } from './Scrubber';
 const LATEST_DATE = '2026-10-24';
 const SCRUBBER_DAYS = 30;
 
+// The page reserves the scrubber's height before its island mounts (SCRUBBER_MIN_HEIGHT_CLS, used in
+// layouts/AppShell.astro), so the sidebar and map don't resize when it appears. Taller than the
+// reservation and the page jumps down; shorter and it leaves a gap. This runs in a real browser at
+// the story's viewport, so it fails when the scrubber's layout changes without the constant.
+async function expectReservedHeight(canvasElement: HTMLElement) {
+  const root = canvasElement.firstElementChild as HTMLElement;
+  const reserved = parseFloat(getComputedStyle(root).minHeight);
+  root.style.minHeight = '0px';
+  const natural = root.getBoundingClientRect().height;
+  root.style.minHeight = '';
+  await expect(reserved).toBeGreaterThan(0);
+  await expect(natural).toBeLessThanOrEqual(reserved);
+  await expect(reserved - natural).toBeLessThan(1);
+}
+
 const summaryHandler = http.get('*/api/v1/cams/summary', () => HttpResponse.json(summaryResponse));
 
 const meta = {
@@ -36,12 +51,14 @@ export const Desktop: Story = {
     // The chart's SVG stretches to the slider width; the play icon's SVG doesn't.
     const chartLine = 'svg[preserveAspectRatio="none"] path';
     await waitFor(() => expect(canvasElement.querySelector(chartLine)).not.toBeNull());
+    await expectReservedHeight(canvasElement);
   },
 };
 
 // No play button or chart; the date sits above the slider.
 export const Mobile: Story = {
   globals: { viewport: { value: 'mobile1', isRotated: false } },
+  play: ({ canvasElement }) => expectReservedHeight(canvasElement),
 };
 
 // Until the API reports its latest date, the controls are placeholders.
@@ -49,6 +66,7 @@ export const WaitingForLatestDate: Story = {
   beforeEach: () => {
     useTimeStore.setState({ latestDateResolved: false });
   },
+  play: ({ canvasElement }) => expectReservedHeight(canvasElement),
 };
 
 // The summary endpoint answers a range with no data with a 200 and an empty list (routes/cams.ts):
@@ -57,6 +75,7 @@ export const NoTimelineData: Story = {
   parameters: {
     msw: { handlers: [http.get('*/api/v1/cams/summary', () => HttpResponse.json({ data: [] }))] },
   },
+  play: ({ canvasElement }) => expectReservedHeight(canvasElement),
 };
 
 export const Thai: Story = { globals: { locale: 'th' } };
