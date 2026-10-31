@@ -1,6 +1,7 @@
 import { Select } from '@base-ui/react/select';
 import { useTranslation } from 'react-i18next';
-import { useSettingsStore, type Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
+import { languageSwitchUrl } from '@/lib/languageSwitchUrl';
 
 const LANGUAGES: { code: Language; pill: string; native: string }[] = [
   { code: 'en', pill: 'EN', native: 'English' },
@@ -31,19 +32,13 @@ function ChevronDownIcon() {
  */
 export function LanguagePill() {
   const { t, i18n } = useTranslation();
-  const setLanguage = useSettingsStore((s) => s.setLanguage);
 
   const currentCode = (i18n.language as Language) ?? 'en';
   const current = LANGUAGES.find((l) => l.code === currentCode) ?? LANGUAGES[0];
 
   function select(lang: Language) {
     if (lang === (i18n.language as Language)) return;
-    setLanguage(lang);
-    const path = lang === 'th' ? '/th/' : '/';
-    const params = new URLSearchParams(window.location.search);
-    params.delete('lang');
-    const qs = params.toString();
-    window.location.href = path + (qs ? '?' + qs : '');
+    window.location.href = languageSwitchUrl(lang, window.location.search);
   }
 
   return (

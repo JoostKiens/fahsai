@@ -60,3 +60,28 @@ is called. Passing `t` into every helper would couple lib signatures to i18next;
 - **Decision 1 (language store):** `i18next-browser-languagedetector` is no longer used. `i18n.ts` resolves the language itself, in this order: `/th` URL path, `?lang=`, the value stored in `settingsStore`, then `navigator.language`. The Thai site is served at `/th/` (static HTML with its own og tags), and `i18n.ts` redirects when the path and the resolved language disagree. `settingsStore` is now at schema version 3.
 - **Decision 2 (date formatting):** superseded. `dateLocale()` now returns `'th-TH-u-nu-latn'` (Thai month names, Latin numerals, and the default Thai calendar, so years are Buddhist Era), and `toDisplayYear()` adds 543 to displayed years (commit 8ec6d1c). The Gregorian `-ca-gregory` variant described above is no longer used.
 - **Decision 3 (translation keys from helpers):** unchanged.
+
+## Addendum (2026-10-31): the language preference moves to a cookie, decided on the server
+
+- **Decision 1 (language store): superseded.** A visitor's language preference is a cookie, `lang`
+  (`en` or `th`), set only by the language switch. It is no longer in `settingsStore`: version 4
+  drops a saved value and does not copy it, because that value mixed explicit choices with mere
+  visits to a Thai page. The terms are in `CONTEXT.md`.
+- **The browser no longer decides the page language.** `i18n.ts` takes it from the address. Edge
+  middleware (`src/middleware.ts`, the rules in `lib/languageRedirect.ts`) handles requests for
+  `/`, in this order: a `?lang=` from the language switch (stores the choice and goes to that page,
+  keeping the rest of the query), then the cookie, then the browser's top `Accept-Language`
+  language. Thai gets a 302 to `/th/`, never cached. A `/th/` address is never redirected, and any
+  error serves the page as it is.
+- **Why:** the redirect used to run once the map's JavaScript had loaded, so Thai visitors saw the
+  English header and sidebar first, and nothing happened if the map failed to load. On the server
+  it happens before a page is sent.
+- **Landing on a Thai page does not remember Thai.** Only an explicit choice with the language
+  switch is a preference. Before, any visit to `/th/` was saved, so a shared Thai link could turn
+  someone into a Thai visitor for good, and remembering it on the server would have needed the
+  middleware (and a cookie) on every Thai page.
+- **Alternatives considered:** keep the redirect in the browser (the English flash and the
+  dependence on the map stay); remember on landing; copy the old saved language into the cookie.
+- **Costs:** Astro's edge middleware runs for every on-demand page, not only `/` (see ADR 0007).
+  Without cookies the browser's language decides.
+- Decisions 2 (superseded above) and 3 are unchanged.

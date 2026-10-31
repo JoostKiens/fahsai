@@ -5,7 +5,7 @@ import type { i18n } from 'i18next';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { createI18n } from '@/i18n-instance';
 import { queryClient } from '@/lib/queryClient';
-import type { Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
 
 interface Props {
   /** The page's language, so the server and the browser render the same text */

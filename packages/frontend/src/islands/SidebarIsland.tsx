@@ -1,5 +1,5 @@
 import { Sidebar } from '@/components/Sidebar';
-import type { Language } from '@/store/settingsStore';
+import type { Language } from '@/i18n-instance';
 import { ServerIslandRoot } from './ServerIslandRoot';
 
 export function SidebarIsland({ lang }: { lang: Language }) {

@@ -1,7 +1,8 @@
 import i18next, { type i18n } from 'i18next';
 import en from './locales/en.json';
 import th from './locales/th.json';
-import type { Language } from './store/settingsStore';
+
+export type Language = 'en' | 'th';
 
 declare module 'i18next' {
   interface CustomTypeOptions {

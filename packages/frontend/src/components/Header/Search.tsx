@@ -3,7 +3,6 @@ import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
 import { useStationReadings, type LatestMeasurement } from '@/hooks/useStationReadings';
 import { useUIStore } from '@/store/uiStore';
-import { useSettingsStore } from '@/store/settingsStore';
 import { mapRef } from '@/utils/mapRef';
 import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
 import { CloseIcon } from './Icons';
@@ -62,8 +61,8 @@ function Pm25Dot({ value }: { value: number }) {
  * map there. On mobile it opens from a search button as a full-width field.
  */
 export function Search() {
-  const { t } = useTranslation();
-  const language = useSettingsStore((s) => s.language) ?? 'en';
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const { data: stations } = useStationReadings();
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
 
