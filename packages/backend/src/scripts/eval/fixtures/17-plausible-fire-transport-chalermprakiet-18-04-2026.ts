@@ -8,7 +8,7 @@ export const fixture: ExplainFixture = {
   id: '17-plausible-fire-transport-chalermprakiet-18-04-2026',
   case: 'PLAUSIBLE_FIRE_TRANSPORT',
   description:
-    'Hazardous reading (312 µg/m³) in Sainyabuli, Laos, during peak burning season. 8 peers within 75 km, but one far-low peer (Phiang, 67 µg/m³) is dropped from the range, which comes from the other 7 (243–564 µg/m³). Guards JOO-90: the answer must not say "eight stations" with that range.',
+    'Hazardous reading (312 µg/m³) in Sainyabuli, Laos, during peak burning season. 8 peers within 75 km, but one far-low peer (Phiang, 67 µg/m³) is dropped from the range, which comes from the other 7 (243–564 µg/m³). Mean wind 8.1 km/h with area score 88 takes the stagnation path, so the answer leads with local fires, not the trajectory. Guards JOO-90: the answer must not say "eight stations" with that range.',
   input: {
     station: {
       name: 'Chalermprakiet Hospital',
