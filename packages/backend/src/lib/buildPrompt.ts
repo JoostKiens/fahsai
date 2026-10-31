@@ -219,13 +219,21 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
-    // the range leaves out readings outside 0.4x–2x the median; say so, or the model gives every
-    // peer the range's category
+    // The range leaves out readings outside 0.4x–2x the median. Saying so in the data line alone
+    // wasn't enough (JOO-90): the eval called all stations Hazardous. A note that only described
+    // which numbers cover which stations failed too, so the note is an instruction.
     const leftOutCount = p.stationCount - p.rangeStationCount;
-    const rangeCoverage =
+    const leftOutReadings =
+      leftOutCount === 1
+        ? '1 outlying reading is left out of it'
+        : `${leftOutCount} outlying readings are left out of it`;
+    const [rangeCoverage, rangeCountNote] =
       leftOutCount > 0
-        ? ` for ${p.rangeStationCount} of them; ${leftOutCount} ${leftOutCount === 1 ? 'reads' : 'read'} far outside that range and ${leftOutCount === 1 ? 'is' : 'are'} left out of it`
-        : '';
+        ? [
+            ` for ${p.rangeStationCount} of them; ${leftOutReadings}`,
+            `\nWhen you cite this range or its AQI category, give the count as ${p.rangeStationCount} of ${p.stationCount} stations. The mean and median cover all ${p.stationCount}.`,
+          ]
+        : ['', ''];
     const rangeStr = p.range
       ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³${rangeCoverage}`
       : 'n/a';
@@ -233,12 +241,6 @@ ${trajectoryStr}`;
     const ratioStr = ctx.outlier
       ? `\nStation reading ÷ peer weighted mean: ${ctx.outlier.ratio.toFixed(2)}`
       : '';
-    // the data line alone wasn't enough (JOO-90): the eval called all stations Hazardous. A note
-    // that only described which numbers cover which stations failed too; it needs the instruction
-    const rangeCountNote =
-      leftOutCount > 0
-        ? `\nWhen you cite this range or its AQI category, give the count as ${p.rangeStationCount} of ${p.stationCount} stations. The mean covers all ${p.stationCount}.`
-        : '';
     const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}${rangeCountNote}`;
     if (p.distribution) {
       peerStr = `${header}\nDistribution by AQI category: ${p.distribution}`;

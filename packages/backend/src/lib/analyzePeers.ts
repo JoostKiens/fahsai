@@ -74,7 +74,9 @@ export function analyzePeers(
       : peerList;
 
   // over every peer, outliers included: dropped high readings are often the severe ones
-  const severePeerCount = peerList.filter((p) => p.pm25 > 125.4).length;
+  const severePeerCount = peerList.filter((p) =>
+    ['Very unhealthy', 'Hazardous'].includes(pm25Cat(p.pm25)),
+  ).length;
 
   const filteredPeerValues = nonOutlierPeers.map((p) => p.pm25);
   const filteredPeerMin = filteredPeerValues.length ? Math.min(...filteredPeerValues) : null;
