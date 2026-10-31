@@ -5,6 +5,7 @@ const FULL_PEERS = {
   weightedMean: 84.1,
   unweightedMedian: 83,
   range: { min: 70, max: 95 },
+  rangeStationCount: 3,
   distribution: 'tight',
   stations: [{ name: 'Peer One', value: 80, distanceKm: 12.5 }],
 };

@@ -111,6 +111,10 @@ export interface FixturePeerContext {
   weightedMean: number;
   unweightedMedian: number;
   range: { min: number; max: number };
+  // Peers the range is taken from: readings outside 0.4x–2x the median are dropped
+  rangeStationCount: number;
+  // Peers above 125.4 µg/m³ (Very unhealthy or Hazardous), counted over all stationCount peers
+  severeStationCount: number;
   stations: FixturePeerStation[];
   // When stationCount > 10 the route shows "Distribution by AQI category: ..." instead of
   // individual station list. Store the pre-computed string here so assemblePrompt can reproduce it.

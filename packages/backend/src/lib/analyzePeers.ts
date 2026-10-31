@@ -12,6 +12,7 @@ export interface PeerAnalysis {
   isStrongOutlier: boolean;
   isHighOutlier: boolean;
   nonOutlierPeers: PeerEntry[];
+  severePeerCount: number;
   filteredPeerMin: number | null;
   filteredPeerMax: number | null;
   peerDistribution: string | null;
@@ -72,6 +73,11 @@ export function analyzePeers(
       ? peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4)
       : peerList;
 
+  // over every peer, outliers included: dropped high readings are often the severe ones
+  const severePeerCount = peerList.filter((p) =>
+    ['Very unhealthy', 'Hazardous'].includes(pm25Cat(p.pm25)),
+  ).length;
+
   const filteredPeerValues = nonOutlierPeers.map((p) => p.pm25);
   const filteredPeerMin = filteredPeerValues.length ? Math.min(...filteredPeerValues) : null;
   const filteredPeerMax = filteredPeerValues.length ? Math.max(...filteredPeerValues) : null;
@@ -102,6 +108,7 @@ export function analyzePeers(
     isStrongOutlier,
     isHighOutlier,
     nonOutlierPeers,
+    severePeerCount,
     filteredPeerMin,
     filteredPeerMax,
     peerDistribution,

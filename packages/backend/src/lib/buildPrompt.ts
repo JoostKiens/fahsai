@@ -219,14 +219,29 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
+    // The range leaves out readings outside 0.4x–2x the median. Saying so in the data line alone
+    // wasn't enough (JOO-90): the eval called all stations Hazardous. A note that only described
+    // which numbers cover which stations failed too, so the note is an instruction.
+    const leftOutCount = p.stationCount - p.rangeStationCount;
+    const leftOutReadings =
+      leftOutCount === 1
+        ? '1 outlying reading is left out of it'
+        : `${leftOutCount} outlying readings are left out of it`;
+    const [rangeCoverage, rangeCountNote] =
+      leftOutCount > 0
+        ? [
+            ` for ${p.rangeStationCount} of them; ${leftOutReadings}`,
+            `\nWhen you cite this range or its AQI category, give the count as ${p.rangeStationCount} of ${p.stationCount} stations. The mean and median cover all ${p.stationCount}.`,
+          ]
+        : ['', ''];
     const rangeStr = p.range
-      ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³`
+      ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³${rangeCoverage}`
       : 'n/a';
     // the mean is rounded, so the model can't work out the outlier ratio itself
     const ratioStr = ctx.outlier
       ? `\nStation reading ÷ peer weighted mean: ${ctx.outlier.ratio.toFixed(2)}`
       : '';
-    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}`;
+    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}${rangeCountNote}`;
     if (p.distribution) {
       peerStr = `${header}\nDistribution by AQI category: ${p.distribution}`;
     } else if (p.stationCount <= 2) {

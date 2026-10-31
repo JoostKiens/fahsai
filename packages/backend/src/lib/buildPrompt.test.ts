@@ -14,6 +14,7 @@ describe('buildPrompt', () => {
         weightedMean: 84.1,
         unweightedMedian: 83.6,
         range: { min: 80.4, max: 86.8 },
+        rangeStationCount: 2,
         distribution: null,
         stations: [
           { name: 'Peer One', value: 80.4, distanceKm: 12.5 },

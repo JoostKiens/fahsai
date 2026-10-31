@@ -148,6 +148,7 @@ export const ScientificContextSchema = Type.Object({
       weightedMean: Type.Number(),
       unweightedMedian: Type.Number(),
       range: Type.Union([Type.Object({ min: Type.Number(), max: Type.Number() }), Type.Null()]),
+      rangeStationCount: Type.Integer(),
       distribution: nullable(Type.String()),
       stations: Type.Array(
         Type.Object({ name: Type.String(), value: Type.Number(), distanceKm: Type.Number() }),

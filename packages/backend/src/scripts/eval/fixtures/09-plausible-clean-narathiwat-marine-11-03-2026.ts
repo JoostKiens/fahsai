@@ -117,6 +117,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 11.8,
       unweightedMedian: 11.8,
       range: { min: 11.8, max: 11.8 },
+      rangeStationCount: 1,
+      severeStationCount: 0,
       stations: [{ name: 'White Elephant Park', value: 11.8, distanceKm: 61 }],
     },
     outlier: null,

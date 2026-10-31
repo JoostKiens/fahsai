@@ -130,6 +130,7 @@ export interface ScientificContext {
     weightedMean: number;
     unweightedMedian: number;
     range: { min: number; max: number } | null;
+    rangeStationCount: number;
     distribution: string | null;
     stations: { name: string; value: number; distanceKm: number }[];
   } | null;
@@ -173,15 +174,15 @@ const PERIOD_LABEL_PREFIX: Record<PeriodKey, string> = {
 // Internal helpers
 // ----------------------------------------------------------------
 
-function regionalCrisisFraction(peers: ScientificContext['peers'] & object): number {
-  const { stationCount, distribution, stations } = peers;
+function regionalCrisisFraction({
+  stationCount,
+  severeStationCount,
+}: {
+  stationCount: number;
+  severeStationCount: number;
+}): number {
   if (stationCount === 0) return 0;
-  if (distribution !== null) {
-    const haz = parseInt(/(\d+) Hazardous/.exec(distribution)?.[1] ?? '0', 10);
-    const veryUnhealthy = parseInt(/(\d+) Very unhealthy/.exec(distribution)?.[1] ?? '0', 10);
-    return (haz + veryUnhealthy) / stationCount;
-  }
-  return stations.filter((s) => s.value > 125.4).length / stationCount;
+  return severeStationCount / stationCount;
 }
 
 function computeTrend(
@@ -398,6 +399,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         weightedMean: raw.peers.weightedMean,
         unweightedMedian: raw.peers.unweightedMedian,
         range: raw.peers.range ?? null,
+        rangeStationCount: raw.peers.rangeStationCount,
         distribution: raw.peers.distribution ?? null,
         stations: raw.peers.stations.map((s) => ({
           name: s.name,
@@ -412,8 +414,8 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     trend.isSignificant &&
     explainCase === 'PLAUSIBLE_FIRE_TRANSPORT' &&
     firesAreLocal &&
-    peers !== null &&
-    regionalCrisisFraction(peers) > 0.5
+    raw.peers !== null &&
+    regionalCrisisFraction(raw.peers) > 0.5
   ) {
     trend = { ...trend, isSignificant: false };
   }

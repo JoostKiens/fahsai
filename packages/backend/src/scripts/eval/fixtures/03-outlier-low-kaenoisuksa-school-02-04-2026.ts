@@ -84,6 +84,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 261.7,
       unweightedMedian: 241.0,
       range: { min: 98.5, max: 474.0 },
+      rangeStationCount: 51,
+      severeStationCount: 45,
       stations: [], // distribution used — >10 peers
       distribution: '6 Unhealthy, 21 Very unhealthy, 24 Hazardous',
     },

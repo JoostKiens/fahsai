@@ -183,6 +183,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 15.2,
       unweightedMedian: 15.5,
       range: { min: 9.1, max: 20.9 },
+      rangeStationCount: 5,
+      severeStationCount: 0,
       stations: [
         { name: 'Chom Nan Chaloem Phrakiat Public Park', value: 16.5, distanceKm: 51 },
         { name: 'Sirichit Thai Cultural Conservation Ground', value: 9.1, distanceKm: 67 },

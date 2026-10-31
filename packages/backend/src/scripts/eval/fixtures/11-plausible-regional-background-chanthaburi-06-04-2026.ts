@@ -109,6 +109,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 36.1,
       unweightedMedian: 35.5,
       range: { min: 27.0, max: 42.7 },
+      rangeStationCount: 3,
+      severeStationCount: 0,
       stations: [
         { name: 'Khlung', value: 27.0, distanceKm: 18 },
         { name: 'Trat', value: 38.2, distanceKm: 59 },
