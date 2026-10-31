@@ -10,6 +10,7 @@ import { HeaderIsland } from '@/islands/HeaderIsland';
 import { SidebarIsland } from '@/islands/SidebarIsland';
 import { MapIsland } from '@/islands/MapIsland';
 import { ScrubberIsland } from '@/islands/ScrubberIsland';
+import { SCRUBBER_BAR_CLS } from '@/components/Scrubber/scrubberLayout';
 
 interface Props {
   lang: Language;
@@ -26,5 +27,8 @@ const { lang } = Astro.props;
       <slot name="fallback" slot="fallback" />
     </MapIsland>
   </div>
-  <ScrubberIsland client:only="react" />
+  <ScrubberIsland client:only="react">
+    {/* Holds the scrubber's space until it mounts, so the sidebar and map keep their height. */}
+    <div slot="fallback" class={SCRUBBER_BAR_CLS}></div>
+  </ScrubberIsland>
 </div>
