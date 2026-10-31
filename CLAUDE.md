@@ -86,10 +86,10 @@ working in a file, mention it rather than fixing it silently.
 │   │       └── data/         # static reference data (urban sources, geo regions)
 │   └── frontend/             # Astro + React islands
 │       └── src/
-│           ├── pages/          # index.astro, th/index.astro (prerendered)
+│           ├── pages/          # index.astro, th/index.astro (on demand, cached with ISR)
 │           ├── layouts/        # Base.astro (head tags, structured data, en/th copy) and
 │           │                   # AppShell.astro (lays out the four islands)
-│           ├── islands/        # Header + Sidebar (server-rendered, hydrated), Map + Scrubber
+│           ├── islands/        # Header, Sidebar, Scrubber (server-rendered, hydrated), Map
 │           │                   # (browser-only), IslandRoot, ServerIslandRoot
 │           ├── i18n.ts         # browser bootstrap: detects the language, may redirect
 │           ├── i18n-instance.ts  # createI18n(lang): a server-safe i18next instance
@@ -317,7 +317,8 @@ setup only. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils
 components must not import from `@/i18n`, or they can't render in Storybook or tests
 without that side effect. The islands Astro renders on the server (header, sidebar) get their
 language from a `lang` prop, through `ServerIslandRoot` and `createI18n`; only the browser-only
-islands load `@/i18n` (via `IslandRoot`).
+island loads `@/i18n` (via `IslandRoot`), which also sets up the default `i18next` instance that
+`queryErrors.ts` and `useExplain.ts` import directly.
 
 ---
 
