@@ -130,6 +130,7 @@ export interface ScientificContext {
     weightedMean: number;
     unweightedMedian: number;
     range: { min: number; max: number } | null;
+    rangeStationCount: number;
     distribution: string | null;
     stations: { name: string; value: number; distanceKm: number }[];
   } | null;
@@ -398,6 +399,8 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         weightedMean: raw.peers.weightedMean,
         unweightedMedian: raw.peers.unweightedMedian,
         range: raw.peers.range ?? null,
+        // shortcut: fixtures captured before rangeStationCount existed lack it, re-capture them to drop the fallback
+        rangeStationCount: raw.peers.rangeStationCount ?? raw.peers.stationCount,
         distribution: raw.peers.distribution ?? null,
         stations: raw.peers.stations.map((s) => ({
           name: s.name,

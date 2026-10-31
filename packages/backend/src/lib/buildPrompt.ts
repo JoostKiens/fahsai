@@ -219,8 +219,11 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
+    // the range skips far-off peers, so say how many it covers or the model pairs it with stationCount
+    const rangeCoverage =
+      p.rangeStationCount < p.stationCount ? ` across ${p.rangeStationCount} of them` : '';
     const rangeStr = p.range
-      ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³`
+      ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³${rangeCoverage}`
       : 'n/a';
     // the mean is rounded, so the model can't work out the outlier ratio itself
     const ratioStr = ctx.outlier

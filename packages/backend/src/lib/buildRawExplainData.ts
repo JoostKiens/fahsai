@@ -210,6 +210,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
             weightedMean: peerWeightedMean,
             unweightedMedian: peerMedian,
             range: { min: filteredPeerMin, max: filteredPeerMax },
+            rangeStationCount: nonOutlierPeers.length,
             stations: nonOutlierPeers
               .sort((a, b) => a.distKm - b.distKm)
               .slice(0, 10)
