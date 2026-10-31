@@ -98,12 +98,15 @@ backend relay forwards the payload unchanged and passes Rollbar's response back.
 
 ## Error boundaries
 
-Four `ErrorBoundary` wrappers guard independently-useful UI regions (`App.tsx`,
-`UIOverlay.tsx`). Each fallback keeps the region's footprint so the layout does not shift, and
-shows a short message:
+Six `ErrorBoundary` wrappers guard independently-useful UI regions. Each island's root
+(`IslandRoot` or `ServerIslandRoot`, in `src/islands/`) holds one; `MapView` and `InfoPanel` have
+their own inside the map island. Each fallback keeps the region's footprint so the layout does not
+shift, and shows a short message:
 
 | Component   | Fallback behaviour                                                       |
 | ----------- | ------------------------------------------------------------------------ |
+| `Header`    | `h-12` bar with just "Fahsai"                                            |
+| `Map`       | The map island's `main` region with "Map unavailable"                    |
 | `MapView`   | Full-size dark div with "Map unavailable" (inside a `Suspense`)          |
 | `Sidebar`   | `w-65` aside (desktop only) with "Controls unavailable"                  |
 | `InfoPanel` | Absolute-positioned `w-[260px]` card (desktop only), "Panel unavailable" |

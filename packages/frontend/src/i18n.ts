@@ -1,15 +1,8 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import en from './locales/en.json';
-import th from './locales/th.json';
+import i18next from 'i18next';
+import { setI18n } from 'react-i18next';
+import { initI18n } from './i18n-instance';
 import { useSettingsStore } from './store/settingsStore';
 import type { Language } from './store/settingsStore';
-
-declare module 'i18next' {
-  interface CustomTypeOptions {
-    resources: { translation: typeof en };
-  }
-}
 
 const pathLang: Language | null = window.location.pathname.startsWith('/th') ? 'th' : null;
 
@@ -33,16 +26,9 @@ if (!pathLang && initialLang === 'th') {
   window.location.replace('/' + window.location.search);
 }
 
-void i18n.use(initReactI18next).init({
-  resources: {
-    en: { translation: en },
-    th: { translation: th },
-  },
-  lng: initialLang,
-  fallbackLng: 'en',
-  supportedLngs: ['en', 'th'],
-  interpolation: { escapeValue: false },
-});
+// The default instance, not a new one: queryErrors.ts and useExplain.ts import i18next directly.
+const i18n = initI18n(i18next, initialLang);
+setI18n(i18n);
 
 i18n.on('languageChanged', (lang) => {
   document.documentElement.lang = lang;

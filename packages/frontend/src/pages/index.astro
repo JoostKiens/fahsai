@@ -1,13 +1,13 @@
 ---
 import Base from '@/layouts/Base.astro';
-import { AppIsland } from '@/AppIsland';
+import AppShell from '@/layouts/AppShell.astro';
 ---
 
 <Base lang="en">
-  <AppIsland client:only="react">
+  <AppShell lang="en">
     <main id="intro" slot="fallback">
       <div>
-        <h1>Fahsai — Thailand Air Quality Map</h1>
+        <h2>Fahsai — Thailand Air Quality Map</h2>
         <p>
           Fahsai (<span lang="th">ฟ้าใส</span>, “clear sky”) is a free, non-commercial map of the
           causes of seasonal air pollution in Thailand and its neighbours. It shows satellite fire
@@ -21,7 +21,7 @@ import { AppIsland } from '@/AppIsland';
         </p>
         <p>Loading the map… If it doesn’t appear, try reloading the page.</p>
         <noscript><p>The map needs JavaScript.</p></noscript>
-        <h2>Data sources</h2>
+        <h3>Data sources</h3>
         <ul>
           <li>
             Fire data courtesy NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
@@ -42,5 +42,5 @@ import { AppIsland } from '@/AppIsland';
         <p><a href="/th/" lang="th" hreflang="th">ภาษาไทย</a></p>
       </div>
     </main>
-  </AppIsland>
+  </AppShell>
 </Base>

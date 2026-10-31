@@ -3,6 +3,7 @@ import { MS_PER_DAY, ICT_OFFSET_MS } from '@thailand-aq/consts';
 import type { RateLimit } from '@thailand-aq/types';
 import { useSettingsStore } from './settingsStore';
 import { parsePendingSelectionFromSearch } from '@/utils/selectionUrl';
+import { currentSearch } from '@/utils/currentSearch';
 
 export interface SelectedPoint {
   lngLat: [number, number];
@@ -67,7 +68,7 @@ export const MAX_DAYS = 120;
 
 function initialScrubberDayFromUrl(): number {
   const scrubberDays = useSettingsStore.getState().scrubberDays;
-  const raw = new URLSearchParams(window.location.search).get('date');
+  const raw = new URLSearchParams(currentSearch()).get('date');
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return scrubberDays - 1;
   const urlMs = new Date(raw + 'T00:00:00Z').getTime();
   if (!isFinite(urlMs)) return scrubberDays - 1;
@@ -91,7 +92,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
       pendingSelection: null,
       hintDismissed: p ? true : get().hintDismissed,
     }),
-  pendingSelection: parsePendingSelectionFromSearch(window.location.search),
+  pendingSelection: parsePendingSelectionFromSearch(currentSearch()),
   setPendingSelection: (p) => set({ pendingSelection: p }),
   hintDismissed: false,
   dismissHint: () => set({ hintDismissed: true }),

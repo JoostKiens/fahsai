@@ -84,13 +84,15 @@ working in a file, mention it rather than fixing it silently.
 │   │       ├── utils/        # geo, date, backfill (pagination/concurrency), classification,
 │   │       │                 # per-provider API clients (openaq, openmeteo, firms), CORS helpers
 │   │       └── data/         # static reference data (urban sources, geo regions)
-│   └── frontend/             # Astro + React (the app is one client:only island)
+│   └── frontend/             # Astro + React islands
 │       └── src/
-│           ├── AppIsland.tsx   # the whole app, mounted by the pages below
 │           ├── pages/          # index.astro, th/index.astro (prerendered)
-│           ├── layouts/        # Base.astro: head tags, structured data, en/th copy
-│           ├── App.tsx
-│           ├── i18n.ts
+│           ├── layouts/        # Base.astro (head tags, structured data, en/th copy) and
+│           │                   # AppShell.astro (lays out the four islands)
+│           ├── islands/        # Header + Sidebar (server-rendered, hydrated), Map + Scrubber
+│           │                   # (browser-only), IslandRoot, ServerIslandRoot
+│           ├── i18n.ts         # browser bootstrap: detects the language, may redirect
+│           ├── i18n-instance.ts  # createI18n(lang): a server-safe i18next instance
 │           ├── components/
 │           │   ├── Map/      # Mapbox + Deck.gl map shell + one file per Deck.gl
 │           │   │             # layer (FiresLayer.ts, PM25Layer.ts, PowerPlantsLayer.ts)
@@ -313,7 +315,9 @@ this and will fail CI if they diverge.
 `src/i18n.ts` runs on import: it detects the language and may redirect to `/th/`. Keep it to
 setup only. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
 components must not import from `@/i18n`, or they can't render in Storybook or tests
-without that side effect.
+without that side effect. The islands Astro renders on the server (header, sidebar) get their
+language from a `lang` prop, through `ServerIslandRoot` and `createI18n`; only the browser-only
+islands load `@/i18n` (via `IslandRoot`).
 
 ---
 

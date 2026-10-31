@@ -67,6 +67,29 @@ function).
 
 ---
 
+## Page structure (Astro islands)
+
+`src/pages/index.astro` and `src/pages/th/index.astro` are prerendered and use `layouts/AppShell.astro`,
+which lays out four islands (`src/islands/`):
+
+| Island     | Rendered                     | Root               | Holds                                                                                           |
+| ---------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
+| `Header`   | server, then hydrated        | `ServerIslandRoot` | brand, search, language pill, menu, About and Settings dialogs                                  |
+| `Sidebar`  | server, then hydrated        | `ServerIslandRoot` | layer switches and legends                                                                      |
+| `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
+| `Scrubber` | browser only (`client:only`) | `IslandRoot`       | time scrubber                                                                                   |
+
+- The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
+  its own React root, so a render error takes down one island, not the page.
+- A server-rendered island can only import code that works without a browser. Read the query string
+  through `currentSearch()` (returns `''` without a window), not `window.location`.
+  `src/ssr.test.tsx` renders them in a Node environment.
+- Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
+  `@/i18n`, which detects it (see `docs/adr/0002-i18n-thai-language.md`).
+- Keep a `client:only` island in its own module; see `docs/adr/0007-astro-frontend.md`.
+
+---
+
 ## Zustand stores
 
 ```typescript

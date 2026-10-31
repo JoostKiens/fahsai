@@ -62,7 +62,7 @@ keep those tests passing if you touch the density or trail-length/alpha formulas
 
 **Barrel files (`index.ts`)** are only justified when they re-export 2+ things consumed
 by 2+ external files (e.g. `Sidebar/index.ts` re-exports `Sidebar` and `LayerGroups` for
-`App.tsx` and `SidebarToggleFAB.tsx`). A barrel with one export and one consumer is pure
+`SidebarIsland.tsx` and `SidebarToggleFAB.tsx`). A barrel with one export and one consumer is pure
 indirection with no payoff — delete it and import the file directly instead.
 
 **Single-file component directories** get flattened to `components/` root instead of
