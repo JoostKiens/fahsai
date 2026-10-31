@@ -8,7 +8,8 @@ export default defineConfig({
   // The home pages are rendered on demand and cached (ISR), so the scrubber shows the API's latest
   // data. An hour matches how long the API lets its answers be cached; a new day's data shows up
   // within it, and the browser corrects the date as soon as it has loaded.
-  adapter: vercel({ isr: { expiration: 60 * 60 } }),
+  // Edge middleware (src/middleware.ts) does the language redirect before the cached page is used.
+  adapter: vercel({ isr: { expiration: 60 * 60 }, middlewareMode: 'edge' }),
   server: { port: 5173 },
   // Astro adds script-src 'self' plus a hash per inline script. The pages are rendered on demand, so
   // it sends the CSP as a response header, and that header replaces a CSP header set anywhere else
