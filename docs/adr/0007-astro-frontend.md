@@ -34,8 +34,10 @@ Build with **Astro 7**, the `@astrojs/react` integration and the `@astrojs/verce
 - A later step moves the language choice into a cookie (see JOO-124).
 - The CSP is written by Astro (`security.csp`): `script-src 'self'` plus a hash per inline script.
   The pages are on demand, so Astro sends it as a response header, and that header replaces a CSP
-  header set anywhere else (it did to `vercel.json`'s, which was removed, and `staticHeaders` did
-  the same). So every directive, `frame-ancestors` included, is in Astro's list. Nothing tests this:
+  header set anywhere else (it does to `vercel.json`'s on these pages, and `staticHeaders` did the
+  same). So every directive, `frame-ancestors` included, is in Astro's list. `vercel.json` keeps
+  only a `frame-ancestors` header, for what Astro does not render: static files and the 404 page.
+  Nothing tests this:
   it was found by reading a preview's headers. Check them after changing the CSP or adding a
   prerendered page, whose CSP would be a `<meta>` tag that cannot carry `frame-ancestors`.
 

@@ -93,7 +93,8 @@ function).
 - The scrubber keeps the height in `SCRUBBER_BAR_CLS` as its minimum, in every state, so the sidebar
   and map keep their size; the Scrubber stories fail if its real height stops matching.
 - The CSP is Astro's response header and replaces any CSP header set elsewhere, so
-  `frame-ancestors` lives in `astro.config.mjs`. Check the headers on a preview after changing it.
+  `frame-ancestors` lives in `astro.config.mjs`; `vercel.json` repeats it for static files and the
+  404 page. Check the headers on a preview after changing either.
 - Keep a `client:only` island in its own module; see `docs/adr/0007-astro-frontend.md`.
 
 ---
