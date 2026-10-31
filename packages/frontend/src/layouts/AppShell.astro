@@ -1,8 +1,8 @@
 ---
 // The page's layout: header on top, sidebar and map side by side, scrubber below. Each region is
 // its own island; they share the Zustand stores and one QueryClient (see src/islands).
-// The sidebar is rendered here on the server and hydrated (client:load); the others are browser-only
-// (client:only). A server-rendered island must not import a browser-only one, or the server build
+// The header and sidebar are rendered here on the server and hydrated (client:load); the map and
+// scrubber are browser-only (client:only). A server-rendered island must not import a browser-only one, or the server build
 // loads code that reads window: keep each island in its own module and wrap it in the matching root
 // (ServerIslandRoot or IslandRoot).
 import type { Language } from '@/store/settingsStore';
@@ -19,7 +19,7 @@ const { lang } = Astro.props;
 ---
 
 <div class="flex flex-col h-full">
-  <HeaderIsland client:only="react" />
+  <HeaderIsland client:load lang={lang} />
   <div class="flex flex-1 overflow-hidden">
     <SidebarIsland client:load lang={lang} />
     <MapIsland client:only="react">

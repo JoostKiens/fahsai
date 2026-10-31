@@ -1,8 +1,10 @@
 import { StrictMode, type ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
+import { QueryClientProvider } from '@tanstack/react-query';
 import type { i18n } from 'i18next';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { createI18n } from '@/i18n-instance';
+import { queryClient } from '@/lib/queryClient';
 import type { Language } from '@/store/settingsStore';
 
 interface Props {
@@ -33,11 +35,13 @@ function i18nFor(lang: Language): i18n {
 export function ServerIslandRoot({ lang, name, fallback, children }: Props) {
   return (
     <StrictMode>
-      <I18nextProvider i18n={i18nFor(lang)}>
-        <ErrorBoundary name={name} fallback={fallback}>
-          {children}
-        </ErrorBoundary>
-      </I18nextProvider>
+      <QueryClientProvider client={queryClient}>
+        <I18nextProvider i18n={i18nFor(lang)}>
+          <ErrorBoundary name={name} fallback={fallback}>
+            {children}
+          </ErrorBoundary>
+        </I18nextProvider>
+      </QueryClientProvider>
     </StrictMode>
   );
 }
