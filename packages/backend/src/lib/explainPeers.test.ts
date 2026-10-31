@@ -66,7 +66,7 @@ describe('explain prompt peer summary', () => {
 
     expect(prompt).toContain('8 stations — ');
     expect(prompt.match(RANGE_IN_PROMPT)?.[1]).toBe('7');
-    expect(prompt).toContain('give the count as 7 of 8 stations');
+    expect(prompt).toContain('mean and median cover all 8 stations; the range covers 7 of them');
   });
 
   it('gives the range count when more than 10 peers are summarised as a distribution', () => {
@@ -77,7 +77,9 @@ describe('explain prompt peer summary', () => {
     const prompt = promptFor([...elevenClustered, peerRow('low', 67, 0.64)]);
 
     expect(prompt).toContain('Distribution by AQI category');
-    expect(prompt).toContain('give the count as 11 of 12 stations');
+    expect(prompt).toContain(
+      'mean, median and AQI distribution cover all 12 stations; the range covers 11 of them',
+    );
   });
 
   it('counts a severe reading as severe even when it is left out of the range', () => {
@@ -92,6 +94,6 @@ describe('explain prompt peer summary', () => {
 
     expect(prompt).toContain('7 stations — ');
     expect(prompt).not.toMatch(RANGE_IN_PROMPT);
-    expect(prompt).not.toContain('give the count as');
+    expect(prompt).not.toContain('the range covers');
   });
 });

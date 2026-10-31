@@ -233,10 +233,11 @@ ${trajectoryStr}`;
     const ratioStr = ctx.outlier
       ? `\nStation reading ÷ peer weighted mean: ${ctx.outlier.ratio.toFixed(2)}`
       : '';
-    // the Thai eval still called all stations Hazardous from the data line alone (JOO-90)
+    // the data line alone wasn't enough: the eval called all stations Hazardous, then gave the
+    // all-station mean as the average of the range's stations (JOO-90)
     const rangeCountNote =
       leftOutCount > 0
-        ? `\nWhen you cite this range or its AQI category, give the count as ${p.rangeStationCount} of ${p.stationCount} stations.`
+        ? `\nThe mean${p.distribution ? ', median and AQI distribution' : ' and median'} cover all ${p.stationCount} stations; the range covers ${p.rangeStationCount} of them. Give the count that matches the number you cite.`
         : '';
     const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}${rangeCountNote}`;
     if (p.distribution) {
