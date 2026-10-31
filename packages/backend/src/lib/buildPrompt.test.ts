@@ -36,4 +36,42 @@ describe('buildPrompt', () => {
     );
     expect(buildPrompt(FULL_CONTEXT, 'en')).not.toContain('Station reading ÷ peer weighted mean');
   });
+
+  describe('lowest humidity', () => {
+    function promptWithHumidity(humidities: (number | null)[]): string {
+      const days = humidities.map((humidity, i) => ({
+        date: `2026-03-${String(14 - i).padStart(2, '0')}`,
+        precipitationMm: 0,
+        humidity,
+        highHumidityWarning: false,
+      }));
+      return buildPrompt(
+        {
+          ...FULL_CONTEXT,
+          weatherContext: { ...FULL_CONTEXT.weatherContext, days, availableDayCount: days.length },
+        },
+        'en',
+      );
+    }
+
+    it('states the lowest reading when it is not the most recent day', () => {
+      expect(promptWithHumidity([34, 31, 29, 30])).toContain('Lowest RH: 29% (2026-03-12)');
+    });
+
+    it('skips days without a humidity reading', () => {
+      expect(promptWithHumidity([null, 45, null, 52])).toContain('Lowest RH: 45% (2026-03-13)');
+    });
+
+    it('gives the most recent day when the lowest readings look the same once rounded', () => {
+      expect(promptWithHumidity([29.4, 31, 29.2])).toContain('Lowest RH: 29% (2026-03-14)');
+    });
+
+    it('adds no lowest line when no day has a humidity reading', () => {
+      expect(promptWithHumidity([null, null])).not.toContain('Lowest RH');
+    });
+
+    it('adds no lowest line when only one day has a humidity reading', () => {
+      expect(promptWithHumidity([null, 45, null])).not.toContain('Lowest RH');
+    });
+  });
 });
