@@ -71,6 +71,15 @@ function buildScientificDataBlock(ctx: ScientificContext): string {
         : '';
     return `  ${d.date}: ${precip} mm rain,${rhStr}`;
   });
+  // stated outright: left to find the minimum, the model sometimes cites the first day (JOO-120)
+  const humidityDays = ctx.weatherContext.days.flatMap((d) =>
+    d.humidity === null ? [] : [{ date: d.date, humidity: d.humidity }],
+  );
+  if (humidityDays.length > 0) {
+    // ties keep the earlier entry, which is the most recent day
+    const lowest = humidityDays.reduce((a, b) => (b.humidity < a.humidity ? b : a));
+    precipRows.push(`  Lowest RH: ${lowest.humidity.toFixed(0)}% (${lowest.date})`);
+  }
   const { totalPrecipitationMm, trajectoryPrecipitationMm, availableDayCount } = ctx.weatherContext;
   if (availableDayCount > 0) {
     precipRows.push(
