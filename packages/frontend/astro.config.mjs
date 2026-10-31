@@ -5,12 +5,15 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   integrations: [react()],
-  adapter: vercel(),
+  // The home pages are rendered on demand and cached (ISR), so the scrubber shows the API's latest
+  // data. An hour matches how long the API lets its answers be cached; a new day's data shows up
+  // within it, and the browser corrects the date as soon as it has loaded.
+  adapter: vercel({ isr: { expiration: 60 * 60 } }),
   server: { port: 5173 },
-  // Astro adds script-src 'self' plus a hash per inline script and writes the CSP as a <meta> tag.
-  // Not staticHeaders: that header replaces vercel.json's CSP header instead of merging with it,
-  // and the adapter keys it '/th', which misses '/th/'. A <meta> CSP can't carry frame-ancestors,
-  // so that stays a header in vercel.json.
+  // Astro adds script-src 'self' plus a hash per inline script. The pages are rendered on demand, so
+  // it sends the CSP as a response header, and that header replaces a CSP header set anywhere else
+  // (vercel.json, say) instead of merging with it: every directive, frame-ancestors included, has to
+  // be listed here. (A <meta> CSP, which prerendered pages would get, cannot carry frame-ancestors.)
   security: {
     csp: {
       directives: [
@@ -22,6 +25,7 @@ export default defineConfig({
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
+        "frame-ancestors 'none'",
       ],
       styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
     },

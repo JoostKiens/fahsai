@@ -69,15 +69,15 @@ function).
 
 ## Page structure (Astro islands)
 
-`src/pages/index.astro` and `src/pages/th/index.astro` are prerendered and use `layouts/AppShell.astro`,
-which lays out four islands (`src/islands/`):
+`src/pages/index.astro` and `src/pages/th/index.astro` are rendered on demand and cached by Vercel
+(ISR, an hour), and use `layouts/AppShell.astro`, which lays out four islands (`src/islands/`):
 
 | Island     | Rendered                     | Root               | Holds                                                                                           |
 | ---------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
 | `Header`   | server, then hydrated        | `ServerIslandRoot` | brand, search, language pill, menu, About and Settings dialogs                                  |
 | `Sidebar`  | server, then hydrated        | `ServerIslandRoot` | layer switches and legends                                                                      |
 | `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
-| `Scrubber` | browser only (`client:only`) | `IslandRoot`       | time scrubber                                                                                   |
+| `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders           |
 
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
@@ -86,10 +86,15 @@ which lays out four islands (`src/islands/`):
   `src/ssr.test.tsx` renders them in a Node environment.
 - Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
   `@/i18n`, which detects it (see `docs/adr/0002-i18n-thai-language.md`).
-- A browser-only island renders nothing until it mounts, so anything it will occupy has to be held
-  in the HTML or the neighbouring regions resize when it appears. The scrubber's height
-  (`SCRUBBER_BAR_CLS`) is reserved by a placeholder in its fallback slot in `AppShell.astro`; the
-  Scrubber stories fail if its real height stops matching.
+- A server-rendered island hydrates against its stores' _initial_ state (Zustand's server snapshot),
+  so the stores start from defaults and apply the URL and saved settings right after creation. Do
+  not put page-specific values in a store's initial state. `Scrubber` takes `initialData` and shows
+  it only until the browser has the real latest date; the live values then win.
+- The scrubber keeps the height in `SCRUBBER_BAR_CLS` as its minimum, in every state, so the sidebar
+  and map keep their size; the Scrubber stories fail if its real height stops matching.
+- The CSP is Astro's response header and replaces any CSP header set elsewhere, so
+  `frame-ancestors` lives in `astro.config.mjs`; `vercel.json` repeats it for static files and the
+  404 page. Check the headers on a preview after changing either.
 - Keep a `client:only` island in its own module; see `docs/adr/0007-astro-frontend.md`.
 
 ---

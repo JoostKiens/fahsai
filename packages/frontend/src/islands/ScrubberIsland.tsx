@@ -1,10 +1,13 @@
 import { Scrubber } from '@/components/Scrubber/Scrubber';
 import { SCRUBBER_BAR_CLS } from '@/components/Scrubber/scrubberLayout';
-import { IslandRoot } from './IslandRoot';
+import type { ScrubberData } from '@/lib/scrubberData';
+import type { Language } from '@/store/settingsStore';
+import { ServerIslandRoot } from './ServerIslandRoot';
 
-export function ScrubberIsland() {
+export function ScrubberIsland({ lang, data }: { lang: Language; data: ScrubberData | null }) {
   return (
-    <IslandRoot
+    <ServerIslandRoot
+      lang={lang}
       name="Scrubber"
       fallback={
         <div
@@ -14,7 +17,7 @@ export function ScrubberIsland() {
         </div>
       }
     >
-      <Scrubber />
-    </IslandRoot>
+      <Scrubber initialData={data} />
+    </ServerIslandRoot>
   );
 }

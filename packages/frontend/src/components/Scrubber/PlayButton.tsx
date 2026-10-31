@@ -3,19 +3,21 @@ import { useTranslation } from 'react-i18next';
 interface Props {
   playing: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }
 
 /**
  * Plays or pauses the time scrubber, which then steps the map through the days. Controlled: the
  * parent owns `playing`.
  */
-export function PlayButton({ playing, onToggle }: Props) {
+export function PlayButton({ playing, onToggle, disabled = false }: Props) {
   const { t } = useTranslation();
   return (
     <button
       onClick={onToggle}
+      disabled={disabled}
       aria-label={playing ? t('scrubber.pause') : t('scrubber.play')}
-      className="w-8 h-8 flex items-center justify-center rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 shrink-0 transition-colors"
+      className="w-8 h-8 flex items-center justify-center rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 shrink-0 transition-colors disabled:opacity-40 disabled:pointer-events-none"
     >
       {playing ? <PauseIcon /> : <PlayIcon />}
     </button>

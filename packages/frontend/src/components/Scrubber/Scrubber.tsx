@@ -10,6 +10,7 @@ import {
 } from '@/store/uiStore';
 import { useTimeStore } from '@/store/timeStore';
 import { usePm25Timeline } from '@/hooks';
+import type { ScrubberData } from '@/lib/scrubberData';
 import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
@@ -41,7 +42,7 @@ function formatTickDate(dateStr: string, locale: string): string {
  * shows. On desktop it adds a play button and a chart of PM2.5 across the region behind the
  * slider; on mobile the date sits above the slider.
  */
-export function Scrubber() {
+export function Scrubber({ initialData = null }: { initialData?: ScrubberData | null }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
@@ -51,9 +52,19 @@ export function Scrubber() {
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
   const setDate = useTimeStore((s) => s.setDate);
-  const latestDate = useTimeStore((s) => s.latestDate);
+  const storeLatestDate = useTimeStore((s) => s.latestDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
-  const { data: timeline } = usePm25Timeline();
+  const { data: liveTimeline } = usePm25Timeline();
+
+  // What the server rendered with is shown until the browser has the real latest date, so the first
+  // render in the browser matches the server's HTML. After that the live values take over: a page
+  // that was cached a while ago is corrected as soon as they arrive.
+  const latestDate = latestDateResolved || !initialData ? storeLatestDate : initialData.latestDate;
+  const timeline =
+    liveTimeline ??
+    (initialData?.timeline
+      ? new Map(initialData.timeline.map((d) => [d.date, d.pm25]))
+      : undefined);
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -63,7 +74,7 @@ export function Scrubber() {
   const hasSyncedInitialDate = useRef(false);
 
   const dateStr = dayToDate(scrubberDay, latestDate, scrubberDays);
-  const ready = latestDateResolved;
+  const ready = latestDateResolved || initialData !== null;
 
   // The first correction (once the real latestDate resolves) fires immediately so the
   // per-date data hooks (gated on latestDateResolved) don't fetch a still-stale selectedDate
@@ -101,7 +112,7 @@ export function Scrubber() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== ' ') return;
+      if (e.key !== ' ' || !latestDateResolved) return;
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
       e.preventDefault();
@@ -109,7 +120,7 @@ export function Scrubber() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [playing, setPlaying]);
+  }, [playing, setPlaying, latestDateResolved]);
 
   function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
     setScrubberDay(value);
@@ -139,7 +150,11 @@ export function Scrubber() {
       <div className="flex items-center gap-3">
         <div className="hidden md:block">
           {ready ? (
-            <PlayButton playing={playing} onToggle={() => setPlaying(!playing)} />
+            <PlayButton
+              playing={playing}
+              onToggle={() => setPlaying(!playing)}
+              disabled={!latestDateResolved}
+            />
           ) : (
             <Shimmer className="size-8 rounded-full" />
           )}
@@ -172,9 +187,10 @@ export function Scrubber() {
                 min={0}
                 max={scrubberDays - 1}
                 step={1}
+                disabled={!latestDateResolved}
                 className="w-full"
               >
-                <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
+                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                     <Slider.Thumb
                       ref={thumbRef}
