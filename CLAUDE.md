@@ -112,7 +112,8 @@ working in a file, mention it rather than fixing it silently.
 │           │   ├── timeStore.ts
 │           │   ├── settingsStore.ts
 │           │   └── uiStore.ts
-│           ├── lib/          # rollbar.ts, queryClient.ts, scrubberData.ts, languageRedirect.ts
+│           ├── lib/          # rollbar.ts, queryClient.ts, scrubberData.ts; language redirect:
+│           │                 # languageRedirect, languageMiddleware, languageSwitchUrl, langParam
 │           ├── utils/        # aqiColors, bbox, deck-overlay, etc.
 │           ├── test/         # vitest setup, i18n-parity test
 │           └── locales/      # en.json, th.json
@@ -317,12 +318,14 @@ this and will fail CI if they diverge.
 `src/i18n.ts` runs on import: it takes the page language from the address and sets up i18next.
 Keep it to setup only. Which address a visitor is sent to (their language preference, then their
 browser's language) is decided on the server, in `src/middleware.ts` and `lib/languageRedirect.ts`;
-only the language switch records a preference (the `lang` cookie). See `CONTEXT.md`. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
-components must not import from `@/i18n`, or they can't render in Storybook or tests
-without that side effect. The islands Astro renders on the server (header, sidebar) get their
-language from a `lang` prop, through `ServerIslandRoot` and `createI18n`; only the browser-only
-island loads `@/i18n` (via `IslandRoot`), which also sets up the default `i18next` instance that
-`queryErrors.ts` and `useExplain.ts` import directly.
+only the language switch records a preference (the `lang` cookie). See `CONTEXT.md`.
+
+Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`; components must not
+import from `@/i18n`, or they can't render in Storybook or tests without that side effect. The
+islands Astro renders on the server (header, sidebar) get their language from a `lang` prop, through
+`ServerIslandRoot` and `createI18n`; only the browser-only island loads `@/i18n` (via `IslandRoot`),
+which also sets up the default `i18next` instance that `queryErrors.ts` and `useExplain.ts` import
+directly.
 
 ---
 
