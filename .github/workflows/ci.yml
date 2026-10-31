@@ -33,10 +33,9 @@ jobs:
 
       - run: pnpm format:check
 
+      # No VITE_* variables on purpose: Railway builds the workspace without them, so a build that
+      # needs one must fail here, not there.
       - run: pnpm build
-        env:
-          # placeholder: Base.astro fails the build without it; the CI bundle is discarded
-          VITE_API_BASE_URL: http://localhost:3001
 
       - run: pnpm test
 
