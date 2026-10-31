@@ -15,7 +15,7 @@
     <title>Fahsai — Thailand Air Quality Map — PM2.5, Fires &amp; Wind</title>
     <meta
       name="description"
-      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
+      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily."
     />
     <link rel="canonical" href="https://fahsai.fyi" />
     <link rel="alternate" hreflang="en" href="https://fahsai.fyi/" />
@@ -29,7 +29,7 @@
     <meta property="og:title" content="Thailand Air Quality Map — PM2.5, Fires &amp; Wind" />
     <meta
       property="og:description"
-      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
+      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily."
     />
     <meta property="og:image" content="https://fahsai.fyi/og-image.png" />
     <meta property="og:image:width" content="1200" />
@@ -46,7 +46,7 @@
     <meta name="twitter:title" content="Thailand Air Quality Map — PM2.5, Fires &amp; Wind" />
     <meta
       name="twitter:description"
-      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
+      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily."
     />
     <meta name="twitter:image" content="https://fahsai.fyi/og-image.png" />
     <meta
@@ -63,7 +63,7 @@
             "@type": "WebApplication",
             "name": "Fahsai",
             "url": "https://fahsai.fyi",
-            "description": "Interactive map visualizing PM2.5 air quality, active fire detections, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily.",
+            "description": "Interactive map visualizing PM2.5 air quality, active fire detections, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily.",
             "applicationCategory": "EnvironmentApplication",
             "operatingSystem": "Any",
             "browserRequirements": "Requires a modern browser with JavaScript enabled.",
@@ -91,13 +91,17 @@
             "isAccessibleForFree": true,
             "spatialCoverage": {
               "@type": "Place",
-              "name": "Thailand, Myanmar, Laos, Cambodia"
+              "name": "Thailand, Myanmar, Laos, Cambodia, Vietnam, Singapore",
+              "geo": {
+                "@type": "GeoShape",
+                "box": "1 89 30 114"
+              }
             }
           },
           {
             "@type": "Dataset",
             "name": "Thailand Region Fire, PM2.5, and Wind Dataset",
-            "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, and Cambodia.",
+            "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore.",
             "url": "https://fahsai.fyi",
             "keywords": [
               "air quality",
@@ -111,6 +115,8 @@
               "Myanmar",
               "Laos",
               "Cambodia",
+              "Vietnam",
+              "Singapore",
               "Southeast Asia",
               "haze",
               "smoke",
@@ -129,7 +135,7 @@
             },
             "spatialCoverage": {
               "@type": "Place",
-              "name": "Thailand, Myanmar, Laos, Cambodia",
+              "name": "Thailand, Myanmar, Laos, Cambodia, Vietnam, Singapore",
               "geo": {
                 "@type": "GeoShape",
                 "box": "1 89 30 114"
@@ -231,8 +237,9 @@
             and power plants on one map, updated daily.
           </p>
           <p>
-            It covers Thailand, Myanmar, Laos and Cambodia, with up to 120 days of history, so you
-            can see how fires, wind and air quality change together through the haze season.
+            It covers Thailand, Myanmar, Laos, Cambodia, Vietnam and Singapore, with up to 120 days
+            of history, so you can see how fires, wind and air quality change together through the
+            haze season.
           </p>
           <p>Loading the map… If it doesn’t appear, try reloading the page.</p>
           <noscript><p>The map needs JavaScript.</p></noscript>

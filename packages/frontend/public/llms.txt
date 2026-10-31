@@ -5,7 +5,7 @@
 ## What it shows
 
 - **Active fires**: NASA FIRMS VIIRS satellite fire detections, updated daily
-- **PM2.5 air quality**: Ground station readings from OpenAQ (100+ stations across Thailand, Myanmar, Laos, Cambodia)
+- **PM2.5 air quality**: Ground station readings from OpenAQ (about 1,500 stations across the region, most of them in Thailand, southern China and Laos)
 - **Gridded PM2.5 model**: Copernicus CAMS data via Open-Meteo, ~11 km resolution
 - **Wind patterns**: Animated wind particle visualization showing atmospheric transport
 - **Power plants**: Coal, gas, and oil power plants from WRI Global Power Plant Database
@@ -14,7 +14,7 @@
 
 ## Coverage
 
-Thailand, Myanmar, Laos, Cambodia, and parts of Vietnam, Malaysia, Bangladesh, India, and China (bounding box: 89°E–114°E, 1°N–30°N).
+Thailand, Myanmar, Laos, Cambodia, Vietnam and Singapore; most of Bhutan, Bangladesh and Malaysia; and parts of India, China and Indonesia (bounding box: 89°E–114°E, 1°N–30°N).
 
 ## Data sources
 
