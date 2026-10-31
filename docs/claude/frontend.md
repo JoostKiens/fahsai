@@ -88,8 +88,8 @@ which lays out four islands (`src/islands/`):
   `@/i18n`, which detects it (see `docs/adr/0002-i18n-thai-language.md`).
 - A browser-only island renders nothing until it mounts, so anything it will occupy has to be held
   in the HTML or the neighbouring regions resize when it appears. The scrubber's height
-  (`SCRUBBER_MIN_HEIGHT_CLS`, 59 px below `md`, 83.5 px from `md` up) is reserved by a placeholder in
-  its fallback slot in `AppShell.astro`; the Scrubber stories fail if its real height stops matching.
+  (`SCRUBBER_BAR_CLS`) is reserved by a placeholder in its fallback slot in `AppShell.astro`; the
+  Scrubber stories fail if its real height stops matching.
 - Keep a `client:only` island in its own module; see `docs/adr/0007-astro-frontend.md`.
 
 ---
