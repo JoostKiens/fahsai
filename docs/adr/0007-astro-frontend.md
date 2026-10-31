@@ -31,7 +31,10 @@ Build with **Astro 7**, the `@astrojs/react` integration and the `@astrojs/verce
 - Each island wraps itself in a root that holds an `ErrorBoundary`, so one failing island leaves the
   others running: `ServerIslandRoot` for server-rendered ones (language from a `lang` prop, through
   an i18n provider) and `IslandRoot` for browser-only ones (it loads `@/i18n`, which reads `window`).
-- A later step moves the language choice into a cookie (see JOO-124).
+- Step 4: the language redirect runs in edge middleware on the server and the language preference
+  is a cookie (see the addendum to ADR 0002). Astro's edge mode has no path matcher, so every
+  on-demand page request (`/`, `/th/`, the 404, later city pages) goes through the edge function,
+  and the handler returns at once for anything but `/`. Static files are served first and do not.
 - The CSP is written by Astro (`security.csp`): `script-src 'self'` plus a hash per inline script.
   The pages are on demand, so Astro sends it as a response header, and that header replaces a CSP
   header set anywhere else (it does to `vercel.json`'s on these pages, and `staticHeaders` did the
@@ -56,9 +59,10 @@ Build with **Astro 7**, the `@astrojs/react` integration and the `@astrojs/verce
   `document` or `navigator` at import or during render. The stores, Rollbar and i18n guard theirs,
   and `src/ssr.test.tsx` renders the islands in a Node environment, so a regression fails a unit
   test, not the Vercel build.
-- Edge middleware does not run for prerendered pages. The home pages are on demand now, so the
-  language redirect can run on `/`; each request then invokes an edge function (Vercel Hobby's
-  limits are not checked).
+- Edge middleware does not run for prerendered pages. The home pages are on demand, so it runs for
+  them and for every other on-demand page: each request is an edge invocation. Vercel Hobby's
+  limits are not checked. If they matter, Vercel's own Routing Middleware has a path matcher, but it
+  is untested with Astro's output.
 - A page rendered while the API was down is cached with the placeholders for up to an hour; the
   browser then loads everything itself, as it did before step 3. The page function runs in
   Vercel's default region and the API is in Singapore: one refresh makes two calls, one after the

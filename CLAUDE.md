@@ -88,11 +88,12 @@ working in a file, mention it rather than fixing it silently.
 │   └── frontend/             # Astro + React islands
 │       └── src/
 │           ├── pages/          # index.astro, th/index.astro (on demand, cached with ISR)
+│           ├── middleware.ts   # edge middleware: the language redirect at /
 │           ├── layouts/        # Base.astro (head tags, structured data, en/th copy) and
 │           │                   # AppShell.astro (lays out the four islands)
 │           ├── islands/        # Header, Sidebar, Scrubber (server-rendered, hydrated), Map
 │           │                   # (browser-only), IslandRoot, ServerIslandRoot
-│           ├── i18n.ts         # browser bootstrap: detects the language, may redirect
+│           ├── i18n.ts         # browser bootstrap: the page language, from the address
 │           ├── i18n-instance.ts  # createI18n(lang): a server-safe i18next instance
 │           ├── components/
 │           │   ├── Map/      # Mapbox + Deck.gl map shell + one file per Deck.gl
@@ -111,7 +112,7 @@ working in a file, mention it rather than fixing it silently.
 │           │   ├── timeStore.ts
 │           │   ├── settingsStore.ts
 │           │   └── uiStore.ts
-│           ├── lib/          # rollbar.ts
+│           ├── lib/          # rollbar.ts, queryClient.ts, scrubberData.ts, languageRedirect.ts
 │           ├── utils/        # aqiColors, bbox, deck-overlay, etc.
 │           ├── test/         # vitest setup, i18n-parity test
 │           └── locales/      # en.json, th.json
@@ -313,8 +314,10 @@ Translation files live at `packages/frontend/src/locales/en.json` and `th.json`.
 `en.json` and `th.json` must always be identical — `src/test/i18n-parity.test.ts` enforces
 this and will fail CI if they diverge.
 
-`src/i18n.ts` runs on import: it detects the language and may redirect to `/th/`. Keep it to
-setup only. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
+`src/i18n.ts` runs on import: it takes the page language from the address and sets up i18next.
+Keep it to setup only. Which address a visitor is sent to (their language preference, then their
+browser's language) is decided on the server, in `src/middleware.ts` and `lib/languageRedirect.ts`;
+only the language switch records a preference (the `lang` cookie). See `CONTEXT.md`. Pure locale helpers (`dateLocale`, `toDisplayYear`) live in `@/utils/locale`;
 components must not import from `@/i18n`, or they can't render in Storybook or tests
 without that side effect. The islands Astro renders on the server (header, sidebar) get their
 language from a `lang` prop, through `ServerIslandRoot` and `createI18n`; only the browser-only

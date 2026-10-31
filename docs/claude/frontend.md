@@ -85,7 +85,7 @@ function).
   through `currentSearch()` (returns `''` without a window), not `window.location`.
   `src/ssr.test.tsx` renders them in a Node environment.
 - Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
-  `@/i18n`, which detects it (see `docs/adr/0002-i18n-thai-language.md`).
+  `@/i18n`, which reads it from the address (see `docs/adr/0002-i18n-thai-language.md`).
 - A server-rendered island hydrates against its stores' _initial_ state (Zustand's server snapshot),
   so the stores start from defaults and apply the URL and saved settings right after creation. Do
   not put page-specific values in a store's initial state. `Scrubber` takes `initialData` and shows
@@ -135,7 +135,8 @@ interface TimeStore {
 
 `useUrlSync` mirrors map center/zoom, selected date and the selected point into the query string
 (`lat`, `lng`, `zoom`, `date`, `sel`; debounced 500 ms via `history.replaceState`, and only once
-`latestDateResolved`). Language lives in the path (`/th/` vs `/`), not a query param. On boot,
+`latestDateResolved`). Language lives in the path (`/th/` vs `/`); the only language query param
+is the `?lang=` the language switch sends to `/`, which the middleware removes. On boot,
 `useSelectionHydration` resolves `?sel=` into a full `SelectedPoint` once the station/fire/
 power-plant queries have data; any explicit user selection cancels it.
 
@@ -177,6 +178,8 @@ is needed — do not read `settingsStore.scrubberDays` directly in scrubber-rela
 - `version: 2` — added `language: Language | null` (migrate: sets `language: null` for pre-v2 state)
 - `version: 3` — `scrubberDays: 120` is valid again; migrate restores it instead of clamping to
   90 for any pre-v3 state that still had 120 stored
+- `version: 4` — `language` is gone (the preference is the `lang` cookie, set only by the language
+  switch); migrate keeps only `scrubberDays`
 
 ---
 
