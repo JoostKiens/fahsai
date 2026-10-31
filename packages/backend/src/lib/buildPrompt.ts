@@ -219,7 +219,8 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
-    // the range skips far-off peers; say so, or the model gives every peer the range's category
+    // the range leaves out readings outside 0.4x–2x the median; say so, or the model gives every
+    // peer the range's category
     const leftOutCount = p.stationCount - p.rangeStationCount;
     const rangeCoverage =
       leftOutCount > 0

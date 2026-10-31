@@ -117,6 +117,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 23.5,
       unweightedMedian: 26.9,
       range: { min: 11.8, max: 38.1 },
+      rangeStationCount: 4,
+      severeStationCount: 0,
       stations: [
         { name: 'City Hall, Satun', value: 11.8, distanceKm: 40 },
         { name: 'Chumchon Banpadang School', value: 19.7, distanceKm: 62 },

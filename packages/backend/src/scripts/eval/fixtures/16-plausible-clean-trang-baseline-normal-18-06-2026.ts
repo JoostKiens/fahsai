@@ -107,6 +107,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 7.8,
       unweightedMedian: 7.8,
       range: { min: 7.8, max: 7.8 },
+      rangeStationCount: 1,
+      severeStationCount: 0,
       stations: [{ name: 'Kantang District Office', value: 7.8, distanceKm: 24 }],
     },
     outlier: null,

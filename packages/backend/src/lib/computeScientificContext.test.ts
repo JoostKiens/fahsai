@@ -116,6 +116,7 @@ const PEER_ANALYSIS_FIXTURE = {
   isStrongOutlier: false,
   isHighOutlier: false,
   nonOutlierPeers: [],
+  severePeerCount: 0,
   filteredPeerMin: null,
   filteredPeerMax: null,
   peerDistribution: null,

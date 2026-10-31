@@ -112,6 +112,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 20.5,
       unweightedMedian: 20.5,
       range: { min: 20.5, max: 20.5 },
+      rangeStationCount: 1,
+      severeStationCount: 0,
       stations: [
         {
           name: 'Sukhuma Secondary School - Sukhuma, Champasack',

@@ -172,6 +172,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 18.8,
       unweightedMedian: 18.8,
       range: { min: 18.8, max: 18.8 },
+      rangeStationCount: 1,
+      severeStationCount: 0,
       stations: [
         {
           name: 'Hua Hin Weather Station Prachuap Khiri Khan Meteorological Station',

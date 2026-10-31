@@ -179,6 +179,9 @@ export const fixture: ExplainFixture = {
       weightedMean: 306.5,
       unweightedMedian: 249.0,
       range: { min: 142.0, max: 440.0 },
+      // 1 Moderate + 2 Unhealthy read under 0.4x the median (99.6), so they are left out
+      rangeStationCount: 38,
+      severeStationCount: 38,
       stations: [], // distribution used instead — >10 peers
       distribution: '1 Moderate, 2 Unhealthy, 18 Very unhealthy, 20 Hazardous',
     },

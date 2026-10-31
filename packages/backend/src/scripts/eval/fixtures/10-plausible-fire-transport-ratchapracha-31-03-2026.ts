@@ -204,6 +204,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 31.7,
       unweightedMedian: 32.7,
       range: { min: 21.1, max: 51.7 },
+      rangeStationCount: 10,
+      severeStationCount: 0,
       stations: [
         { name: 'Chalermprakiat Rama IX Park', value: 31.4, distanceKm: 2 },
         {

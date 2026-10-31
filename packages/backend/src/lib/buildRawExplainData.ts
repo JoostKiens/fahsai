@@ -150,6 +150,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
     peerWeightedMean,
     outlierRatio,
     nonOutlierPeers,
+    severePeerCount,
     filteredPeerMin,
     filteredPeerMax,
     peerDistribution,
@@ -211,6 +212,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
             unweightedMedian: peerMedian,
             range: { min: filteredPeerMin, max: filteredPeerMax },
             rangeStationCount: nonOutlierPeers.length,
+            severeStationCount: severePeerCount,
             stations: nonOutlierPeers
               .sort((a, b) => a.distKm - b.distKm)
               .slice(0, 10)

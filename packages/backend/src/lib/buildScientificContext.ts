@@ -174,17 +174,15 @@ const PERIOD_LABEL_PREFIX: Record<PeriodKey, string> = {
 // Internal helpers
 // ----------------------------------------------------------------
 
-function regionalCrisisFraction(peers: ScientificContext['peers'] & object): number {
-  const { stationCount, distribution, stations } = peers;
+function regionalCrisisFraction({
+  stationCount,
+  severeStationCount,
+}: {
+  stationCount: number;
+  severeStationCount: number;
+}): number {
   if (stationCount === 0) return 0;
-  if (distribution !== null) {
-    const haz = parseInt(/(\d+) Hazardous/.exec(distribution)?.[1] ?? '0', 10);
-    const veryUnhealthy = parseInt(/(\d+) Very unhealthy/.exec(distribution)?.[1] ?? '0', 10);
-    return (haz + veryUnhealthy) / stationCount;
-  }
-  // stations holds only the non-outlier peers, so divide by its own length, not stationCount
-  if (stations.length === 0) return 0;
-  return stations.filter((s) => s.value > 125.4).length / stations.length;
+  return severeStationCount / stationCount;
 }
 
 function computeTrend(
@@ -401,8 +399,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         weightedMean: raw.peers.weightedMean,
         unweightedMedian: raw.peers.unweightedMedian,
         range: raw.peers.range ?? null,
-        // shortcut: fixtures captured before rangeStationCount existed lack it, re-capture them to drop the fallback
-        rangeStationCount: raw.peers.rangeStationCount ?? raw.peers.stationCount,
+        rangeStationCount: raw.peers.rangeStationCount,
         distribution: raw.peers.distribution ?? null,
         stations: raw.peers.stations.map((s) => ({
           name: s.name,
@@ -417,8 +414,8 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
     trend.isSignificant &&
     explainCase === 'PLAUSIBLE_FIRE_TRANSPORT' &&
     firesAreLocal &&
-    peers !== null &&
-    regionalCrisisFraction(peers) > 0.5
+    raw.peers !== null &&
+    regionalCrisisFraction(raw.peers) > 0.5
   ) {
     trend = { ...trend, isSignificant: false };
   }

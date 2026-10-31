@@ -108,6 +108,8 @@ export const fixture: ExplainFixture = {
       weightedMean: 17.6,
       unweightedMedian: 17.55,
       range: { min: 14.0, max: 21.3 },
+      rangeStationCount: 4,
+      severeStationCount: 0,
       stations: [
         { name: 'Ban Mi District Office', value: 21.3, distanceKm: 22 },
         { name: 'Khok Samrong Health Center', value: 14.0, distanceKm: 35 },

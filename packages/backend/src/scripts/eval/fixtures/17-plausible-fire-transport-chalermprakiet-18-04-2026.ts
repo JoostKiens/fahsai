@@ -112,6 +112,7 @@ export const fixture: ExplainFixture = {
       unweightedMedian: 375.1,
       range: { min: 242.5, max: 564.1 },
       rangeStationCount: 7,
+      severeStationCount: 7,
       // Phiang (67 µg/m³, 71 km) is under 0.4x the median, so analyzePeers leaves it out here
       stations: [
         { name: 'Nearby station A', value: 398.4, distanceKm: 9 },
