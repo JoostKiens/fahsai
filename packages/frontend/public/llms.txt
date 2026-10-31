@@ -1,6 +1,6 @@
 # Fahsai — Thailand Air Quality Map
 
-> Fahsai (Thai: ฟ้าใส, "clear sky") is a free, open-source interactive map showing the causes of seasonal air pollution across Thailand and neighboring countries. It combines satellite fire detection, ground-level PM2.5 measurements, gridded air quality models, wind patterns, and power plant locations on a single map — updated daily.
+> Fahsai (Thai: ฟ้าใส, "clear sky") is a free, source-available interactive map showing the causes of seasonal air pollution across Thailand and neighboring countries. It combines satellite fire detection, ground-level PM2.5 measurements, gridded air quality models, wind patterns, and power plant locations on a single map — updated daily.
 
 ## What it shows
 
