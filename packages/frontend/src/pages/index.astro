@@ -1,0 +1,46 @@
+---
+import Base from '@/layouts/Base.astro';
+import { AppIsland } from '@/AppIsland';
+---
+
+<Base lang="en">
+  <AppIsland client:only="react">
+    <main id="intro" slot="fallback">
+      <div>
+        <h1>Fahsai — Thailand Air Quality Map</h1>
+        <p>
+          Fahsai (<span lang="th">ฟ้าใส</span>, “clear sky”) is a free, non-commercial map of the
+          causes of seasonal air pollution in Thailand and its neighbours. It shows satellite fire
+          detections, PM2.5 readings from ground stations, gridded PM2.5 estimates, wind patterns
+          and power plants on one map, updated daily.
+        </p>
+        <p>
+          It covers Thailand, Myanmar, Laos, Cambodia, Vietnam and Singapore, with up to 120 days
+          of history, so you can see how fires, wind and air quality change together through the
+          haze season.
+        </p>
+        <p>Loading the map… If it doesn’t appear, try reloading the page.</p>
+        <noscript><p>The map needs JavaScript.</p></noscript>
+        <h2>Data sources</h2>
+        <ul>
+          <li>
+            Fire data courtesy NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
+              >firms.modaps.eosdis.nasa.gov</a
+            >)
+          </li>
+          <li>Air quality data from OpenAQ (<a href="https://openaq.org">openaq.org</a>)</li>
+          <li>
+            <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0)
+          </li>
+          <li>
+            Power plant data from WRI Global Power Plant Database (<a
+              href="https://resourcewatch.org"
+              >resourcewatch.org</a
+            >) (CC BY 4.0)
+          </li>
+        </ul>
+        <p><a href="/th/" lang="th" hreflang="th">ภาษาไทย</a></p>
+      </div>
+    </main>
+  </AppIsland>
+</Base>

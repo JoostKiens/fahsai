@@ -15,3 +15,7 @@ coverage/
 supabase/.temp/
 
 storybook-static
+
+# Astro build output
+.vercel/
+.astro/

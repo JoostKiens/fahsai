@@ -35,7 +35,7 @@ jobs:
 
       - run: pnpm build
         env:
-          # placeholder so index.html's %VITE_API_BASE_URL% preconnect resolves; the CI bundle is discarded
+          # placeholder so Base.astro's VITE_API_BASE_URL preconnect has a value; the CI bundle is discarded
           VITE_API_BASE_URL: http://localhost:3001
 
       - run: pnpm test
