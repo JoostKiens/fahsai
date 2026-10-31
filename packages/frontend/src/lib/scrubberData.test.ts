@@ -20,7 +20,7 @@ function urlOf(input: RequestInfo | URL): string {
 // Answers by path: a body, a status code (an error response, with a valid body, so only its status
 // can make it fail) or an Error (a network failure).
 function fakeFetch(routes: { latestDate?: Answer; summary?: Answer }) {
-  return vi.fn((input: RequestInfo | URL) => {
+  return vi.fn<typeof fetch>((input) => {
     const isLatestDate = urlOf(input).includes('/latest-date');
     const answer = isLatestDate ? routes.latestDate : routes.summary;
     if (answer instanceof Error) return Promise.reject(answer);
@@ -41,6 +41,16 @@ describe('fetchScrubberData', () => {
     const urls = fetchFn.mock.calls.map(([url]) => urlOf(url));
     expect(urls[0]).toMatch(/\/latest-date$/);
     expect(urls[1]).toMatch(/\/cams\/summary\?start=2026-07-03&end=2026-10-30$/);
+  });
+
+  it('gives both requests one deadline, so a slow API holds the page up once, not twice', async () => {
+    const fetchFn = fakeFetch(working);
+
+    await fetchScrubberData({ fetchFn });
+
+    const [first, second] = fetchFn.mock.calls.map(([, init]) => init?.signal);
+    expect(first).toBeDefined();
+    expect(second).toBe(first);
   });
 
   it('returns the latest date and the timeline', async () => {

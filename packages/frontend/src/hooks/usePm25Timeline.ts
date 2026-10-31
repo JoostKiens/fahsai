@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { PM25DailySummary } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
-import { dayToDate, useEffectiveScrubberDays } from '@/store/uiStore';
+import { useEffectiveScrubberDays } from '@/store/uiStore';
+import { camsSummaryPath, camsSummaryRange } from '@/utils/camsSummary';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 import { fetchJson } from '@/lib/api';
 
@@ -15,14 +16,13 @@ export function usePm25Timeline() {
   const latestDate = useTimeStore((s) => s.latestDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   const scrubberDays = useEffectiveScrubberDays();
-  const start = dayToDate(0, latestDate, scrubberDays);
-  const end = latestDate;
+  const range = camsSummaryRange(latestDate, scrubberDays);
 
   return useQuery({
-    queryKey: ['cams-summary', start, end],
+    queryKey: ['cams-summary', range.start, range.end],
     queryFn: async () => {
       const body = await fetchJson<{ data: PM25DailySummary[] }>(
-        `/cams/summary?start=${start}&end=${end}`,
+        camsSummaryPath(range),
         'cams summary',
         { cache: 'no-cache' },
       );
