@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
@@ -30,7 +29,6 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     envPrefix: ['VITE_', 'PUBLIC_'],
-    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     build: {
       // vendor-map (Mapbox GL + Deck.gl) is inherently >500 kB; already split into its own chunk.
       chunkSizeWarningLimit: 2500,

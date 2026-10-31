@@ -36,4 +36,9 @@ Build with **Astro 7**, the `@astrojs/react` integration and the `@astrojs/verce
   pulls `window` reads (stores, i18n, Rollbar) into the server build.
 - Edge middleware does not run for prerendered pages. When the language redirect arrives, `/` must
   be on-demand or ISR, and each request to it invokes an edge function.
+- The app loads one network round trip later than under Vite. Vite put four `<script type="module">`
+  tags in the head, so the big `vendor-map` chunk started downloading with the HTML. Now an inline
+  island script imports `AppIsland.js`, which imports `vendor-map`. Astro adds no `modulepreload`
+  hints for `client:only` islands, and the hashed chunk names aren't known when writing the layout,
+  so hints would need a build plugin. Revisit if load time on slow connections matters.
 - `vite.config.ts` stays for Storybook. App build settings live in `astro.config.mjs`.
