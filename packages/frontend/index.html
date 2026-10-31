@@ -156,9 +156,84 @@
         ]
       }
     </script>
+    <!-- Styles for the text in #root, shown until the app replaces it -->
+    <style>
+      #intro {
+        box-sizing: border-box;
+        height: 100%;
+        overflow: auto;
+        padding: 2rem 1.5rem;
+      }
+      #intro > div {
+        max-width: 40rem;
+        margin: 0 auto;
+        color: #d4d4d8;
+        line-height: 1.6;
+      }
+      #intro h1 {
+        color: #fafafa;
+        font-size: 1.5rem;
+        line-height: 1.3;
+        margin: 0 0 1rem;
+      }
+      #intro h2 {
+        color: #fafafa;
+        font-size: 1.1rem;
+        margin: 1.5rem 0 0.5rem;
+      }
+      #intro p {
+        margin: 0 0 0.75rem;
+      }
+      #intro ul {
+        margin: 0 0 0.75rem;
+        padding-left: 1.25rem;
+        list-style: disc;
+      }
+      #intro a {
+        color: #e4e4e7;
+        text-decoration: underline;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main id="intro">
+        <div>
+          <h1>Fahsai — Thailand Air Quality Map</h1>
+          <p>
+            Fahsai (ฟ้าใส, “clear sky”) is a free, non-commercial map of the causes of seasonal air
+            pollution in Thailand and its neighbours. It shows satellite fire detections, PM2.5
+            readings from ground stations, gridded PM2.5 estimates, wind patterns and power plants
+            on one map, updated daily.
+          </p>
+          <p>
+            It covers Thailand, Myanmar, Laos and Cambodia, with up to 120 days of history, so you
+            can see how fires, wind and air quality change together through the haze season.
+          </p>
+          <p>Loading the map…</p>
+          <noscript><p>The map needs JavaScript.</p></noscript>
+          <h2>Data sources</h2>
+          <ul>
+            <li>
+              Fire data courtesy NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
+                >firms.modaps.eosdis.nasa.gov</a
+              >)
+            </li>
+            <li>Air quality data from OpenAQ (<a href="https://openaq.org">openaq.org</a>)</li>
+            <li>
+              <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0)
+            </li>
+            <li>
+              Power plant data from WRI Global Power Plant Database (<a
+                href="https://resourcewatch.org"
+                >resourcewatch.org</a
+              >) (CC BY 4.0)
+            </li>
+          </ul>
+          <p><a href="/th/" lang="th" hreflang="th">ภาษาไทย</a></p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

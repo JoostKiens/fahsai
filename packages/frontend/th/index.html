@@ -155,9 +155,83 @@
         ]
       }
     </script>
+    <!-- Styles for the text in #root, shown until the app replaces it -->
+    <style>
+      #intro {
+        box-sizing: border-box;
+        height: 100%;
+        overflow: auto;
+        padding: 2rem 1.5rem;
+      }
+      #intro > div {
+        max-width: 40rem;
+        margin: 0 auto;
+        color: #d4d4d8;
+        line-height: 1.6;
+      }
+      #intro h1 {
+        color: #fafafa;
+        font-size: 1.5rem;
+        line-height: 1.3;
+        margin: 0 0 1rem;
+      }
+      #intro h2 {
+        color: #fafafa;
+        font-size: 1.1rem;
+        margin: 1.5rem 0 0.5rem;
+      }
+      #intro p {
+        margin: 0 0 0.75rem;
+      }
+      #intro ul {
+        margin: 0 0 0.75rem;
+        padding-left: 1.25rem;
+        list-style: disc;
+      }
+      #intro a {
+        color: #e4e4e7;
+        text-decoration: underline;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main id="intro">
+        <div>
+          <h1>Fahsai — แผนที่คุณภาพอากาศไทย</h1>
+          <p>
+            Fahsai (ฟ้าใส แปลว่า “ท้องฟ้าแจ่มใส”) เป็นแผนที่ฟรีที่ไม่แสวงหากำไร
+            แสดงสาเหตุของมลพิษทางอากาศตามฤดูกาลในประเทศไทยและประเทศเพื่อนบ้าน
+            ทั้งจุดไฟที่ตรวจพบจากดาวเทียม ค่าฝุ่น PM2.5 จากสถานีตรวจวัดภาคพื้นดิน ค่าประมาณ PM2.5
+            แบบกริด ทิศทางลม และโรงไฟฟ้า รวมไว้บนแผนที่เดียว อัปเดตทุกวัน
+          </p>
+          <p>
+            ครอบคลุมไทย พม่า ลาว และกัมพูชา พร้อมข้อมูลย้อนหลังสูงสุด 120 วัน เพื่อดูว่าไฟ ลม
+            และคุณภาพอากาศเปลี่ยนแปลงไปด้วยกันอย่างไรตลอดฤดูหมอกควัน
+          </p>
+          <p>กำลังโหลดแผนที่…</p>
+          <noscript><p>แผนที่นี้ต้องใช้ JavaScript</p></noscript>
+          <h2>แหล่งข้อมูล</h2>
+          <ul>
+            <li>
+              ข้อมูลไฟจาก NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
+                >firms.modaps.eosdis.nasa.gov</a
+              >)
+            </li>
+            <li>ข้อมูลคุณภาพอากาศจาก OpenAQ (<a href="https://openaq.org">openaq.org</a>)</li>
+            <li>
+              <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0)
+            </li>
+            <li>
+              ข้อมูลโรงไฟฟ้าจาก WRI Global Power Plant Database (<a href="https://resourcewatch.org"
+                >resourcewatch.org</a
+              >) (CC BY 4.0)
+            </li>
+          </ul>
+          <p><a href="/" lang="en" hreflang="en">English</a></p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
