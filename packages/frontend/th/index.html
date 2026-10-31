@@ -10,7 +10,7 @@
     <title>Fahsai — แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม</title>
     <meta
       name="description"
-      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน"
     />
     <link rel="canonical" href="https://fahsai.fyi/th/" />
     <link rel="alternate" hreflang="en" href="https://fahsai.fyi/" />
@@ -28,7 +28,7 @@
     <meta property="og:title" content="แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม" />
     <meta
       property="og:description"
-      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน"
     />
     <meta property="og:image" content="https://fahsai.fyi/og-image.png" />
     <meta property="og:image:width" content="1200" />
@@ -45,7 +45,7 @@
     <meta name="twitter:title" content="แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม" />
     <meta
       name="twitter:description"
-      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน"
+      content="ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน"
     />
     <meta name="twitter:image" content="https://fahsai.fyi/og-image.png" />
     <meta
@@ -62,7 +62,7 @@
             "@type": "WebApplication",
             "name": "Fahsai",
             "url": "https://fahsai.fyi/th/",
-            "description": "แผนที่เชิงโต้ตอบแสดงค่าฝุ่น PM2.5 จุดไฟ และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา — อัปเดตทุกวัน",
+            "description": "แผนที่เชิงโต้ตอบแสดงค่าฝุ่น PM2.5 จุดไฟ และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน",
             "applicationCategory": "EnvironmentApplication",
             "operatingSystem": "Any",
             "browserRequirements": "Requires a modern browser with JavaScript enabled.",
@@ -86,12 +86,21 @@
                 "https://github.com/JoostKiens/"
               ]
             },
-            "inLanguage": "th"
+            "inLanguage": "th",
+            "isAccessibleForFree": true,
+            "spatialCoverage": {
+              "@type": "Place",
+              "name": "Thailand, Myanmar, Laos, Cambodia, Vietnam, Singapore",
+              "geo": {
+                "@type": "GeoShape",
+                "box": "1 89 30 114"
+              }
+            }
           },
           {
             "@type": "Dataset",
             "name": "Thailand Region Fire, PM2.5, and Wind Dataset",
-            "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, and Cambodia.",
+            "description": "Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore.",
             "url": "https://fahsai.fyi/th/",
             "keywords": [
               "air quality",
@@ -105,6 +114,8 @@
               "Myanmar",
               "Laos",
               "Cambodia",
+              "Vietnam",
+              "Singapore",
               "Southeast Asia",
               "haze",
               "smoke",
@@ -123,7 +134,7 @@
             },
             "spatialCoverage": {
               "@type": "Place",
-              "name": "Thailand, Myanmar, Laos, Cambodia",
+              "name": "Thailand, Myanmar, Laos, Cambodia, Vietnam, Singapore",
               "geo": {
                 "@type": "GeoShape",
                 "box": "1 89 30 114"
@@ -149,6 +160,33 @@
                 "@type": "PropertyValue",
                 "name": "Wind direction",
                 "unitText": "degrees"
+              }
+            ],
+            "isBasedOn": [
+              {
+                "@type": "Dataset",
+                "name": "NASA FIRMS VIIRS active fire detections",
+                "url": "https://firms.modaps.eosdis.nasa.gov"
+              },
+              {
+                "@type": "Dataset",
+                "name": "OpenAQ air quality measurements",
+                "url": "https://openaq.org"
+              },
+              {
+                "@type": "Dataset",
+                "name": "Copernicus Atmosphere Monitoring Service (CAMS) PM2.5 forecasts",
+                "url": "https://atmosphere.copernicus.eu"
+              },
+              {
+                "@type": "Dataset",
+                "name": "Open-Meteo weather and air quality API",
+                "url": "https://open-meteo.com"
+              },
+              {
+                "@type": "Dataset",
+                "name": "WRI Global Power Plant Database",
+                "url": "https://resourcewatch.org"
               }
             ]
           }
@@ -198,8 +236,8 @@
             แบบกริด ทิศทางลม และโรงไฟฟ้า รวมไว้บนแผนที่เดียว อัปเดตทุกวัน
           </p>
           <p>
-            ครอบคลุมไทย พม่า ลาว และกัมพูชา พร้อมข้อมูลย้อนหลังสูงสุด 120 วัน เพื่อดูว่าไฟ ลม
-            และคุณภาพอากาศเปลี่ยนแปลงไปด้วยกันอย่างไรตลอดฤดูหมอกควัน
+            ครอบคลุมไทย พม่า ลาว กัมพูชา เวียดนาม และสิงคโปร์ พร้อมข้อมูลย้อนหลังสูงสุด 120 วัน
+            เพื่อดูว่าไฟ ลม และคุณภาพอากาศเปลี่ยนแปลงไปด้วยกันอย่างไรตลอดฤดูหมอกควัน
           </p>
           <p>กำลังโหลดแผนที่… หากแผนที่ไม่ปรากฏ ลองโหลดหน้านี้ใหม่</p>
           <noscript><p>แผนที่นี้ต้องใช้ JavaScript</p></noscript>
