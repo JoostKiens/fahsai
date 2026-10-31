@@ -30,7 +30,7 @@ flowchart LR
   REDIS[(Upstash Redis<br/>cache only)]
   GEMINI[Google Gemini]
 
-  SPA[React SPA on Vercel<br/>Mapbox + Deck.gl]
+  SPA[Astro + React on Vercel<br/>Mapbox + Deck.gl]
   MCP[fahsai-mcp-server<br/>for AI agents]
   USER((Visitor))
 
@@ -51,7 +51,7 @@ flowchart LR
 - **The API** (Fastify, TypeScript) serves read-only JSON for the map. Responses for past days are
   immutable, so they're cached in Redis for 7 days and sent with
   `Cache-Control: public, max-age=604800` (7 days).
-- **The frontend** (React, Vite) draws the layers with Deck.gl over a Mapbox base map. The PM2.5
+- **The frontend** (Astro, React) draws the layers with Deck.gl over a Mapbox base map. The PM2.5
   grid is interpolated in a Web Worker.
 - **`/api/explain`** builds a structured context for one station on one day (trend, wind, a
   72-hour backward trajectory, upwind fires, cities and power plants, nearby stations) and streams
@@ -127,7 +127,7 @@ its cap is recorded in [docs/claude/costs.md](claude/costs.md).
 
 A pnpm monorepo:
 
-- `packages/frontend`: the React SPA (Vercel)
+- `packages/frontend`: the Astro + React frontend (Vercel)
 - `packages/backend`: the Fastify API and every cron job (Railway). `src/scripts/` holds the cron
   entry points, and `src/jobs/` the logic they run.
 - `packages/types`, `packages/consts`: types and constants shared by both
