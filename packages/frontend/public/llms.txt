@@ -5,7 +5,7 @@
 ## What it shows
 
 - **Active fires**: NASA FIRMS VIIRS satellite fire detections, updated daily
-- **PM2.5 air quality**: Ground station readings from OpenAQ (about 1,500 stations across the region, most of them in Thailand, southern China and Laos)
+- **PM2.5 air quality**: Ground station readings from OpenAQ (about 460 stations report on a typical day, most of them in Thailand and Laos)
 - **Gridded PM2.5 model**: Copernicus CAMS data via Open-Meteo, ~11 km resolution
 - **Wind patterns**: Animated wind particle visualization showing atmospheric transport
 - **Power plants**: Coal, gas, and oil power plants from WRI Global Power Plant Database
