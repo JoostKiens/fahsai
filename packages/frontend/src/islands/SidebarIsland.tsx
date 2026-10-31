@@ -1,9 +1,11 @@
 import { Sidebar } from '@/components/Sidebar';
-import { IslandRoot } from './IslandRoot';
+import type { Language } from '@/store/settingsStore';
+import { ServerIslandRoot } from './ServerIslandRoot';
 
-export function SidebarIsland() {
+export function SidebarIsland({ lang }: { lang: Language }) {
   return (
-    <IslandRoot
+    <ServerIslandRoot
+      lang={lang}
       name="Sidebar"
       fallback={
         <aside className="hidden md:flex shrink-0 z-20 w-65 bg-zinc-900 border-r border-zinc-800 items-center justify-center">
@@ -12,6 +14,6 @@ export function SidebarIsland() {
       }
     >
       <Sidebar />
-    </IslandRoot>
+    </ServerIslandRoot>
   );
 }
