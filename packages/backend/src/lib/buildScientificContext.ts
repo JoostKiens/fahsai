@@ -182,7 +182,9 @@ function regionalCrisisFraction(peers: ScientificContext['peers'] & object): num
     const veryUnhealthy = parseInt(/(\d+) Very unhealthy/.exec(distribution)?.[1] ?? '0', 10);
     return (haz + veryUnhealthy) / stationCount;
   }
-  return stations.filter((s) => s.value > 125.4).length / stationCount;
+  // stations holds only the non-outlier peers, so divide by its own length, not stationCount
+  if (stations.length === 0) return 0;
+  return stations.filter((s) => s.value > 125.4).length / stations.length;
 }
 
 function computeTrend(

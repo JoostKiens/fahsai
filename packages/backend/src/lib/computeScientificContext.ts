@@ -23,7 +23,7 @@ import { buildRawExplainData } from './buildRawExplainData.js';
 import { buildScientificContext, type ScientificContext } from './buildScientificContext.js';
 import { logger } from './logger.js';
 
-const CONTEXT_CACHE_VERSION = 2;
+const CONTEXT_CACHE_VERSION = 3;
 
 function contextCacheKey(stationId: string, date: string): string {
   return `explain:context:v${CONTEXT_CACHE_VERSION}:${stationId}:${date}`;
