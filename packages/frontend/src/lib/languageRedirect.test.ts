@@ -30,14 +30,26 @@ describe('the language switch (?lang=)', () => {
     expect(asThai).toEqual({ location: '/th/', rememberAs: 'th' });
   });
 
-  it('keeps the rest of the query: map position, date and selection', () => {
+  it('keeps the rest of the query exactly as it was: map position, date and selection', () => {
     const redirect = resolve(
       '/?lat=15.5&lng=101&zoom=5.5&lang=th&date=2026-10-20&sel=station:6123215',
     );
 
     expect(redirect?.location).toBe(
-      '/th/?lat=15.5&lng=101&zoom=5.5&date=2026-10-20&sel=station%3A6123215',
+      '/th/?lat=15.5&lng=101&zoom=5.5&date=2026-10-20&sel=station:6123215',
     );
+  });
+
+  it('writes the query the same way whichever rule redirects', () => {
+    const query = 'sel=station:6123215&date=2026-10-20';
+
+    const bySwitch = resolve(`/?lang=th&${query}`)?.location;
+    const byCookie = resolve(`/?${query}`, { cookie: 'th' })?.location;
+    const byBrowser = resolve(`/?${query}`, { acceptLanguage: 'th' })?.location;
+
+    expect(bySwitch).toBe(`/th/?${query}`);
+    expect(byCookie).toBe(bySwitch);
+    expect(byBrowser).toBe(bySwitch);
   });
 
   it('leaves no empty ? behind when it was the only parameter', () => {
@@ -89,6 +101,9 @@ describe('the browser language (Accept-Language)', () => {
     ['th-TH,th;q=0.9,en;q=0.8'],
     ['en;q=0.5,th;q=0.9'],
     ['th,en'],
+    ['th_TH'],
+    ['th-TH;q=1.0, en;q=0.5'],
+    ['en; q=0.5 , th; q=0.9'],
   ])('sends %j to the Thai page, without recording a preference', (acceptLanguage) => {
     expect(resolve('/', { acceptLanguage })).toEqual({ location: '/th/', rememberAs: null });
   });

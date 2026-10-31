@@ -13,6 +13,12 @@ describe('languageSwitchUrl', () => {
     ).toBe('/?lang=en&lat=15.5&lng=101&zoom=5.5&date=2026-10-20&sel=station%3A6123215');
   });
 
+  it('keeps the query exactly as it was', () => {
+    expect(languageSwitchUrl('th', '?sel=station:1&date=2026-10-20')).toBe(
+      '/?lang=th&sel=station:1&date=2026-10-20',
+    );
+  });
+
   it('replaces a language already in the query', () => {
     expect(languageSwitchUrl('th', '?lang=en&zoom=5')).toBe('/?lang=th&zoom=5');
   });

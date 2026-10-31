@@ -1,4 +1,5 @@
 import type { Language } from '@/i18n-instance';
+import { searchWithoutLang } from '@/lib/langParam';
 
 const ENGLISH_PAGE = '/';
 const THAI_PAGE = '/th/';
@@ -32,13 +33,10 @@ export function resolveLanguageRedirect({
 }: Input): LanguageRedirect | null {
   if (url.pathname !== ENGLISH_PAGE) return null;
 
-  const params = new URLSearchParams(url.search);
-  const chosen = params.get('lang');
+  const chosen = new URLSearchParams(url.search).get('lang');
   if (isLanguage(chosen)) {
-    params.delete('lang');
-    const query = params.toString();
     const page = chosen === 'th' ? THAI_PAGE : ENGLISH_PAGE;
-    return { location: page + (query ? `?${query}` : ''), rememberAs: chosen };
+    return { location: page + searchWithoutLang(url.search), rememberAs: chosen };
   }
 
   const wantsThai = isLanguage(cookieLang) ? cookieLang === 'th' : prefersThai(acceptLanguage);
@@ -63,5 +61,5 @@ function prefersThai(header: string | null): boolean {
     if (!Number.isFinite(q) || q <= 0) continue;
     if (!best || q > best.q) best = { tag, q };
   }
-  return best?.tag.split('-')[0] === 'th';
+  return best?.tag.split(/[-_]/)[0] === 'th';
 }
