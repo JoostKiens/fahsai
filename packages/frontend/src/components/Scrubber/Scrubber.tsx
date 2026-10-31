@@ -112,7 +112,7 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== ' ') return;
+      if (e.key !== ' ' || !latestDateResolved) return;
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
       e.preventDefault();
@@ -120,7 +120,7 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [playing, setPlaying]);
+  }, [playing, setPlaying, latestDateResolved]);
 
   function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
     setScrubberDay(value);
@@ -150,7 +150,11 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
       <div className="flex items-center gap-3">
         <div className="hidden md:block">
           {ready ? (
-            <PlayButton playing={playing} onToggle={() => setPlaying(!playing)} />
+            <PlayButton
+              playing={playing}
+              onToggle={() => setPlaying(!playing)}
+              disabled={!latestDateResolved}
+            />
           ) : (
             <Shimmer className="size-8 rounded-full" />
           )}
@@ -183,9 +187,10 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                 min={0}
                 max={scrubberDays - 1}
                 step={1}
+                disabled={!latestDateResolved}
                 className="w-full"
               >
-                <Slider.Control className="flex w-full touch-none cursor-pointer items-center">
+                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                     <Slider.Thumb
                       ref={thumbRef}

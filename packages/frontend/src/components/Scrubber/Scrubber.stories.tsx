@@ -54,10 +54,12 @@ type Story = StoryObj<typeof meta>;
 
 // The PM2.5 line comes from the mocked /api/v1/cams/summary response.
 export const Desktop: Story = {
-  play: async ({ canvasElement }) => {
+  play: async ({ canvas, canvasElement }) => {
     // The chart's SVG stretches to the slider width; the play icon's SVG doesn't.
     const chartLine = 'svg[preserveAspectRatio="none"] path';
     await waitFor(() => expect(canvasElement.querySelector(chartLine)).not.toBeNull());
+    await expect(canvas.getByRole('slider', { name: 'Select date' })).toBeEnabled();
+    await expect(canvas.getByRole('button', { name: 'Play' })).toBeEnabled();
     await expectReservedHeight(canvasElement);
   },
 };
@@ -75,6 +77,9 @@ export const FromServerData: Story = {
       canvasElement.querySelector('svg[preserveAspectRatio="none"] path'),
     ).not.toBeNull();
     await expect(canvasElement.querySelector('.animate-pulse')).toBeNull();
+    // Looks real, but nothing is wired to the map until the browser has the latest date.
+    await expect(canvas.getByRole('slider', { name: 'Select date' })).toBeDisabled();
+    await expect(canvas.getByRole('button', { name: 'Play' })).toBeDisabled();
     await expectReservedHeight(canvasElement);
   },
 };
