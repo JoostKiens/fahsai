@@ -21,3 +21,5 @@ Allow: /
 
 User-agent: Bingbot
 Allow: /
+
+Sitemap: https://fahsai.fyi/sitemap.xml
