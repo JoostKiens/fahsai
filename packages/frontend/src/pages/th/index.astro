@@ -1,0 +1,46 @@
+---
+import Base from '@/layouts/Base.astro';
+import { AppIsland } from '@/AppIsland';
+---
+
+<Base lang="th">
+  <AppIsland client:only="react">
+    <main id="intro" slot="fallback">
+      <div>
+        <h1>Fahsai — แผนที่คุณภาพอากาศไทย</h1>
+        <p>
+          Fahsai (ฟ้าใส แปลว่า “ท้องฟ้าแจ่มใส”) เป็นแผนที่ฟรีที่ไม่แสวงหากำไร
+          แสดงสาเหตุของมลพิษทางอากาศตามฤดูกาลในประเทศไทยและประเทศเพื่อนบ้าน
+          ทั้งจุดไฟที่ตรวจพบจากดาวเทียม ค่าฝุ่น PM2.5 จากสถานีตรวจวัดภาคพื้นดิน ค่าประมาณ PM2.5
+          แบบกริด ทิศทางลม และโรงไฟฟ้า รวมไว้บนแผนที่เดียว อัปเดตทุกวัน
+        </p>
+        <p>
+          ครอบคลุมไทย พม่า ลาว กัมพูชา เวียดนาม และสิงคโปร์ พร้อมข้อมูลย้อนหลังสูงสุด 120 วัน
+          เพื่อดูว่าไฟ ลม และคุณภาพอากาศเปลี่ยนแปลงไปด้วยกันอย่างไรตลอดฤดูหมอกควัน
+        </p>
+        <p>กำลังโหลดแผนที่… หากแผนที่ไม่ปรากฏ ลองโหลดหน้านี้ใหม่</p>
+        <noscript><p>แผนที่นี้ต้องใช้ JavaScript</p></noscript>
+        <h2>แหล่งข้อมูล</h2>
+        <ul>
+          <li>
+            ข้อมูลไฟจาก NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
+              >firms.modaps.eosdis.nasa.gov</a
+            >)
+          </li>
+          <li>ข้อมูลคุณภาพอากาศจาก OpenAQ (<a href="https://openaq.org">openaq.org</a>)</li>
+          <li>
+            <a href="https://open-meteo.com/" lang="en">Weather data by Open-Meteo.com</a> (CC BY
+            4.0)
+          </li>
+          <li>
+            ข้อมูลโรงไฟฟ้าจาก <span lang="en">WRI Global Power Plant Database</span> (<a
+              href="https://resourcewatch.org"
+              >resourcewatch.org</a
+            >) (CC BY 4.0)
+          </li>
+        </ul>
+        <p><a href="/?lang=en" lang="en" hreflang="en">English</a></p>
+      </div>
+    </main>
+  </AppIsland>
+</Base>

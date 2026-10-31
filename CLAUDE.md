@@ -84,9 +84,11 @@ working in a file, mention it rather than fixing it silently.
 │   │       ├── utils/        # geo, date, backfill (pagination/concurrency), classification,
 │   │       │                 # per-provider API clients (openaq, openmeteo, firms), CORS helpers
 │   │       └── data/         # static reference data (urban sources, geo regions)
-│   └── frontend/             # React + Vite SPA
+│   └── frontend/             # Astro + React (the app is one client:only island)
 │       └── src/
-│           ├── main.tsx
+│           ├── AppIsland.tsx   # the whole app, mounted by the pages below
+│           ├── pages/          # index.astro, th/index.astro (prerendered)
+│           ├── layouts/        # Base.astro: head tags, structured data, en/th copy
 │           ├── App.tsx
 │           ├── i18n.ts
 │           ├── components/
@@ -118,7 +120,7 @@ working in a file, mention it rather than fixing it silently.
 
 ### Frontend
 
-- React 19 + TypeScript, Vite
+- Astro 7 (`@astrojs/react`, `@astrojs/vercel`) + React 19 + TypeScript. Vite 8 underneath; `vite.config.ts` is for Storybook only
 - Mapbox GL JS (base map, custom Mapbox Studio style)
 - Deck.gl (data layers), Supercluster (station clustering)
 - Zustand (UI state), TanStack Query v5 (data fetching), motion (animation)

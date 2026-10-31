@@ -67,8 +67,8 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* Text in #root (index.html, th/index.html) that crawlers read and slow loads show; React replaces
-   it on mount. When it is hidden and revealed is set inline in the HTML. */
+/* Text in #root (src/pages/*.astro) that crawlers read and slow loads show; the app island replaces
+   it on mount. When it is hidden and revealed is set inline in src/layouts/Base.astro. */
 #intro {
   box-sizing: border-box;
   height: 100%;

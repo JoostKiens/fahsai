@@ -5,9 +5,9 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "astro dev",
+    "build": "tsc && astro build",
+    "preview": "astro preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
@@ -16,6 +16,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@astrojs/react": "7.1.2",
+    "@astrojs/vercel": "11.0.17",
     "@base-ui/react": "^1.8.0",
     "@deck.gl/core": "^9.4.0",
     "@deck.gl/extensions": "^9.4.0",
@@ -31,6 +33,7 @@
     "@thailand-aq/types": "workspace:*",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "astro": "7.4.4",
     "fuse.js": "^7.5.0",
     "i18next": "^26.4.2",
     "mapbox-gl": "^3.32.0",

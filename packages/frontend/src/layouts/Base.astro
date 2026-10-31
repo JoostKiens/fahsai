@@ -1,0 +1,225 @@
+---
+import '@/index.css';
+
+interface Props {
+  lang: 'en' | 'th';
+}
+
+const { lang } = Astro.props;
+
+// Without this the preconnect below is emitted with no href and the build still passes.
+const apiBase = import.meta.env.VITE_API_BASE_URL;
+if (!apiBase) throw new Error('VITE_API_BASE_URL is not set; the page preconnects to it');
+
+const site = 'https://fahsai.fyi';
+const copy = {
+  en: {
+    url: site,
+    title: 'Fahsai — Thailand Air Quality Map — PM2.5, Fires & Wind',
+    socialTitle: 'Thailand Air Quality Map — PM2.5, Fires & Wind',
+    description:
+      'The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily.',
+    imageAlt:
+      'Map showing fire detections and PM2.5 pollution across Thailand and neighboring countries during haze season',
+    locale: 'en_US',
+    altLocale: 'th_TH',
+    appDescription:
+      'Interactive map visualizing PM2.5 air quality, active fire detections, and wind patterns across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore — updated daily.',
+  },
+  th: {
+    url: `${site}/th/`,
+    title: 'Fahsai — แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม',
+    socialTitle: 'แผนที่คุณภาพอากาศไทย — PM2.5 ไฟป่า และลม',
+    description:
+      'ควันมาจากที่ไหน? ดูจุดไฟ ค่าฝุ่น PM2.5 และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน',
+    imageAlt: 'แผนที่แสดงจุดไฟและฝุ่น PM2.5 ทั่วไทยและประเทศเพื่อนบ้านในช่วงหมอกควัน',
+    locale: 'th_TH',
+    altLocale: 'en_US',
+    appDescription:
+      'แผนที่เชิงโต้ตอบแสดงค่าฝุ่น PM2.5 จุดไฟ และทิศทางลมทั่วไทย พม่า ลาว กัมพูชา เวียดนาม สิงคโปร์ — อัปเดตทุกวัน',
+  },
+}[lang];
+
+const creator = {
+  '@type': 'Person',
+  name: 'Joost Kiens',
+  sameAs: ['https://www.linkedin.com/in/joostkiens/', 'https://github.com/JoostKiens/'],
+};
+const spatialCoverage = {
+  '@type': 'Place',
+  name: 'Thailand, Myanmar, Laos, Cambodia, Vietnam, Singapore',
+  geo: { '@type': 'GeoShape', box: '1 89 30 114' },
+};
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebApplication',
+      name: 'Fahsai',
+      url: copy.url,
+      description: copy.appDescription,
+      applicationCategory: 'EnvironmentApplication',
+      operatingSystem: 'Any',
+      browserRequirements: 'Requires a modern browser with JavaScript enabled.',
+      featureList: [
+        'Daily fire detection from NASA FIRMS VIIRS satellite data',
+        'PM2.5 air quality readings from OpenAQ ground stations',
+        'Gridded PM2.5 model from Copernicus CAMS via Open-Meteo',
+        'Animated wind particle visualization',
+        '120-day historical time scrubber',
+      ],
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      creator,
+      inLanguage: lang,
+      isAccessibleForFree: true,
+      spatialCoverage,
+    },
+    {
+      '@type': 'Dataset',
+      name: 'Thailand Region Fire, PM2.5, and Wind Dataset',
+      description:
+        'Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore.',
+      url: copy.url,
+      keywords: [
+        'air quality',
+        'PM2.5',
+        'fire detection',
+        'VIIRS',
+        'NASA FIRMS',
+        'OpenAQ',
+        'CAMS',
+        'Thailand',
+        'Myanmar',
+        'Laos',
+        'Cambodia',
+        'Vietnam',
+        'Singapore',
+        'Southeast Asia',
+        'haze',
+        'smoke',
+        'cross-border burning',
+      ],
+      license: 'https://creativecommons.org/licenses/by/4.0/',
+      isAccessibleForFree: true,
+      temporalCoverage: 'P120D',
+      creator,
+      spatialCoverage,
+      variableMeasured: [
+        { '@type': 'PropertyValue', name: 'PM2.5 concentration', unitText: 'µg/m³' },
+        { '@type': 'PropertyValue', name: 'Fire Radiative Power', unitText: 'MW' },
+        { '@type': 'PropertyValue', name: 'Wind speed', unitText: 'km/h' },
+        { '@type': 'PropertyValue', name: 'Wind direction', unitText: 'degrees' },
+      ],
+      isBasedOn: [
+        {
+          '@type': 'CreativeWork',
+          name: 'NASA FIRMS VIIRS active fire detections',
+          url: 'https://firms.modaps.eosdis.nasa.gov',
+        },
+        {
+          '@type': 'CreativeWork',
+          name: 'OpenAQ air quality measurements',
+          url: 'https://openaq.org',
+        },
+        {
+          '@type': 'CreativeWork',
+          name: 'Copernicus Atmosphere Monitoring Service (CAMS) PM2.5 forecasts',
+          url: 'https://atmosphere.copernicus.eu',
+        },
+        {
+          '@type': 'CreativeWork',
+          name: 'Open-Meteo weather and air quality API',
+          url: 'https://open-meteo.com',
+        },
+        {
+          '@type': 'CreativeWork',
+          name: 'WRI Global Power Plant Database',
+          url: 'https://resourcewatch.org',
+        },
+      ],
+    },
+  ],
+};
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
+    <link rel="preconnect" href={apiBase} crossorigin />
+
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#18181b" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>{copy.title}</title>
+    <meta name="description" content={copy.description} />
+    <link rel="canonical" href={copy.url} />
+    <link rel="alternate" hreflang="en" href={`${site}/`} />
+    <link rel="alternate" hreflang="th" href={`${site}/th/`} />
+    <link rel="alternate" hreflang="x-default" href={`${site}/`} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={copy.url} />
+    <meta property="og:site_name" content="Fahsai" />
+    <meta property="og:title" content={copy.socialTitle} />
+    <meta property="og:description" content={copy.description} />
+    <meta property="og:image" content={`${site}/og-image.png`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={copy.imageAlt} />
+    <meta property="og:locale" content={copy.locale} />
+    <meta property="og:locale:alternate" content={copy.altLocale} />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={copy.socialTitle} />
+    <meta name="twitter:description" content={copy.description} />
+    <meta name="twitter:image" content={`${site}/og-image.png`} />
+    <meta name="twitter:image:alt" content={copy.imageAlt} />
+
+    <!-- Structured data -->
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    <style is:inline>
+      /* Hidden while the app loads; shown only if it hasn't replaced #intro after 3 s. Inline so
+         it applies before any stylesheet; the rest of the #intro look is in src/index.css. */
+      #intro {
+        opacity: 0;
+        visibility: hidden;
+        animation: intro-reveal 0.3s ease-out 3s forwards;
+      }
+      @keyframes intro-reveal {
+        to {
+          opacity: 1;
+          visibility: visible;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #intro {
+          animation-duration: 0s;
+        }
+      }
+    </style>
+    <noscript>
+      <!-- nothing will replace #intro, so show the text straight away -->
+      <style is:inline>
+        #intro {
+          opacity: 1;
+          visibility: visible;
+          animation: none;
+        }
+      </style>
+    </noscript>
+  </head>
+  <body>
+    <div id="root">
+      <slot />
+    </div>
+  </body>
+</html>
