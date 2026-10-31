@@ -12,12 +12,12 @@ import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 const LATEST_DATE = '2026-10-24';
 const SCRUBBER_DAYS = 30;
 
-// The page reserves the scrubber's height before its island mounts (SCRUBBER_BAR_CLS, used in
-// layouts/AppShell.astro), so the sidebar and map don't resize when it appears. The scrubber keeps
-// that height as its minimum, so it only moves the page if its content is taller than the
-// reservation; shorter just makes the bar a little taller than its content. This runs in a real
-// browser at the story's viewport, so it fails when the scrubber's layout changes without the
-// constant. The bar is found by the constant's min-height class, not by its position in the canvas.
+// The scrubber's bar keeps SCRUBBER_BAR_CLS's height as a minimum, and its error fallback uses the
+// same classes, so the sidebar and map keep their size in every state. It only moves the page if
+// its content is taller than that; shorter just makes the bar a little taller than its content.
+// This runs in a real browser at the story's viewport, so it fails when the scrubber's layout
+// changes without the constant. The bar is found by the constant's min-height class, not by its
+// position in the canvas.
 const MIN_HEIGHT_CLASS = SCRUBBER_BAR_CLS.split(' ').find((c) => c.startsWith('min-h-'));
 
 async function expectReservedHeight(canvasElement: HTMLElement) {
@@ -59,6 +59,33 @@ export const Desktop: Story = {
     const chartLine = 'svg[preserveAspectRatio="none"] path';
     await waitFor(() => expect(canvasElement.querySelector(chartLine)).not.toBeNull());
     await expectReservedHeight(canvasElement);
+  },
+};
+
+// What the server renders: the date and the chart come from the data it fetched, before the browser
+// has asked for the latest date (the store still says unresolved) and without any request.
+export const FromServerData: Story = {
+  args: { initialData: { latestDate: LATEST_DATE, timeline: summaryResponse.data } },
+  beforeEach: () => {
+    useTimeStore.setState({ latestDateResolved: false });
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect((await canvas.findAllByText('24 Oct 2026')).length).toBeGreaterThan(0);
+    await expect(
+      canvasElement.querySelector('svg[preserveAspectRatio="none"] path'),
+    ).not.toBeNull();
+    await expect(canvasElement.querySelector('.animate-pulse')).toBeNull();
+    await expectReservedHeight(canvasElement);
+  },
+};
+
+// A page the server cached a while ago: once the browser has the real latest date it wins over the
+// date the server rendered with.
+export const LiveDateWinsOverServerData: Story = {
+  args: { initialData: { latestDate: '2026-10-20', timeline: [] } },
+  play: async ({ canvas }) => {
+    await expect((await canvas.findAllByText('24 Oct 2026')).length).toBeGreaterThan(0);
+    await expect(canvas.queryAllByText('20 Oct 2026')).toHaveLength(0);
   },
 };
 
