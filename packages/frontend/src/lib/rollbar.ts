@@ -16,7 +16,7 @@ function isIgnoredMessage(payload: { body?: { trace?: { exception?: { message?: 
 // Crawlers (e.g. Googlebot) abort subresource fetches, surfacing as lazy-chunk load
 // errors that aren't real user failures; see docs/claude/rollbar.md. Matches the original
 // error in args: the payload's parsed exception message is truncated at the first colon.
-const isBot = /bot|crawl|spider/i.test(navigator.userAgent);
+const isBot = typeof navigator !== 'undefined' && /bot|crawl|spider/i.test(navigator.userAgent);
 
 function isBotChunkLoadFailure(args: unknown[]) {
   return (
@@ -30,7 +30,9 @@ function isBotChunkLoadFailure(args: unknown[]) {
 }
 
 // ponytail: dynamic import so Vite never pre-bundles rollbar.js in dev (ad blockers block that URL)
-if (token && isProduction) {
+// Browser only: Astro imports this module while building, where the token is set too, and a
+// reporter there would catch and send the build's own errors.
+if (typeof window !== 'undefined' && token && isProduction) {
   void import('rollbar')
     .then(({ default: RollbarClass }) => {
       rollbar = new RollbarClass({
