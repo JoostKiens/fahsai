@@ -66,3 +66,41 @@ body,
 html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
+
+/* Text in #root (index.html, th/index.html) that crawlers read and slow loads show; React replaces
+   it on mount. When it is hidden and revealed is set inline in the HTML. */
+#intro {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: 2rem 1.5rem;
+}
+#intro > div {
+  max-width: 40rem;
+  margin: 0 auto;
+  color: #d4d4d8;
+  line-height: 1.6;
+}
+#intro h1 {
+  color: #fafafa;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  margin: 0 0 1rem;
+}
+#intro h2 {
+  color: #fafafa;
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+#intro p {
+  margin: 0 0 0.75rem;
+}
+#intro ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+#intro a {
+  color: #e4e4e7;
+  text-decoration: underline;
+}

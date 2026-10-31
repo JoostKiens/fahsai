@@ -12,10 +12,10 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Fahsai. Thailand Air Quality Map - PM2.5, Fires &amp; Wind</title>
+    <title>Fahsai — Thailand Air Quality Map — PM2.5, Fires &amp; Wind</title>
     <meta
       name="description"
-      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia - updated daily."
+      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
     />
     <link rel="canonical" href="https://fahsai.fyi" />
     <link rel="alternate" hreflang="en" href="https://fahsai.fyi/" />
@@ -26,7 +26,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fahsai.fyi" />
     <meta property="og:site_name" content="Fahsai" />
-    <meta property="og:title" content="Thailand Air Quality Map - PM2.5, Fires &amp; Wind" />
+    <meta property="og:title" content="Thailand Air Quality Map — PM2.5, Fires &amp; Wind" />
     <meta
       property="og:description"
       content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
@@ -46,7 +46,7 @@
     <meta name="twitter:title" content="Thailand Air Quality Map — PM2.5, Fires &amp; Wind" />
     <meta
       name="twitter:description"
-      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia - updated daily."
+      content="The smoke has a source. See active fire detections, PM2.5 air quality, and wind patterns across Thailand, Myanmar, Laos, and Cambodia — updated daily."
     />
     <meta name="twitter:image" content="https://fahsai.fyi/og-image.png" />
     <meta
@@ -72,7 +72,7 @@
               "PM2.5 air quality readings from OpenAQ ground stations",
               "Gridded PM2.5 model from Copernicus CAMS via Open-Meteo",
               "Animated wind particle visualization",
-              "30-day historical time scrubber"
+              "120-day historical time scrubber"
             ],
             "offers": {
               "@type": "Offer",
@@ -113,7 +113,7 @@
             ],
             "license": "https://creativecommons.org/licenses/by/4.0/",
             "isAccessibleForFree": true,
-            "temporalCoverage": "P30D",
+            "temporalCoverage": "P120D",
             "creator": {
               "@type": "Person",
               "name": "Joost Kiens",
@@ -156,9 +156,76 @@
         ]
       }
     </script>
+    <style>
+      /* Hidden while the app loads; shown only if it hasn't replaced #root after 3 s. Inline so it
+         applies before any stylesheet; the rest of the #intro look is in src/index.css. */
+      #intro {
+        opacity: 0;
+        visibility: hidden;
+        animation: intro-reveal 0.3s ease-out 3s forwards;
+      }
+      @keyframes intro-reveal {
+        to {
+          opacity: 1;
+          visibility: visible;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #intro {
+          animation-duration: 0s;
+        }
+      }
+    </style>
+    <noscript>
+      <!-- nothing will replace #root, so show the text straight away -->
+      <style>
+        #intro {
+          opacity: 1;
+          visibility: visible;
+          animation: none;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main id="intro">
+        <div>
+          <h1>Fahsai — Thailand Air Quality Map</h1>
+          <p>
+            Fahsai (<span lang="th">ฟ้าใส</span>, “clear sky”) is a free, non-commercial map of the
+            causes of seasonal air pollution in Thailand and its neighbours. It shows satellite fire
+            detections, PM2.5 readings from ground stations, gridded PM2.5 estimates, wind patterns
+            and power plants on one map, updated daily.
+          </p>
+          <p>
+            It covers Thailand, Myanmar, Laos and Cambodia, with up to 120 days of history, so you
+            can see how fires, wind and air quality change together through the haze season.
+          </p>
+          <p>Loading the map… If it doesn’t appear, try reloading the page.</p>
+          <noscript><p>The map needs JavaScript.</p></noscript>
+          <h2>Data sources</h2>
+          <ul>
+            <li>
+              Fire data courtesy NASA FIRMS (<a href="https://firms.modaps.eosdis.nasa.gov"
+                >firms.modaps.eosdis.nasa.gov</a
+              >)
+            </li>
+            <li>Air quality data from OpenAQ (<a href="https://openaq.org">openaq.org</a>)</li>
+            <li>
+              <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a> (CC BY 4.0)
+            </li>
+            <li>
+              Power plant data from WRI Global Power Plant Database (<a
+                href="https://resourcewatch.org"
+                >resourcewatch.org</a
+              >) (CC BY 4.0)
+            </li>
+          </ul>
+          <p><a href="/th/" lang="th" hreflang="th">ภาษาไทย</a></p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
