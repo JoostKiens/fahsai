@@ -8,6 +8,23 @@ export default defineConfig({
   integrations: [react()],
   adapter: vercel({ staticHeaders: true }),
   server: { port: 5173 },
+  // Astro adds script-src 'self' plus a hash per inline script. frame-ancestors can't go in a
+  // <meta> CSP (ISR pages get one), so it stays a header in vercel.json.
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data: https://api.mapbox.com",
+        "font-src 'self' data:",
+        "connect-src 'self' data: https://api.mapbox.com https://events.mapbox.com https://*.up.railway.app",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ],
+      styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
     envPrefix: ['VITE_', 'PUBLIC_'],
