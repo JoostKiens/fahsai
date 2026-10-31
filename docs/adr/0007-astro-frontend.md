@@ -17,9 +17,11 @@ Build with **Astro 7**, the `@astrojs/react` integration and the `@astrojs/verce
   in two prerendered pages, `/` and `/th/`. Nothing visible changes.
 - Later steps server-render the header, sidebar, scrubber and search, put the homepage on ISR and
   move the language choice into a cookie (see JOO-124).
-- The CSP is written by Astro (`security.csp`, `staticHeaders`): `script-src 'self'` plus a hash per
-  inline script. `vercel.json` keeps only `frame-ancestors`, because a second full CSP header would
-  block the hashed scripts and a `<meta>` CSP (what ISR pages get) cannot carry `frame-ancestors`.
+- The CSP is written by Astro (`security.csp`) as a `<meta>` tag in each page: `script-src 'self'`
+  plus a hash per inline script. `vercel.json` keeps only `frame-ancestors`, which a `<meta>` CSP
+  cannot carry. We do not use the adapter's `staticHeaders`: on Vercel its per-route header replaces
+  `vercel.json`'s CSP header instead of merging (so `frame-ancestors` was lost), and it keys the
+  Thai page as `/th`, which misses `/th/`. A `<meta>` CSP works the same for prerendered and ISR pages.
 
 ## Alternatives considered
 

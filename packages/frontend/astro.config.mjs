@@ -6,10 +6,12 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   integrations: [react()],
-  adapter: vercel({ staticHeaders: true }),
+  adapter: vercel(),
   server: { port: 5173 },
-  // Astro adds script-src 'self' plus a hash per inline script. frame-ancestors can't go in a
-  // <meta> CSP (ISR pages get one), so it stays a header in vercel.json.
+  // Astro adds script-src 'self' plus a hash per inline script and writes the CSP as a <meta> tag.
+  // Not staticHeaders: that header replaces vercel.json's CSP header instead of merging with it,
+  // and the adapter keys it '/th', which misses '/th/'. A <meta> CSP can't carry frame-ancestors,
+  // so that stays a header in vercel.json.
   security: {
     csp: {
       directives: [
