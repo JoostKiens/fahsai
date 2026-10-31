@@ -219,9 +219,12 @@ ${trajectoryStr}`;
     peerStr = 'No peer station data available within 75 km';
   } else {
     const p = ctx.peers;
-    // the range skips far-off peers, so say how many it covers or the model pairs it with stationCount
+    // the range skips far-off peers; say so, or the model gives every peer the range's category
+    const leftOutCount = p.stationCount - p.rangeStationCount;
     const rangeCoverage =
-      p.rangeStationCount < p.stationCount ? ` across ${p.rangeStationCount} of them` : '';
+      leftOutCount > 0
+        ? ` for ${p.rangeStationCount} of them; ${leftOutCount} ${leftOutCount === 1 ? 'reads' : 'read'} far outside that range and ${leftOutCount === 1 ? 'is' : 'are'} left out of it`
+        : '';
     const rangeStr = p.range
       ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³${rangeCoverage}`
       : 'n/a';
@@ -229,7 +232,12 @@ ${trajectoryStr}`;
     const ratioStr = ctx.outlier
       ? `\nStation reading ÷ peer weighted mean: ${ctx.outlier.ratio.toFixed(2)}`
       : '';
-    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}`;
+    // the Thai eval still called all stations Hazardous from the data line alone (JOO-90)
+    const rangeCountNote =
+      leftOutCount > 0
+        ? `\nWhen you cite this range or its AQI category, give the count as ${p.rangeStationCount} of ${p.stationCount} stations.`
+        : '';
+    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}${rangeCountNote}`;
     if (p.distribution) {
       peerStr = `${header}\nDistribution by AQI category: ${p.distribution}`;
     } else if (p.stationCount <= 2) {

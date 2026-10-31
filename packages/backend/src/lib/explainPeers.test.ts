@@ -9,7 +9,7 @@ import type { PeerRow } from './fetchExplainContext.js';
 const LAT = 14;
 const LNG = 100;
 const LATEST_PM25 = 400;
-const RANGE_IN_PROMPT = /range \d+–\d+ µg\/m³ across (\d+) of them/;
+const RANGE_IN_PROMPT = /range \d+–\d+ µg\/m³ for (\d+) of them; 1 reads far outside that range/;
 
 // One degree of latitude is ~111 km, so 0.1° steps keep every peer inside the 75 km radius
 function peerRow(id: string, value: number, latOffset: number): PeerRow {
@@ -66,6 +66,7 @@ describe('explain prompt peer summary', () => {
 
     expect(prompt).toContain('8 stations');
     expect(prompt.match(RANGE_IN_PROMPT)?.[1]).toBe('7');
+    expect(prompt).toContain('give the count as 7 of 8 stations');
   });
 
   it('gives no separate count when every peer is in the range', () => {
@@ -73,5 +74,6 @@ describe('explain prompt peer summary', () => {
 
     expect(prompt).toContain('7 stations');
     expect(prompt).not.toMatch(RANGE_IN_PROMPT);
+    expect(prompt).not.toContain('give the count as');
   });
 });
