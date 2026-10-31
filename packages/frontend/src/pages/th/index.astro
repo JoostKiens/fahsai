@@ -1,10 +1,10 @@
 ---
 import Base from '@/layouts/Base.astro';
-import { AppIsland } from '@/AppIsland';
+import AppShell from '@/layouts/AppShell.astro';
 ---
 
 <Base lang="th">
-  <AppIsland client:only="react">
+  <AppShell>
     <main id="intro" slot="fallback">
       <div>
         <h1>Fahsai — แผนที่คุณภาพอากาศไทย</h1>
@@ -42,5 +42,5 @@ import { AppIsland } from '@/AppIsland';
         <p><a href="/?lang=en" lang="en" hreflang="en">English</a></p>
       </div>
     </main>
-  </AppIsland>
+  </AppShell>
 </Base>
