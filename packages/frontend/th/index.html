@@ -162,6 +162,19 @@
         height: 100%;
         overflow: auto;
         padding: 2rem 1.5rem;
+        /* hidden while the app loads; shown only if it hasn't replaced #root after 3 s */
+        opacity: 0;
+        animation: intro-reveal 0.3s ease-out 3s forwards;
+      }
+      @keyframes intro-reveal {
+        to {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #intro {
+          animation-duration: 0s;
+        }
       }
       #intro > div {
         max-width: 40rem;
@@ -193,6 +206,15 @@
         text-decoration: underline;
       }
     </style>
+    <noscript>
+      <!-- nothing will replace #root, so show the text straight away -->
+      <style>
+        #intro {
+          opacity: 1;
+          animation: none;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
     <div id="root">
