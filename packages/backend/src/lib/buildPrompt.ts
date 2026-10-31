@@ -222,7 +222,11 @@ ${trajectoryStr}`;
     const rangeStr = p.range
       ? `${Math.round(p.range.min)}–${Math.round(p.range.max)} µg/m³`
       : 'n/a';
-    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}`;
+    // the mean is rounded, so the model can't work out the outlier ratio itself
+    const ratioStr = ctx.outlier
+      ? `\nStation reading ÷ peer weighted mean: ${ctx.outlier.ratio.toFixed(2)}`
+      : '';
+    const header = `${p.stationCount} stations — distance-weighted mean ${Math.round(p.weightedMean)} µg/m³ (unweighted median ${Math.round(p.unweightedMedian)} µg/m³), range ${rangeStr}${ratioStr}`;
     if (p.distribution) {
       peerStr = `${header}\nDistribution by AQI category: ${p.distribution}`;
     } else if (p.stationCount <= 2) {
