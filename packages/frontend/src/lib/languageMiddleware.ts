@@ -14,22 +14,26 @@ interface Context {
  * The language redirect (see CONTEXT.md) as edge middleware: for a request for the English entry
  * page it either answers with a 302 to the right page, setting the language preference when the
  * language switch asked for one, or lets the page through. If deciding goes wrong it lets the page
- * through: a bug here must not take the home page down.
+ * through: a bug here must not take the home page down. Only the deciding is guarded; an error
+ * from the page itself is the page's, and passes through untouched.
  */
 export async function languageMiddleware(
   context: Context,
   next: () => Promise<Response>,
 ): Promise<Response> {
+  return redirectFor(context) ?? next();
+}
+
+function redirectFor({ request, url, cookies }: Context): Response | null {
   try {
-    const { request, url, cookies } = context;
-    if (request.method !== 'GET' && request.method !== 'HEAD') return await next();
+    if (request.method !== 'GET' && request.method !== 'HEAD') return null;
 
     const redirect = resolveLanguageRedirect({
       url,
       cookieLang: cookies.get(COOKIE_NAME)?.value,
       acceptLanguage: request.headers.get('Accept-Language'),
     });
-    if (!redirect) return await next();
+    if (!redirect) return null;
 
     // Decided by the cookie and the browser's language, so it is for this visitor only.
     const headers = new Headers({
@@ -47,6 +51,6 @@ export async function languageMiddleware(
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error('[languageMiddleware] failed, serving the page as it is:', error);
-    return next();
+    return null;
   }
 }

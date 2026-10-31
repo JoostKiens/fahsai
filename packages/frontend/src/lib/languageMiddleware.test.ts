@@ -109,6 +109,23 @@ describe('a request that is served as it is', () => {
   });
 });
 
+describe('when the page itself fails', () => {
+  it('lets the error through once, and does not blame the middleware', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const next = vi.fn(() => Promise.reject(new Error('the page failed to render')));
+    const url = 'https://fahsai.fyi/';
+    const cookies = { get: () => undefined };
+
+    await expect(
+      languageMiddleware({ request: new Request(url), url: new URL(url), cookies }, next),
+    ).rejects.toThrow('the page failed to render');
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+});
+
 describe('when deciding fails', () => {
   it('serves the page instead of failing it, and says so', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
