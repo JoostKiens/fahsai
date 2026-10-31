@@ -1,5 +1,6 @@
+import i18next from 'i18next';
 import { setI18n } from 'react-i18next';
-import { createI18n } from './i18n-instance';
+import { initI18n } from './i18n-instance';
 import { useSettingsStore } from './store/settingsStore';
 import type { Language } from './store/settingsStore';
 
@@ -25,7 +26,8 @@ if (!pathLang && initialLang === 'th') {
   window.location.replace('/' + window.location.search);
 }
 
-const i18n = createI18n(initialLang);
+// The default instance, not a new one: queryErrors.ts and useExplain.ts import i18next directly.
+const i18n = initI18n(i18next, initialLang);
 setI18n(i18n);
 
 i18n.on('languageChanged', (lang) => {

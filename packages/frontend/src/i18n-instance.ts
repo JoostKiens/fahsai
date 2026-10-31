@@ -10,12 +10,10 @@ declare module 'i18next' {
 }
 
 /**
- * A new i18next instance for one language. It reads nothing from the browser, so it also runs while
- * Astro renders a page. Pass it to `I18nextProvider`; `i18n.ts` makes one the global instance in
- * the browser.
+ * Sets up an i18next instance for one language. It reads nothing from the browser, so it also runs
+ * while Astro renders a page.
  */
-export function createI18n(lng: Language): i18n {
-  const instance = i18next.createInstance();
+export function initI18n(instance: i18n, lng: Language): i18n {
   void instance.init({
     resources: {
       en: { translation: en },
@@ -29,4 +27,13 @@ export function createI18n(lng: Language): i18n {
     initAsync: false,
   });
   return instance;
+}
+
+/**
+ * A new instance for one language, to pass to `I18nextProvider` in a server-rendered island.
+ * In the browser `i18n.ts` sets up the default `i18next` instead, which code outside React
+ * (`queryErrors.ts`, `useExplain.ts`) imports directly.
+ */
+export function createI18n(lng: Language): i18n {
+  return initI18n(i18next.createInstance(), lng);
 }
