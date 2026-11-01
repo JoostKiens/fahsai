@@ -61,3 +61,12 @@ Details above that have since changed (the decision itself, single-pass CAMS and
 - The weather-ingest fallback runs at `0 4 * * *`, not `0 5 * * *`.
 - The `latest-date` gate now also requires weather (`weather_readings` ≥ 4,000 rows), so it checks four sources, not three.
 - The schedule lives in `.railway/railway.ts` (Railway Infrastructure as Code); the cron table is in `docs/claude/architecture.md`, not CLAUDE.md.
+
+## Addendum (2026-11-01): weather ingest moved to 23:30 UTC
+
+The `latest-date` gate waits for weather, and weather ran at `0 2 * * *`, so yesterday only appeared at about 09:10 BKK and the ~07:00 goal of this ADR was missed (JOO-119). Weather now runs at `30 23 * * *` and its fallback at `30 1 * * *`, so yesterday appears at about 06:40 BKK.
+
+- The ingest still targets the Bangkok calendar day before the one at run time. At 23:30 UTC that is the day that ended at 17:00 UTC, the same date the 02:00 run fetched, from the same Open-Meteo archive endpoint (which fills recent days from forecast models).
+- Checked before moving: a full-grid fetch at 23:30 UTC for 2026-10-31 was identical to what the 02:00 run stored (all 4,599 points, every field). A fetch 14 hours after the 02:00 run for 2026-10-29 was also identical, so the archive does not revise these values within a day.
+- 23:30, not 23:00: `ingest-cams` also calls Open-Meteo at 23:00, and its rate limits are per IP.
+- The fallback runs at 01:30, after the CAMS fallback at 01:00, for the same reason.

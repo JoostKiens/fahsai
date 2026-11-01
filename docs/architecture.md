@@ -65,24 +65,25 @@ flowchart LR
 
 All times UTC. Bangkok is UTC+7, so "yesterday" in the app is the Bangkok calendar day.
 
-| Time         | Job                                                                  | Writes                                                                            |
-| ------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 23:00        | `ingest-cams`, `ingest-station-readings` pass 1                      | CAMS PM2.5 grid (4,599 points), station daily averages                            |
-| 01:00        | `ingest-fallback-cams`                                               | Re-runs CAMS if the grid is incomplete                                            |
-| 02:00        | `ingest-weather-readings`, `prune`                                   | Wind and weather grid, plus per-station weather; deletes rows older than 140 days |
-| 04:00        | `ingest-station-readings` pass 2, `ingest-weather-readings-fallback` | Final station averages; re-runs weather if incomplete                             |
-| 04:30        | `ingest-station-fire-pressure`                                       | Fire count and FRP within 75 km of each station, over 14 days                     |
-| 04:40        | `ingest-station-baseline`                                            | Seasonal PM2.5 baseline for stations that don't have one yet                      |
-| 06:00        | `pipeline-health`                                                    | Checks yesterday is complete and the API is healthy (see below)                   |
-| 10:00, 23:00 | `ingest-fires`                                                       | NASA VIIRS fire detections; the second run catches late publishing                |
-| Monthly      | `ingest-stations`                                                    | OpenAQ station metadata                                                           |
+| Time         | Job                                             | Writes                                                             |
+| ------------ | ----------------------------------------------- | ------------------------------------------------------------------ |
+| 23:00        | `ingest-cams`, `ingest-station-readings` pass 1 | CAMS PM2.5 grid (4,599 points), station daily averages             |
+| 23:30        | `ingest-weather-readings`                       | Wind and weather grid, plus per-station weather                    |
+| 01:00        | `ingest-fallback-cams`                          | Re-runs CAMS if the grid is incomplete                             |
+| 01:30        | `ingest-weather-readings-fallback`              | Re-runs weather if the grid is incomplete                          |
+| 02:00        | `prune`                                         | Deletes rows older than 140 days                                   |
+| 04:00        | `ingest-station-readings` pass 2                | Final station averages                                             |
+| 04:30        | `ingest-station-fire-pressure`                  | Fire count and FRP within 75 km of each station, over 14 days      |
+| 04:40        | `ingest-station-baseline`                       | Seasonal PM2.5 baseline for stations that don't have one yet       |
+| 06:00        | `pipeline-health`                               | Checks yesterday is complete and the API is healthy (see below)    |
+| 10:00, 23:00 | `ingest-fires`                                  | NASA VIIRS fire detections; the second run catches late publishing |
+| Monthly      | `ingest-stations`                               | OpenAQ station metadata                                            |
 
 The app shows the newest day that is **complete**: a full CAMS grid, a full wind grid and at
 least one station reading. `/api/latest-date` checks this, so a day with a failed ingest is skipped
-rather than shown half-empty. Yesterday's data usually appears at about **09:10 Bangkok time**
-(02:10 UTC), when the wind grid lands: CAMS and station readings are in by about 06:30, but the
-check waits for wind. `/api/latest-date` caches its answer for 30 minutes, so allow until about
-09:40. Why
+rather than shown half-empty. Yesterday's data usually appears at about **06:40 Bangkok time**
+(23:40 UTC), when the wind grid lands, just after CAMS and station readings. `/api/latest-date`
+caches its answer for 30 minutes, so allow until about 07:10. Why
 OpenAQ runs twice and CAMS once is in [ADR 0001](adr/0001-two-pass-ingest-schedule.md).
 
 ## Key trade-offs
