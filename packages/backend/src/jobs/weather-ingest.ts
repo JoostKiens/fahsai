@@ -21,7 +21,7 @@ export function windCacheKey(date: string): string {
 
 export async function runWeatherIngest(date?: string): Promise<{ stored: number }> {
   // Default to yesterday (Bangkok calendar day): the 14:00 BKK snapshot for today
-  // (BKK) doesn't exist yet when the cron runs (02:00/04:00 UTC = 09:00/11:00 BKK,
+  // (BKK) doesn't exist yet when the cron runs (23:30/01:30 UTC = 06:30/08:30 BKK,
   // both before 14:00 BKK), so always request the prior, fully-elapsed BKK day.
   const calendarDayBkk = bangkokDateString();
   const targetDate = date ?? getYesterdayBkk();

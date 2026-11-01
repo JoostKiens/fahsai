@@ -164,16 +164,19 @@ station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (i
                                                         recomputed from a single year's data. A full re-backfill
                                                         (backfill:station-baseline) remains manual/one-off.
 
-weather-ingest        — daily     (0 2 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
-  ingest-weather                                  07:00 UTC snapshot via forecast API (NWP model
-  ingest-weather-today-fallback                   data, not ERA5 reanalysis); upserts to Supabase
+weather-ingest        — daily     (30 23 * * *)  fetches Open-Meteo weather grid for YESTERDAY at
+  ingest-weather                                  07:00 UTC snapshot via the archive API (which
+  ingest-weather-today-fallback                   fills recent days from NWP forecast models, not
+                                                  ERA5 reanalysis); upserts to Supabase
                                                   weather_readings and Redis (weather:{date} +
                                                   weather:wind:{date}, TTL 7d). After storing the
-                                                  grid, pre-computes station_weather for all stations
-                                                  that reported pm25 that date. Uses paginated
+                                                  grid, pre-computes station_weather for all known
+                                                  stations. Uses paginated
                                                   .range() queries to bypass Supabase 1000-row cap.
-                                                  Data visible by ~02:10 UTC (09:10 BKK).
-                                                  Fallback runs at (0 4 * * *): checks row count
+                                                  Runs 30 min after ingest-cams: both call
+                                                  Open-Meteo, whose rate limits are per IP.
+                                                  Data visible by ~23:40 UTC (06:40 BKK).
+                                                  Fallback runs at (30 1 * * *): checks row count
                                                   for yesterday; re-ingests if < 4,000 rows.
 
 prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, cams_grid,
@@ -203,8 +206,8 @@ The UI shows the most recent date where all three gating sources have complete d
 (cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
 served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
 both fires runs finish before the other sources land.
-The date typically becomes available at ~02:10 UTC (09:10 BKK), when weather_readings lands:
-cams_grid and station_readings are in by ~23:30 UTC (06:30 BKK), but the gate waits for wind.
+The date typically becomes available at ~23:40 UTC (06:40 BKK), when weather_readings lands,
+just after cams_grid and station_readings (in by ~23:30 UTC, 06:30 BKK).
 The 30-minute `latest-complete-date` cache can add up to half an hour.
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.
