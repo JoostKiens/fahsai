@@ -68,10 +68,9 @@ All times UTC. Bangkok is UTC+7, so "yesterday" in the app is the Bangkok calend
 | Time         | Job                                             | Writes                                                             |
 | ------------ | ----------------------------------------------- | ------------------------------------------------------------------ |
 | 23:00        | `ingest-cams`, `ingest-station-readings` pass 1 | CAMS PM2.5 grid (4,599 points), station daily averages             |
-| 23:30        | `ingest-weather-readings`                       | Wind and weather grid, plus per-station weather                    |
+| 00:00        | `ingest-weather-readings`                       | Wind and weather grid, plus per-station weather                    |
 | 01:00        | `ingest-fallback-cams`                          | Re-runs CAMS if the grid is incomplete                             |
-| 01:30        | `ingest-weather-readings-fallback`              | Re-runs weather if the grid is incomplete                          |
-| 02:00        | `prune`                                         | Deletes rows older than 140 days                                   |
+| 02:00        | `ingest-weather-readings-fallback`, `prune`     | Re-runs weather if the grid is incomplete; deletes rows > 140 days |
 | 04:00        | `ingest-station-readings` pass 2                | Final station averages                                             |
 | 04:30        | `ingest-station-fire-pressure`                  | Fire count and FRP within 75 km of each station, over 14 days      |
 | 04:40        | `ingest-station-baseline`                       | Seasonal PM2.5 baseline for stations that don't have one yet       |
@@ -81,9 +80,11 @@ All times UTC. Bangkok is UTC+7, so "yesterday" in the app is the Bangkok calend
 
 The app shows the newest day that is **complete**: a full CAMS grid, a full wind grid and at
 least one station reading. `/api/latest-date` checks this, so a day with a failed ingest is skipped
-rather than shown half-empty. Yesterday's data usually appears at about **06:40 Bangkok time**
-(23:40 UTC), when the wind grid lands, just after CAMS and station readings. `/api/latest-date`
-caches its answer for 30 minutes, so allow until about 07:10. Why
+rather than shown half-empty. Yesterday's data usually appears at about **07:10 Bangkok time**
+(00:10 UTC), when the wind grid lands: CAMS and station readings are in by about 06:30, but the
+check waits for wind. Wind can't run earlier: each grid costs 4,599 of Open-Meteo's per-IP calls
+(5,000 an hour, 10,000 a day), so weather waits for a new hour and day after CAMS.
+`/api/latest-date` caches its answer for 30 minutes, so allow until about 07:40. Why
 OpenAQ runs twice and CAMS once is in [ADR 0001](adr/0001-two-pass-ingest-schedule.md).
 
 ## Key trade-offs

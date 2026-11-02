@@ -52,11 +52,12 @@ keeps API keys server-side.
   - Daily aggregate: `precipitation_sum`
 - No API key required
 - Grid: 0.4° spacing over bbox `[89,1,114,30]` → 63 × 73 = 4,599 points per date.
-  Fetched in 16 batches of ≤300 with 5 s between batches (~80 s total).
+  Fetched in 16 batches of ≤300 with 35 s between batches (~10 min total).
   Batch size capped at 300 — payload grows linearly; 500 caused 413 errors (confirmed May 2026).
-  Free tier counts HTTP requests (not locations): 16 calls/day is well within the 10,000/day limit.
+  Free tier counts each location as a call (600/min, 5,000/hour, 10,000/day, per IP), so a run
+  costs 4,599 calls, the same as the CAMS grid (seen in production 429s, 2026-11-02).
   429 backoff: 65 s for minutely, 65 min for hourly, abort with exit code 1 for daily.
-- Schedule: daily (0 2 \* \* \* UTC)
+- Schedule: daily (0 0 \* \* \* UTC)
 - Storage:
   - Supabase `weather_readings` (persistent, 140-day retention) + Redis `weather:{date}` TTL 7d
     and `weather:wind:{date}` TTL 7d. Ingest writes to both. Wind route checks Redis first;
@@ -164,7 +165,7 @@ station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (i
                                                         recomputed from a single year's data. A full re-backfill
                                                         (backfill:station-baseline) remains manual/one-off.
 
-weather-ingest        — daily     (30 23 * * *)  fetches Open-Meteo weather grid for YESTERDAY at
+weather-ingest        — daily     (0 0 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
   ingest-weather                                  07:00 UTC snapshot via the archive API (which
   ingest-weather-today-fallback                   fills recent days from NWP forecast models, not
                                                   ERA5 reanalysis); upserts to Supabase
@@ -173,10 +174,11 @@ weather-ingest        — daily     (30 23 * * *)  fetches Open-Meteo weather gr
                                                   grid, pre-computes station_weather for all known
                                                   stations. Uses paginated
                                                   .range() queries to bypass Supabase 1000-row cap.
-                                                  Runs 30 min after ingest-cams: both call
-                                                  Open-Meteo, whose rate limits are per IP.
-                                                  Data visible by ~23:40 UTC (06:40 BKK).
-                                                  Fallback runs at (30 1 * * *): checks row count
+                                                  Runs an hour after ingest-cams, in a new UTC
+                                                  day: each grid costs 4,599 of Open-Meteo's
+                                                  per-IP calls (5,000/hour, 10,000/day).
+                                                  Data visible by ~00:10 UTC (07:10 BKK).
+                                                  Fallback runs at (0 2 * * *): checks row count
                                                   for yesterday; re-ingests if < 4,000 rows.
 
 prune                 — daily     (0 2 * * *)    deletes fire_points, station_readings, cams_grid,
@@ -206,8 +208,8 @@ The UI shows the most recent date where all three gating sources have complete d
 (cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
 served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
 both fires runs finish before the other sources land.
-The date typically becomes available at ~23:40 UTC (06:40 BKK), when weather_readings lands,
-just after cams_grid and station_readings (in by ~23:30 UTC, 06:30 BKK).
+The date typically becomes available at ~00:10 UTC (07:10 BKK), when weather_readings lands:
+cams_grid and station_readings are in by ~23:30 UTC (06:30 BKK), but the gate waits for wind.
 The 30-minute `latest-complete-date` cache can add up to half an hour.
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.

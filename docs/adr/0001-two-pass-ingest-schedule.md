@@ -62,11 +62,12 @@ Details above that have since changed (the decision itself, single-pass CAMS and
 - The `latest-date` gate now also requires weather (`weather_readings` ≥ 4,000 rows), so it checks four sources, not three.
 - The schedule lives in `.railway/railway.ts` (Railway Infrastructure as Code); the cron table is in `docs/claude/architecture.md`, not CLAUDE.md.
 
-## Addendum (2026-11-01): weather ingest moved to 23:30 UTC
+## Addendum (2026-11-02): weather ingest moved to 00:00 UTC
 
-The `latest-date` gate waits for weather, and weather ran at `0 2 * * *`, so yesterday only appeared at about 09:10 BKK and the ~07:00 goal of this ADR was missed (JOO-119). Weather now runs at `30 23 * * *` and its fallback at `30 1 * * *`, so yesterday appears at about 06:40 BKK.
+This supersedes the weather times above (`0 2 * * *`, fallback `0 5`, later `0 4`). The `latest-date` gate waits for weather, and weather ran at `0 2 * * *`, so yesterday only appeared at about 09:10 BKK and the ~07:00 goal of this ADR was missed (JOO-119). Weather now runs at `0 0 * * *` and its fallback at `0 2 * * *`, so on a clean run yesterday appears at about 07:10 BKK.
 
-- The ingest still targets the Bangkok calendar day before the one at run time. At 23:30 UTC that is the day that ended at 17:00 UTC, the same date the 02:00 run fetched, from the same Open-Meteo archive endpoint (which fills recent days from forecast models).
+- The ingest still targets the Bangkok calendar day before the one at run time. At 00:00 UTC that is the day that ended at 17:00 UTC, the same date the 02:00 run fetched, from the same Open-Meteo archive endpoint (which fills recent days from forecast models).
 - Checked before moving: a full-grid fetch at 23:30 UTC for 2026-10-31 was identical to what the 02:00 run stored (all 4,599 points, every field). A fetch 14 hours after the 02:00 run for 2026-10-29 was also identical, so the archive does not revise these values within a day.
-- 23:30, not 23:00: `ingest-cams` also calls Open-Meteo at 23:00, and its rate limits are per IP.
-- The fallback runs at 01:30, after the CAMS fallback at 01:00, for the same reason.
+- Not earlier than 00:00: Open-Meteo counts each location as a call (600/min, 5,000/hour, 10,000/day, per IP), so the weather grid costs 4,599 calls, as much as CAMS at 23:00. Sharing CAMS's hour would hit the hourly limit; sharing its UTC day would leave no room for a retry. Open-Meteo doesn't document how a multi-location request counts or when the limits reset; the per-location count is from our production 429s on 2026-11-02, and the reset times are assumed to be the clock hour and UTC midnight.
+- The weather batches were 5 s apart, which hit the minutely limit every few batches. They are now 35 s apart, like CAMS, so a run takes about 10 minutes.
+- A 429 or a timeout still delays the day: `pRetry` re-fetches the whole grid, and an hourly 429 waits 65 minutes. The fallback stays 2 hours after the primary so it rarely starts while the primary is still waiting.
