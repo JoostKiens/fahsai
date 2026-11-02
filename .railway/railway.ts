@@ -50,7 +50,9 @@ export default defineRailway((ctx) => {
     build,
     start: "pnpm --filter backend run railway:ingest:weather:today",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 2 * * *", restartPolicyType: "NEVER" },
+    // An hour after ingest-cams, in a new UTC day: each grid costs 4,599 of Open-Meteo's
+    // per-IP calls (5k/hour, 10k/day).
+    deploy: { cronSchedule: "0 0 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "wind-ingest" },
     env: sharedEnv,
   });
@@ -76,7 +78,7 @@ export default defineRailway((ctx) => {
     build,
     start: "pnpm --filter backend run railway:ingest:weather:today:fallback",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 4 * * *", restartPolicyType: "NEVER" },
+    deploy: { cronSchedule: "0 2 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "weather-readings-ingest-fallback" },
     env: sharedEnv,
   });
