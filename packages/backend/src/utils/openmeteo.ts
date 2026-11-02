@@ -35,13 +35,14 @@ export class OpenMeteoHttpError extends Error {
 
 // 300 locations per batch — the multi-location POST endpoint requires per-location
 // arrays for timezone/start_date/end_date, so payload grows linearly with batch size.
-// 500 caused 413; 300 keeps each POST body ~18 KB. 4,599 points → 16 batches of ≤300
-// → 16 API calls per ingest run (well within the 10,000/day free tier limit).
+// 500 caused 413; 300 keeps each POST body ~18 KB. 4,599 points → 16 batches of ≤300.
+// Open-Meteo counts each location as a call (free tier: 600/min, 5k/hour, 10k/day), so a
+// run costs 4,599 calls, as much as the CAMS grid; the two must not share an hour.
 const WEATHER_BATCH_SIZE = 300;
 
-// 5 s between batches avoids the minutely burst limit.
-// 16 batches → 15 pauses × 5 s = ~75 s of pauses per run.
-const WEATHER_BATCH_PAUSE_MS = 5_000;
+// Pause must be ≥30s: 300 calls/batch ÷ 600 calls/min; 35s adds a margin (same as the AQ grid).
+// 16 batches → 15 pauses × 35 s = ~9 min of pauses per run.
+const WEATHER_BATCH_PAUSE_MS = 35_000;
 
 // 14:00 BKK — peak daytime convective mixing, best for smoke transport
 const HISTORICAL_HOUR_BKK = 14;
