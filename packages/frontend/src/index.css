@@ -67,22 +67,47 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* Text in the map region (src/pages/*.astro) that crawlers read and slow loads show; the map
-   island replaces it on mount. A flex item beside the sidebar. Shown from the first paint, so
-   it is the page's LCP rather than waiting for the map. */
+/* Text in the map region (src/pages/*.astro) that crawlers and screen readers get; the map
+   island replaces it on mount. It is visually hidden so it is never the page's LCP or a
+   distraction, and a spinner shows while the map loads. */
 #intro {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   height: 100%;
-  overflow: auto;
-  padding: 2rem 1.5rem;
+  position: relative;
+}
+#intro::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2rem;
+  height: 2rem;
+  margin: -1rem 0 0 -1rem;
+  border: 2px solid var(--color-zinc-700);
+  border-top-color: var(--color-zinc-300);
+  border-radius: 50%;
+  animation: intro-spin 0.8s linear infinite;
+}
+@keyframes intro-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #intro::before {
+    animation-duration: 3s;
+  }
 }
 #intro > div {
-  max-width: 40rem;
-  margin: 0 auto;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
   color: #d4d4d8;
-  line-height: 1.6;
 }
 #intro h2 {
   color: #fafafa;
