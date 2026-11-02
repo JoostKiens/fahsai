@@ -185,36 +185,6 @@ const structuredData = {
 
     <!-- Structured data -->
     <script is:inline type="application/ld+json" set:html={JSON.stringify(structuredData)} />
-    <style is:inline>
-      /* Hidden while the app loads; shown only if it hasn't replaced #intro after 3 s. Inline so
-         it applies before any stylesheet; the rest of the #intro look is in src/index.css. */
-      #intro {
-        opacity: 0;
-        visibility: hidden;
-        animation: intro-reveal 0.3s ease-out 3s forwards;
-      }
-      @keyframes intro-reveal {
-        to {
-          opacity: 1;
-          visibility: visible;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        #intro {
-          animation-duration: 0s;
-        }
-      }
-    </style>
-    <noscript>
-      <!-- nothing will replace #intro, so show the text straight away -->
-      <style is:inline>
-        #intro {
-          opacity: 1;
-          visibility: visible;
-          animation: none;
-        }
-      </style>
-    </noscript>
   </head>
   <body>
     <div id="root">

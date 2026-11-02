@@ -68,8 +68,8 @@ html {
 }
 
 /* Text in the map region (src/pages/*.astro) that crawlers read and slow loads show; the map
-   island replaces it on mount. A flex item beside the sidebar. When it is hidden and revealed is
-   set inline in src/layouts/Base.astro. */
+   island replaces it on mount. A flex item beside the sidebar. Shown from the first paint, so
+   it is the page's LCP rather than waiting for the map. */
 #intro {
   box-sizing: border-box;
   flex: 1;
