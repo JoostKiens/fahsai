@@ -124,8 +124,18 @@ export function History({ days }: { days: StationDayHistory[] }) {
         setActiveDate(null);
       }
     }
+    // The tooltip is fixed at viewport coordinates from the tap, so any scroll strands it. Scroll
+    // events don't bubble, so listen in the capture phase to catch the panel's own scroll container.
+    function dismiss() {
+      setTooltip(null);
+      setActiveDate(null);
+    }
     document.addEventListener('touchstart', onTouchStart, { passive: true });
-    return () => document.removeEventListener('touchstart', onTouchStart);
+    document.addEventListener('scroll', dismiss, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('scroll', dismiss, { capture: true });
+    };
   }, [activeDate]);
 
   useEffect(() => {
