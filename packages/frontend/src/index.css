@@ -67,24 +67,27 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* Text in the map region (src/pages/*.astro) that crawlers and screen readers get; the map
-   island replaces it on mount. It is visually hidden so it is never the page's LCP or a
-   distraction, and a spinner shows while the map loads. */
+/* Text in the map region (src/pages/*.astro). The splash (a spinner, the title and a loading
+   line) is what visitors see until the map island replaces #intro on mount. It is real text
+   larger than the Mapbox logo, so it, not the logo that appears with the map, is the page's LCP.
+   The rest of #intro is visually hidden for crawlers and screen readers. */
 #intro {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   height: 100%;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0 1.5rem;
 }
 #intro::before {
   content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 2rem;
   height: 2rem;
-  margin: -1rem 0 0 -1rem;
   border: 2px solid var(--color-zinc-700);
   border-top-color: var(--color-zinc-300);
   border-radius: 50%;
@@ -100,7 +103,18 @@ html {
     animation-duration: 3s;
   }
 }
-#intro > div {
+.intro-splash {
+  text-align: center;
+  color: #d4d4d8;
+}
+.intro-splash p:first-child {
+  color: #fafafa;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+#intro > div:not(.intro-splash) {
   position: absolute;
   width: 1px;
   height: 1px;
