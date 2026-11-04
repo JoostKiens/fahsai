@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from '@deck.gl/layers';
-import type { Layer, PickingInfo } from '@deck.gl/core';
+import type { PickingInfo } from '@deck.gl/core';
 import type { FirePoint, PowerPlantFeature } from '@thailand-aq/types';
 import type { LatestMeasurement } from '@/hooks';
 import { Map, AttributionControl, ExpressionSpecification } from 'mapbox-gl';
@@ -19,7 +19,7 @@ import { VIEWPORT_BBOX } from '@/utils/bbox';
 import { createFiresLayer, createFireSelectionRing } from './FiresLayer';
 import { useWindParticles } from './useWindParticles';
 import { createLandMaskLayer, createPM25BitmapLayer, createPM25StationsLayers } from './PM25Layer';
-import { createPowerPlantsLayer, iconSizeForZoom } from './PowerPlantsLayer';
+import { createPowerPlantLayers, iconSizeForZoom } from './PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from './usePrefetchAdjacentDates';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -155,11 +155,12 @@ export function MapView() {
   }, [heatmapOverlay, pm25Bitmap, aqGridConfig.visible]);
 
   // Power plants (rebuilt when zoom crosses tier thresholds: icon size is zoom-dependent). Built
-  // outside the data-overlay effect below, like the fires layer, so a zoom change reuses them.
+  // outside the data-overlay effect below, like the fires layer, so a zoom change reuses them. Only
+  // the position of a selected plant is a dependency, so selecting a fire or a station, or nothing,
+  // leaves the layer alone.
+  const selectedPlantLng = selectedPoint?.powerPlant ? selectedPoint.lngLat[0] : null;
+  const selectedPlantLat = selectedPoint?.powerPlant ? selectedPoint.lngLat[1] : null;
   const powerPlantLayers = useMemo(() => {
-    const layers: Layer[] = [];
-    if (!powerPlantsConfig.visible) return layers;
-
     const onPowerPlantClick = (info: PickingInfo) => {
       if (!info.object) return;
       const feat = info.object as PowerPlantFeature;
@@ -179,43 +180,24 @@ export function MapView() {
       });
     };
 
-    if (powerPlants) {
-      layers.push(
-        createPowerPlantsLayer(
-          powerPlants,
-          powerPlantsConfig.opacity,
-          powerPlantIconSize,
-          onPowerPlantClick,
-        ),
-      );
-    }
-
-    if (selectedPoint?.powerPlant) {
-      const [lng, lat] = selectedPoint.lngLat;
-      layers.push(
-        new ScatterplotLayer({
-          id: 'powerplant-selection-ring',
-          data: [{ lng, lat }],
-          getPosition: (d: { lng: number; lat: number }) => [d.lng, d.lat],
-          getRadius: Math.round(powerPlantIconSize / 2) + 6,
-          radiusUnits: 'pixels',
-          stroked: true,
-          filled: false,
-          getLineColor: [255, 255, 255, 220] as [number, number, number, number],
-          lineWidthUnits: 'pixels',
-          getLineWidth: 2,
-          parameters: { depthCompare: 'always' as const, depthWriteEnabled: false },
-        }),
-      );
-    }
-
-    return layers;
+    return createPowerPlantLayers({
+      plants: powerPlants,
+      visible: powerPlantsConfig.visible,
+      opacity: powerPlantsConfig.opacity,
+      iconSize: powerPlantIconSize,
+      selectedLngLat:
+        selectedPlantLng !== null && selectedPlantLat !== null
+          ? [selectedPlantLng, selectedPlantLat]
+          : null,
+      onClick: onPowerPlantClick,
+    });
   }, [
     powerPlants,
     powerPlantsConfig.visible,
     powerPlantsConfig.opacity,
     powerPlantIconSize,
-    selectedPoint,
+    selectedPlantLng,
+    selectedPlantLat,
     setSelectedPoint,
   ]);
 
