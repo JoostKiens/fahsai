@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // A server-rendered island hydrates against the stores' *initial* state (Zustand uses
 // getInitialState() as the server snapshot), which is what the server rendered with. So the initial
@@ -21,6 +21,10 @@ async function loadStores(search: string) {
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/');
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('stores and the page URL', () => {
@@ -56,16 +60,19 @@ describe('stores and the page URL', () => {
     expect(ui.getState().mapZoom).toBe(7);
   });
 
-  it('use the view the map starts at when the URL has none, which is further out on a phone', async () => {
-    const desktop = await loadStores('');
-    expect(desktop.ui.getState().mapCenter).toEqual([101, 15.5]);
-    expect(desktop.ui.getState().mapZoom).toBe(5.5);
+  it('use the desktop start view when the URL has none', async () => {
+    const { ui } = await loadStores('');
 
+    expect(ui.getState().mapCenter).toEqual([101, 15.5]);
+    expect(ui.getState().mapZoom).toBe(5.5);
+  });
+
+  it('use the phone start view, further out, when the URL has none', async () => {
     vi.stubGlobal('innerWidth', 412);
-    const phone = await loadStores('');
-    expect(phone.ui.getState().mapCenter).toEqual([102, 13.5]);
-    expect(phone.ui.getState().mapZoom).toBe(4.7);
-    vi.unstubAllGlobals();
+    const { ui } = await loadStores('');
+
+    expect(ui.getState().mapCenter).toEqual([102, 13.5]);
+    expect(ui.getState().mapZoom).toBe(4.7);
   });
 
   it('keep the defaults when the URL has no date or selection', async () => {

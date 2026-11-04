@@ -13,22 +13,29 @@ const script = readFileSync(
   'utf8',
 );
 
+// The images only change when the script is run, which needs a Mapbox token, so say so.
+const REGENERATE =
+  'The placeholder script no longer matches the map. Update its views or style, then run ' +
+  'scripts/generate-map-placeholder.sh (needs a Mapbox token) and commit both new images.';
+
 function scriptValue(name: string) {
   return new RegExp(`^${name}=(\\S+)$`, 'm').exec(script)?.[1];
 }
 
 describe('scripts/generate-map-placeholder.sh', () => {
   it('fetches the style the map uses', () => {
-    expect(scriptValue('style')).toBe(MAP_STYLE.replace('mapbox://styles/', ''));
+    expect(scriptValue('style'), REGENERATE).toBe(MAP_STYLE.replace('mapbox://styles/', ''));
   });
 
   it('fetches the default map view for desktops, without bearing or pitch', () => {
     const { mapCenter, mapZoom } = useUIStore.getInitialState();
-    expect(scriptValue('desktop_view')).toBe(`${mapCenter[0]},${mapCenter[1]},${mapZoom},0,0`);
+    expect(scriptValue('desktop_view'), REGENERATE).toBe(
+      `${mapCenter[0]},${mapCenter[1]},${mapZoom},0,0`,
+    );
   });
 
   it('fetches the view the map starts at on a phone', () => {
-    expect(scriptValue('phone_view')).toBe(
+    expect(scriptValue('phone_view'), REGENERATE).toBe(
       `${MOBILE_CENTER[0]},${MOBILE_CENTER[1]},${MOBILE_ZOOM},0,0`,
     );
   });
