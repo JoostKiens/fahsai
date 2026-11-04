@@ -1,3 +1,5 @@
+import { DATA_AREA } from './bbox.js';
+
 export interface WindGridPoint {
   lat: number;
   lng: number;
@@ -21,6 +23,14 @@ export interface EnsembleResult {
   corridorKm: number;
   /** Mean wind speed across all grid points on d0, km/h */
   meanWindSpeedKmh: number;
+  /**
+   * True when the center member's path goes outside the data area (89–114°E, 1–30°N). Past the edge
+   * the trace keeps using the wind of the nearest edge grid point, so the path is extrapolated, and
+   * there are no fire or CAMS data out there.
+   */
+  leftDataArea: boolean;
+  /** The hours back at which the center member first left the data area; null when it did not */
+  leftDataAreaAfterHours: number | null;
 }
 
 const STEP_HOURS = 6;
@@ -51,6 +61,15 @@ export function nearestGridPoint<T extends { lat: number; lng: number }>(
     }
   }
   return best;
+}
+
+function isInsideDataArea(lat: number, lng: number): boolean {
+  return (
+    lat >= DATA_AREA.south &&
+    lat <= DATA_AREA.north &&
+    lng >= DATA_AREA.west &&
+    lng <= DATA_AREA.east
+  );
 }
 
 function traceBackTrajectory(
@@ -130,8 +149,12 @@ export function traceEnsemble(
     }
   }
 
+  const outside = members[0].find((wp) => !isInsideDataArea(wp.lat, wp.lng));
+
   return {
     members,
+    leftDataArea: outside !== undefined,
+    leftDataAreaAfterHours: outside === undefined ? null : outside.stepIndex * STEP_HOURS,
     footprintBbox: {
       latMin: latMin - pad,
       latMax: latMax + pad,

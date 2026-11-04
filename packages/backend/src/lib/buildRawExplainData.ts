@@ -35,6 +35,8 @@ export interface BuildRawExplainDataInput {
     origin: { lat: number; lng: number; region: string; date: string };
     corridorWidthKm: number;
     meanWindSpeedKmh: number;
+    leftDataArea: boolean;
+    leftDataAreaAfterHours: number | null;
     waypoints: { lat: number; lng: number; region: string }[];
     camsAlongPath: { lat: number; lng: number; date: string; pm25: number }[];
   } | null;
@@ -49,6 +51,8 @@ export interface BuildRawExplainDataInput {
     areaScore: number;
     areaFireCount: number | null;
     areaTotalFrpMw: number | null;
+    /** True when the fire query failed, so the counts above are 0 for lack of data, not of fires */
+    queryFailed: boolean;
   };
 
   upwindSources: SourceInput[];
@@ -182,6 +186,8 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
           origin: trajectory.origin,
           corridorWidthKm: trajectory.corridorWidthKm,
           meanWindSpeedKmh: trajectory.meanWindSpeedKmh,
+          leftDataArea: trajectory.leftDataArea,
+          leftDataAreaAfterHours: trajectory.leftDataAreaAfterHours,
           waypoints: trajectory.waypoints,
           camsAlongPath: trajectory.camsAlongPath,
         }
@@ -199,6 +205,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
       areaScore: firePressure.areaScore,
       areaFireCount: firePressure.areaFireCount,
       areaTotalFrpMw: firePressure.areaTotalFrpMw,
+      queryFailed: firePressure.queryFailed,
     },
 
     upwindSources: upwindSources.map(buildSource),

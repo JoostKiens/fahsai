@@ -129,6 +129,52 @@ describe('traceEnsemble', () => {
   });
 });
 
+describe('traceEnsemble and the edge of the data area (89–114°E, 1–30°N)', () => {
+  const date = '2024-03-15';
+
+  // The same wind on every day the 72 h look-back can reach
+  function windOnEveryDay(speed: number, dir: number, lat: number, lng: number) {
+    const grid = makeGrid(lat, lng, speed, dir);
+    return new Map([0, -1, -2, -3].map((offset) => [offsetDate(date, offset), grid]));
+  }
+
+  it('flags a path that leaves through the south edge, with the hour it left', () => {
+    // Wind from the south: air came from the south, so tracing back moves south, ~1.08° per 6 h
+    const result = traceEnsemble(2, 100, date, windOnEveryDay(20, 180, 2, 100));
+
+    expect(result.leftDataArea).toBe(true);
+    expect(result.leftDataAreaAfterHours).toBe(6);
+  });
+
+  it('says when it left on a later step', () => {
+    // 10 − 8 × 1.081 = 1.35 is still inside, 10 − 9 × 1.081 = 0.27 is not: step 9, 54 h
+    const result = traceEnsemble(10, 100, date, windOnEveryDay(20, 180, 10, 100));
+
+    expect(result.leftDataArea).toBe(true);
+    expect(result.leftDataAreaAfterHours).toBe(54);
+  });
+
+  it('flags a path that leaves through the east edge', () => {
+    const result = traceEnsemble(15, 113.5, date, windOnEveryDay(20, 90, 15, 113.5));
+
+    expect(result.leftDataArea).toBe(true);
+    expect(result.leftDataAreaAfterHours).toBe(6);
+  });
+
+  it('does not flag a path that stays inside for the whole 72 h', () => {
+    const result = traceEnsemble(15, 100, date, windOnEveryDay(10, 180, 15, 100));
+
+    expect(result.leftDataArea).toBe(false);
+    expect(result.leftDataAreaAfterHours).toBeNull();
+  });
+
+  it('does not change the path: it still runs the full 72 h past the edge', () => {
+    const result = traceEnsemble(2, 100, date, windOnEveryDay(20, 180, 2, 100));
+
+    expect(result.members[0]).toHaveLength(13);
+  });
+});
+
 describe('haversineKm (from lib/geo)', () => {
   it('Bangkok to Chiang Mai ≈ 590 km (within 5%)', () => {
     const dist = haversineKm(13.75, 100.5, 18.79, 98.98);

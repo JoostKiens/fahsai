@@ -10,8 +10,9 @@ limited separately from `explainRatelimit` via `explainContextRatelimit` (20 req
 
 **Consumed externally by the published `fahsai-mcp-server` npm package**, not just this app's
 frontend. Treat response-shape changes (renames/removals, not additions) as breaking for that
-consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts`
-(`explain:context:v1` → `v2`) when they happen.
+consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts` when they happen. Bump
+it for a field the response schema requires too, though that is an addition: a cached entry is
+returned as it is, so one cached before the field existed would fail serialization (a 500).
 The response schema (`schemas/explain.ts`) lists every field, and a field it leaves out is dropped
 from the response, so a source's `currentlyUpwind` is in it on purpose: the MCP server requires it.
 `lang` is normalised to `en` or `th` before it reaches the cache key.
@@ -77,6 +78,15 @@ transport footprint of air arriving at a station.
   grid point's wind vector at each step.
 - The ensemble footprint (bounding box of all waypoints + corridor padding) is used to query
   fires, CAMS PM2.5, and urban/industrial/power-plant sources.
+- The trace does not stop at the edge of the data area (89–114°E, 1–30°N, `DATA_AREA` in
+  `utils/bbox.ts`): past it, the nearest edge grid point's wind is reused, so the path is
+  extrapolated, and there are no fire or CAMS data out there. `traceEnsemble` flags it
+  (`leftDataArea`, and `leftDataAreaAfterHours`, for the center member), and the context carries both
+  in `transport.trajectory`. The explanation prompt does not use them yet (JOO-125); the city pages
+  do, to skip the upwind-fire figure.
+- When the `fire_points` query fails the context still comes back, with 0 fires, and is not cached.
+  `transport.fire.dataAvailable` is false then, so a consumer can tell "no fires were detected" from
+  "the fire data was not read"; the city pages give no fire sentence in that case.
 - A **cumulative fire pressure score** (0–100) weights fires by FRP, recency, and proximity
   to the trajectory path.
 - When a station is a **strong outlier** (`analyzePeers.ts`: reading is ≥2× or ≤0.4× the

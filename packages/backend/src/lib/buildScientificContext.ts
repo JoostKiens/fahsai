@@ -83,6 +83,9 @@ export interface ScientificContext {
     trajectory: {
       hoursTraced: number;
       origin: { lat: number; lng: number; region: string; date: string };
+      /** True when the path went outside the data area, where winds are extrapolated and there is no fire or CAMS data */
+      leftDataArea: boolean;
+      leftDataAreaAfterHours: number | null;
       corridorWidthKm: number;
       meanWindSpeedKmh: number;
       waypoints: { lat: number; lng: number; region: string }[];
@@ -108,6 +111,8 @@ export interface ScientificContext {
       areaTotalFrpMw: number | null;
       firesAreLocal: boolean;
       areaFireRadiusKm: number;
+      /** False when the fire query failed: the counts are then 0 for lack of data, not of fires */
+      dataAvailable: boolean;
     };
   } | null;
 
@@ -368,6 +373,8 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
       trajectory: {
         hoursTraced: traj.hoursTraced,
         origin: traj.origin,
+        leftDataArea: traj.leftDataArea ?? false,
+        leftDataAreaAfterHours: traj.leftDataAreaAfterHours ?? null,
         corridorWidthKm: traj.corridorWidthKm,
         meanWindSpeedKmh: traj.meanWindSpeedKmh,
         waypoints: traj.waypoints,
@@ -389,6 +396,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         areaTotalFrpMw: fp.areaTotalFrpMw,
         firesAreLocal,
         areaFireRadiusKm: 75,
+        dataAvailable: !(fp.queryFailed ?? false),
       },
     };
   }

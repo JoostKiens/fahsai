@@ -45,6 +45,7 @@ export function explainInputFor(rows: PeerRow[]): BuildRawExplainDataInput {
       areaScore: 0,
       areaFireCount: null,
       areaTotalFrpMw: null,
+      queryFailed: false,
     },
     upwindSources: [],
     peers: analyzeTestPeers(rows),

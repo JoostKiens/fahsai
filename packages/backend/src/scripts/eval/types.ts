@@ -66,6 +66,9 @@ export interface FixtureTrajectory {
   meanWindSpeedKmh: number;
   waypoints: FixtureTrajectoryWaypoint[];
   camsAlongPath: FixtureCamsReading[];
+  // Set by the live computation; absent in the eval fixtures, where the path stays inside
+  leftDataArea?: boolean;
+  leftDataAreaAfterHours?: number | null;
 }
 
 export interface FixtureFireRecord {
@@ -88,6 +91,8 @@ export interface FixtureFirePressure {
   areaScore: number; // 0–100, 14-day precomputed grid score
   areaFireCount: number | null; // null when outside grid
   areaTotalFrpMw: number | null;
+  // Set by the live computation when the fire query failed; absent in the eval fixtures
+  queryFailed?: boolean;
 }
 
 export interface FixtureUpwindSource {
