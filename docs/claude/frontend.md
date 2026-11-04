@@ -85,8 +85,10 @@ function).
   view below 768 px, the default view above (`MapPlaceholder.astro` in the server HTML,
   `MapLoadingPlaceholder.tsx` until Mapbox's `load`; `Base.astro` preloads only the matching one).
   It is a real `<img>`, preloaded in `Base.astro`: Chrome counts it as the LCP, where the Mapbox
-  logo that appears with the map would be a late LCP. A link to another place shows the start view
-  for a moment. The `#intro` text stays in the HTML, visually hidden.
+  logo that appears with the map would be a late LCP. For a link to another place the image is left
+  out (dark background): `lib/placeholderGuard.ts` flags `<html>` from `<head>` before the first
+  paint (its hash is added to the CSP in `astro.config.mjs`), and `MapLoadingPlaceholder` checks the
+  store. The `#intro` text stays in the HTML, visually hidden.
   Regenerate the image with `scripts/generate-map-placeholder.sh`; a test checks the script's view
   and style against the app's.
 - A server-rendered island can only import code that works without a browser. Read the query string
