@@ -3,7 +3,7 @@ import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
-import { fetchWeatherGridForDate, OpenMeteoHttpError } from '../utils/openmeteo.js';
+import { fetchWeatherGridForDate, isTimeoutError, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
 import { bangkokDateString, getYesterdayBkk } from '../utils/bkkDate.js';
 
@@ -44,6 +44,9 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
           err.status !== 429
         )
           throw new AbortError(err);
+        // A timeout that reaches here already failed its per-batch retries. Restarting the
+        // grid would re-spend calls from batch 1 and can push the run over the hourly limit.
+        if (isTimeoutError(err)) throw new AbortError(err);
         throw err;
       }
     },

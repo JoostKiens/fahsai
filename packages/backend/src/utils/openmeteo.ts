@@ -72,6 +72,38 @@ const WEATHER_429_MAX_RETRIES = 3;
 // Fallback wait time when no header hint is available.
 const WEATHER_429_FALLBACK_MS = 65_000;
 
+const WEATHER_REQUEST_TIMEOUT_MS = 30_000;
+// A timed-out batch is retried on its own, so the batches already fetched are kept. Each
+// retry may spend that batch's 300 calls again (5k/hour budget vs 4,599 for a full run),
+// so two retries is the most we can afford; a full-grid restart would not fit at all.
+const WEATHER_TIMEOUT_RETRY_DELAYS_MS = [15_000, 60_000];
+
+export function isTimeoutError(err: unknown): err is Error {
+  return err instanceof Error && err.name === 'TimeoutError';
+}
+
+async function postWeatherBatch(url: string, requestBody: string): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const startedAt = Date.now();
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+        signal: AbortSignal.timeout(WEATHER_REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const delayMs = WEATHER_TIMEOUT_RETRY_DELAYS_MS[attempt];
+      if (!isTimeoutError(err) || delayMs === undefined) throw err;
+      // Host and elapsed time help tell a slow endpoint from a stalled connection.
+      console.warn(
+        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(url).host} (attempt ${attempt + 1}/${WEATHER_TIMEOUT_RETRY_DELAYS_MS.length + 1}), retrying in ${Math.round(delayMs / 1000)}s`,
+      );
+      await sleep(delayMs);
+    }
+  }
+}
+
 async function fetchWeatherBatch(
   lats: number[],
   lngs: number[],
@@ -97,12 +129,7 @@ async function fetchWeatherBatch(
 
   let res: Response | undefined;
   for (let attempt = 0; attempt <= WEATHER_429_MAX_RETRIES; attempt++) {
-    res = await fetch(baseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: requestBody,
-      signal: AbortSignal.timeout(30_000),
-    });
+    res = await postWeatherBatch(baseUrl, requestBody);
 
     if (res.status !== 429) break;
 
