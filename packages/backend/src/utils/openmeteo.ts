@@ -73,34 +73,32 @@ const WEATHER_429_MAX_RETRIES = 3;
 const WEATHER_429_FALLBACK_MS = 65_000;
 
 const WEATHER_REQUEST_TIMEOUT_MS = 30_000;
-// A timed-out batch is retried on its own, so the batches already fetched are kept. Each
-// retry may spend that batch's 300 calls again (5k/hour budget vs 4,599 for a full run),
-// so two retries is the most we can afford; a full-grid restart would not fit at all.
-const WEATHER_TIMEOUT_RETRY_DELAYS_MS = [15_000, 60_000];
+// A timed-out batch is retried once on its own, so the batches already fetched are kept.
+// The retry may spend that batch's 300 calls again. A full run is 4,599 of the 5,000 calls
+// an hour, so a second retry (5,199) would not fit. It waits one batch pause to stay under
+// 600 calls a minute. Timeouts and 429s share the same attempt loop, so one batch sends at
+// most WEATHER_429_MAX_RETRIES + 1 requests.
+const WEATHER_TIMEOUT_MAX_RETRIES = 1;
 
 export function isTimeoutError(err: unknown): err is Error {
   return err instanceof Error && err.name === 'TimeoutError';
 }
 
-async function postWeatherBatch(url: string, requestBody: string): Promise<Response> {
-  for (let attempt = 0; ; attempt++) {
-    const startedAt = Date.now();
-    try {
-      return await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody,
-        signal: AbortSignal.timeout(WEATHER_REQUEST_TIMEOUT_MS),
-      });
-    } catch (err) {
-      const delayMs = WEATHER_TIMEOUT_RETRY_DELAYS_MS[attempt];
-      if (!isTimeoutError(err) || delayMs === undefined) throw err;
-      // Host and elapsed time help tell a slow endpoint from a stalled connection.
-      console.warn(
-        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(url).host} (attempt ${attempt + 1}/${WEATHER_TIMEOUT_RETRY_DELAYS_MS.length + 1}), retrying in ${Math.round(delayMs / 1000)}s`,
-      );
-      await sleep(delayMs);
-    }
+function parseRateLimitReason(bodyText: string): string {
+  try {
+    return (JSON.parse(bodyText) as { reason?: string } | null)?.reason ?? '';
+  } catch {
+    return '';
+  }
+}
+
+// Read inside the retried unit: the request's timeout signal also covers the body.
+async function readBody(res: Response): Promise<string> {
+  try {
+    return await res.text();
+  } catch (err) {
+    if (res.ok || isTimeoutError(err)) throw err;
+    return '(unreadable)';
   }
 }
 
@@ -128,8 +126,29 @@ async function fetchWeatherBatch(
   });
 
   let res: Response | undefined;
+  let bodyText = '';
+  let timeoutRetriesLeft = WEATHER_TIMEOUT_MAX_RETRIES;
   for (let attempt = 0; attempt <= WEATHER_429_MAX_RETRIES; attempt++) {
-    res = await postWeatherBatch(baseUrl, requestBody);
+    const startedAt = Date.now();
+    try {
+      res = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+        signal: AbortSignal.timeout(WEATHER_REQUEST_TIMEOUT_MS),
+      });
+      bodyText = await readBody(res);
+    } catch (err) {
+      if (!isTimeoutError(err) || timeoutRetriesLeft === 0 || attempt >= WEATHER_429_MAX_RETRIES)
+        throw err;
+      timeoutRetriesLeft -= 1;
+      // Host and elapsed time help tell a slow endpoint from a stalled connection.
+      console.warn(
+        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(baseUrl).host}, retrying in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s`,
+      );
+      await sleep(WEATHER_BATCH_PAUSE_MS);
+      continue;
+    }
 
     if (res.status !== 429) break;
 
@@ -138,8 +157,7 @@ async function fetchWeatherBatch(
     res.headers.forEach((v, k) => {
       allHeaders[k] = v;
     });
-    const body429 = (await res.json().catch(() => null)) as { reason?: string } | null;
-    const reason = body429?.reason ?? '';
+    const reason = parseRateLimitReason(bodyText);
     console.warn(
       `[openmeteo] 429 weather batch (attempt ${attempt + 1}/${WEATHER_429_MAX_RETRIES + 1}), reason="${reason}", headers=${JSON.stringify(allHeaders)}`,
     );
@@ -171,13 +189,12 @@ async function fetchWeatherBatch(
 
   if (!res || !res.ok) {
     const status = res?.status ?? 0;
-    const body = res ? await res.text().catch(() => '(unreadable)') : '(no response)';
-    const detail = body.slice(0, 500);
+    const detail = (res ? bodyText : '(no response)').slice(0, 500);
     console.error(`[openmeteo] weather batch HTTP ${status}: ${detail}`);
     throw new OpenMeteoHttpError(status, detail || (res?.statusText ?? ''));
   }
 
-  const raw = (await res.json()) as OpenMeteoWeatherResult | OpenMeteoWeatherResult[];
+  const raw = JSON.parse(bodyText) as OpenMeteoWeatherResult | OpenMeteoWeatherResult[];
   const results = Array.isArray(raw) ? raw : [raw];
 
   // Use the requested lat/lng (lats[i]/lngs[i]) rather than loc.latitude/loc.longitude.

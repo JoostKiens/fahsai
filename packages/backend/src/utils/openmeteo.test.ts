@@ -6,9 +6,10 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 
 // The batch pauses and retry delays use node:timers/promises, which fake timers don't
-// cover. Resolving at once keeps the grid tests instant.
-vi.mock('node:timers/promises', () => ({ setTimeout: () => Promise.resolve() }));
+// cover. Resolving at once keeps the grid tests instant; the calls record the delays.
+vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn(() => Promise.resolve()) }));
 
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fetchWeatherGridForDate, isTimeoutError, targetHourIndex } from './openmeteo.js';
 
 describe('targetHourIndex', () => {
@@ -86,9 +87,24 @@ describe('fetchWeatherGridForDate timeouts', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.mocked(sleep).mockClear();
   });
 
-  it('re-fetches only the batch that timed out', async () => {
+  function sleepDelays() {
+    return vi.mocked(sleep).mock.calls.map(([delayMs]) => delayMs);
+  }
+
+  it('pauses 35 s between batches and never otherwise on a clean run', async () => {
+    const { readings, fetchSpy } = await runGrid((_url, init) =>
+      Promise.resolve(okResponse(init.body)),
+    );
+
+    expect(readings).toHaveLength(gridPointCount);
+    expect(fetchSpy).toHaveBeenCalledTimes(batchCount);
+    expect(sleepDelays()).toEqual(Array.from({ length: batchCount - 1 }, () => 35_000));
+  });
+
+  it('re-fetches only the batch that timed out, after one batch pause', async () => {
     let call = 0;
     const { readings, fetchSpy } = await runGrid((_url, init) => {
       call += 1;
@@ -98,9 +114,25 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(readings).toHaveLength(gridPointCount);
     // 16 batches + exactly one repeat of the batch that timed out.
     expect(fetchSpy).toHaveBeenCalledTimes(batchCount + 1);
+    // The 15 inter-batch pauses plus the retry delay, all 35 s.
+    expect(sleepDelays()).toEqual(Array.from({ length: batchCount }, () => 35_000));
   });
 
-  it('gives up on a batch that keeps timing out without restarting earlier batches', async () => {
+  it('retries a batch whose response body times out while streaming', async () => {
+    let call = 0;
+    const { readings, fetchSpy } = await runGrid((_url, init) => {
+      call += 1;
+      if (call !== 3) return Promise.resolve(okResponse(init.body));
+      const stalledBody = new Response(null, { status: 200 });
+      vi.spyOn(stalledBody, 'text').mockRejectedValue(timeoutError());
+      return Promise.resolve(stalledBody);
+    });
+
+    expect(readings).toHaveLength(gridPointCount);
+    expect(fetchSpy).toHaveBeenCalledTimes(batchCount + 1);
+  });
+
+  it('gives up on a batch that times out twice without restarting earlier batches', async () => {
     let call = 0;
     const { error, fetchSpy } = await runGrid((_url, init) => {
       call += 1;
@@ -108,8 +140,8 @@ describe('fetchWeatherGridForDate timeouts', () => {
     });
 
     expect(isTimeoutError(error)).toBe(true);
-    // Batches 1 and 2 once each, then batch 3: the first try plus two retries.
-    expect(fetchSpy).toHaveBeenCalledTimes(2 + 3);
+    // Batches 1 and 2 once each, then batch 3: the first try plus one retry.
+    expect(fetchSpy).toHaveBeenCalledTimes(2 + 2);
   });
 
   it('does not retry an error that is not a timeout', async () => {
