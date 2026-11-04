@@ -10,7 +10,12 @@ vi.mock('../db/client.js', () => ({ supabase: {} }));
 vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn(() => Promise.resolve()) }));
 
 import { setTimeout as sleep } from 'node:timers/promises';
-import { fetchWeatherGridForDate, isTimeoutError, targetHourIndex } from './openmeteo.js';
+import {
+  fetchWeatherGridForDate,
+  isConnectionError,
+  isTimeoutError,
+  targetHourIndex,
+} from './openmeteo.js';
 
 describe('targetHourIndex', () => {
   it('picks the exact match when the target hour is present', () => {
@@ -42,6 +47,19 @@ describe('isTimeoutError', () => {
   it('is false for other errors and non-errors', () => {
     expect(isTimeoutError(new TypeError('fetch failed'))).toBe(false);
     expect(isTimeoutError('TimeoutError')).toBe(false);
+  });
+});
+
+describe('isConnectionError', () => {
+  it('is true for timeouts, fetch failures and ETIMEDOUT', () => {
+    expect(isConnectionError(new DOMException('x', 'TimeoutError'))).toBe(true);
+    expect(isConnectionError(new TypeError('fetch failed'))).toBe(true);
+    expect(isConnectionError(new Error('connect ETIMEDOUT 1.2.3.4:443'))).toBe(true);
+  });
+
+  it('is false for other errors and non-errors', () => {
+    expect(isConnectionError(new Error('Unexpected token < in JSON'))).toBe(false);
+    expect(isConnectionError('fetch failed')).toBe(false);
   });
 });
 

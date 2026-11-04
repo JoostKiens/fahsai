@@ -92,6 +92,15 @@ function parseRateLimitReason(bodyText: string): string {
   }
 }
 
+// A failure to reach Open-Meteo or to finish a request in time, as opposed to an HTTP error.
+export function isConnectionError(err: unknown): err is Error {
+  return (
+    isTimeoutError(err) ||
+    (err instanceof Error &&
+      (err.message.includes('fetch failed') || err.message.includes('ETIMEDOUT')))
+  );
+}
+
 // Read inside the retried unit: the request's timeout signal also covers the body.
 async function readBody(res: Response): Promise<string> {
   try {
@@ -411,12 +420,7 @@ export async function fetchAirQualityGrid(date: string): Promise<PM25GridPoint[]
           try {
             return await fetchAQBatch(b.lats, b.lngs, date);
           } catch (err) {
-            const isConnectionError =
-              err instanceof Error &&
-              (err.message.includes('fetch failed') ||
-                err.message.includes('ETIMEDOUT') ||
-                (err as { name?: string }).name === 'TimeoutError');
-            if (!isConnectionError || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
+            if (!isConnectionError(err) || attempt >= AQ_BATCH_CONNECT_RETRIES) throw err;
             console.warn(
               `[openmeteo] batch ${i + 1} connection error (attempt ${attempt + 1}/${AQ_BATCH_CONNECT_RETRIES + 1}), retrying in ${AQ_BATCH_CONNECT_RETRY_DELAY_MS / 1000}s`,
             );

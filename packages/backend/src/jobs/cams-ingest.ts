@@ -3,7 +3,7 @@ import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
-import { fetchAirQualityGrid, isTimeoutError, OpenMeteoHttpError } from '../utils/openmeteo.js';
+import { fetchAirQualityGrid, isConnectionError, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
 import { getYesterdayBkk } from '../utils/bkkDate.js';
 
@@ -29,9 +29,10 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
         // making the logged error appear message-less.
         if (err instanceof OpenMeteoHttpError && err.status >= 400 && err.status < 500)
           throw new AbortError(err);
-        // A timeout that reaches here already failed its per-batch retries. Restarting the
-        // grid would re-spend calls from batch 1 and can push the run over the hourly limit.
-        if (isTimeoutError(err)) throw new AbortError(err);
+        // A connection error that reaches here already failed its per-batch retries.
+        // Restarting the grid would re-spend calls from batch 1 and can push the run over
+        // the hourly limit.
+        if (isConnectionError(err)) throw new AbortError(err);
         throw err;
       }
     },
