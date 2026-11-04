@@ -84,6 +84,11 @@ html {
 }
 /* The image is 1280 CSS pixels wide at the default zoom, so it is shown at that scale, centred like
    the map's centre, and only grown (cropped, not stretched) to cover a larger area. */
+/* placeholderGuard.ts flags <html> when the link opens the map somewhere other than where the image
+   is, so a wrong place never shows; the dark background stays. */
+html[data-custom-view] .map-placeholder {
+  display: none;
+}
 .map-placeholder {
   position: absolute;
   top: 50%;

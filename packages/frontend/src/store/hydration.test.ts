@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // A server-rendered island hydrates against the stores' *initial* state (Zustand uses
 // getInitialState() as the server snapshot), which is what the server rendered with. So the initial
@@ -23,6 +23,10 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('stores and the page URL', () => {
   it('start from the same defaults whatever the URL says', async () => {
     const { ui, time, yesterday } = await loadStores(
@@ -40,6 +44,35 @@ describe('stores and the page URL', () => {
     expect(time.getState().selectedDate).toBe(ictDateDaysAgo(3));
     expect(ui.getState().scrubberDay).toBe(117);
     expect(ui.getState().pendingSelection).toEqual({ kind: 'station', id: '6123215' });
+  });
+
+  it('start the map view at the default whatever the URL says', async () => {
+    const { ui } = await loadStores('?lat=13.7&lng=100.5&zoom=7');
+
+    expect(ui.getInitialState().mapCenter).toEqual([101, 15.5]);
+    expect(ui.getInitialState().mapZoom).toBe(5.5);
+  });
+
+  it('apply the URL map view right after creation, so the address bar keeps it', async () => {
+    const { ui } = await loadStores('?lat=13.7&lng=100.5&zoom=7');
+
+    expect(ui.getState().mapCenter).toEqual([100.5, 13.7]);
+    expect(ui.getState().mapZoom).toBe(7);
+  });
+
+  it('use the desktop start view when the URL has none', async () => {
+    const { ui } = await loadStores('');
+
+    expect(ui.getState().mapCenter).toEqual([101, 15.5]);
+    expect(ui.getState().mapZoom).toBe(5.5);
+  });
+
+  it('use the phone start view, further out, when the URL has none', async () => {
+    vi.stubGlobal('innerWidth', 412);
+    const { ui } = await loadStores('');
+
+    expect(ui.getState().mapCenter).toEqual([102, 13.5]);
+    expect(ui.getState().mapZoom).toBe(4.7);
   });
 
   it('keep the defaults when the URL has no date or selection', async () => {

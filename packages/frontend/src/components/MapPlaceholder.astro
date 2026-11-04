@@ -1,18 +1,23 @@
 ---
-// A blurred basemap at the default map view, shown in the map's place until the map island
-// replaces #intro. A real, eagerly loaded <img> (preloaded in Base.astro) so it is painted
-// early and counts for LCP; the Mapbox logo that appears with the map is smaller than it.
-// Regenerate with scripts/generate-map-placeholder.sh.
+// A blurred basemap at the view the map starts at, shown in the map's place until the map island
+// replaces #intro: the phone view on phones, the default view elsewhere. A real, eagerly loaded
+// <img> (preloaded in Base.astro) so it is painted early and counts for LCP; the Mapbox logo that
+// appears with the map is smaller than it. Regenerate with scripts/generate-map-placeholder.sh.
 import placeholder from '@/assets/basemap-placeholder.jpg';
+import phonePlaceholder from '@/assets/basemap-placeholder-phone.jpg';
+import { PHONE_MEDIA_QUERY } from '@/utils/mapView';
 ---
 
-<img
-  class="map-placeholder"
-  src={placeholder.src}
-  width={placeholder.width}
-  height={placeholder.height}
-  alt=""
-  loading="eager"
-  fetchpriority="high"
-  decoding="async"
-/>
+<picture>
+  <source media={PHONE_MEDIA_QUERY} srcset={phonePlaceholder.src} />
+  <img
+    class="map-placeholder"
+    src={placeholder.src}
+    width={placeholder.width}
+    height={placeholder.height}
+    alt=""
+    loading="eager"
+    fetchpriority="high"
+    decoding="async"
+  />
+</picture>
