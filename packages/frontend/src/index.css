@@ -67,30 +67,36 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* The map region (src/pages/*.astro) until the map island replaces #intro on mount: a blurred
-   basemap (MapPlaceholder.astro) with a spinner over it. The text inside #intro is visually hidden
-   but stays in the HTML for crawlers and screen readers. */
+/* The map region (src/pages/*.astro) until the map is ready: a blurred basemap
+   (MapPlaceholder.astro, MapLoadingPlaceholder.tsx) with a spinner over it. #intro is the
+   server-rendered one; the map island replaces it on mount and MapLoadingPlaceholder carries on
+   until Mapbox has loaded. The text inside #intro is visually hidden but stays in the HTML for
+   crawlers and screen readers. */
+.map-loading {
+  position: relative;
+  overflow: hidden;
+}
 #intro {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   height: 100%;
-  position: relative;
-  overflow: hidden;
 }
-/* Shown at the scale the live map has at the default zoom (the image is 1280 CSS pixels wide
-   at that zoom), centred like the map's centre. */
+/* The image is 1280 CSS pixels wide at the default zoom, so it is shown at that scale, centred like
+   the map's centre, and only grown (cropped, not stretched) to cover a larger area. */
 .map-placeholder {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 1280px;
-  height: 1280px;
+  width: max(1280px, 100%);
+  height: max(1280px, 100%);
   max-width: none;
-  transform: translate(-50%, -50%);
+  object-fit: cover;
+  /* the slight scale keeps the blur's faded edge out of view */
+  transform: translate(-50%, -50%) scale(1.05);
   filter: blur(6px);
 }
-#intro::before {
+.map-loading::before {
   content: '';
   position: absolute;
   z-index: 1;
@@ -110,7 +116,7 @@ html {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #intro::before {
+  .map-loading::before {
     animation: none;
   }
 }
