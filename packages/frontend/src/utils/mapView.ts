@@ -1,8 +1,8 @@
 // The view the map starts at. The store holds it (see uiStore.ts) so the address bar can follow it.
 export const DEFAULT_CENTER: [number, number] = [101.0, 15.5]; // [lng, lat]
 export const DEFAULT_ZOOM = 5.5;
-const MOBILE_CENTER: [number, number] = [102.0, 13.5];
-const MOBILE_ZOOM = 4.7;
+export const MOBILE_CENTER: [number, number] = [102.0, 13.5];
+export const MOBILE_ZOOM = 4.7;
 const MOBILE_MAX_WIDTH_PX = 768;
 export const MIN_ZOOM = 4.0;
 
