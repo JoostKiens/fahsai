@@ -318,6 +318,22 @@ GET /api/v1/stations/:id
   this only answers "does this station id exist, and where is it."
   No Redis layer, no Cache-Control -- mirrors GET /api/stations (static data).
 
+GET /api/v1/cities
+  The cities that have a page: { data: [{ slug, name, country }] }, from data/cities.ts (a pilot of
+  5; Mae Hong Son, Nan and Tak had no reporting stations on 2026-11-04, so they are not in it).
+
+GET /api/v1/cities/:slug
+  A city's air quality for the newest complete Bangkok day (lib/latestDate.ts, the same as
+  /latest-date): CityPage in packages/types/src/city.ts. A city's stations are those within 20 km of
+  its centre (lib/cityStations.ts). pm25 = the median of the stations' daily means (a station has one
+  reading per Bangkok day), a whole number, null when none reported; stationCount = how many did.
+  trend = the 7 days up to date; nearby = cities within 250 km, nearest first, with their figure
+  for the same day; whoMultiple = pm25 / 15 (WHO 24 h guideline). drivers is null until the day's
+  trajectory is wired in. 404 not_found for an unknown slug, 404 no_data when no day is complete.
+  Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour);
+  Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
+  lib/buildCityPage.ts.
+
 GET /api/v1/weather?date=YYYY-MM-DD&bbox=...
   Returns weather grid for the given date. date param is required (400 if absent/invalid).
   Redis cache key: weather:{date}, TTL 7d. On miss, reads from Supabase weather_readings.

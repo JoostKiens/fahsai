@@ -38,6 +38,8 @@ describe('the OpenAPI document', () => {
       '/api/v1/cams',
       '/api/v1/cams/nearest',
       '/api/v1/cams/summary',
+      '/api/v1/cities',
+      '/api/v1/cities/{slug}',
       '/api/v1/explain',
       '/api/v1/explain/context',
       '/api/v1/fires',

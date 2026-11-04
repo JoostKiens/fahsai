@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { camsRoutes } from './cams.js';
+import { citiesRoutes } from './cities.js';
 import { explainRoutes } from './explain.js';
 import { firesRoutes } from './fires.js';
 import { healthRoutes } from './health.js';
@@ -24,6 +25,7 @@ const dataRoutes = [
   powerPlantsRoutes,
   explainRoutes,
   latestDateRoutes,
+  citiesRoutes,
 ];
 
 async function legacyDataRoutes(app: FastifyInstance): Promise<void> {
