@@ -2,6 +2,8 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
 import tailwindcss from '@tailwindcss/vite';
+import { createHash } from 'node:crypto';
+import { placeholderGuardScript } from './src/lib/placeholderGuard.ts';
 
 export default defineConfig({
   integrations: [react()],
@@ -29,6 +31,10 @@ export default defineConfig({
         "frame-ancestors 'none'",
       ],
       styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+      // Astro hashes the scripts it bundles, not is:inline ones: this is the placeholder guard in <head>.
+      scriptDirective: {
+        hashes: [`sha256-${createHash('sha256').update(placeholderGuardScript).digest('base64')}`],
+      },
     },
   },
   vite: {
