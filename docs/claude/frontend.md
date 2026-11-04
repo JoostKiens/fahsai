@@ -72,12 +72,12 @@ function).
 `src/pages/index.astro` and `src/pages/th/index.astro` are rendered on demand and cached by Vercel
 (ISR, an hour), and use `layouts/AppShell.astro`, which lays out four islands (`src/islands/`):
 
-| Island     | Rendered                     | Root               | Holds                                                                                           |
-| ---------- | ---------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
-| `Header`   | server, then hydrated        | `ServerIslandRoot` | brand, search, language pill, menu, About and Settings dialogs                                  |
-| `Sidebar`  | server, then hydrated        | `ServerIslandRoot` | layer switches and legends                                                                      |
-| `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
-| `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders           |
+| Island     | Rendered                     | Root               | Holds                                                                                                                                                                                                                                  |
+| ---------- | ---------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Header`   | server, then hydrated        | `ServerIslandRoot` | brand, search, language pill, menu, About and Settings dialogs                                                                                                                                                                         |
+| `Sidebar`  | server, then hydrated        | `ServerIslandRoot` | layer switches and legends                                                                                                                                                                                                             |
+| `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; its fallback slot is `#intro`: a blurred basemap image (`MapPlaceholder.astro`, regenerate with `scripts/generate-map-placeholder.sh`) with visually hidden text for crawlers |
+| `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders                                                                                                                                                  |
 
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.

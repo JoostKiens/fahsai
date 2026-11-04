@@ -1,6 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
 import AppShell from '@/layouts/AppShell.astro';
+import MapPlaceholder from '@/components/MapPlaceholder.astro';
 
 export const prerender = false;
 ---
@@ -8,10 +9,7 @@ export const prerender = false;
 <Base lang="th">
   <AppShell lang="th">
     <main id="intro" slot="fallback">
-      <div class="intro-splash" aria-hidden="true">
-        <p>Fahsai — แผนที่คุณภาพอากาศไทย</p>
-        <p>กำลังโหลดแผนที่…</p>
-      </div>
+      <MapPlaceholder />
       <div>
         <h2>Fahsai — แผนที่คุณภาพอากาศไทย</h2>
         <p>

@@ -1,5 +1,6 @@
 ---
 import '@/index.css';
+import placeholder from '@/assets/basemap-placeholder.jpg';
 
 interface Props {
   lang: 'en' | 'th';
@@ -150,6 +151,7 @@ const structuredData = {
 
     <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
     {apiBase && <link rel="preconnect" href={apiBase} crossorigin />}
+    <link rel="preload" as="image" href={placeholder.src} fetchpriority="high" />
 
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#18181b" />

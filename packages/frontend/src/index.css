@@ -67,29 +67,40 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* Text in the map region (src/pages/*.astro). The splash (a spinner, the title and a loading
-   line) is what visitors see until the map island replaces #intro on mount. It is real text
-   larger than the Mapbox logo, so it, not the logo that appears with the map, is the page's LCP.
-   The rest of #intro is visually hidden for crawlers and screen readers. */
+/* The map region (src/pages/*.astro) until the map island replaces #intro on mount: a blurred
+   basemap (MapPlaceholder.astro) with a spinner over it. The text inside #intro is visually hidden
+   but stays in the HTML for crawlers and screen readers. */
 #intro {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   height: 100%;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0 1.5rem;
+  overflow: hidden;
+}
+/* Shown at the scale the live map has at the default zoom (the image is 1280 CSS pixels wide
+   at that zoom), centred like the map's centre. */
+.map-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1280px;
+  height: 1280px;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  filter: blur(6px);
 }
 #intro::before {
   content: '';
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
   width: 2rem;
   height: 2rem;
-  border: 2px solid var(--color-zinc-700);
-  border-top-color: var(--color-zinc-300);
+  margin: -1rem 0 0 -1rem;
+  border: 2px solid var(--color-zinc-600);
+  border-top-color: var(--color-zinc-200);
   border-radius: 50%;
   animation: intro-spin 0.8s linear infinite;
 }
@@ -103,18 +114,7 @@ html {
     animation-duration: 3s;
   }
 }
-.intro-splash {
-  text-align: center;
-  color: #d4d4d8;
-}
-.intro-splash p:first-child {
-  color: #fafafa;
-  font-size: 1.5rem;
-  line-height: 1.3;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-}
-#intro > div:not(.intro-splash) {
+#intro > div {
   position: absolute;
   width: 1px;
   height: 1px;
