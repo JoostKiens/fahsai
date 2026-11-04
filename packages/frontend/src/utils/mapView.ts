@@ -3,7 +3,10 @@ export const DEFAULT_CENTER: [number, number] = [101.0, 15.5]; // [lng, lat]
 export const DEFAULT_ZOOM = 5.5;
 export const MOBILE_CENTER: [number, number] = [102.0, 13.5];
 export const MOBILE_ZOOM = 4.7;
-const MOBILE_MAX_WIDTH_PX = 768;
+const MOBILE_MIN_WIDTH_PX = 768; // below this the map starts at the phone view
+// The same split as media queries, to pick the placeholder that matches the view the map starts at.
+export const PHONE_MEDIA_QUERY = `(max-width: ${MOBILE_MIN_WIDTH_PX - 1}px)`;
+export const DESKTOP_MEDIA_QUERY = `(min-width: ${MOBILE_MIN_WIDTH_PX}px)`;
 export const MIN_ZOOM = 4.0;
 
 /**
@@ -21,7 +24,7 @@ export function initialMapView(
   const isLatValid = isFinite(lat) && lat >= -90 && lat <= 90;
   const isLngValid = isFinite(lng) && lng >= -180 && lng <= 180;
   const isZoomValid = isFinite(zoom) && zoom >= 0 && zoom <= 24;
-  const isMobile = viewportWidthPx < MOBILE_MAX_WIDTH_PX;
+  const isMobile = viewportWidthPx < MOBILE_MIN_WIDTH_PX;
   const fallbackCenter = isMobile ? MOBILE_CENTER : DEFAULT_CENTER;
   const fallbackZoom = isMobile ? MOBILE_ZOOM : DEFAULT_ZOOM;
   return {

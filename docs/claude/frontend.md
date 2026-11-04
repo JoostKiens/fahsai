@@ -81,11 +81,12 @@ function).
 
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
-- While the map loads, its region shows a blurred basemap at the default view
-  (`MapPlaceholder.astro` in the server HTML, `MapLoadingPlaceholder.tsx` until Mapbox's `load`).
+- While the map loads, its region shows a blurred basemap at the view the map starts at: the phone
+  view below 768 px, the default view above (`MapPlaceholder.astro` in the server HTML,
+  `MapLoadingPlaceholder.tsx` until Mapbox's `load`; `Base.astro` preloads only the matching one).
   It is a real `<img>`, preloaded in `Base.astro`: Chrome counts it as the LCP, where the Mapbox
-  logo that appears with the map would be a late LCP. It always shows the default view, so a link to
-  another place shows that for a moment. The `#intro` text stays in the HTML, visually hidden.
+  logo that appears with the map would be a late LCP. A link to another place shows the start view
+  for a moment. The `#intro` text stays in the HTML, visually hidden.
   Regenerate the image with `scripts/generate-map-placeholder.sh`; a test checks the script's view
   and style against the app's.
 - A server-rendered island can only import code that works without a browser. Read the query string

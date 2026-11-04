@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { initialMapView, MIN_ZOOM } from './mapView';
+import {
+  DEFAULT_ZOOM,
+  DESKTOP_MEDIA_QUERY,
+  MIN_ZOOM,
+  MOBILE_ZOOM,
+  PHONE_MEDIA_QUERY,
+  initialMapView,
+} from './mapView';
 
 const DESKTOP = 1280;
 const PHONE = 412;
@@ -51,5 +58,14 @@ describe('initialMapView', () => {
 
   it.each(['25', '-1', 'far'])('ignores the zoom %s', (zoom) => {
     expect(initialMapView(`?zoom=${zoom}`, DESKTOP).zoom).toBe(5.5);
+  });
+});
+
+describe('the phone and desktop media queries', () => {
+  it('split the screens where initialMapView does, so each starts with its own placeholder', () => {
+    expect(PHONE_MEDIA_QUERY).toBe('(max-width: 767px)');
+    expect(DESKTOP_MEDIA_QUERY).toBe('(min-width: 768px)');
+    expect(initialMapView('', 767).zoom).toBe(MOBILE_ZOOM);
+    expect(initialMapView('', 768).zoom).toBe(DEFAULT_ZOOM);
   });
 });

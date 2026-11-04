@@ -1,6 +1,8 @@
 ---
 import '@/index.css';
 import placeholder from '@/assets/basemap-placeholder.jpg';
+import phonePlaceholder from '@/assets/basemap-placeholder-phone.jpg';
+import { DESKTOP_MEDIA_QUERY, PHONE_MEDIA_QUERY } from '@/utils/mapView';
 
 interface Props {
   lang: 'en' | 'th';
@@ -151,7 +153,20 @@ const structuredData = {
 
     <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
     {apiBase && <link rel="preconnect" href={apiBase} crossorigin />}
-    <link rel="preload" as="image" href={placeholder.src} fetchpriority="high" />
+    <link
+      rel="preload"
+      as="image"
+      href={phonePlaceholder.src}
+      media={PHONE_MEDIA_QUERY}
+      fetchpriority="high"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href={placeholder.src}
+      media={DESKTOP_MEDIA_QUERY}
+      fetchpriority="high"
+    />
 
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#18181b" />
