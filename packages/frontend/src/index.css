@@ -111,7 +111,7 @@ html {
 }
 @media (prefers-reduced-motion: reduce) {
   #intro::before {
-    animation-duration: 3s;
+    animation: none;
   }
 }
 #intro > div {
@@ -122,6 +122,19 @@ html {
   clip-path: inset(50%);
   white-space: nowrap;
   color: #d4d4d8;
+}
+/* A keyboard user who tabs into one of its links gets the text as a readable panel, so focus is
+   never on something invisible. */
+#intro > div:focus-within {
+  inset: 0;
+  width: auto;
+  height: auto;
+  overflow: auto;
+  clip-path: none;
+  white-space: normal;
+  z-index: 2;
+  padding: 2rem 1.5rem;
+  background: rgb(9 9 11 / 0.95);
 }
 #intro h2 {
   color: #fafafa;
