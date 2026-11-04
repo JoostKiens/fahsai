@@ -94,7 +94,9 @@ function).
 - Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
   `@/i18n`, which reads it from the address (see `docs/adr/0002-i18n-thai-language.md`).
 - A server-rendered island hydrates against its stores' _initial_ state (Zustand's server snapshot),
-  so the stores start from defaults and apply the URL and saved settings right after creation. Do
+  so the stores start from defaults and apply the URL and saved settings right after creation (the
+  date, the selection, and the map's centre and zoom via `initialMapView`; the address bar is written
+  from the store, so a view the store lacks would overwrite the link's). Do
   not put page-specific values in a store's initial state. `Scrubber` takes `initialData` and shows
   it only until the browser has the real latest date; the live values then win.
 - The scrubber keeps the height in `SCRUBBER_BAR_CLS` as its minimum, in every state, so the sidebar
