@@ -1,4 +1,5 @@
 import { Type } from '@fastify/type-provider-typebox';
+import { WHO_PM25_24H_UGM3 } from '@thailand-aq/consts';
 import { DateString } from './common.js';
 
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -42,7 +43,19 @@ const CityDriversSchema = Type.Object({
     description: 'The compass point the wind came from, for example NNE.',
   }),
   camsPm25: NullableNumber,
-  baselineCategory: Type.Union([Type.String(), Type.Null()]),
+  baselineCategory: Type.Union(
+    [
+      Type.Literal('wellAbove'),
+      Type.Literal('above'),
+      Type.Literal('below'),
+      Type.Literal('wellBelow'),
+      Type.Null(),
+    ],
+    {
+      description:
+        'How the reading compares with the season; null when normal or the data is thin.',
+    },
+  ),
   representativeStationId: Type.String(),
 });
 
@@ -87,6 +100,6 @@ export const CityPageSchema = Type.Object({
   }),
   nearby: Type.Array(CityNearbySchema),
   whoMultiple: Type.Union([Type.Number(), Type.Null()], {
-    description: 'pm25 divided by the WHO 24-hour guideline (15 µg/m³), to one decimal.',
+    description: `pm25 divided by the WHO 24-hour guideline (${WHO_PM25_24H_UGM3} µg/m³), to one decimal.`,
   }),
 });

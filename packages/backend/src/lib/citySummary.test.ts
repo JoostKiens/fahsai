@@ -84,7 +84,7 @@ describe('citySummary', () => {
     );
   });
 
-  it.each(['wellAbove', 'above', 'below', 'wellBelow'])(
+  it.each(['wellAbove', 'above', 'below', 'wellBelow'] as const)(
     'compares with the season when the baseline is %s',
     (baselineCategory) => {
       expect(keys(withDrivers({ baselineCategory }))).toContain(

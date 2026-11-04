@@ -1,4 +1,4 @@
-import type { CityPage, CitySentence } from '@thailand-aq/types';
+import type { BaselineCategory, CityPage, CitySentence } from '@thailand-aq/types';
 import type { CitySentenceKey } from '@thailand-aq/consts';
 
 type SummaryInput = Pick<
@@ -6,7 +6,8 @@ type SummaryInput = Pick<
   'name' | 'date' | 'pm25' | 'stationCount' | 'whoMultiple' | 'drivers'
 >;
 
-const BASELINE_KEYS: Record<string, CitySentenceKey | undefined> = {
+// every category but 'normal' has a sentence: a new one fails to compile here
+const BASELINE_KEYS: Record<Exclude<BaselineCategory, 'normal'>, CitySentenceKey> = {
   wellAbove: 'city.summary.baseline.wellAbove',
   above: 'city.summary.baseline.above',
   below: 'city.summary.baseline.below',
@@ -53,8 +54,8 @@ export function citySummary(page: SummaryInput): CitySentence[] {
       }),
     );
   }
-  const baselineKey =
-    drivers.baselineCategory === null ? undefined : BASELINE_KEYS[drivers.baselineCategory];
-  if (baselineKey) sentences.push(sentence(baselineKey, {}));
+  if (drivers.baselineCategory !== null) {
+    sentences.push(sentence(BASELINE_KEYS[drivers.baselineCategory], {}));
+  }
   return sentences;
 }

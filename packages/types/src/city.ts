@@ -22,6 +22,8 @@ export interface CityTrendDay {
   stationCount: number;
 }
 
+import type { BaselineCategory } from './baseline';
+
 /** What the day's trajectory and fires say; null on the page when it could not be computed */
 export interface CityDrivers {
   /** False when the air's path went outside the area the data covers; null when not known */
@@ -32,7 +34,8 @@ export interface CityDrivers {
   /** The compass point the wind came from, for example NNE */
   windFrom: string | null;
   camsPm25: number | null;
-  baselineCategory: string | null;
+  /** How the reading compares with the season; null when it is normal or the data is thin */
+  baselineCategory: Exclude<BaselineCategory, 'normal'> | null;
   representativeStationId: string;
 }
 

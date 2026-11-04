@@ -25,7 +25,6 @@ const dataRoutes = [
   powerPlantsRoutes,
   explainRoutes,
   latestDateRoutes,
-  citiesRoutes,
 ];
 
 async function legacyDataRoutes(app: FastifyInstance): Promise<void> {
@@ -41,5 +40,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await app.register(healthRoutes);
   await app.register(rollbarProxyRoutes);
   for (const routes of dataRoutes) await app.register(routes, { prefix: API_VERSION_PREFIX });
+  // after the data routes, and not in the legacy list: the unversioned paths are only for clients
+  // that were published before /api/v1
+  await app.register(citiesRoutes, { prefix: API_VERSION_PREFIX });
   await app.register(legacyDataRoutes, { prefix: LEGACY_PREFIX });
 }

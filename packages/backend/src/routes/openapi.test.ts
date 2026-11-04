@@ -18,9 +18,10 @@ type OpenApiDocument = { paths: Record<string, Record<string, Operation>> };
 
 describe('the OpenAPI document', () => {
   let paths: OpenApiDocument['paths'];
+  let app: FastifyInstance;
 
   beforeAll(async () => {
-    const app: FastifyInstance = buildTestApp();
+    app = buildTestApp();
     await registerApiDocs(app);
     await registerRoutes(app);
     await app.ready();
@@ -72,6 +73,17 @@ describe('the OpenAPI document', () => {
       .filter(({ operation }) => !('500' in operation.responses));
 
     expect(without500).toEqual([]);
+  });
+
+  // The unversioned /api paths exist for the clients published before /api/v1; new routes are not
+  // added to them.
+  it('serves the cities only under /api/v1', async () => {
+    const versioned = await app.inject({ method: 'GET', url: '/api/v1/cities' });
+    const unversioned = await app.inject({ method: 'GET', url: '/api/cities' });
+
+    expect(versioned.statusCode).toBe(200);
+    expect(unversioned.statusCode).toBe(404);
+    expect(unversioned.json()).toMatchObject({ error: 'Route not found' });
   });
 
   it('leaves out the unversioned aliases of the routes', () => {
