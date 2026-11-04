@@ -10,8 +10,9 @@ limited separately from `explainRatelimit` via `explainContextRatelimit` (20 req
 
 **Consumed externally by the published `fahsai-mcp-server` npm package**, not just this app's
 frontend. Treat response-shape changes (renames/removals, not additions) as breaking for that
-consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts`
-(`explain:context:v1` → `v2`) when they happen.
+consumer, and bump `CONTEXT_CACHE_VERSION` in `computeScientificContext.ts` when they happen. Bump
+it for a field the response schema requires too, though that is an addition: a cached entry is
+returned as it is, so one cached before the field existed would fail serialization (a 500).
 The response schema (`schemas/explain.ts`) lists every field, and a field it leaves out is dropped
 from the response, so a source's `currentlyUpwind` is in it on purpose: the MCP server requires it.
 `lang` is normalised to `en` or `th` before it reaches the cache key.

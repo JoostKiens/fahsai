@@ -23,7 +23,11 @@ import { buildRawExplainData } from './buildRawExplainData.js';
 import { buildScientificContext, type ScientificContext } from './buildScientificContext.js';
 import { logger } from './logger.js';
 
-const CONTEXT_CACHE_VERSION = 3;
+// Bump it when the shape of ScientificContext changes in a way an entry cached under the old
+// version could not satisfy: a rename or removal, or a field the response schema requires. A cache
+// hit is returned as it is, so a missing required field would fail serialization (a 500).
+// 4: transport.trajectory.leftDataArea and leftDataAreaAfterHours
+const CONTEXT_CACHE_VERSION = 4;
 
 function contextCacheKey(stationId: string, date: string): string {
   return `explain:context:v${CONTEXT_CACHE_VERSION}:${stationId}:${date}`;
