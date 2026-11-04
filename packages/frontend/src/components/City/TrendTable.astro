@@ -1,0 +1,54 @@
+---
+import type { CityTrendDay } from '@thailand-aq/types';
+import type { i18n } from 'i18next';
+import { pm25ToRgb } from '@/utils/aqiColors';
+
+interface Props {
+  trend: CityTrendDay[];
+  t: i18n['t'];
+}
+
+const { trend, t } = Astro.props;
+const BAR_AREA_PX = 100;
+const maxPm25 = Math.max(1, ...trend.map((day) => day.pm25 ?? 0));
+---
+
+<section aria-labelledby="trend-heading">
+  <h2 id="trend-heading" class="text-lg font-semibold mb-3">{t('city.trend')}</h2>
+  <!-- the bars repeat the table, so a screen reader gets the table only -->
+  <svg viewBox={`0 0 ${trend.length * 40} ${BAR_AREA_PX}`} class="w-full max-w-md h-28 mb-4" aria-hidden="true">
+    {
+      trend.map((day, i) => {
+        const height = day.pm25 === null ? 0 : Math.max(2, (day.pm25 / maxPm25) * BAR_AREA_PX);
+        return (
+          <rect
+            x={i * 40 + 6}
+            y={BAR_AREA_PX - height}
+            width="28"
+            height={height}
+            rx="2"
+            fill={`rgb(${pm25ToRgb(day.pm25 ?? 0).join(',')})`}
+          />
+        );
+      })
+    }
+  </svg>
+  <table class="w-full max-w-md text-sm">
+    <thead>
+      <tr class="text-left text-zinc-400">
+        <th class="py-1 font-medium">{t('city.colDate')}</th>
+        <th class="py-1 font-medium">{t('city.colPm25')}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        [...trend].reverse().map((day) => (
+          <tr class="border-t border-zinc-800">
+            <td class="py-1">{day.date}</td>
+            <td class="py-1">{day.pm25 ?? t('city.noReading')}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</section>

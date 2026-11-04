@@ -1,0 +1,70 @@
+---
+import Content from '@/layouts/Content.astro';
+import TrendTable from '@/components/City/TrendTable.astro';
+import StationsTable from '@/components/City/StationsTable.astro';
+import NearbyCities from '@/components/City/NearbyCities.astro';
+import { createI18n } from '@/i18n-instance';
+import { cityJsonLd, cityMapLink, cityMeta, fetchCityPage } from '@/lib/cityPage';
+
+export const prerender = false;
+
+const { slug = '' } = Astro.params;
+const result = await fetchCityPage(slug);
+const { t } = createI18n('en');
+
+// 404 for a city that is not in the list, 503 when the API could not be reached. Neither is cached.
+if (result.status !== 'ok') Astro.response.status = result.status === 'not-found' ? 404 : 503;
+const page = result.status === 'ok' ? result.page : null;
+const meta = page
+  ? cityMeta(page)
+  : {
+      title: 'Air quality | Fahsai',
+      description: t('city.unavailable'),
+      canonical: Astro.url.href,
+      noindex: true,
+    };
+---
+
+<Content lang="en" {...meta} jsonLd={page && !meta.noindex ? cityJsonLd(page) : []}>
+  <main class="mx-auto max-w-3xl px-4 py-8 flex flex-col gap-8">
+    <header>
+      <a href="/" class="text-sm text-zinc-400 underline underline-offset-2">Fahsai</a>
+      <h1 class="text-3xl font-semibold mt-2">{page ? t('city.h1', { name: page.name }) : '404'}</h1>
+    </header>
+
+    {!page && <p>{t('city.unavailable')}</p>}
+
+    {
+      page && page.pm25 === null && (
+        <p>{t('city.noData', { name: page.name, date: page.date })}</p>
+      )
+    }
+
+    {
+      page && page.pm25 !== null && (
+        <>
+          <section aria-label="Summary" class="flex flex-col gap-2">
+            {page.summary.map(({ key, params }) => (
+              <p>{t(key as 'city.summary.level', params)}</p>
+            ))}
+          </section>
+          <TrendTable trend={page.trend} t={t} />
+          <StationsTable stations={page.stations} t={t} />
+          <NearbyCities nearby={page.nearby} t={t} />
+        </>
+      )
+    }
+
+    {
+      page && (
+        <p>
+          <a class="underline underline-offset-2" href={cityMapLink(page)}>
+            {t('city.openInMap', { name: page.name })}
+          </a>
+        </p>
+      )
+    }
+
+    <footer class="text-sm text-zinc-400">{t('city.sources')}</footer>
+  </main>
+</Content>
