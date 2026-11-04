@@ -29,14 +29,18 @@ const CityTrendDaySchema = Type.Object({
 });
 
 const CityDriversSchema = Type.Object({
-  originInDataArea: Type.Boolean({
-    description: 'False when the air’s path began outside the area the data covers.',
+  originInDataArea: Type.Union([Type.Boolean(), Type.Null()], {
+    description:
+      'False when the air’s path went outside the area the data covers; null when not known.',
   }),
   upwindFireCount: Type.Union([Type.Number(), Type.Null()], {
-    description: 'Fires detected along the path; null when the path left the data area.',
+    description:
+      'Fires detected along the path; null when the path left the data area or is not known.',
   }),
   windSpeedKmh: NullableNumber,
-  windFromDeg: NullableNumber,
+  windFrom: Type.Union([Type.String(), Type.Null()], {
+    description: 'The compass point the wind came from, for example NNE.',
+  }),
   camsPm25: NullableNumber,
   baselineCategory: Type.Union([Type.String(), Type.Null()]),
   representativeStationId: Type.String(),

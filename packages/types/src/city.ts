@@ -24,12 +24,13 @@ export interface CityTrendDay {
 
 /** What the day's trajectory and fires say; null on the page when it could not be computed */
 export interface CityDrivers {
-  /** False when the air's path began outside the area the data covers */
-  originInDataArea: boolean;
-  /** Fires detected along the path; null when the path left the data area */
+  /** False when the air's path went outside the area the data covers; null when not known */
+  originInDataArea: boolean | null;
+  /** Fires detected along the path; null when the path left the data area or is not known */
   upwindFireCount: number | null;
   windSpeedKmh: number | null;
-  windFromDeg: number | null;
+  /** The compass point the wind came from, for example NNE */
+  windFrom: string | null;
   camsPm25: number | null;
   baselineCategory: string | null;
   representativeStationId: string;

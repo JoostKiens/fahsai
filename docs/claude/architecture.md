@@ -328,8 +328,11 @@ GET /api/v1/cities/:slug
   its centre (lib/cityStations.ts). pm25 = the median of the stations' daily means (a station has one
   reading per Bangkok day), a whole number, null when none reported; stationCount = how many did.
   trend = the 7 days up to date; nearby = cities within 250 km, nearest first, with their figure
-  for the same day; whoMultiple = pm25 / 15 (WHO 24 h guideline). drivers is null until the day's
-  trajectory is wired in. 404 not_found for an unknown slug, 404 no_data when no day is complete.
+  for the same day; whoMultiple = pm25 / 15 (WHO 24 h guideline). drivers comes from the context of
+  the reporting station closest to the city figure (computeScientificContext, in-process): wind,
+  fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea),
+  the seasonal baseline category, plus the CAMS value at the city centre (lib/camsNearest.ts); it is
+  null when the context cannot be had, and the page does not depend on it. 404 not_found for an unknown slug, 404 no_data when no day is complete.
   Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour);
   Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
   lib/buildCityPage.ts.

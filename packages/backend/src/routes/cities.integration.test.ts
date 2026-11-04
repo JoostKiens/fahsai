@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CityListItem, CityPage } from '@thailand-aq/types';
 import { clearTables, seed } from '../test/integration/db.js';
 import { buildTestApp } from '../test/test-app.js';
+import { FULL_CONTEXT } from '../test/fixtures/scientific-context.js';
 import { citiesRoutes } from './cities.js';
 
 const { redisGet, redisSet } = vi.hoisted(() => ({ redisGet: vi.fn(), redisSet: vi.fn() }));
@@ -13,6 +14,11 @@ vi.mock('../lib/latestDate.js', () => ({
   getLatestCompleteDate,
   LATEST_DATE_LOOKBACK_DAYS: 7,
 }));
+
+// The context has its own tests; here it is given, so what is checked is the choice of station and
+// what the page takes from it.
+const { computeScientificContext } = vi.hoisted(() => ({ computeScientificContext: vi.fn() }));
+vi.mock('../lib/computeScientificContext.js', () => ({ computeScientificContext }));
 
 const DATE = '2026-10-17';
 // One degree of latitude is about 111.2 km.
@@ -51,6 +57,7 @@ describe('GET /api/v1/cities against a real database', () => {
     redisGet.mockReset().mockResolvedValue(null);
     redisSet.mockReset().mockResolvedValue('OK');
     getLatestCompleteDate.mockReset().mockResolvedValue(DATE);
+    computeScientificContext.mockReset().mockResolvedValue(null);
   });
 
   it('lists the cities with their slug, name and country', async () => {
@@ -182,6 +189,61 @@ describe('GET /api/v1/cities against a real database', () => {
       expect(page).toMatchObject({ pm25: null, stationCount: 0, whoMultiple: null });
       expect(page.stations.map((s) => [s.id, s.pm25, s.readingCount])).toEqual([['near', null, 0]]);
       expect(page.trend.every((day) => day.pm25 === null)).toBe(true);
+    });
+
+    it('takes the drivers from the context of the station closest to the city figure', async () => {
+      await seedChiangMai();
+      await seed('cams_grid', [
+        { date: DATE, lat: 18.8, lng: 99.0, pm25: 37.5 },
+        { date: DATE, lat: 18.4, lng: 99.4, pm25: 20 },
+      ]);
+      computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+
+      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+      // the readings are 10, 20 and 30: the city figure is 20, so the station reading 20 stands for it
+      expect(computeScientificContext).toHaveBeenCalledWith(
+        'mid',
+        expect.closeTo(CHIANG_MAI.lat + 10 * KM, 4),
+        CHIANG_MAI.lng,
+        DATE,
+      );
+      expect(page.drivers).toEqual({
+        originInDataArea: true,
+        upwindFireCount: 34,
+        windSpeedKmh: 12.4,
+        windFrom: 'NNE',
+        camsPm25: 37.5,
+        baselineCategory: 'above',
+        representativeStationId: 'mid',
+      });
+    });
+
+    it('gives no CAMS figure when the grid has nothing near the city', async () => {
+      await seedChiangMai();
+      computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+
+      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+      expect(page.drivers?.camsPm25).toBeNull();
+    });
+
+    it('still gives the page, without drivers, when the context fails', async () => {
+      await seedChiangMai();
+      computeScientificContext.mockRejectedValue(new Error('context failed'));
+
+      const res = await get('/api/v1/cities/chiang-mai');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json<CityPage>()).toMatchObject({ pm25: 20, drivers: null });
+    });
+
+    it('does not ask for a context when no station reported', async () => {
+      await seed('stations', [station('near', CHIANG_MAI, 1)]);
+
+      await get('/api/v1/cities/chiang-mai');
+
+      expect(computeScientificContext).not.toHaveBeenCalled();
     });
 
     it('answers 404 not_found for a city that is not in the list', async () => {

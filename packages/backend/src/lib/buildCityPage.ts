@@ -1,12 +1,16 @@
-import type { CityNearby, CityPage, Station } from '@thailand-aq/types';
+import type { CityDrivers, CityNearby, CityPage, Station } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { cacheGet, cacheSet } from '../cache/safe.js';
+import { logger } from './logger.js';
 import { supabase } from '../db/client.js';
 import { CITIES, findCity, type CityDef } from '../data/cities.js';
 import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../utils/bkkDate.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { haversineKm } from '../utils/geo.js';
 import { AppError } from './app-error.js';
+import { fetchCamsNearest } from './camsNearest.js';
+import { computeScientificContext } from './computeScientificContext.js';
+import { driversFromContext, pickRepresentativeStation } from './cityDrivers.js';
 import {
   cityDay,
   cityTrend,
@@ -114,6 +118,27 @@ function nearbyCities(city: CityDef, medians: Map<string, number | null>): CityN
     }));
 }
 
+// What the day's trajectory and fires say, from the station that stands for the city. The page does
+// not depend on it: when it cannot be had, the page goes without.
+async function buildDrivers(
+  city: CityDef,
+  day: ReturnType<typeof cityDay>,
+  date: string,
+): Promise<CityDrivers | null> {
+  const station = pickRepresentativeStation(day.stations, day.pm25);
+  if (!station) return null;
+  try {
+    const [context, camsPm25] = await Promise.all([
+      computeScientificContext(station.id, station.lat, station.lng, date),
+      fetchCamsNearest(city.lat, city.lng, date),
+    ]);
+    return context ? driversFromContext(context, station.id, camsPm25) : null;
+  } catch (err) {
+    logger.warn({ err, slug: city.slug, date }, 'city page: no drivers, the context failed');
+    return null;
+  }
+}
+
 /**
  * The page of one city for the newest complete Bangkok day, or null for a slug that is not in the
  * list. Throws a no_data error when there is no complete day. Cached for an hour.
@@ -158,8 +183,7 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
       means,
       dates,
     ),
-    // computed in a later step, from the day's trajectory
-    drivers: null,
+    drivers: await buildDrivers(city, day, date),
     nearby: nearbyCities(city, await cityMedians(stations, date)),
     whoMultiple: whoMultiple(day.pm25),
   };
