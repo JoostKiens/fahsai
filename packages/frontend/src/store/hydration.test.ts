@@ -42,6 +42,32 @@ describe('stores and the page URL', () => {
     expect(ui.getState().pendingSelection).toEqual({ kind: 'station', id: '6123215' });
   });
 
+  it('start the map view at the default whatever the URL says', async () => {
+    const { ui } = await loadStores('?lat=13.7&lng=100.5&zoom=7');
+
+    expect(ui.getInitialState().mapCenter).toEqual([101, 15.5]);
+    expect(ui.getInitialState().mapZoom).toBe(5.5);
+  });
+
+  it('apply the URL map view right after creation, so the address bar keeps it', async () => {
+    const { ui } = await loadStores('?lat=13.7&lng=100.5&zoom=7');
+
+    expect(ui.getState().mapCenter).toEqual([100.5, 13.7]);
+    expect(ui.getState().mapZoom).toBe(7);
+  });
+
+  it('use the view the map starts at when the URL has none, which is further out on a phone', async () => {
+    const desktop = await loadStores('');
+    expect(desktop.ui.getState().mapCenter).toEqual([101, 15.5]);
+    expect(desktop.ui.getState().mapZoom).toBe(5.5);
+
+    vi.stubGlobal('innerWidth', 412);
+    const phone = await loadStores('');
+    expect(phone.ui.getState().mapCenter).toEqual([102, 13.5]);
+    expect(phone.ui.getState().mapZoom).toBe(4.7);
+    vi.unstubAllGlobals();
+  });
+
   it('keep the defaults when the URL has no date or selection', async () => {
     const { ui, time, yesterday } = await loadStores('');
 

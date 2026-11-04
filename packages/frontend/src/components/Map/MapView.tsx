@@ -16,6 +16,7 @@ import { useCamsBitmap } from './useCamsBitmap';
 import { MapLoadingPlaceholder } from './MapLoadingPlaceholder';
 import { MAP_STYLE } from './mapStyle';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
+import { MIN_ZOOM } from '@/utils/mapView';
 import { createFiresLayer, createFireSelectionRing } from './FiresLayer';
 import { useWindParticles } from './useWindParticles';
 import { createLandMaskLayer, createPM25BitmapLayer, createPM25StationsLayers } from './PM25Layer';
@@ -23,33 +24,12 @@ import { createPowerPlantsLayer, iconSizeForZoom } from './PowerPlantsLayer';
 import { usePrefetchAdjacentDates } from './usePrefetchAdjacentDates';
 
 const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const CENTER: [number, number] = [101.0, 15.5];
-const ZOOM = 5.5;
-const CENTER_MOBILE: [number, number] = [102.0, 13.5];
-const ZOOM_MOBILE = 4.7;
-const MIN_ZOOM = 4.0;
 const MAX_BOUNDS: mapboxgl.LngLatBoundsLike = [...VIEWPORT_BBOX];
 const CUSTOM_ATTRIBUTION = [
   'NASA FIRMS',
   '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
   '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
 ];
-
-function parseUrlMapState() {
-  const p = new URLSearchParams(window.location.search);
-  const lat = parseFloat(p.get('lat') ?? '');
-  const lng = parseFloat(p.get('lng') ?? '');
-  const zoom = parseFloat(p.get('zoom') ?? '');
-  const validLat = isFinite(lat) && lat >= -90 && lat <= 90;
-  const validLng = isFinite(lng) && lng >= -180 && lng <= 180;
-  const validZoom = isFinite(zoom) && zoom >= 0 && zoom <= 24;
-  const isMobile = window.innerWidth < 768;
-  return {
-    center:
-      validLat && validLng ? ([lng, lat] as [number, number]) : isMobile ? CENTER_MOBILE : CENTER,
-    zoom: validZoom ? Math.max(MIN_ZOOM, zoom) : isMobile ? ZOOM_MOBILE : ZOOM,
-  };
-}
 
 function detectBeforeId(map: Map): string | undefined {
   const layers = map.getStyle().layers ?? [];
@@ -328,7 +308,8 @@ export function MapView() {
     if (!containerRef.current) return;
     let mounted = true;
 
-    const { center: initialCenter, zoom: initialZoom } = parseUrlMapState();
+    // The store has the view the page URL asked for (applied when it was created).
+    const { mapCenter: initialCenter, mapZoom: initialZoom } = useUIStore.getState();
     const mapInstance = new Map({
       container: containerRef.current,
       style: MAP_STYLE,
@@ -398,6 +379,10 @@ export function MapView() {
       // disable map rotation using touch rotation gesture
       mapInstance.touchZoomRotate.disableRotation();
 
+      // The store follows the map in case Mapbox moved the start view (e.g. into maxBounds), so
+      // the address bar says what the map shows.
+      const { lng, lat } = mapInstance.getCenter();
+      setMapCenter([lng, lat]);
       setMapZoom(mapInstance.getZoom());
       setWindOverlay(windOv);
       setPowerPlantsOverlay(powerPlantsOv);

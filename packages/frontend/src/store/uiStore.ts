@@ -4,6 +4,7 @@ import type { RateLimit } from '@thailand-aq/types';
 import { useSettingsStore } from './settingsStore';
 import { parsePendingSelectionFromSearch } from '@/utils/selectionUrl';
 import { currentSearch } from '@/utils/currentSearch';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, initialMapView } from '@/utils/mapView';
 
 export interface SelectedPoint {
   lngLat: [number, number];
@@ -103,9 +104,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSessionScrubberDays: (days) => set({ sessionScrubberDays: days }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
-  mapCenter: [101.0, 15.5],
+  mapCenter: DEFAULT_CENTER,
   setMapCenter: (center) => set({ mapCenter: center }),
-  mapZoom: 5.5,
+  mapZoom: DEFAULT_ZOOM,
   setMapZoom: (zoom) => set({ mapZoom: zoom }),
   explainRateLimit: null,
   setExplainRateLimit: (v) => set({ explainRateLimit: v }),
@@ -119,9 +120,12 @@ export const useUIStore = create<UIStore>((set, get) => ({
 // the server rendered hydrates against the initial state, which has to be what the server used.
 // Browser-only islands first render after this runs, so they see the URL's values from the start.
 if (typeof window !== 'undefined') {
+  const mapView = initialMapView(currentSearch(), window.innerWidth);
   useUIStore.setState({
     pendingSelection: parsePendingSelectionFromSearch(currentSearch()),
     scrubberDay: initialScrubberDayFromUrl(),
+    mapCenter: mapView.center,
+    mapZoom: mapView.zoom,
   });
 }
 
