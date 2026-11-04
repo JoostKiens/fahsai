@@ -79,6 +79,14 @@ function).
 | `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
 | `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders           |
 
+City pages (`src/pages/city/[slug].astro`, English only until JOO-101) are also rendered on demand
+with the one-hour ISR. They use `layouts/Content.astro`, a lean scrolling layout (`content.css`:
+`index.css` pins the page to the screen height for the map). `lib/cityPage.ts` fetches
+`GET /api/v1/cities/:slug` (404 for an unknown city, 503 when the API is down, neither cached) and
+builds the meta tags and JSON-LD; the API sends the summary as i18n keys (`city.summary.*`) and
+`src/test/citySummary.test.ts` checks the locale files have every key and keep to the wording rules.
+`pages/sitemap.xml.ts` builds the sitemap from `GET /api/v1/cities`.
+
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
 - While the map loads, its region shows a blurred basemap at the view the map starts at: the phone
