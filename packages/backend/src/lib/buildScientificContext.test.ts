@@ -33,3 +33,33 @@ describe('buildScientificContext regional crisis', () => {
     expect(ctx.trend?.isSignificant).toBe(true);
   });
 });
+
+describe('buildScientificContext and the edge of the data area', () => {
+  function withTrajectory(extra: object): RawExplainData {
+    const { input } = fixture;
+    return {
+      ...input,
+      trajectory: input.trajectory && { ...input.trajectory, ...extra },
+    };
+  }
+
+  it('passes on that the path left the data area, and after how many hours', () => {
+    const ctx = buildScientificContext(
+      withTrajectory({ leftDataArea: true, leftDataAreaAfterHours: 36 }),
+    );
+
+    expect(ctx.transport?.trajectory).toMatchObject({
+      leftDataArea: true,
+      leftDataAreaAfterHours: 36,
+    });
+  });
+
+  it('says the path stayed inside when the data does not say otherwise', () => {
+    const ctx = buildScientificContext(withTrajectory({}));
+
+    expect(ctx.transport?.trajectory).toMatchObject({
+      leftDataArea: false,
+      leftDataAreaAfterHours: null,
+    });
+  });
+});

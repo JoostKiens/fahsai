@@ -66,6 +66,9 @@ export interface FixtureTrajectory {
   meanWindSpeedKmh: number;
   waypoints: FixtureTrajectoryWaypoint[];
   camsAlongPath: FixtureCamsReading[];
+  // Set by the live computation; absent in the eval fixtures, where the path stays inside
+  leftDataArea?: boolean;
+  leftDataAreaAfterHours?: number | null;
 }
 
 export interface FixtureFireRecord {

@@ -396,6 +396,8 @@ export async function computeScientificContext(
             },
             corridorWidthKm: corridorKm,
             meanWindSpeedKmh,
+            leftDataArea: ensemble.leftDataArea,
+            leftDataAreaAfterHours: ensemble.leftDataAreaAfterHours,
             waypoints: pathWaypoints,
             camsAlongPath: camsSamples.map((s) => ({
               lat: s.waypoint.lat,

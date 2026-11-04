@@ -77,6 +77,12 @@ transport footprint of air arriving at a station.
   grid point's wind vector at each step.
 - The ensemble footprint (bounding box of all waypoints + corridor padding) is used to query
   fires, CAMS PM2.5, and urban/industrial/power-plant sources.
+- The trace does not stop at the edge of the data area (89–114°E, 1–30°N, `DATA_AREA` in
+  `utils/bbox.ts`): past it, the nearest edge grid point's wind is reused, so the path is
+  extrapolated, and there are no fire or CAMS data out there. `traceEnsemble` flags it
+  (`leftDataArea`, and `leftDataAreaAfterHours`, for the center member), and the context carries both
+  in `transport.trajectory`. The explanation prompt does not use them yet (JOO-125); the city pages
+  do, to skip the upwind-fire figure.
 - A **cumulative fire pressure score** (0–100) weights fires by FRP, recency, and proximity
   to the trajectory path.
 - When a station is a **strong outlier** (`analyzePeers.ts`: reading is ≥2× or ≤0.4× the
