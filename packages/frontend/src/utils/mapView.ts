@@ -8,6 +8,13 @@ const MOBILE_MIN_WIDTH_PX = 768; // below this the map starts at the phone view
 export const PHONE_MEDIA_QUERY = `(max-width: ${MOBILE_MIN_WIDTH_PX - 1}px)`;
 export const DESKTOP_MEDIA_QUERY = `(min-width: ${MOBILE_MIN_WIDTH_PX}px)`;
 export const MIN_ZOOM = 4.0;
+const MAX_ZOOM = 22; // the deepest zoom Mapbox shows
+
+// Plain decimals only: parseFloat would take 13.7abc, Number would take '' as 0.
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+function parseDecimal(value: string | null): number {
+  return value !== null && DECIMAL.test(value) ? Number(value) : NaN;
+}
 
 /**
  * The map's starting view: the centre and zoom in the link, else the default for the screen size.
@@ -18,17 +25,18 @@ export function initialMapView(
   viewportWidthPx: number,
 ): { center: [number, number]; zoom: number } {
   const params = new URLSearchParams(search);
-  const lat = parseFloat(params.get('lat') ?? '');
-  const lng = parseFloat(params.get('lng') ?? '');
-  const zoom = parseFloat(params.get('zoom') ?? '');
-  const isLatValid = isFinite(lat) && lat >= -90 && lat <= 90;
-  const isLngValid = isFinite(lng) && lng >= -180 && lng <= 180;
-  const isZoomValid = isFinite(zoom) && zoom >= 0 && zoom <= 24;
+  const lat = parseDecimal(params.get('lat'));
+  const lng = parseDecimal(params.get('lng'));
+  const zoom = parseDecimal(params.get('zoom'));
+  const isLatValid = Number.isFinite(lat) && lat >= -90 && lat <= 90;
+  const isLngValid = Number.isFinite(lng) && lng >= -180 && lng <= 180;
+  const isZoomValid = Number.isFinite(zoom) && zoom >= 0 && zoom <= MAX_ZOOM;
   const isMobile = viewportWidthPx < MOBILE_MIN_WIDTH_PX;
   const fallbackCenter = isMobile ? MOBILE_CENTER : DEFAULT_CENTER;
   const fallbackZoom = isMobile ? MOBILE_ZOOM : DEFAULT_ZOOM;
   return {
-    center: isLatValid && isLngValid ? [lng, lat] : fallbackCenter,
+    // a copy, so nobody who changes the centre changes the defaults
+    center: isLatValid && isLngValid ? [lng, lat] : [...fallbackCenter],
     zoom: isZoomValid ? Math.max(MIN_ZOOM, zoom) : fallbackZoom,
   };
 }

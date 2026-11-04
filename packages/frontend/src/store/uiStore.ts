@@ -104,7 +104,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSessionScrubberDays: (days) => set({ sessionScrubberDays: days }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
-  mapCenter: DEFAULT_CENTER,
+  mapCenter: [...DEFAULT_CENTER],
   setMapCenter: (center) => set({ mapCenter: center }),
   mapZoom: DEFAULT_ZOOM,
   setMapZoom: (zoom) => set({ mapZoom: zoom }),
