@@ -132,6 +132,12 @@ describe('GET /api/v1/cities against a real database', () => {
         ['2026-10-16', 16, 2],
         [DATE, 20, 3],
       ]);
+      expect(page.summary).toEqual([
+        {
+          key: 'city.summary.level',
+          params: { city: 'Chiang Mai', date: DATE, pm25: 20, count: 3, multiple: 1.3 },
+        },
+      ]);
       // every city within 250 km, nearest first; a city nobody reported for has no figure
       expect(page.nearby).toEqual([
         { slug: 'lamphun', name: 'Lamphun', pm25: 33 },
@@ -166,6 +172,7 @@ describe('GET /api/v1/cities against a real database', () => {
         stations: [],
         trend: [],
         drivers: null,
+        summary: [],
         nearby: [],
         whoMultiple: 0.5,
       };
@@ -186,7 +193,7 @@ describe('GET /api/v1/cities against a real database', () => {
 
       expect(res.statusCode).toBe(200);
       const page = res.json<CityPage>();
-      expect(page).toMatchObject({ pm25: null, stationCount: 0, whoMultiple: null });
+      expect(page).toMatchObject({ pm25: null, stationCount: 0, whoMultiple: null, summary: [] });
       expect(page.stations.map((s) => [s.id, s.pm25, s.readingCount])).toEqual([['near', null, 0]]);
       expect(page.trend.every((day) => day.pm25 === null)).toBe(true);
     });
@@ -208,6 +215,12 @@ describe('GET /api/v1/cities against a real database', () => {
         CHIANG_MAI.lng,
         DATE,
       );
+      expect(page.summary.map((sentence) => sentence.key)).toEqual([
+        'city.summary.level',
+        'city.summary.fires',
+        'city.summary.wind',
+        'city.summary.baseline.above',
+      ]);
       expect(page.drivers).toEqual({
         originInDataArea: true,
         upwindFireCount: 34,

@@ -24,8 +24,10 @@ export type RateLimit = { reason: RateLimitReason; resetAtMs: number };
 
 // city.ts -- what GET /api/v1/cities/:slug returns (the city pages); see packages/types/src/city.ts
 // CityPage: one Bangkok day (the newest complete day), pm25 = median of the stations' daily means,
-// stations[], a 7-day trend[], drivers (null when the trajectory context is unavailable) and
-// nearby[]. CityListItem {slug, name, country} is what GET /api/v1/cities lists.
+// stations[], a 7-day trend[], drivers (null when the trajectory context is unavailable), summary[]
+// (CitySentence {key, params}: i18n keys listed in CITY_SENTENCE_KEYS in packages/consts, the
+// frontend owns the words) and nearby[]. CityListItem {slug, name, country} is what GET
+// /api/v1/cities lists.
 // The WHO 24 h guideline (15 µg/m³) is WHO_PM25_24H_UGM3 in packages/consts.
 
 // fire.ts

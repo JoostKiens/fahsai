@@ -52,6 +52,13 @@ const CityNearbySchema = Type.Object({
   pm25: NullableNumber,
 });
 
+const CitySentenceSchema = Type.Object({
+  key: Type.String({ description: 'An i18n key, for example city.summary.level.' }),
+  params: Type.Record(Type.String(), Type.Union([Type.String(), Type.Number()]), {
+    description: 'The values to put in the sentence.',
+  }),
+});
+
 export const CityPageSchema = Type.Object({
   slug: Type.String(),
   name: Type.String(),
@@ -73,6 +80,10 @@ export const CityPageSchema = Type.Object({
   }),
   drivers: Type.Union([CityDriversSchema, Type.Null()], {
     description: 'What the day’s trajectory and fires say; null when it could not be computed.',
+  }),
+  summary: Type.Array(CitySentenceSchema, {
+    description:
+      'Dated sentences about the day, as i18n keys with values; empty when no station reported.',
   }),
   nearby: Type.Array(CityNearbySchema),
   whoMultiple: Type.Union([Type.Number(), Type.Null()], {

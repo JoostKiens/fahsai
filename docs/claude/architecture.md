@@ -332,7 +332,11 @@ GET /api/v1/cities/:slug
   the reporting station closest to the city figure (computeScientificContext, in-process): wind,
   fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea),
   the seasonal baseline category, plus the CAMS value at the city centre (lib/camsNearest.ts); it is
-  null when the context cannot be had, and the page does not depend on it. 404 not_found for an unknown slug, 404 no_data when no day is complete.
+  null when the context cannot be had, and the page does not depend on it. summary = dated,
+  neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
+  and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
+  else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
+  the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
   Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour);
   Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
   lib/buildCityPage.ts.

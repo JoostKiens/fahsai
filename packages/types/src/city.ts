@@ -42,6 +42,12 @@ export interface CityNearby {
   pm25: number | null;
 }
 
+/** One sentence of a city page's summary: an i18n key and the values to put in it */
+export interface CitySentence {
+  key: string;
+  params: Record<string, string | number>;
+}
+
 export interface CityPage extends CityListItem {
   lat: number;
   lng: number;
@@ -56,6 +62,8 @@ export interface CityPage extends CityListItem {
   /** The seven days up to and including `date`, oldest first */
   trend: CityTrendDay[];
   drivers: CityDrivers | null;
+  /** Dated, neutral sentences about the day; empty when no station reported */
+  summary: CitySentence[];
   nearby: CityNearby[];
   /** pm25 divided by the WHO 24-hour guideline, to one decimal; null when pm25 is null */
   whoMultiple: number | null;

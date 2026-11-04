@@ -19,6 +19,7 @@ import {
   whoMultiple,
   type Reading,
 } from './cityAggregate.js';
+import { citySummary } from './citySummary.js';
 import { stationsNearCity } from './cityStations.js';
 import { getLatestCompleteDate } from './latestDate.js';
 
@@ -166,6 +167,15 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
     ),
   );
   const day = cityDay(near, means, date);
+  const drivers = await buildDrivers(city, day, date);
+  const headline = {
+    name: city.name,
+    date,
+    pm25: day.pm25,
+    stationCount: day.stationCount,
+    whoMultiple: whoMultiple(day.pm25),
+    drivers,
+  };
 
   const page: CityPage = {
     slug: city.slug,
@@ -175,17 +185,18 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
     lng: city.lng,
     zoom: city.zoom,
     date,
-    pm25: day.pm25,
-    stationCount: day.stationCount,
+    pm25: headline.pm25,
+    stationCount: headline.stationCount,
     stations: day.stations,
     trend: cityTrend(
       near.map((station) => station.id),
       means,
       dates,
     ),
-    drivers: await buildDrivers(city, day, date),
+    drivers,
+    summary: citySummary(headline),
     nearby: nearbyCities(city, await cityMedians(stations, date)),
-    whoMultiple: whoMultiple(day.pm25),
+    whoMultiple: headline.whoMultiple,
   };
   void cacheSet(cacheKey, page, { ex: CITY_CACHE_TTL_SECONDS });
   return page;
