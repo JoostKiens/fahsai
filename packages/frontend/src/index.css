@@ -67,22 +67,56 @@ html {
   scrollbar-color: var(--color-zinc-600) transparent;
 }
 
-/* Text in the map region (src/pages/*.astro) that crawlers read and slow loads show; the map
-   island replaces it on mount. A flex item beside the sidebar. When it is hidden and revealed is
-   set inline in src/layouts/Base.astro. */
+/* The map region (src/pages/*.astro) until the map is ready: a blurred basemap
+   (MapPlaceholder.astro, MapLoadingPlaceholder.tsx). #intro is the
+   server-rendered one; the map island replaces it on mount and MapLoadingPlaceholder carries on
+   until Mapbox has loaded. The text inside #intro is visually hidden but stays in the HTML for
+   crawlers and screen readers. */
+.map-loading {
+  position: relative;
+  overflow: hidden;
+}
 #intro {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   height: 100%;
-  overflow: auto;
-  padding: 2rem 1.5rem;
+}
+/* The image is 1280 CSS pixels wide at the default zoom, so it is shown at that scale, centred like
+   the map's centre, and only grown (cropped, not stretched) to cover a larger area. */
+.map-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(1280px, 100%);
+  height: max(1280px, 100%);
+  max-width: none;
+  object-fit: cover;
+  /* the slight scale keeps the blur's faded edge out of view */
+  transform: translate(-50%, -50%) scale(1.05);
+  filter: blur(6px);
 }
 #intro > div {
-  max-width: 40rem;
-  margin: 0 auto;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
   color: #d4d4d8;
-  line-height: 1.6;
+}
+/* A keyboard user who tabs into one of its links gets the text as a readable panel, so focus is
+   never on something invisible. */
+#intro > div:focus-within {
+  inset: 0;
+  width: auto;
+  height: auto;
+  overflow: auto;
+  clip-path: none;
+  white-space: normal;
+  z-index: 2;
+  padding: 2rem 1.5rem;
+  background: rgb(9 9 11 / 0.95);
 }
 #intro h2 {
   color: #fafafa;

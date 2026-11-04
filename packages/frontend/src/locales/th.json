@@ -22,6 +22,8 @@
 
   "map.ariaLabel": "แผนที่คุณภาพอากาศ",
 
+  "map.loading": "กำลังโหลดแผนที่…",
+
   "layers.airQuality": "คุณภาพอากาศ (PM2.5)",
   "layers.stationReadings": "ค่าวัดจากสถานี",
   "layers.stationReadingsDesc": "การวัดจากสถานีตรวจวัดภาคพื้นดิน",

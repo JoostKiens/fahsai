@@ -1,0 +1,18 @@
+---
+// A blurred basemap at the default map view, shown in the map's place until the map island
+// replaces #intro. A real, eagerly loaded <img> (preloaded in Base.astro) so it is painted
+// early and counts for LCP; the Mapbox logo that appears with the map is smaller than it.
+// Regenerate with scripts/generate-map-placeholder.sh.
+import placeholder from '@/assets/basemap-placeholder.jpg';
+---
+
+<img
+  class="map-placeholder"
+  src={placeholder.src}
+  width={placeholder.width}
+  height={placeholder.height}
+  alt=""
+  loading="eager"
+  fetchpriority="high"
+  decoding="async"
+/>

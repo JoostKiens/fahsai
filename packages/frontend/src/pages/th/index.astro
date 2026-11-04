@@ -1,13 +1,15 @@
 ---
 import Base from '@/layouts/Base.astro';
 import AppShell from '@/layouts/AppShell.astro';
+import MapPlaceholder from '@/components/MapPlaceholder.astro';
 
 export const prerender = false;
 ---
 
 <Base lang="th">
   <AppShell lang="th">
-    <main id="intro" slot="fallback">
+    <main id="intro" class="map-loading" aria-busy="true" slot="fallback">
+      <MapPlaceholder />
       <div>
         <h2>Fahsai — แผนที่คุณภาพอากาศไทย</h2>
         <p>

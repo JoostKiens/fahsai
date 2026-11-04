@@ -13,6 +13,8 @@ import { useLayerStore } from '@/store/layerStore';
 import { useUIStore } from '@/store/uiStore';
 import { useFires, useStationReadings, useCamsGrid, useWind, usePowerPlants } from '@/hooks';
 import { useCamsBitmap } from './useCamsBitmap';
+import { MapLoadingPlaceholder } from './MapLoadingPlaceholder';
+import { MAP_STYLE } from './mapStyle';
 import { VIEWPORT_BBOX } from '@/utils/bbox';
 import { createFiresLayer, createFireSelectionRing } from './FiresLayer';
 import { useWindParticles } from './useWindParticles';
@@ -329,7 +331,7 @@ export function MapView() {
     const { center: initialCenter, zoom: initialZoom } = parseUrlMapState();
     const mapInstance = new Map({
       container: containerRef.current,
-      style: 'mapbox://styles/joostkiens/cm30pk39v00ah01qz4n2i1ssu',
+      style: MAP_STYLE,
       center: initialCenter,
       zoom: initialZoom,
       minZoom: MIN_ZOOM,
@@ -438,5 +440,15 @@ export function MapView() {
     };
   }, [setSelectedPoint, setMapZoom, setMapCenter]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  // The placeholder is a sibling of the Mapbox container, which Mapbox fills with its own nodes.
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      {!map && (
+        <div className="absolute inset-0">
+          <MapLoadingPlaceholder />
+        </div>
+      )}
+    </div>
+  );
 }

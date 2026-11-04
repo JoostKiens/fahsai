@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { UIOverlay } from '@/components/UIOverlay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { MapLoadingPlaceholder } from '@/components/Map/MapLoadingPlaceholder';
 import {
   useDataNotifications,
   useUrlSync,
@@ -36,7 +37,7 @@ function MapRegion() {
           </div>
         }
       >
-        <Suspense fallback={<div className="w-full h-full bg-zinc-950" />}>
+        <Suspense fallback={<MapLoadingPlaceholder />}>
           <MapView />
         </Suspense>
       </ErrorBoundary>
