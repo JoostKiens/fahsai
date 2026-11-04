@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CityListItem, CityPage } from '@thailand-aq/types';
-import { clearTables, seed } from '../test/integration/db.js';
+import { clearTables, gridPoints, seed } from '../test/integration/db.js';
 import { buildTestApp } from '../test/test-app.js';
 import { FULL_CONTEXT } from '../test/fixtures/scientific-context.js';
 import { citiesRoutes } from './cities.js';
@@ -230,6 +230,24 @@ describe('GET /api/v1/cities against a real database', () => {
         baselineCategory: 'above',
         representativeStationId: 'mid',
       });
+    });
+
+    it('takes the CAMS value from the cached day grid, without reading the table', async () => {
+      await seedChiangMai();
+      // a full grid (4000 points or more counts as complete) with one point on Chiang Mai; the
+      // cams_grid table is empty, so only the cache can supply 99
+      const grid = [
+        ...gridPoints(4000).map((point) => ({ ...point, pm25: 11 })),
+        { lat: 18.8, lng: 99.0, pm25: 99 },
+      ];
+      redisGet.mockImplementation((key: string) =>
+        Promise.resolve(key === `cams:pm25:${DATE}` ? grid : null),
+      );
+      computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+
+      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+      expect(page.drivers?.camsPm25).toBe(99);
     });
 
     it('gives no CAMS figure when the grid has nothing near the city', async () => {
