@@ -9,10 +9,10 @@ export const MOBILE_MIN_WIDTH_PX = 768;
 export const PHONE_MEDIA_QUERY = `(max-width: ${MOBILE_MIN_WIDTH_PX - 1}px)`;
 export const DESKTOP_MEDIA_QUERY = `(min-width: ${MOBILE_MIN_WIDTH_PX}px)`;
 export const MIN_ZOOM = 4.0;
-const MAX_ZOOM = 22; // the deepest zoom Mapbox shows
+export const MAX_ZOOM = 22; // the deepest zoom Mapbox shows
 
 // Plain decimals only: parseFloat would take 13.7abc, Number would take '' as 0.
-const DECIMAL = /^-?\d+(\.\d+)?$/;
+export const DECIMAL = /^-?\d+(\.\d+)?$/;
 function parseDecimal(value: string | null): number {
   return value !== null && DECIMAL.test(value) ? Number(value) : NaN;
 }

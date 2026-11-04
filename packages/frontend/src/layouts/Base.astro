@@ -3,6 +3,7 @@ import '@/index.css';
 import placeholder from '@/assets/basemap-placeholder.jpg';
 import phonePlaceholder from '@/assets/basemap-placeholder-phone.jpg';
 import { DESKTOP_MEDIA_QUERY, PHONE_MEDIA_QUERY } from '@/utils/mapView';
+import { placeholderGuardScript } from '@/lib/placeholderGuard';
 
 interface Props {
   lang: 'en' | 'th';
@@ -150,6 +151,10 @@ const structuredData = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Before anything paints: leave the placeholder out for a link to another place. Its hash is
+         in the CSP (astro.config.mjs) -->
+    <script is:inline set:html={placeholderGuardScript} />
 
     <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
     {apiBase && <link rel="preconnect" href={apiBase} crossorigin />}
