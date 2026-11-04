@@ -5,3 +5,4 @@ export * from './fire';
 export * from './station';
 export * from './weather';
 export * from './power-plant';
+export * from './city';
