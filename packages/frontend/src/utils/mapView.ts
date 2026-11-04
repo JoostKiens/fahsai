@@ -41,3 +41,16 @@ export function initialMapView(
     zoom: isZoomValid ? Math.max(MIN_ZOOM, zoom) : fallbackZoom,
   };
 }
+
+/** True when `view` is where a screen this wide starts, the view the placeholder image shows. */
+export function isStartView(
+  view: { center: [number, number]; zoom: number },
+  viewportWidthPx: number,
+): boolean {
+  const start = initialMapView('', viewportWidthPx);
+  return (
+    view.center[0] === start.center[0] &&
+    view.center[1] === start.center[1] &&
+    view.zoom === start.zoom
+  );
+}

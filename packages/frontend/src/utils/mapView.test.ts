@@ -6,6 +6,7 @@ import {
   MOBILE_ZOOM,
   PHONE_MEDIA_QUERY,
   initialMapView,
+  isStartView,
 } from './mapView';
 
 const DESKTOP = 1280;
@@ -92,5 +93,25 @@ describe('the phone and desktop media queries', () => {
     expect(DESKTOP_MEDIA_QUERY).toBe('(min-width: 768px)');
     expect(initialMapView('', 767).zoom).toBe(MOBILE_ZOOM);
     expect(initialMapView('', 768).zoom).toBe(DEFAULT_ZOOM);
+  });
+});
+
+describe('isStartView', () => {
+  it.each([
+    ['desktop', DESKTOP, '', true],
+    ['phone', PHONE, '', true],
+    [
+      'desktop with the default view in the link',
+      DESKTOP,
+      '?lat=15.5000&lng=101.0000&zoom=5.50',
+      true,
+    ],
+    ['phone with the phone view in the link', PHONE, '?lat=13.5000&lng=102.0000&zoom=4.70', true],
+    ['desktop with another centre', DESKTOP, '?lat=18.8&lng=98.9&zoom=5.5', false],
+    ['desktop with another zoom', DESKTOP, '?zoom=9', false],
+    ['phone with the desktop default in the link', PHONE, '?lat=15.5&lng=101&zoom=5.5', false],
+    ['desktop with a mangled link', DESKTOP, '?lat=15.5abc&lng=101', true],
+  ])('is %s: %s', (_, width, search, expected) => {
+    expect(isStartView(initialMapView(search, width), width)).toBe(expected);
   });
 });
