@@ -1,4 +1,4 @@
-import type { CityDrivers, CityNearby, CityPage, Station } from '@thailand-aq/types';
+import type { CityDrivers, CityNearby, CityPage } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { cacheGet, cacheSet } from '../cache/safe.js';
 import { logger } from './logger.js';
@@ -20,7 +20,7 @@ import {
   type Reading,
 } from './cityAggregate.js';
 import { citySummary } from './citySummary.js';
-import { stationsNearCity } from './cityStations.js';
+import { fetchCityStations } from './fetchCityStations.js';
 import { getLatestCompleteDate } from './latestDate.js';
 
 const PAGE_SIZE = 1000;
@@ -31,28 +31,6 @@ export const NEARBY_MAX_KM = 250;
 export const NEARBY_LIMIT = 4;
 // The same as the page's ISR: a station that reports late shows up within the hour.
 export const CITY_CACHE_TTL_SECONDS = 60 * 60;
-
-interface StationRow {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  country: string | null;
-  provider: string | null;
-}
-
-async function fetchStations(): Promise<Station[]> {
-  const rows = await fetchAllPages<StationRow>(
-    (from, to) =>
-      supabase
-        .from('stations')
-        .select('id, name, lat, lng, country, provider')
-        .order('id')
-        .range(from, to),
-    PAGE_SIZE,
-  );
-  return rows.map((row) => ({ ...row, country: row.country ?? '' }));
-}
 
 interface ReadingRow {
   station_id: string;
@@ -94,29 +72,32 @@ async function fetchReadings(
   return readings;
 }
 
-// Every city's figure for one day, in one query, for the nearby-cities lists.
-async function cityMedians(stations: Station[], date: string): Promise<Map<string, number | null>> {
-  const stationsByCity = new Map(
-    CITIES.map((city) => [city.slug, stationsNearCity(stations, city)]),
-  );
-  const ids = [...new Set([...stationsByCity.values()].flatMap((near) => near.map((s) => s.id)))];
-  const means = stationDayMeans(await fetchReadings(ids, date, date));
-  return new Map(
-    [...stationsByCity].map(([slug, near]) => [slug, cityDay(near, means, date).pm25]),
-  );
-}
-
-function nearbyCities(city: CityDef, medians: Map<string, number | null>): CityNearby[] {
+// The cities the page links to: the nearest few within reach, nearest first.
+function nearbyCandidates(city: CityDef): CityDef[] {
   return CITIES.filter((other) => other.slug !== city.slug)
     .map((other) => ({ other, km: haversineKm(city.lat, city.lng, other.lat, other.lng) }))
     .filter(({ km }) => km <= NEARBY_MAX_KM)
     .sort((a, b) => a.km - b.km || a.other.slug.localeCompare(b.other.slug))
     .slice(0, NEARBY_LIMIT)
-    .map(({ other }) => ({
-      slug: other.slug,
-      name: other.name,
-      pm25: medians.get(other.slug) ?? null,
-    }));
+    .map(({ other }) => other);
+}
+
+// The candidates' figures for one day, from one readings query.
+async function nearbyCities(candidates: CityDef[], date: string): Promise<CityNearby[]> {
+  if (candidates.length === 0) return [];
+  const stationsByCity = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      near: await fetchCityStations(candidate),
+    })),
+  );
+  const ids = [...new Set(stationsByCity.flatMap(({ near }) => near.map((station) => station.id)))];
+  const means = stationDayMeans(await fetchReadings(ids, date, date));
+  return stationsByCity.map(({ candidate, near }) => ({
+    slug: candidate.slug,
+    name: candidate.name,
+    pm25: cityDay(near, means, date).pm25,
+  }));
 }
 
 // What the day's trajectory and fires say, from the station that stands for the city. The page does
@@ -156,8 +137,7 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
   const cached = await cacheGet<CityPage>(cacheKey);
   if (cached) return cached;
 
-  const stations = await fetchStations();
-  const near = stationsNearCity(stations, city);
+  const near = await fetchCityStations(city);
   const dates = lastDays(date, TREND_DAYS);
   const means = stationDayMeans(
     await fetchReadings(
@@ -167,7 +147,11 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
     ),
   );
   const day = cityDay(near, means, date);
-  const drivers = await buildDrivers(city, day, date);
+  // neither needs the other
+  const [drivers, nearby] = await Promise.all([
+    buildDrivers(city, day, date),
+    nearbyCities(nearbyCandidates(city), date),
+  ]);
   const headline = {
     name: city.name,
     date,
@@ -195,7 +179,7 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
     ),
     drivers,
     summary: citySummary(headline),
-    nearby: nearbyCities(city, await cityMedians(stations, date)),
+    nearby,
     whoMultiple: headline.whoMultiple,
   };
   void cacheSet(cacheKey, page, { ex: CITY_CACHE_TTL_SECONDS });
