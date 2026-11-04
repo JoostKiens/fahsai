@@ -13,11 +13,14 @@
 set -euo pipefail
 
 : "${MAPBOX_TOKEN:?Set MAPBOX_TOKEN to a Mapbox public token}"
+command -v sips >/dev/null || { echo "This script needs sips (macOS) to shrink the image" >&2; exit 1; }
 
 style=joostkiens/cm30pk39v00ah01qz4n2i1ssu
 view=101,15.5,5.5,0,0
 out="$(dirname "$0")/../packages/frontend/src/assets/basemap-placeholder.jpg"
-tmp="$(mktemp -d)/full.jpg"
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+tmp="$workdir/full.jpg"
 
 mkdir -p "$(dirname "$out")"
 status=$(curl -sS ${MAPBOX_REFERER:+-e "$MAPBOX_REFERER"} -o "$tmp" -w '%{http_code}' \
