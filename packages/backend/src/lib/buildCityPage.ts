@@ -100,32 +100,72 @@ async function nearbyCities(candidates: CityDef[], date: string): Promise<CityNe
   }));
 }
 
-// What the day's trajectory and fires say, from the station that stands for the city. The page does
-// not depend on it: when it cannot be had, the page goes without.
+// The context is the heaviest part of a page (a peer query over all stations, three wind and three
+// CAMS grids, a fire query), and the page does not depend on it: past this the page goes without.
+const DRIVERS_DEADLINE_MS = 6000;
+// A page that lacks something a failure kept from it is kept for a minute, not the hour.
+const DEGRADED_CACHE_TTL_SECONDS = 60;
+
+export interface BuildCityPageOptions {
+  driversDeadlineMs?: number;
+}
+
+function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`took longer than ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+// What the day's trajectory and fires say, from the station that stands for the city. `complete` is
+// false when something could not be read (the context, the CAMS value or the fire data), as opposed
+// to there being nothing to say.
 async function buildDrivers(
   city: CityDef,
   day: ReturnType<typeof cityDay>,
   date: string,
-): Promise<CityDrivers | null> {
+  deadlineMs: number,
+): Promise<{ drivers: CityDrivers | null; complete: boolean }> {
   const station = pickRepresentativeStation(day.stations, day.pm25);
-  if (!station) return null;
-  try {
-    const [context, camsPm25] = await Promise.all([
-      computeScientificContext(station.id, station.lat, station.lng, date),
-      fetchCamsNearest(city.lat, city.lng, date),
-    ]);
-    return context ? driversFromContext(context, station.id, camsPm25) : null;
-  } catch (err) {
-    logger.warn({ err, slug: city.slug, date }, 'city page: no drivers, the context failed');
-    return null;
+  if (!station) return { drivers: null, complete: true };
+
+  const [context, cams] = await Promise.allSettled([
+    withDeadline(computeScientificContext(station.id, station.lat, station.lng, date), deadlineMs),
+    fetchCamsNearest(city.lat, city.lng, date),
+  ]);
+  if (cams.status === 'rejected') {
+    logger.warn({ err: cams.reason, slug: city.slug, date }, 'city page: no CAMS value');
   }
+  if (context.status === 'rejected') {
+    logger.warn({ err: context.reason, slug: city.slug, date }, 'city page: no drivers');
+    return { drivers: null, complete: false };
+  }
+  if (context.value === null) return { drivers: null, complete: true };
+
+  const fireDataMissing = context.value.transport?.fire.dataAvailable === false;
+  return {
+    drivers: driversFromContext(
+      context.value,
+      station.id,
+      cams.status === 'fulfilled' ? cams.value : null,
+    ),
+    complete: cams.status === 'fulfilled' && !fireDataMissing,
+  };
 }
+
+// Requests that arrive together for the same page share one build (per process).
+const inFlight = new Map<string, Promise<CityPage>>();
 
 /**
  * The page of one city for the newest complete Bangkok day, or null for a slug that is not in the
- * list. Throws a no_data error when there is no complete day. Cached for an hour.
+ * list. Throws a no_data error when there is no complete day. Cached for an hour, or a minute when
+ * part of it could not be read.
  */
-export async function buildCityPage(slug: string): Promise<CityPage | null> {
+export async function buildCityPage(
+  slug: string,
+  { driversDeadlineMs = DRIVERS_DEADLINE_MS }: BuildCityPageOptions = {},
+): Promise<CityPage | null> {
   const city = findCity(slug);
   if (!city) return null;
 
@@ -134,54 +174,63 @@ export async function buildCityPage(slug: string): Promise<CityPage | null> {
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
   const cacheKey = `city:v1:${slug}:${date}`;
-  const cached = await cacheGet<CityPage>(cacheKey);
-  if (cached) return cached;
+  const running = inFlight.get(cacheKey);
+  if (running) return running;
 
-  const near = await fetchCityStations(city);
-  const dates = lastDays(date, TREND_DAYS);
-  const means = stationDayMeans(
-    await fetchReadings(
-      near.map((station) => station.id),
-      dates[0],
+  const build = (async (): Promise<CityPage> => {
+    const cached = await cacheGet<CityPage>(cacheKey);
+    if (cached) return cached;
+
+    const near = await fetchCityStations(city);
+    const dates = lastDays(date, TREND_DAYS);
+    const means = stationDayMeans(
+      await fetchReadings(
+        near.map((station) => station.id),
+        dates[0],
+        date,
+      ),
+    );
+    const day = cityDay(near, means, date);
+    // neither needs the other
+    const [{ drivers, complete }, nearby] = await Promise.all([
+      buildDrivers(city, day, date, driversDeadlineMs),
+      nearbyCities(nearbyCandidates(city), date),
+    ]);
+    const headline = {
+      name: city.name,
       date,
-    ),
-  );
-  const day = cityDay(near, means, date);
-  // neither needs the other
-  const [drivers, nearby] = await Promise.all([
-    buildDrivers(city, day, date),
-    nearbyCities(nearbyCandidates(city), date),
-  ]);
-  const headline = {
-    name: city.name,
-    date,
-    pm25: day.pm25,
-    stationCount: day.stationCount,
-    whoMultiple: whoMultiple(day.pm25),
-    drivers,
-  };
+      pm25: day.pm25,
+      stationCount: day.stationCount,
+      whoMultiple: whoMultiple(day.pm25),
+      drivers,
+    };
 
-  const page: CityPage = {
-    slug: city.slug,
-    name: city.name,
-    country: city.country,
-    lat: city.lat,
-    lng: city.lng,
-    zoom: city.zoom,
-    date,
-    pm25: headline.pm25,
-    stationCount: headline.stationCount,
-    stations: day.stations,
-    trend: cityTrend(
-      near.map((station) => station.id),
-      means,
-      dates,
-    ),
-    drivers,
-    summary: citySummary(headline),
-    nearby,
-    whoMultiple: headline.whoMultiple,
-  };
-  void cacheSet(cacheKey, page, { ex: CITY_CACHE_TTL_SECONDS });
-  return page;
+    const page: CityPage = {
+      slug: city.slug,
+      name: city.name,
+      country: city.country,
+      lat: city.lat,
+      lng: city.lng,
+      zoom: city.zoom,
+      date,
+      pm25: headline.pm25,
+      stationCount: headline.stationCount,
+      stations: day.stations,
+      trend: cityTrend(
+        near.map((station) => station.id),
+        means,
+        dates,
+      ),
+      drivers,
+      summary: citySummary(headline),
+      nearby,
+      whoMultiple: headline.whoMultiple,
+    };
+    void cacheSet(cacheKey, page, {
+      ex: complete ? CITY_CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS,
+    });
+    return page;
+  })().finally(() => inFlight.delete(cacheKey));
+  inFlight.set(cacheKey, build);
+  return build;
 }

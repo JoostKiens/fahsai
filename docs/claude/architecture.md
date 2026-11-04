@@ -338,8 +338,10 @@ GET /api/v1/cities/:slug
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
   else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
   the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
-  Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour);
-  Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
+  Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour), or
+  60 s when part of the day could not be read (the context failed or took over 6 s, the CAMS value
+  failed, or the fire data was not read), so one blip does not stay for the hour. Requests for the
+  same page that arrive together share one build (per process). Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
   lib/buildCityPage.ts.
 
 GET /api/v1/weather?date=YYYY-MM-DD&bbox=...

@@ -3,6 +3,8 @@ import type { CityListItem, CityPage } from '@thailand-aq/types';
 import { clearTables, gridPoints, seed } from '../test/integration/db.js';
 import { buildTestApp } from '../test/test-app.js';
 import { FULL_CONTEXT } from '../test/fixtures/scientific-context.js';
+import { buildCityPage } from '../lib/buildCityPage.js';
+import { fetchCamsNearest } from '../lib/camsNearest.js';
 import { citiesRoutes } from './cities.js';
 
 const { redisGet, redisSet } = vi.hoisted(() => ({ redisGet: vi.fn(), redisSet: vi.fn() }));
@@ -19,6 +21,11 @@ vi.mock('../lib/latestDate.js', () => ({
 // what the page takes from it.
 const { computeScientificContext } = vi.hoisted(() => ({ computeScientificContext: vi.fn() }));
 vi.mock('../lib/computeScientificContext.js', () => ({ computeScientificContext }));
+
+vi.mock('../lib/camsNearest.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/camsNearest.js')>();
+  return { fetchCamsNearest: vi.fn(actual.fetchCamsNearest) };
+});
 
 const DATE = '2026-10-17';
 // One degree of latitude is about 111.2 km.
@@ -267,6 +274,81 @@ describe('GET /api/v1/cities against a real database', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json<CityPage>()).toMatchObject({ pm25: 20, drivers: null });
+    });
+
+    // A page that lacks what a blip kept from it must not stay for the hour
+    describe('when part of the day could not be read', () => {
+      const cachedFor = () => redisSet.mock.calls.map((call: unknown[]) => call[2]);
+
+      it('caches the page for a minute, not an hour, when the context failed', async () => {
+        await seedChiangMai();
+        computeScientificContext.mockRejectedValue(new Error('context failed'));
+
+        await get('/api/v1/cities/chiang-mai');
+
+        expect(cachedFor()).toEqual([{ ex: 60 }]);
+      });
+
+      it('keeps the drivers when only the CAMS lookup fails, without a CAMS figure, for a minute', async () => {
+        await seedChiangMai();
+        computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+        vi.mocked(fetchCamsNearest).mockRejectedValueOnce(new Error('cams down'));
+
+        const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+        expect(page.drivers).toMatchObject({ upwindFireCount: 34, camsPm25: null });
+        expect(cachedFor()).toEqual([{ ex: 60 }]);
+      });
+
+      it('says nothing about fires, and caches for a minute, when the fire data was not read', async () => {
+        await seedChiangMai();
+        const transport = FULL_CONTEXT.transport!;
+        computeScientificContext.mockResolvedValue({
+          ...FULL_CONTEXT,
+          transport: {
+            ...transport,
+            fire: { ...transport.fire, pathFireCount: 0, dataAvailable: false },
+          },
+        });
+
+        const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+        expect(page.drivers?.upwindFireCount).toBeNull();
+        expect(page.summary.map((sentence) => sentence.key)).not.toContain('city.summary.noFires');
+        expect(cachedFor()).toEqual([{ ex: 60 }]);
+      });
+
+      it('gives up on the drivers after the deadline, and the page still comes', async () => {
+        await seedChiangMai();
+        computeScientificContext.mockReturnValue(new Promise(() => undefined));
+
+        const page = await buildCityPage('chiang-mai', { driversDeadlineMs: 20 });
+
+        expect(page).toMatchObject({ pm25: 20, drivers: null });
+        expect(cachedFor()).toEqual([{ ex: 60 }]);
+      });
+
+      it('caches a complete page for the hour', async () => {
+        await seedChiangMai();
+        computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+
+        await get('/api/v1/cities/chiang-mai');
+
+        expect(cachedFor()).toEqual([{ ex: 3600 }]);
+      });
+    });
+
+    it('builds a page once for requests that arrive together', async () => {
+      await seedChiangMai();
+      computeScientificContext.mockResolvedValue(FULL_CONTEXT);
+
+      const [first, second] = await Promise.all([
+        buildCityPage('chiang-mai'),
+        buildCityPage('chiang-mai'),
+      ]);
+
+      expect(computeScientificContext).toHaveBeenCalledTimes(1);
+      expect(second).toBe(first);
     });
 
     it('does not ask for a context when no station reported', async () => {
