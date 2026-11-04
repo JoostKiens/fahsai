@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import placeholder from '@/assets/basemap-placeholder.jpg';
 
-// The blurred basemap and spinner of the server-rendered #intro (see MapPlaceholder.astro and
+// The blurred basemap of the server-rendered #intro (see MapPlaceholder.astro and
 // index.css), for the gaps after that fallback has been replaced: while the map chunk loads and
 // until Mapbox has loaded its style. The browser already has the image, it is preloaded.
 export function MapLoadingPlaceholder() {

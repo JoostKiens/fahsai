@@ -81,7 +81,7 @@ function).
 
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
-- While the map loads, its region shows a blurred basemap at the default view with a spinner
+- While the map loads, its region shows a blurred basemap at the default view
   (`MapPlaceholder.astro` in the server HTML, `MapLoadingPlaceholder.tsx` until Mapbox's `load`).
   It is a real `<img>`, preloaded in `Base.astro`: Chrome counts it as the LCP, where the Mapbox
   logo that appears with the map would be a late LCP. It always shows the default view, so a link to

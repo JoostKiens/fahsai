@@ -188,9 +188,8 @@ const structuredData = {
     <!-- Structured data -->
     <script is:inline type="application/ld+json" set:html={JSON.stringify(structuredData)} />
     <noscript>
-      <!-- nothing will replace #intro, so show its text instead of a spinner -->
+      <!-- nothing will replace #intro, so show its text instead of the blurred map -->
       <style is:inline>
-        .map-loading::before,
         .map-placeholder {
           display: none;
         }

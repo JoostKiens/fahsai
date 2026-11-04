@@ -68,7 +68,7 @@ html {
 }
 
 /* The map region (src/pages/*.astro) until the map is ready: a blurred basemap
-   (MapPlaceholder.astro, MapLoadingPlaceholder.tsx) with a spinner over it. #intro is the
+   (MapPlaceholder.astro, MapLoadingPlaceholder.tsx). #intro is the
    server-rendered one; the map island replaces it on mount and MapLoadingPlaceholder carries on
    until Mapbox has loaded. The text inside #intro is visually hidden but stays in the HTML for
    crawlers and screen readers. */
@@ -95,30 +95,6 @@ html {
   /* the slight scale keeps the blur's faded edge out of view */
   transform: translate(-50%, -50%) scale(1.05);
   filter: blur(6px);
-}
-.map-loading::before {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  left: 50%;
-  width: 2rem;
-  height: 2rem;
-  margin: -1rem 0 0 -1rem;
-  border: 2px solid var(--color-zinc-600);
-  border-top-color: var(--color-zinc-200);
-  border-radius: 50%;
-  animation: intro-spin 0.8s linear infinite;
-}
-@keyframes intro-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .map-loading::before {
-    animation: none;
-  }
 }
 #intro > div {
   position: absolute;
