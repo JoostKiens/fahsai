@@ -330,7 +330,8 @@ GET /api/v1/cities/:slug
   trend = the 7 days up to date; nearby = cities within 250 km, nearest first, with their figure
   for the same day; whoMultiple = pm25 / 15 (WHO 24 h guideline). drivers comes from the context of
   the reporting station closest to the city figure (computeScientificContext, in-process): wind,
-  fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea),
+  fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea,
+  or when the fire data could not be read, transport.fire.dataAvailable false),
   the seasonal baseline category, plus the CAMS value at the city centre (lib/camsNearest.ts); it is
   null when the context cannot be had, and the page does not depend on it. summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count

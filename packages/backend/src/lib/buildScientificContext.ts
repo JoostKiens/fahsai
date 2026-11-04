@@ -111,6 +111,8 @@ export interface ScientificContext {
       areaTotalFrpMw: number | null;
       firesAreLocal: boolean;
       areaFireRadiusKm: number;
+      /** False when the fire query failed: the counts are then 0 for lack of data, not of fires */
+      dataAvailable: boolean;
     };
   } | null;
 
@@ -394,6 +396,7 @@ export function buildScientificContext(raw: RawExplainData): ScientificContext {
         areaTotalFrpMw: fp.areaTotalFrpMw,
         firesAreLocal,
         areaFireRadiusKm: 75,
+        dataAvailable: !(fp.queryFailed ?? false),
       },
     };
   }

@@ -80,6 +80,7 @@ export const FULL_CONTEXT: ScientificContext = {
       areaTotalFrpMw: 310.5,
       firesAreLocal: false,
       areaFireRadiusKm: 75,
+      dataAvailable: true,
     },
   },
   upwindSources: {

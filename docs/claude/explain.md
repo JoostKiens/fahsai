@@ -84,6 +84,9 @@ transport footprint of air arriving at a station.
   (`leftDataArea`, and `leftDataAreaAfterHours`, for the center member), and the context carries both
   in `transport.trajectory`. The explanation prompt does not use them yet (JOO-125); the city pages
   do, to skip the upwind-fire figure.
+- When the `fire_points` query fails the context still comes back, with 0 fires, and is not cached.
+  `transport.fire.dataAvailable` is false then, so a consumer can tell "no fires were detected" from
+  "the fire data was not read"; the city pages give no fire sentence in that case.
 - A **cumulative fire pressure score** (0–100) weights fires by FRP, recency, and proximity
   to the trajectory path.
 - When a station is a **strong outlier** (`analyzePeers.ts`: reading is ≥2× or ≤0.4× the

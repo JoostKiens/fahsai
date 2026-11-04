@@ -124,6 +124,10 @@ export const ScientificContextSchema = Type.Object({
           areaTotalFrpMw: nullable(Type.Number()),
           firesAreLocal: Type.Boolean(),
           areaFireRadiusKm: Type.Number(),
+          dataAvailable: Type.Boolean({
+            description:
+              'False when the fire data could not be read: the counts are then 0 for lack of data, not of fires.',
+          }),
         }),
       }),
       Type.Null(),

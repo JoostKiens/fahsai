@@ -35,8 +35,11 @@ export function driversFromContext(
   const day = wind.days[0]?.date === context.date ? wind.days[0] : undefined;
   return {
     originInDataArea: leftArea === null ? null : !leftArea,
+    // a count of 0 would claim there were no fires when the fire data was never read
     upwindFireCount:
-      transport && !transport.trajectory.leftDataArea ? transport.fire.pathFireCount : null,
+      transport && !transport.trajectory.leftDataArea && transport.fire.dataAvailable
+        ? transport.fire.pathFireCount
+        : null,
     windSpeedKmh: day?.speedKmh ?? null,
     windFrom: day?.directionLabel ?? null,
     camsPm25,

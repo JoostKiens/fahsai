@@ -222,10 +222,25 @@ describe('computeScientificContext', () => {
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
     expect(mockLoggerWarn).toHaveBeenCalled();
     const rawInput = mockBuildRawExplainData.mock.calls[0][0] as {
-      firePressure: { pathFireCount: number };
+      firePressure: { pathFireCount: number; queryFailed: boolean };
     };
     expect(rawInput.firePressure.pathFireCount).toBe(0);
+    // so that 0 is not taken for "no fires were detected"
+    expect(rawInput.firePressure.queryFailed).toBe(true);
     expect(mockRedisSet).not.toHaveBeenCalled();
+  });
+
+  it('says the fire data was read when the fire-points query worked', async () => {
+    mockRedisGet.mockResolvedValue(null);
+    mockFetchExplainContext.mockResolvedValue(buildExplainContextFixture());
+    mockTraceEnsemble.mockReturnValue(buildEnsembleFixture(PAST_DATE));
+
+    await computeScientificContext(STATION_ID, LAT, LNG, PAST_DATE);
+
+    const rawInput = mockBuildRawExplainData.mock.calls[0][0] as {
+      firePressure: { queryFailed: boolean };
+    };
+    expect(rawInput.firePressure.queryFailed).toBe(false);
   });
 
   it('returns null when the station has no readings for that date', async () => {

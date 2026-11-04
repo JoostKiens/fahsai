@@ -91,6 +91,8 @@ export interface FixtureFirePressure {
   areaScore: number; // 0–100, 14-day precomputed grid score
   areaFireCount: number | null; // null when outside grid
   areaTotalFrpMw: number | null;
+  // Set by the live computation when the fire query failed; absent in the eval fixtures
+  queryFailed?: boolean;
 }
 
 export interface FixtureUpwindSource {

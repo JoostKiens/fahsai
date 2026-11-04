@@ -51,6 +51,8 @@ export interface BuildRawExplainDataInput {
     areaScore: number;
     areaFireCount: number | null;
     areaTotalFrpMw: number | null;
+    /** True when the fire query failed, so the counts above are 0 for lack of data, not of fires */
+    queryFailed: boolean;
   };
 
   upwindSources: SourceInput[];
@@ -203,6 +205,7 @@ export function buildRawExplainData(input: BuildRawExplainDataInput): RawExplain
       areaScore: firePressure.areaScore,
       areaFireCount: firePressure.areaFireCount,
       areaTotalFrpMw: firePressure.areaTotalFrpMw,
+      queryFailed: firePressure.queryFailed,
     },
 
     upwindSources: upwindSources.map(buildSource),

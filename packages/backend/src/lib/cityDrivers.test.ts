@@ -62,6 +62,22 @@ describe('driversFromContext', () => {
     });
   });
 
+  it('gives no fire count when the fire data could not be read: 0 would claim there were none', () => {
+    const transport = FULL_CONTEXT.transport!;
+    const unread: ScientificContext = {
+      ...FULL_CONTEXT,
+      transport: {
+        ...transport,
+        fire: { ...transport.fire, pathFireCount: 0, dataAvailable: false },
+      },
+    };
+
+    expect(driversFromContext(unread, 's1', null)).toMatchObject({
+      originInDataArea: true,
+      upwindFireCount: null,
+    });
+  });
+
   it('does not know where the air came from when the context has no transport', () => {
     expect(driversFromContext(SPARSE_CONTEXT, 's1', null)).toMatchObject({
       originInDataArea: null,

@@ -63,3 +63,24 @@ describe('buildScientificContext and the edge of the data area', () => {
     });
   });
 });
+
+describe('buildScientificContext and whether the fire data was read', () => {
+  function withFirePressure(extra: object): RawExplainData {
+    const { input } = fixture;
+    return { ...input, firePressure: input.firePressure && { ...input.firePressure, ...extra } };
+  }
+
+  it('says the fire data is not available when the fire query failed', () => {
+    const ctx = buildScientificContext(withFirePressure({ queryFailed: true }));
+
+    expect(ctx.transport?.fire.dataAvailable).toBe(false);
+  });
+
+  it('says it is available otherwise, as in the eval fixtures', () => {
+    expect(buildScientificContext(withFirePressure({})).transport?.fire.dataAvailable).toBe(true);
+    expect(
+      buildScientificContext(withFirePressure({ queryFailed: false })).transport?.fire
+        .dataAvailable,
+    ).toBe(true);
+  });
+});
