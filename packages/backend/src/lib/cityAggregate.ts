@@ -1,6 +1,8 @@
 import type { CityStationDay, CityTrendDay } from '@thailand-aq/types';
-import { WHO_PM25_24H_UGM3, MS_PER_DAY } from '@thailand-aq/consts';
+import { WHO_PM25_24H_UGM3 } from '@thailand-aq/consts';
 import { bangkokDateString } from '../utils/bkkDate.js';
+import { median } from '../utils/median.js';
+import { offsetDate } from '../utils/trajectory.js';
 
 export interface Reading {
   stationId: string;
@@ -30,16 +32,22 @@ export function stationDayMeans(readings: Reading[]): StationDayMeans {
   return means;
 }
 
-export function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
 const oneDecimal = (value: number) => Math.round(value * 10) / 10;
 
 /** The city's figure for one day: the median of the stations that reported, as a whole number. */
+function dayFigure(
+  stationIds: string[],
+  means: StationDayMeans,
+  date: string,
+): { pm25: number | null; stationCount: number } {
+  const reported = stationIds.flatMap((id) => means.get(id)?.get(date)?.mean ?? []);
+  const cityMedian = median(reported);
+  return {
+    pm25: cityMedian === null ? null : Math.round(cityMedian),
+    stationCount: reported.length,
+  };
+}
+
 export function cityDay(
   stations: { id: string; name: string; lat: number; lng: number }[],
   means: StationDayMeans,
@@ -56,11 +64,12 @@ export function cityDay(
       readingCount: day?.count ?? 0,
     };
   });
-  const reported = stations.flatMap((s) => means.get(s.id)?.get(date)?.mean ?? []);
-  const cityMedian = median(reported);
   return {
-    pm25: cityMedian === null ? null : Math.round(cityMedian),
-    stationCount: reported.length,
+    ...dayFigure(
+      stations.map((station) => station.id),
+      means,
+      date,
+    ),
     stations: rows,
   };
 }
@@ -71,15 +80,7 @@ export function cityTrend(
   means: StationDayMeans,
   dates: string[],
 ): CityTrendDay[] {
-  return dates.map((date) => {
-    const reported = stationIds.flatMap((id) => means.get(id)?.get(date)?.mean ?? []);
-    const cityMedian = median(reported);
-    return {
-      date,
-      pm25: cityMedian === null ? null : Math.round(cityMedian),
-      stationCount: reported.length,
-    };
-  });
+  return dates.map((date) => ({ date, ...dayFigure(stationIds, means, date) }));
 }
 
 /** How many times the WHO 24-hour guideline a PM2.5 value is, to one decimal. */
@@ -89,8 +90,5 @@ export function whoMultiple(pm25: number | null): number | null {
 
 /** `count` calendar days ending on `date` (YYYY-MM-DD), oldest first. */
 export function lastDays(date: string, count: number): string[] {
-  const end = Date.parse(`${date}T00:00:00Z`);
-  return Array.from({ length: count }, (_, i) =>
-    new Date(end - (count - 1 - i) * MS_PER_DAY).toISOString().slice(0, 10),
-  );
+  return Array.from({ length: count }, (_, i) => offsetDate(date, -(count - 1 - i)));
 }

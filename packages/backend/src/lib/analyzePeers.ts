@@ -1,6 +1,7 @@
 import { haversineKm } from '../utils/geo.js';
 import { pm25Cat } from './buildScientificContext.js';
 import type { PeerRow } from './fetchExplainContext.js';
+import { median } from '../utils/median.js';
 
 type PeerEntry = { name: string; pm25: number; distKm: number };
 
@@ -18,11 +19,9 @@ export interface PeerAnalysis {
   peerDistribution: string | null;
 }
 
+// 0 for no peers: the callers compare against it
 function medianOf(arr: number[]): number {
-  if (!arr.length) return 0;
-  const s = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  return median(arr) ?? 0;
 }
 
 export function analyzePeers(
