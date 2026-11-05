@@ -256,7 +256,7 @@ describe('summaryHtml', () => {
       .join(',')}`) as never;
   const sentence = (key: string, params = {}) => ({ key, params });
 
-  it('puts the day in a <time> element, and the AQI category next to the figure', () => {
+  it('puts the day in a <time> element, and the PCD band next to the figure', () => {
     const page = {
       ...PAGE,
       summary: [sentence('city.summary.level', { date: '2026-11-03', pm25: 11 })],
@@ -265,7 +265,7 @@ describe('summaryHtml', () => {
     const [html] = summaryHtml(page, t, null);
 
     expect(html).toContain('date=<time datetime="2026-11-03">3 Nov 2026</time>');
-    expect(html).toContain('category=aqi.moderate');
+    expect(html).toContain('category=pcd.excellent');
   });
 
   it('escapes what the API sends, so a name cannot add markup', () => {

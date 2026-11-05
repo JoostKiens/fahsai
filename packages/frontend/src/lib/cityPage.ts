@@ -11,7 +11,7 @@ import { SITE } from '@/lib/site';
 import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
 import type { PmBarDay } from '@/components/InfoPanel/PmBarChart';
 import { compassToDeg } from '@/components/InfoPanel/utils.ambient';
-import { pm25ToCategory } from '@/utils/aqiColors';
+import { pm25ToPcdBand } from '@/utils/pcdBands';
 import { dateLocale } from '@/utils/locale';
 
 // the baseline sentence is optional: a slow answer must not hold the page up for long
@@ -307,7 +307,7 @@ export function summaryHtml(page: CityPage, t: i18n['t'], diff: BaselineDiff | n
       values.date = timeHtml(params.date);
     }
     if (key === 'city.summary.level' && typeof params.pm25 === 'number') {
-      values.category = t(pm25ToCategory(params.pm25).key as never);
+      values.category = t(pm25ToPcdBand(params.pm25).key as never);
     }
     if (isBaseline && diff) {
       values.station = escapeHtml(diff.station);
