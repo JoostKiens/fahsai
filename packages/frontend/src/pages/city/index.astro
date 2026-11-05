@@ -36,6 +36,7 @@ const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, n
     <section class="flex flex-col gap-2 py-2">
       <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">{t('city.indexH1')}</h1>
       <p class="text-[13px] text-zinc-400">{t('city.indexIntro')}</p>
+      <p class="text-[11px] text-zinc-400">{t('pcd.scaleName')}</p>
     </section>
 
     {!cities && <p>{t('city.indexUnavailable')}</p>}
