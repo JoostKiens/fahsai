@@ -1,7 +1,9 @@
 // Thai Pollution Control Department (PCD) 24-hour PM2.5 scale, used by the public pages (city
 // pages, /city, haze guide). The map keeps the US EPA scale in aqiColors.ts.
 // Source: Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ", https://air4thai.pcd.go.th/webV3/#/AQIInfo (Tables 1, 2),
-// verified 2026-11-05. Legal basis: PCD announcement of 3 July 2023 (Royal Gazette).
+// verified 2026-11-05. The bands are Table 2's PM2.5 concentrations (µg/m³), not Table 1's AQI
+// index (0–25, 26–50, ...): index 25 is 15 µg/m³.
+// Legal basis: PCD announcement of 3 July 2023 (Royal Gazette).
 import type { RGB } from './aqiColors';
 
 export interface PcdBand {

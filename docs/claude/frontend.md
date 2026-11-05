@@ -41,7 +41,8 @@ Labels are the `pcd.*` keys; English is Air4Thai's own wording. Each view names 
 | เริ่มมีผลกระทบต่อสุขภาพ | Unhealthy      | 37.6–75.0        | `#FFA200` |
 | มีผลกระทบต่อสุขภาพ      | Very Unhealthy | 75.1+            | `#F04646` |
 
-Source: PCD, Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ" Tables 1 and 2
+The bands are Table 2's PM2.5 concentrations, not Table 1's AQI index (0–25, 26–50, 51–100, 101–200,
+201+); index 25 is 15 µg/m³. Source: PCD, Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ" Tables 1 and 2
 (https://air4thai.pcd.go.th/webV3/#/AQIInfo), verified 2026-11-05. Legal basis: PCD announcement
 of 3 July 2023 (Royal Gazette); 24-hour PM2.5 standard 37.5 µg/m³. Show µg/m³ with a band, never
 an index number. The mean is rounded to 0.1 before banding; the API sends the city figure to one
