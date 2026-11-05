@@ -148,13 +148,15 @@ async function fetchWeatherBatch(
       });
       bodyText = await readBody(res);
     } catch (err) {
-      if (!isTimeoutError(err) || timeoutRetriesLeft === 0 || attempt >= WEATHER_429_MAX_RETRIES)
-        throw err;
-      timeoutRetriesLeft -= 1;
-      // Host and elapsed time help tell a slow endpoint from a stalled connection.
+      if (!isTimeoutError(err)) throw err;
+      const canRetry = timeoutRetriesLeft > 0 && attempt < WEATHER_429_MAX_RETRIES;
+      // Host and elapsed time help tell a slow endpoint from a stalled connection. The
+      // final failure is logged too, so every timeout of a run shows up.
       console.warn(
-        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(baseUrl).host}, retrying in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s`,
+        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(baseUrl).host}, ${canRetry ? `retrying in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s` : 'giving up'}`,
       );
+      if (!canRetry) throw err;
+      timeoutRetriesLeft -= 1;
       await sleep(WEATHER_BATCH_PAUSE_MS);
       continue;
     }
