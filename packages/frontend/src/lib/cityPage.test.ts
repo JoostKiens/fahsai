@@ -117,7 +117,7 @@ describe('cityMeta', () => {
 
 describe('cityJsonLd', () => {
   it('describes the breadcrumb, and the page with its place and the day it was updated', () => {
-    const [crumbs, webPage] = cityJsonLd(PAGE, 'T');
+    const [crumbs, webPage] = cityJsonLd(PAGE, 'T', createI18n('en').t);
 
     expect(crumbs).toMatchObject({
       '@type': 'BreadcrumbList',
@@ -140,7 +140,7 @@ describe('cityJsonLd', () => {
   });
 
   it('has no Dataset: that is for the methodology page', () => {
-    expect(JSON.stringify(cityJsonLd(PAGE, 'T'))).not.toContain('Dataset');
+    expect(JSON.stringify(cityJsonLd(PAGE, 'T', createI18n('en').t))).not.toContain('Dataset');
   });
 });
 
@@ -337,7 +337,7 @@ describe('trendDays', () => {
 
 describe('cityBreadcrumbs', () => {
   it('is Fahsai, the list of cities, then the city: what the structured data lists', () => {
-    expect(cityBreadcrumbs(PAGE)).toEqual([
+    expect(cityBreadcrumbs(PAGE, createI18n('en').t)).toEqual([
       { name: 'Fahsai', url: 'https://fahsai.fyi/' },
       { name: 'Cities', url: 'https://fahsai.fyi/city' },
       { name: 'Chiang Mai', url: 'https://fahsai.fyi/city/chiang-mai' },

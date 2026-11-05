@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
+import { createI18n } from '@/i18n-instance';
 import { cityIndexJsonLd, fetchCityIndex } from './cityIndex';
 
 const LIST = [
@@ -70,6 +71,8 @@ describe('fetchCityIndex', () => {
 
 describe('cityIndexJsonLd', () => {
   it('is the trail Fahsai, Cities', () => {
-    expect(JSON.stringify(cityIndexJsonLd())).toContain('https://fahsai.fyi/city');
+    expect(JSON.stringify(cityIndexJsonLd(createI18n('en').t))).toContain(
+      'https://fahsai.fyi/city',
+    );
   });
 });

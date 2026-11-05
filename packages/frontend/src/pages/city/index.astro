@@ -28,7 +28,7 @@ const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, n
   description={t('city.indexMetaDescription')}
   canonical={CITIES_URL}
   noindex={!cities}
-  jsonLd={cities ? cityIndexJsonLd() : []}
+  jsonLd={cities ? cityIndexJsonLd(t) : []}
 >
   <HeaderIsland client:load lang={lang} context="page" cities={searchTargets} />
 

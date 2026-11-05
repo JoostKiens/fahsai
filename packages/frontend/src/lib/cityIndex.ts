@@ -3,6 +3,7 @@ import { CITIES_URL, fetchCityPage } from '@/lib/cityPage';
 import { fetchCityList } from '@/lib/sitemap';
 import { SITE } from '@/lib/site';
 import type { FetchOptions } from '@/lib/serverFetch';
+import type { i18n } from 'i18next';
 
 export interface CityIndexEntry extends CityListItem {
   /** The city's latest figure; null when no station reported or its page could not be read */
@@ -26,14 +27,14 @@ export async function fetchCityIndex(options: FetchOptions = {}): Promise<CityIn
 }
 
 /** Structured data for the list of cities: the trail from Fahsai. */
-export function cityIndexJsonLd(): object[] {
+export function cityIndexJsonLd(t: i18n['t']): object[] {
   return [
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Fahsai', item: `${SITE}/` },
-        { '@type': 'ListItem', position: 2, name: 'Cities', item: CITIES_URL },
+        { '@type': 'ListItem', position: 2, name: t('city.cities'), item: CITIES_URL },
       ],
     },
   ];

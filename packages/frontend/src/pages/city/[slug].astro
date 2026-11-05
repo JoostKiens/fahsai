@@ -65,12 +65,12 @@ const cardClass = 'min-w-0 rounded-lg border border-zinc-700/60 bg-zinc-900 p-4'
 const headingClass = 'text-sm font-semibold text-zinc-100';
 ---
 
-<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title) : []}>
+<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title, t) : []}>
   <HeaderIsland client:load lang={lang} context="page" stationsDate={page?.date} cities={cities} />
 
   <main class="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-4 pb-12 pt-6">
     <section class="flex flex-col gap-2 py-2">
-      {page && <Breadcrumb crumbs={cityBreadcrumbs(page)} label={t('city.breadcrumb')} />}
+      {page && <Breadcrumb crumbs={cityBreadcrumbs(page, t)} label={t('city.breadcrumb')} />}
       <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">
         {page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}
       </h1>

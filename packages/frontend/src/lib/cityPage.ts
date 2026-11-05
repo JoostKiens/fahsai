@@ -92,22 +92,22 @@ export function cityMeta(page: CityPage, t: i18n['t']) {
 }
 
 /** The trail above the page: what is shown at the top of it, and what the structured data lists. */
-export function cityBreadcrumbs(page: CityPage): { name: string; url: string }[] {
+export function cityBreadcrumbs(page: CityPage, t: i18n['t']): { name: string; url: string }[] {
   return [
     { name: 'Fahsai', url: `${SITE}/` },
-    { name: 'Cities', url: CITIES_URL },
+    { name: t('city.cities'), url: CITIES_URL },
     { name: page.name, url: cityUrl(page.slug) },
   ];
 }
 
 /** Structured data for a city page: a breadcrumb, and the page with the place it is about. */
-export function cityJsonLd(page: CityPage, title: string): object[] {
+export function cityJsonLd(page: CityPage, title: string, t: i18n['t']): object[] {
   const url = cityUrl(page.slug);
   return [
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
-      itemListElement: cityBreadcrumbs(page).map(({ name, url: item }, i) => ({
+      itemListElement: cityBreadcrumbs(page, t).map(({ name, url: item }, i) => ({
         '@type': 'ListItem',
         position: i + 1,
         name,
