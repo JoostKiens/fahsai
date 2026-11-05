@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi, type MockInstance } from 'vitest';
 
 // vi.mock is hoisted before imports by Vitest — openmeteo.ts imports grid
 // constants from computeStationWeather.ts, which imports db/client.ts at
@@ -103,10 +103,21 @@ describe('fetchWeatherGridForDate timeouts', () => {
     return { ...outcome, fetchSpy };
   }
 
+  let warnSpy: MockInstance<typeof console.warn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
   afterEach(() => {
+    warnSpy.mockRestore();
     vi.unstubAllGlobals();
     vi.mocked(sleep).mockClear();
   });
+
+  function warnings() {
+    return warnSpy.mock.calls.map(([message]) => String(message));
+  }
 
   function sleepDelays() {
     return vi.mocked(sleep).mock.calls.map(([delayMs]) => delayMs);
@@ -160,6 +171,11 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(isTimeoutError(error)).toBe(true);
     // Batches 1 and 2 once each, then batch 3: the first try plus one retry.
     expect(fetchSpy).toHaveBeenCalledTimes(2 + 2);
+    // Both timeouts are logged with the host and the elapsed time, the last as the final one.
+    const timeouts = warnings().filter((message) => message.includes('timed out after'));
+    expect(timeouts).toHaveLength(2);
+    expect(timeouts[0]).toMatch(/after \d+ms on archive-api\.open-meteo\.com, retrying in 35s$/);
+    expect(timeouts[1]).toMatch(/after \d+ms on archive-api\.open-meteo\.com, giving up$/);
   });
 
   it('does not retry an error that is not a timeout', async () => {
