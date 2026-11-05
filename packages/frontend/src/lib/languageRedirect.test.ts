@@ -142,3 +142,42 @@ describe('addresses other than the English entry page', () => {
     },
   );
 });
+
+describe('the target of a language switch (&to=)', () => {
+  it('goes to the page asked for, and records the language', () => {
+    expect(resolve('/?lang=en&to=/city/chiang-mai')).toEqual({
+      location: '/city/chiang-mai',
+      rememberAs: 'en',
+    });
+  });
+
+  it('drops lang and to from the query it passes on', () => {
+    expect(resolve('/?lang=en&to=/city/chiang-mai&x=1')?.location).toBe('/city/chiang-mai?x=1');
+  });
+
+  it.each([
+    'https://evil.example/',
+    '//evil.example/',
+    '/\\evil.example/',
+    'city/chiang-mai',
+    '/ok\nbad',
+    '',
+  ])(
+    'ignores a target that is not a path on this site (%j) and goes to the language page',
+    (to) => {
+      expect(resolve(`/?lang=th&to=${encodeURIComponent(to)}`)).toEqual({
+        location: '/th/',
+        rememberAs: 'th',
+      });
+    },
+  );
+});
+
+describe('pages other than the map', () => {
+  it.each(['/city/chiang-mai', '/th/', '/sitemap.xml'])(
+    'are never redirected by the stored language or the browser (%s)',
+    (path) => {
+      expect(resolve(path, { cookie: 'th', acceptLanguage: 'th' })).toBeNull();
+    },
+  );
+});

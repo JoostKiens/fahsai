@@ -148,3 +148,28 @@ describe('when deciding fails', () => {
     error.mockRestore();
   });
 });
+
+describe('a page that is not the map', () => {
+  it('is served as asked for, whatever the stored language or the browser says, so crawlers get it', async () => {
+    const { next, result } = run('https://fahsai.fyi/city/chiang-mai', {
+      cookie: 'th',
+      acceptLanguage: 'th',
+    });
+
+    const res = await result;
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(SERVED);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('follows an explicit switch to the page it names, and stores the choice', async () => {
+    const { result } = run('https://fahsai.fyi/?lang=en&to=%2Fcity%2Fchiang-mai');
+
+    const res = await result;
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/city/chiang-mai');
+    expect(res.headers.get('Set-Cookie')).toContain('lang=en');
+  });
+});

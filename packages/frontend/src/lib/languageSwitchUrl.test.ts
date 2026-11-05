@@ -22,4 +22,22 @@ describe('languageSwitchUrl', () => {
   it('replaces a language already in the query', () => {
     expect(languageSwitchUrl('th', '?lang=en&zoom=5')).toBe('/?lang=th&zoom=5');
   });
+
+  describe('on a page that is not the map', () => {
+    it('asks for the same page in English', () => {
+      expect(languageSwitchUrl('en', '', '/city/chiang-mai')).toBe(
+        '/?lang=en&to=%2Fcity%2Fchiang-mai',
+      );
+    });
+
+    // TODO(JOO-101): /th/city/[slug] will exist then; this becomes '/?lang=th&to=%2Fth%2Fcity%2Fchiang-mai'
+    it('sends Thai to the Thai home page, as there is no Thai city page yet', () => {
+      expect(languageSwitchUrl('th', '', '/city/chiang-mai')).toBe('/?lang=th&to=%2Fth%2F');
+    });
+
+    it('does not add a target on the map pages', () => {
+      expect(languageSwitchUrl('th', '', '/')).toBe('/?lang=th');
+      expect(languageSwitchUrl('en', '', '/th/')).toBe('/?lang=en');
+    });
+  });
 });

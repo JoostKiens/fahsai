@@ -3,10 +3,15 @@
  * encoded again), so the same query reads the same whichever rule redirected it.
  */
 export function searchWithoutLang(search: string): string {
+  return searchWithoutParams(search, ['lang']);
+}
+
+/** The same, without the parameters called `names`. */
+export function searchWithoutParams(search: string, names: string[]): string {
   const kept = search
     .replace(/^\?/, '')
     .split('&')
-    .filter((pair) => pair !== '' && nameOf(pair) !== 'lang');
+    .filter((pair) => pair !== '' && !names.includes(nameOf(pair)));
   return kept.length > 0 ? `?${kept.join('&')}` : '';
 }
 
