@@ -1,5 +1,6 @@
 ---
-import { contrastColor, pm25ToRgb } from '@/utils/aqiColors';
+import { contrastColor } from '@/utils/aqiColors';
+import { pm25ToPcdBand } from '@/utils/pcdBands';
 
 interface Props {
   /** PM2.5 in µg/m³; shown rounded */
@@ -7,7 +8,7 @@ interface Props {
 }
 
 const { value } = Astro.props;
-const rgb = pm25ToRgb(value);
+const rgb = pm25ToPcdBand(value).rgb;
 const [r, g, b] = contrastColor(rgb);
 ---
 
