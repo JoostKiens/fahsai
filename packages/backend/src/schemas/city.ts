@@ -82,7 +82,7 @@ export const CityPageSchema = Type.Object({
   date: DateString,
   pm25: Type.Union([Type.Number(), Type.Null()], {
     description:
-      'The median of the stations’ daily means, a whole number (µg/m³); null when no station reported.',
+      'The median of the stations’ daily means, to one decimal (µg/m³); null when no station reported.',
   }),
   stationCount: Type.Number({ description: 'The stations that reported that day.' }),
   stations: Type.Array(CityStationDaySchema, {
