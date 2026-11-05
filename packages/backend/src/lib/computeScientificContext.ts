@@ -23,7 +23,11 @@ import { buildRawExplainData } from './buildRawExplainData.js';
 import { buildScientificContext, type ScientificContext } from './buildScientificContext.js';
 import { logger } from './logger.js';
 
-const CONTEXT_CACHE_VERSION = 3;
+// Bump it when the shape of ScientificContext changes in a way an entry cached under the old
+// version could not satisfy: a rename or removal, or a field the response schema requires. A cache
+// hit is returned as it is, so a missing required field would fail serialization (a 500).
+// 4: transport.trajectory.leftDataArea and leftDataAreaAfterHours, transport.fire.dataAvailable
+const CONTEXT_CACHE_VERSION = 4;
 
 function contextCacheKey(stationId: string, date: string): string {
   return `explain:context:v${CONTEXT_CACHE_VERSION}:${stationId}:${date}`;
@@ -396,6 +400,8 @@ export async function computeScientificContext(
             },
             corridorWidthKm: corridorKm,
             meanWindSpeedKmh,
+            leftDataArea: ensemble.leftDataArea,
+            leftDataAreaAfterHours: ensemble.leftDataAreaAfterHours,
             waypoints: pathWaypoints,
             camsAlongPath: camsSamples.map((s) => ({
               lat: s.waypoint.lat,
@@ -423,6 +429,7 @@ export async function computeScientificContext(
       areaScore: pressureData?.score ?? 0,
       areaFireCount: pressureData?.fire_count ?? null,
       areaTotalFrpMw: pressureData?.total_frp_mw ?? null,
+      queryFailed: fireQueryFailed,
     },
 
     upwindSources: relevantSources,

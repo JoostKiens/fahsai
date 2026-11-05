@@ -79,13 +79,24 @@ function).
 | `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
 | `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders           |
 
+City pages (`src/pages/city/[slug].astro`, English only until JOO-101) are also rendered on demand
+with the one-hour ISR. They use `layouts/Content.astro`, a lean scrolling layout (`content.css`:
+`index.css` pins the page to the screen height for the map). `lib/cityPage.ts` fetches
+`GET /api/v1/cities/:slug` (404 for an unknown city, 503 when the API is down, neither cached) and
+builds the meta tags and JSON-LD; the API sends the summary as i18n keys (`city.summary.*`) and
+`src/test/citySummary.test.ts` checks the locale files have every key and keep to the wording rules.
+`pages/sitemap.xml.ts` builds the sitemap from `GET /api/v1/cities`.
+
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
-- While the map loads, its region shows a blurred basemap at the default view
-  (`MapPlaceholder.astro` in the server HTML, `MapLoadingPlaceholder.tsx` until Mapbox's `load`).
+- While the map loads, its region shows a blurred basemap at the view the map starts at: the phone
+  view below 768 px, the default view above (`MapPlaceholder.astro` in the server HTML,
+  `MapLoadingPlaceholder.tsx` until Mapbox's `load`; `Base.astro` preloads only the matching one).
   It is a real `<img>`, preloaded in `Base.astro`: Chrome counts it as the LCP, where the Mapbox
-  logo that appears with the map would be a late LCP. It always shows the default view, so a link to
-  another place shows that for a moment. The `#intro` text stays in the HTML, visually hidden.
+  logo that appears with the map would be a late LCP. For a link to another place the image is left
+  out (dark background): `lib/placeholderGuard.ts` flags `<html>` from `<head>` before the first
+  paint (its hash is added to the CSP in `astro.config.mjs`), and `MapLoadingPlaceholder` checks the
+  store. The `#intro` text stays in the HTML, visually hidden.
   Regenerate the image with `scripts/generate-map-placeholder.sh`; a test checks the script's view
   and style against the app's.
 - A server-rendered island can only import code that works without a browser. Read the query string
@@ -94,7 +105,9 @@ function).
 - Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
   `@/i18n`, which reads it from the address (see `docs/adr/0002-i18n-thai-language.md`).
 - A server-rendered island hydrates against its stores' _initial_ state (Zustand's server snapshot),
-  so the stores start from defaults and apply the URL and saved settings right after creation. Do
+  so the stores start from defaults and apply the URL and saved settings right after creation (the
+  date, the selection, and the map's centre and zoom via `initialMapView`; the address bar is written
+  from the store, so a view the store lacks would overwrite the link's). Do
   not put page-specific values in a store's initial state. `Scrubber` takes `initialData` and shows
   it only until the browser has the real latest date; the live values then win.
 - The scrubber keeps the height in `SCRUBBER_BAR_CLS` as its minimum, in every state, so the sidebar

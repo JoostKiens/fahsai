@@ -1,18 +1,11 @@
-import { Fragment, useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
-import { TWEEN_ENTER } from '@/utils/animation';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
-import { pm25ToRgb, pm25ToSoftRgb } from '@/utils/aqiColors';
-import { niceMax } from '@/utils/niceMax';
 import { degToCompass } from './utils.ambient';
 import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
-
-const MAX_BAR_H = 72;
-const DAY_LABEL_H = 20;
+import { DAY_LABEL_H, DEFAULT_BAR_H, PmBarChart, formatDayLabel } from './PmBarChart';
 
 const SHIMMER_ROWS: [string, string, string, string][] = [
   ['w-8', 'w-14', 'w-5', 'w-5'],
@@ -36,7 +29,7 @@ export function ShimmerHistory() {
         </div>
         <div
           className="flex items-end gap-1.5 flex-1"
-          style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
+          style={{ height: `${DEFAULT_BAR_H + DAY_LABEL_H}px` }}
         >
           {Array.from({ length: 5 }, (_, i) => {
             const barH = 36 + (i % 3) * 16;
@@ -44,7 +37,7 @@ export function ShimmerHistory() {
               <div key={i} className="flex flex-col items-center flex-1">
                 <div
                   className="w-full rounded-t-[5px] animate-pulse [animation-duration:1.2s] bg-zinc-700"
-                  style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
+                  style={{ height: `${barH}px`, marginTop: `${DEFAULT_BAR_H - barH}px` }}
                 />
                 <Shimmer className="h-4.5 w-8 mt-1" />
               </div>
@@ -72,28 +65,6 @@ export function ShimmerHistory() {
   );
 }
 
-type TooltipState = { value: number; x: number; y: number } | null;
-
-function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
-  return createPortal(
-    <div
-      className="fixed z-60 pointer-events-none"
-      style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 6px))' }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 4 }}
-        transition={TWEEN_ENTER}
-        className="bg-zinc-950 border border-zinc-800 text-zinc-100 text-[11px] font-semibold tabular-nums px-2 py-1 rounded shadow-lg whitespace-nowrap"
-      >
-        {Math.round(value)} <span className="font-normal opacity-60">µg/m³</span>
-      </motion.div>
-    </div>,
-    document.body,
-  );
-}
-
 /**
  * A station's last few days in the info panel: a bar per day for PM2.5, coloured by category, and
  * a weather table (wind, rain, humidity) below. Days without readings keep their date but have no
@@ -103,135 +74,9 @@ export function History({ days }: { days: StationDayHistory[] }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocale(i18n.language);
 
-  const maxPm25 = niceMax(Math.max(...days.map((d) => d.pm25), 1)).max;
-  const [tooltip, setTooltip] = useState<TooltipState>(null);
-  const [activeDate, setActiveDate] = useState<string | null>(null);
-  const chartRef = useRef<HTMLDivElement>(null);
-
-  function formatDateLabel(isoDate: string) {
-    return new Date(isoDate + 'T00:00:00Z').toLocaleDateString(locale, {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC',
-    });
-  }
-
-  useEffect(() => {
-    if (!activeDate) return;
-    function onTouchStart(e: TouchEvent) {
-      if (!chartRef.current?.contains(e.target as Node)) {
-        setTooltip(null);
-        setActiveDate(null);
-      }
-    }
-    // The tooltip is fixed at viewport coordinates from the tap, so any scroll strands it. Scroll
-    // events don't bubble, so listen in the capture phase to catch the panel's own scroll container.
-    function dismiss() {
-      setTooltip(null);
-      setActiveDate(null);
-    }
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('scroll', dismiss, { capture: true, passive: true });
-    return () => {
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('scroll', dismiss, { capture: true });
-    };
-  }, [activeDate]);
-
-  useEffect(() => {
-    return () => {
-      setTooltip(null);
-      setActiveDate(null);
-    };
-  }, []);
-
   return (
     <>
-      {tooltip && <BarTooltip {...tooltip} />}
-
-      {/* PM2.5 bar chart */}
-      <div className="flex items-stretch gap-1">
-        <div
-          className="flex flex-col justify-between text-[11px] text-zinc-500 font-mono text-right shrink-0"
-          style={{ paddingBottom: `${DAY_LABEL_H}px` }}
-        >
-          <span>{Math.round(maxPm25)}</span>
-          <span>0</span>
-        </div>
-        <div
-          ref={chartRef}
-          className="flex items-end gap-1.5 flex-1"
-          style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
-        >
-          {days.map(({ date, pm25: val, readingCount }) => {
-            const barH =
-              readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * MAX_BAR_H)) : 0;
-            const [sr, sg, sb] = pm25ToSoftRgb(val);
-            const [r, g, b] = pm25ToRgb(val);
-            const isActive = activeDate === date;
-            const hasData = readingCount > 0;
-
-            return (
-              <div
-                key={date}
-                className="flex flex-col items-center flex-1"
-                onPointerEnter={(e) => {
-                  if (e.pointerType !== 'mouse' || !hasData) return;
-                  const col = e.currentTarget.getBoundingClientRect();
-                  setTooltip({
-                    value: val,
-                    x: col.left + col.width / 2,
-                    y: col.top + (MAX_BAR_H - barH),
-                  });
-                  setActiveDate(date);
-                }}
-                onPointerLeave={(e) => {
-                  if (e.pointerType !== 'mouse') return;
-                  setTooltip(null);
-                  setActiveDate(null);
-                }}
-                onPointerDown={(e) => {
-                  if (e.pointerType === 'mouse' || !hasData) return;
-                  if (isActive) {
-                    setTooltip(null);
-                    setActiveDate(null);
-                  } else {
-                    const col = e.currentTarget.getBoundingClientRect();
-                    setTooltip({
-                      value: val,
-                      x: col.left + col.width / 2,
-                      y: col.top + (MAX_BAR_H - barH),
-                    });
-                    setActiveDate(date);
-                  }
-                }}
-              >
-                <div
-                  className="w-full"
-                  style={{
-                    height: `${barH}px`,
-                    marginTop: `${MAX_BAR_H - barH}px`,
-                    ...(hasData
-                      ? {
-                          background: `linear-gradient(to bottom, rgba(${sr},${sg},${sb},0.7), rgba(${sr},${sg},${sb},0.1))`,
-                          borderLeft: `1px solid rgb(${r},${g},${b})`,
-                          borderTop: `1px solid rgb(${r},${g},${b})`,
-                          borderRight: `1px solid rgb(${r},${g},${b})`,
-                          borderRadius: '5px 5px 0 0',
-                        }
-                      : {}),
-                  }}
-                />
-                <span
-                  className={`text-[11px] whitespace-nowrap mt-1 ${hasData ? 'text-zinc-300' : 'text-zinc-500'}`}
-                >
-                  {formatDateLabel(date)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <PmBarChart days={days} />
 
       {/* Weather table */}
       <p className="text-[12px] text-zinc-300 mt-3 mb-1">{t('history.weather')}</p>
@@ -257,7 +102,7 @@ export function History({ days }: { days: StationDayHistory[] }) {
           return (
             <Fragment key={d.date}>
               <span className="text-zinc-400 font-medium whitespace-nowrap">
-                {formatDateLabel(d.date)}
+                {formatDayLabel(d.date, locale)}
               </span>
 
               {w?.windDirectionDeg !== null && w?.windDirectionDeg !== undefined ? (

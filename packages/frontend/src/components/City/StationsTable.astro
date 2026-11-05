@@ -1,0 +1,34 @@
+---
+import type { ListedStation } from '@/lib/cityPage';
+import type { i18n } from 'i18next';
+
+interface Props {
+  stations: ListedStation[];
+  t: i18n['t'];
+}
+
+const { stations, t } = Astro.props;
+---
+
+<div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-zinc-400">
+        <th class="py-1 pr-3 font-medium">{t('city.colStation')}</th>
+        <th class="py-1 pr-3 font-medium">{t('city.colPm25')}</th>
+        <th class="py-1 font-medium">{t('city.colDistance')}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        stations.map((station) => (
+          <tr class="border-t border-zinc-800">
+            <td class="py-1 pr-3">{station.name}</td>
+            <td class="py-1 pr-3 font-mono">{station.pm25}</td>
+            <td class="py-1 font-mono">{station.distanceKm}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

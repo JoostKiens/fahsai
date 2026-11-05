@@ -77,6 +77,13 @@ export const ScientificContextSchema = Type.Object({
             region: Type.String(),
             date: DateString,
           }),
+          leftDataArea: Type.Boolean({
+            description:
+              'True when the path went outside the area the data covers (89–114°E, 1–30°N). Past its edge the wind is extrapolated and there are no fire or CAMS data.',
+          }),
+          leftDataAreaAfterHours: nullable(
+            Type.Number({ description: 'The hours back at which the path left the area.' }),
+          ),
           corridorWidthKm: Type.Number(),
           meanWindSpeedKmh: Type.Number(),
           waypoints: Type.Array(
@@ -117,6 +124,10 @@ export const ScientificContextSchema = Type.Object({
           areaTotalFrpMw: nullable(Type.Number()),
           firesAreLocal: Type.Boolean(),
           areaFireRadiusKm: Type.Number(),
+          dataAvailable: Type.Boolean({
+            description:
+              'False when the fire data could not be read: the counts are then 0 for lack of data, not of fires.',
+          }),
         }),
       }),
       Type.Null(),

@@ -105,6 +105,8 @@ function buildEnsembleFixture(date: string) {
     footprintBbox: { latMin: LAT - 1, latMax: LAT + 1, lngMin: LNG - 1, lngMax: LNG + 1 },
     corridorKm: 50,
     meanWindSpeedKmh: 10,
+    leftDataArea: false,
+    leftDataAreaAfterHours: null,
   };
 }
 
@@ -141,8 +143,23 @@ describe('computeScientificContext', () => {
     const result = await computeScientificContext(STATION_ID, LAT, LNG, PAST_DATE);
 
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
-    expect(mockRedisGet).toHaveBeenCalledWith(`explain:context:v3:${STATION_ID}:${PAST_DATE}`);
+    expect(mockRedisGet).toHaveBeenCalledWith(`explain:context:v4:${STATION_ID}:${PAST_DATE}`);
     expect(mockFetchExplainContext).not.toHaveBeenCalled();
+  });
+
+  it('does not serve a context cached before the data-area flag existed', async () => {
+    // such an entry lacks transport.trajectory.leftDataArea, which the response schema requires
+    const staleEntry = { station: { name: 'Stale', lat: LAT, lng: LNG } };
+    mockRedisGet.mockImplementation((key: string) =>
+      Promise.resolve(key === `explain:context:v3:${STATION_ID}:${PAST_DATE}` ? staleEntry : null),
+    );
+    mockFetchExplainContext.mockResolvedValue(buildExplainContextFixture());
+    mockTraceEnsemble.mockReturnValue(buildEnsembleFixture(PAST_DATE));
+
+    const result = await computeScientificContext(STATION_ID, LAT, LNG, PAST_DATE);
+
+    expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
+    expect(result).not.toBe(staleEntry);
   });
 
   it('computes and writes to cache on a cache miss for a past date', async () => {
@@ -154,7 +171,7 @@ describe('computeScientificContext', () => {
 
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
     expect(mockRedisSet).toHaveBeenCalledWith(
-      `explain:context:v3:${STATION_ID}:${PAST_DATE}`,
+      `explain:context:v4:${STATION_ID}:${PAST_DATE}`,
       SCIENTIFIC_CONTEXT_FIXTURE,
       { ex: 604800 },
     );
@@ -205,10 +222,25 @@ describe('computeScientificContext', () => {
     expect(result).toBe(SCIENTIFIC_CONTEXT_FIXTURE);
     expect(mockLoggerWarn).toHaveBeenCalled();
     const rawInput = mockBuildRawExplainData.mock.calls[0][0] as {
-      firePressure: { pathFireCount: number };
+      firePressure: { pathFireCount: number; queryFailed: boolean };
     };
     expect(rawInput.firePressure.pathFireCount).toBe(0);
+    // so that 0 is not taken for "no fires were detected"
+    expect(rawInput.firePressure.queryFailed).toBe(true);
     expect(mockRedisSet).not.toHaveBeenCalled();
+  });
+
+  it('says the fire data was read when the fire-points query worked', async () => {
+    mockRedisGet.mockResolvedValue(null);
+    mockFetchExplainContext.mockResolvedValue(buildExplainContextFixture());
+    mockTraceEnsemble.mockReturnValue(buildEnsembleFixture(PAST_DATE));
+
+    await computeScientificContext(STATION_ID, LAT, LNG, PAST_DATE);
+
+    const rawInput = mockBuildRawExplainData.mock.calls[0][0] as {
+      firePressure: { queryFailed: boolean };
+    };
+    expect(rawInput.firePressure.queryFailed).toBe(false);
   });
 
   it('returns null when the station has no readings for that date', async () => {

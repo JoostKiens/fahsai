@@ -241,9 +241,10 @@ export function explainRoutes(app: FastifyInstance): void {
 
   // This route's response shape (ScientificContext) is consumed by the published
   // fahsai-mcp-server npm package, not just this app's own frontend. Treat shape
-  // changes (renames/removals, not additions) as breaking for external consumers,
-  // and bump CONTEXT_CACHE_VERSION in computeScientificContext.ts
-  // (explain:context:v1 -> v2) when that happens.
+  // changes (renames/removals, not additions) as breaking for external consumers.
+  // Bump CONTEXT_CACHE_VERSION in computeScientificContext.ts for those, and also when adding a
+  // field that the response schema requires: entries cached before it lack the field and would
+  // fail serialization.
   typed.get(
     '/explain/context',
     {

@@ -1,0 +1,146 @@
+---
+import Content from '@/layouts/Content.astro';
+import TrendTable from '@/components/City/TrendTable.astro';
+import StationsTable from '@/components/City/StationsTable.astro';
+import NearbyCities from '@/components/City/NearbyCities.astro';
+import { WindArrow } from '@/components/InfoPanel/WindArrow';
+import { compassToDeg } from '@/components/InfoPanel/utils.ambient';
+import { CityChartIsland } from '@/islands/CityChartIsland';
+import { CityHeadlineIsland } from '@/islands/CityHeadlineIsland';
+import { createI18n } from '@/i18n-instance';
+import {
+  cityJsonLd,
+  cityMapLink,
+  cityMeta,
+  fetchBaselineDiff,
+  fetchCityPage,
+  listedStations,
+  summaryHtml,
+  trendDays,
+} from '@/lib/cityPage';
+import { pm25ToCategory } from '@/utils/aqiColors';
+
+export const prerender = false;
+
+const lang = 'en';
+const { slug = '' } = Astro.params;
+const result = await fetchCityPage(slug);
+const { t } = createI18n(lang);
+
+// 404 for a city that is not in the list, 503 when the API could not be reached. no-store keeps
+// the ISR layer from holding either for the hour.
+if (result.status !== 'ok') {
+  Astro.response.status = result.status === 'not-found' ? 404 : 503;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+const page = result.status === 'ok' ? result.page : null;
+const baselineDiff = page ? await fetchBaselineDiff(page) : null;
+// TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
+const meta = page
+  ? { ...cityMeta(page, t), noindex: false }
+  : {
+      title: `${t('city.fallbackTitle')} | Fahsai`,
+      description: t('city.unavailable'),
+      canonical: Astro.url.href,
+      noindex: true,
+    };
+const hasReading = page !== null && page.pm25 !== null;
+const windDeg = page?.drivers?.windFrom ? compassToDeg(page.drivers.windFrom) : null;
+const cardClass = 'rounded-lg border border-zinc-700/60 bg-zinc-900 p-4';
+const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
+---
+
+<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title) : []}>
+  <!-- the app's header without its search and menus, which need the map's stores -->
+  <header class="h-12 flex items-center px-4 border-b border-zinc-800 bg-zinc-900">
+    <a href="/" class="text-[13px] font-semibold text-zinc-100">Fahsai</a>
+  </header>
+
+  <main class="mx-auto w-full max-w-[1120px] px-4 py-6 flex flex-col gap-4">
+    <h1 class="text-2xl font-semibold">{page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}</h1>
+
+    {!page && <p>{t('city.unavailable')}</p>}
+    {page && !hasReading && <p>{t('city.noData', { name: page.name, date: page.date })}</p>}
+
+    {
+      page && page.pm25 !== null && (
+        <>
+          <section class={`${cardClass} flex flex-col gap-3`} aria-label={t('city.summaryLabel')}>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <CityHeadlineIsland
+                lang={lang}
+                value={page.pm25}
+                category={t(pm25ToCategory(page.pm25).key as never)}
+              />
+              {page.whoMultiple !== null && (
+                <span class="text-[12px] text-zinc-400 font-mono">
+                  {t('city.whoMultiple', { multiple: page.whoMultiple })}
+                </span>
+              )}
+              {page.drivers?.windFrom && page.drivers.windSpeedKmh !== null && (
+                <span class="inline-flex items-center gap-1.5 text-[12px] text-zinc-300">
+                  {windDeg !== null && (
+                    <WindArrow dirDeg={windDeg} size={14} color="#a1a1aa" strokeWidth={1.5} />
+                  )}
+                  <span class="text-zinc-400">{t('history.wind')}</span>
+                  <span>{page.drivers.windFrom}</span>
+                  <span class="font-mono">
+                    {t('city.windSpeed', { speed: Math.round(page.drivers.windSpeedKmh) })}
+                  </span>
+                </span>
+              )}
+            </div>
+            <div class="flex flex-col gap-2 text-sm text-zinc-300">
+              {summaryHtml(page, t, baselineDiff).map((html) => (
+                <p set:html={html} />
+              ))}
+            </div>
+          </section>
+
+          <div class="grid gap-4 lg:grid-cols-2">
+            <section class={cardClass} aria-labelledby="trend-heading">
+              <h2 id="trend-heading" class={headingClass}>
+                {t('city.trend')} <span class="font-mono font-normal text-zinc-400">µg/m³</span>
+              </h2>
+              <CityChartIsland client:visible lang={lang} days={trendDays(page)} barHeight={140} />
+              <div class="mt-4">
+                <TrendTable trend={page.trend} t={t} />
+              </div>
+            </section>
+
+            <section class={cardClass} aria-labelledby="stations-heading">
+              <h2 id="stations-heading" class={headingClass}>
+                {t('city.stations')}
+              </h2>
+              <StationsTable stations={listedStations(page)} t={t} />
+            </section>
+          </div>
+
+          {page.nearby.length > 0 && (
+            <section class={cardClass} aria-labelledby="nearby-heading">
+              <h2 id="nearby-heading" class={headingClass}>
+                {t('city.nearby')}
+              </h2>
+              <NearbyCities nearby={page.nearby} />
+            </section>
+          )}
+        </>
+      )
+    }
+
+    {
+      page && (
+        <p>
+          <a
+            class="inline-block text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded px-4 py-1.5 transition-colors ease-out"
+            href={cityMapLink(page)}
+          >
+            {t('city.openInMap', { name: page.name })}
+          </a>
+        </p>
+      )
+    }
+
+    <footer class="text-[12px] text-zinc-400">{t('city.sources')}</footer>
+  </main>
+</Content>

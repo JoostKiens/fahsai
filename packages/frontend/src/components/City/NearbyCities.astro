@@ -1,0 +1,22 @@
+---
+import type { CityNearby } from '@thailand-aq/types';
+
+interface Props {
+  nearby: CityNearby[];
+}
+
+const { nearby } = Astro.props;
+---
+
+<ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+  {
+    nearby.map((city) => (
+      <li>
+        <a class="underline underline-offset-2" href={`/city/${city.slug}`}>
+          {city.name}
+        </a>
+        {city.pm25 !== null && <span class="text-zinc-400 font-mono"> {city.pm25} µg/m³</span>}
+      </li>
+    ))
+  }
+</ul>

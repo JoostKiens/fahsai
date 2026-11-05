@@ -3,7 +3,7 @@
 Types live in `packages/types/src/` and are imported by both frontend and backend.
 `AQIReading` (earlier design) is gone -- the current model is built around `Station`.
 Key files: `station.ts`, `baseline.ts`, `fire.ts`, `weather.ts`, `aq.ts`, `power-plant.ts`,
-`error.ts`.
+`error.ts`, `city.ts`.
 All re-exported from `index.ts`.
 
 ```typescript
@@ -21,6 +21,14 @@ export type ApiError = {
 };
 export type RateLimit = { reason: RateLimitReason; resetAtMs: number };
 // the code and reason lists are also exported as ERROR_CODES / RATE_LIMIT_REASONS
+
+// city.ts -- what GET /api/v1/cities/:slug returns (the city pages); see packages/types/src/city.ts
+// CityPage: one Bangkok day (the newest complete day), pm25 = median of the stations' daily means,
+// stations[], a 7-day trend[], drivers (null when the trajectory context is unavailable), summary[]
+// (CitySentence {key, params}: i18n keys listed in CITY_SENTENCE_KEYS in packages/consts, the
+// frontend owns the words) and nearby[]. CityListItem {slug, name, country} is what GET
+// /api/v1/cities lists.
+// The WHO 24 h guideline (15 µg/m³) is WHO_PM25_24H_UGM3 in packages/consts.
 
 // fire.ts
 export interface FirePoint {

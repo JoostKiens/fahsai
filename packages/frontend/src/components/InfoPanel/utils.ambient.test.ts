@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { degToCompass, findNearestWind } from './utils.ambient.js';
+import { compassToDeg, degToCompass, findNearestWind } from './utils.ambient.js';
 import type { WindReading } from '@thailand-aq/types';
 
 describe('degToCompass', () => {
@@ -54,5 +54,25 @@ describe('findNearestWind', () => {
   it('returns the farther vector when query is near it', () => {
     // Query at (lng=99, lat=18) — exactly on vectors[1]
     expect(findNearestWind(vectors, 99, 18)).toEqual(vectors[1]);
+  });
+});
+
+describe('compassToDeg', () => {
+  it.each([
+    ['N', 0],
+    ['SE', 135],
+    ['NNW', 337.5],
+  ])('gives the bearing of %s', (label, deg) => {
+    expect(compassToDeg(label)).toBe(deg);
+  });
+
+  it('undoes degToCompass for every point', () => {
+    for (let deg = 0; deg < 360; deg += 22.5) {
+      expect(compassToDeg(degToCompass(deg))).toBe(deg);
+    }
+  });
+
+  it('is null for something that is not a compass point', () => {
+    expect(compassToDeg('up')).toBeNull();
   });
 });
