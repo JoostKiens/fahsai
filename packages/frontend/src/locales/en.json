@@ -52,6 +52,12 @@
   "aqi.unhealthy": "Unhealthy",
   "aqi.veryUnhealthy": "Very unhealthy",
   "aqi.hazardous": "Hazardous",
+  "pcd.excellent": "Excellent",
+  "pcd.satisfactory": "Satisfactory",
+  "pcd.moderate": "Moderate",
+  "pcd.unhealthy": "Unhealthy",
+  "pcd.veryUnhealthy": "Very Unhealthy",
+  "pcd.scaleName": "Thai PCD scale",
 
   "infoPanel.ariaLabel": "Point details",
   "infoPanel.clickPrompt": "Click a point\non the map",

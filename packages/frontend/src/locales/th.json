@@ -52,6 +52,12 @@
   "aqi.unhealthy": "ไม่ดีต่อสุขภาพ",
   "aqi.veryUnhealthy": "ไม่ดีต่อสุขภาพมาก",
   "aqi.hazardous": "อันตราย",
+  "pcd.excellent": "ดีมาก",
+  "pcd.satisfactory": "ดี",
+  "pcd.moderate": "ปานกลาง",
+  "pcd.unhealthy": "เริ่มมีผลกระทบต่อสุขภาพ",
+  "pcd.veryUnhealthy": "มีผลกระทบต่อสุขภาพ",
+  "pcd.scaleName": "เกณฑ์ของกรมควบคุมมลพิษ (คพ.)",
 
   "infoPanel.ariaLabel": "รายละเอียดจุด",
   "infoPanel.clickPrompt": "แตะจุดบน\nแผนที่",
