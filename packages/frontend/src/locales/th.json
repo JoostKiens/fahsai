@@ -200,6 +200,7 @@
   "city.dataModel": "Model PM2.5 and wind: Copernicus CAMS and Open-Meteo (CC BY 4.0).",
   "city.dataDate": "Data for {{date}}.",
   "city.footerAbout": "Fahsai (<span lang=\"th\">ฟ้าใส</span>, “clear sky”) · open source, non-commercial · by Joost Kiens",
+  "city.footerCredits": "Fire data courtesy <a href=\"https://firms.modaps.eosdis.nasa.gov/\">NASA FIRMS</a>. Air quality data from <a href=\"https://openaq.org/\">OpenAQ</a>. <a href=\"https://open-meteo.com/\">Weather data by Open-Meteo.com</a> (CC BY 4.0).",
   "city.footerMap": "Map",
   "city.footerGithub": "GitHub",
   "city.footerMcp": "MCP server",
