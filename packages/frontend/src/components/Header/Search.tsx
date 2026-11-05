@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import {
-  fetchStationReadings,
-  useStationReadings,
-  type LatestMeasurement,
-} from '@/hooks/useStationReadings';
-import { staleTimeForArray } from '@/utils/queryHelpers';
+import { useStationReadings, type LatestMeasurement } from '@/hooks/useStationReadings';
 import { useUIStore } from '@/store/uiStore';
 import { mapRef } from '@/utils/mapRef';
 import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
@@ -78,17 +72,14 @@ export function Search({
 }) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
-  const { data: mapStations } = useStationReadings();
   const [hasFocused, setHasFocused] = useState(false);
-  // Without the map nothing loads the stations (the map's query waits for the latest date), and a
-  // page should not fetch them before the visitor reaches for search.
-  const { data: pageStations } = useQuery({
-    queryKey: ['aqi-latest', 'pm25', stationsDate],
-    queryFn: () => fetchStationReadings(stationsDate ?? ''),
-    staleTime: staleTimeForArray,
-    enabled: onSelect !== undefined && hasFocused && stationsDate !== undefined,
-  });
-  const stations = onSelect ? pageStations : mapStations;
+  // Without the map nothing loads the stations, and a page should not fetch them before the
+  // visitor reaches for search: so it reads its own day, once the field has been focused.
+  const { data: stations } = useStationReadings(
+    onSelect
+      ? { date: stationsDate, enabled: hasFocused && stationsDate !== undefined }
+      : undefined,
+  );
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
 
   const [query, setQuery] = useState('');
