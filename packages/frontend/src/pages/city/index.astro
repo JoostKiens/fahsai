@@ -12,12 +12,12 @@ export const prerender = false;
 
 const lang = 'en';
 const { t } = createI18n(lang);
-const cities = await fetchCityIndex();
-// A failed read is not held by ISR for the hour: the list would stay empty for everyone.
-if (!cities) {
-  Astro.response.status = 503;
-  Astro.response.headers.set('Cache-Control', 'no-store');
-}
+const index = await fetchCityIndex();
+const cities = index?.cities ?? null;
+// A failed read is not held by ISR for the hour. With no list the page is a 503; with some
+// figures missing it still shows the cities, but only for this request.
+if (!index) Astro.response.status = 503;
+if (!index?.complete) Astro.response.headers.set('Cache-Control', 'no-store');
 const groups = groupByRegion(cities ?? []);
 const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, name, country }));
 ---

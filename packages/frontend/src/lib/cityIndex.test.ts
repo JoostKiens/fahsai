@@ -44,10 +44,13 @@ describe('fetchCityIndex', () => {
       '/cities/lampang': () => Response.json(page('lampang', null)),
     });
 
-    expect(await fetchCityIndex({ fetchFn })).toEqual([
-      { ...LIST[0], pm25: 22 },
-      { ...LIST[1], pm25: null },
-    ]);
+    expect(await fetchCityIndex({ fetchFn })).toEqual({
+      cities: [
+        { ...LIST[0], pm25: 22 },
+        { ...LIST[1], pm25: null },
+      ],
+      complete: true,
+    });
   });
 
   it('keeps a city whose page cannot be read, without a figure', async () => {
@@ -59,7 +62,8 @@ describe('fetchCityIndex', () => {
 
     const index = await fetchCityIndex({ fetchFn });
 
-    expect(index?.map((c) => c.pm25)).toEqual([22, null]);
+    expect(index?.cities.map((c) => c.pm25)).toEqual([22, null]);
+    expect(index?.complete).toBe(false);
   });
 
   it('is null when the list cannot be read', async () => {
