@@ -1,7 +1,7 @@
 import { Select } from '@base-ui/react/select';
 import { useTranslation } from 'react-i18next';
 import type { Language } from '@/i18n-instance';
-import { languageSwitchUrl } from '@/lib/languageSwitchUrl';
+import { isSwitch, languageSwitchUrl } from '@/lib/languageSwitchUrl';
 
 const LANGUAGES: { code: Language; pill: string; native: string }[] = [
   { code: 'en', pill: 'EN', native: 'English' },
@@ -37,7 +37,7 @@ export function LanguagePill() {
   const current = LANGUAGES.find((l) => l.code === currentCode) ?? LANGUAGES[0];
 
   function select(lang: Language) {
-    if (lang === (i18n.language as Language)) return;
+    if (!isSwitch(lang, i18n.language as Language, window.location.pathname)) return;
     window.location.href = languageSwitchUrl(
       lang,
       window.location.search,

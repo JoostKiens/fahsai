@@ -14,6 +14,15 @@ export function equivalentPath(lang: Language, pathname: string): string | null 
 }
 
 /**
+ * Whether choosing `lang` does anything. On a map page, choosing the language the page is in does
+ * not. A city page is English whatever the stored preference is, so choosing English there still
+ * records it: someone with Thai stored can then leave Thai behind.
+ */
+export function isSwitch(lang: Language, pageLang: Language, pathname: string): boolean {
+  return lang !== pageLang || equivalentPath(lang, pathname) !== null;
+}
+
+/**
  * Where the language switch sends the browser: the redirect at `/`, which stores the choice and
  * lands on the page in that language. The rest of the query (map position, date, selection) goes
  * along; the redirect keeps it. On a page that is not the map, `to` names the equivalent page.

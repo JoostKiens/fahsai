@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { languageSwitchUrl } from './languageSwitchUrl';
+import { isSwitch, languageSwitchUrl } from './languageSwitchUrl';
 
 describe('languageSwitchUrl', () => {
   it('goes through the redirect at / with the chosen language', () => {
@@ -39,5 +39,20 @@ describe('languageSwitchUrl', () => {
       expect(languageSwitchUrl('th', '', '/')).toBe('/?lang=th');
       expect(languageSwitchUrl('en', '', '/th/')).toBe('/?lang=en');
     });
+  });
+});
+
+describe('isSwitch', () => {
+  it('is false for the language a map page is already in', () => {
+    expect(isSwitch('en', 'en', '/')).toBe(false);
+    expect(isSwitch('th', 'th', '/th/')).toBe(false);
+  });
+
+  it('is true for the other language', () => {
+    expect(isSwitch('th', 'en', '/')).toBe(true);
+  });
+
+  it('is true for English on a city page, which records it over a stored Thai preference', () => {
+    expect(isSwitch('en', 'en', '/city/chiang-mai')).toBe(true);
   });
 });
