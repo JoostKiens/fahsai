@@ -24,6 +24,12 @@ export function degToCompass(deg: number): string {
   return COMPASS[idx];
 }
 
+/** The bearing of a compass point such as NNE (22.5), or null for anything else. */
+export function compassToDeg(label: string): number | null {
+  const idx = COMPASS.findIndex((point) => point === label);
+  return idx === -1 ? null : idx * 22.5;
+}
+
 export function findNearestWind(
   vectors: WindReading[],
   lng: number,

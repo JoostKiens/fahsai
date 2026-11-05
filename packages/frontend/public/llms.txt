@@ -12,6 +12,10 @@
 - **History**: Time scrubber to explore how fires, wind, and air quality interact over a configurable 30, 60, 90, or 120-day window
 - **AI explanation**: Click a station and ask "What is causing this?" for a Gemini-generated explanation informed by a 72-hour back-trajectory analysis of wind, fires, and peer stations
 
+## City pages
+
+Plain pages with the day's PM2.5, a 7-day trend, the stations behind the figure, and the wind and fire detections for the day, for a few cities in northern Thailand and Bangkok: [Chiang Mai](https://fahsai.fyi/city/chiang-mai), [Chiang Rai](https://fahsai.fyi/city/chiang-rai), [Lampang](https://fahsai.fyi/city/lampang), [Lamphun](https://fahsai.fyi/city/lamphun), [Bangkok](https://fahsai.fyi/city/bangkok). The full list is in [sitemap.xml](https://fahsai.fyi/sitemap.xml). A city's figure is the median of its stations' daily means, within 20 km of the centre.
+
 ## Coverage
 
 Thailand, Myanmar, Laos, Cambodia, Vietnam and Singapore; most of Bhutan, Bangladesh and Malaysia; and parts of India, China and Indonesia (bounding box: 89°E–114°E, 1°N–30°N).

@@ -1,0 +1,25 @@
+/* Styles for the scrolling content pages (layouts/Content.astro). index.css is the map app's: it
+   fixes html, body and #root to the screen height and hides overflow. The fonts and theme below
+   are the same as there. */
+@import '@fontsource/ibm-plex-sans-thai/latin-400.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-500.css';
+@import '@fontsource/ibm-plex-sans-thai/latin-600.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-400.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-500.css';
+@import '@fontsource/ibm-plex-sans-thai/thai-600.css';
+@import '@fontsource/geist-mono/latin-400.css';
+@import '@fontsource/geist-mono/latin-500.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --color-zinc-500: #8e8e97;
+}
+
+body {
+  margin: 0;
+  background-color: #18181b; /* zinc-900, like the map app */
+  color: var(--color-zinc-100);
+  font-family: var(--font-sans);
+}
