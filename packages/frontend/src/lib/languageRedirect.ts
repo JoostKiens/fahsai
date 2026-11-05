@@ -1,5 +1,6 @@
 import type { Language } from '@/i18n-instance';
 import { searchWithoutParams } from '@/lib/langParam';
+import { isSwitchTarget } from '@/lib/languageSwitchUrl';
 
 const ENGLISH_PAGE = '/';
 const THAI_PAGE = '/th/';
@@ -46,11 +47,11 @@ export function resolveLanguageRedirect({
   return wantsThai ? { location: THAI_PAGE + url.search, rememberAs: null } : null;
 }
 
-// The page the language switch asked for (`to`), when it is a path on this site: one slash, no
-// backslash, no control character. Anything else would make the redirect an open one.
+// The page the language switch asked for (`to`), when it is one a switch can ask for: the Thai home
+// page or a city page. Nothing wider: no query or fragment to clash with the rest of the query,
+// and no path of the API or the build, let alone another site.
 function sameSitePath(to: string | null): string | null {
-  if (to === null || !/^\/(?![/\\])[^\s\\]*$/.test(to)) return null;
-  return to;
+  return to !== null && isSwitchTarget(to) ? to : null;
 }
 
 function isLanguage(value: string | null | undefined): value is Language {

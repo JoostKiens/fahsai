@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -9,7 +10,7 @@ import { HeaderMenu } from './HeaderMenu';
 import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './Icons';
 import { LanguagePill } from './LanguagePill';
 import { Search } from './Search';
-import { pageSearchTarget, type SearchTarget } from './utils.search-target';
+import { pageSearchTarget, type SearchResult, type SearchTarget } from './utils.search-target';
 
 function Logo({ size }: { size: number }) {
   return (
@@ -22,6 +23,25 @@ function Logo({ size }: { size: number }) {
       />
       <path d="M0 40 Q 10 30 20 38 Q 30 46 38 36 Q 44 30 48 38 L 48 48 L 0 48 Z" fill="#ffffff" />
     </svg>
+  );
+}
+
+// The logo and name: a link to the map on a page that is not the map, plain markup on the map
+function Brand({
+  isLink,
+  className,
+  children,
+}: {
+  isLink: boolean;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return isLink ? (
+    <a href="/" className={className}>
+      {children}
+    </a>
+  ) : (
+    <div className={className}>{children}</div>
   );
 }
 
@@ -95,6 +115,8 @@ function AppDialog({
   );
 }
 
+const NO_CITIES: SearchTarget[] = [];
+
 interface HeaderProps {
   /**
    * 'map': the app's header over the map. 'page': the same header on a page without the map (a city
@@ -107,8 +129,13 @@ interface HeaderProps {
   cities?: SearchTarget[];
 }
 
-export function Header({ context = 'map', stationsDate, cities = [] }: HeaderProps) {
+export function Header({ context = 'map', stationsDate, cities = NO_CITIES }: HeaderProps) {
   const isPage = context === 'page';
+  // a stable handler, so Search's callbacks are not rebuilt on every render
+  const handlePageSelect = useCallback(
+    (result: SearchResult) => window.location.assign(pageSearchTarget(result, cities)),
+    [cities],
+  );
   const { t } = useTranslation();
   const aboutOpen = useUIStore((s) => s.aboutOpen);
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
@@ -127,30 +154,23 @@ export function Header({ context = 'map', stationsDate, cities = [] }: HeaderPro
           <h1 className="sr-only">Fahsai — {t('header.subtitle')}</h1>
         )}
 
-        {/* Desktop brand */}
-        <div className="hidden md:flex items-center gap-2 shrink-0">
+        {/* Desktop brand: a link back to the map on a page without the map */}
+        <Brand isLink={isPage} className="hidden md:flex items-center gap-2 shrink-0">
           <Logo size={26} />
           <div className="leading-tight">
             <p className="text-[13px] font-semibold text-zinc-100">Fahsai</p>
             <p className="text-[11px] text-zinc-400">{t('header.subtitle')}</p>
           </div>
-        </div>
+        </Brand>
 
         {/* Mobile brand */}
-        <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
+        <Brand isLink={isPage} className="flex md:hidden items-center gap-2 flex-1 min-w-0">
           <Logo size={22} />
           <span className="text-[12px] font-semibold text-zinc-100 truncate">Fahsai</span>
-        </div>
+        </Brand>
 
         {/* Desktop search */}
-        <Search
-          stationsDate={stationsDate}
-          onSelect={
-            isPage
-              ? (result) => window.location.assign(pageSearchTarget(result, cities))
-              : undefined
-          }
-        />
+        <Search stationsDate={stationsDate} onSelect={isPage ? handlePageSelect : undefined} />
 
         {/* Desktop right cluster */}
         <div className="hidden md:flex items-center gap-1 shrink-0">

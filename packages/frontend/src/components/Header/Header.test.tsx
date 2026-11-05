@@ -45,4 +45,9 @@ describe('Header on the server', () => {
     expect(page).not.toContain('aria-label="Settings"');
     expect(map).toContain('aria-label="Settings"');
   });
+
+  it('links the brand to the map on a content page, and not on the map page', () => {
+    expect(render('page')).toContain('<a href="/"');
+    expect(render('map')).not.toContain('<a href="/"');
+  });
 });

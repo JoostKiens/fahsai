@@ -144,6 +144,10 @@ describe('addresses other than the English entry page', () => {
 });
 
 describe('the target of a language switch (&to=)', () => {
+  it.each(['/th/', '/city/chiang-mai/'])('accepts the pages a switch can ask for (%s)', (to) => {
+    expect(resolve(`/?lang=en&to=${encodeURIComponent(to)}`)?.location).toBe(to);
+  });
+
   it('goes to the page asked for, and records the language', () => {
     expect(resolve('/?lang=en&to=/city/chiang-mai')).toEqual({
       location: '/city/chiang-mai',
@@ -162,6 +166,12 @@ describe('the target of a language switch (&to=)', () => {
     'city/chiang-mai',
     '/ok\nbad',
     '',
+    '/city/x?a=1',
+    '/city/x#top',
+    '/city/UPPER',
+    '/api/v1/fires',
+    '/_astro/index.js',
+    '/th/city/x',
   ])(
     'ignores a target that is not a path on this site (%j) and goes to the language page',
     (to) => {

@@ -37,11 +37,13 @@ if (result.status !== 'ok') {
 }
 const page = result.status === 'ok' ? result.page : null;
 // both are optional extras (the baseline sentence, search finding a city page), fetched together
-const [baselineDiff, cityList] = await Promise.all([
-  page ? fetchBaselineDiff(page) : null,
-  fetchCityList({ timeoutMs: 1500 }),
-]);
-const cities = (cityList ?? []).map(({ slug, name }) => ({ slug, name }));
+const [baselineDiff, cityList] = page
+  ? await Promise.all([fetchBaselineDiff(page), fetchCityList({ timeoutMs: 1500 })])
+  : [null, null];
+// A page without the list would keep search from finding the city pages for as long as ISR holds
+// it, so it is not held.
+if (page && !cityList) Astro.response.headers.set('Cache-Control', 'no-store');
+const cities = (cityList ?? []).map(({ slug, name, country }) => ({ slug, name, country }));
 // TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
 const meta = page
   ? { ...cityMeta(page, t), noindex: false }
