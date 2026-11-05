@@ -28,7 +28,7 @@ function ChevronDownIcon() {
 
 /**
  * Switches the site between English and Thai. It shows the current language; choosing the other
- * one reloads the page at `/` or `/th/`.
+ * one reloads the page at `/` or `/th/`, or at the equivalent page when this is not the map.
  */
 export function LanguagePill() {
   const { t, i18n } = useTranslation();
@@ -38,7 +38,11 @@ export function LanguagePill() {
 
   function select(lang: Language) {
     if (lang === (i18n.language as Language)) return;
-    window.location.href = languageSwitchUrl(lang, window.location.search);
+    window.location.href = languageSwitchUrl(
+      lang,
+      window.location.search,
+      window.location.pathname,
+    );
   }
 
   return (

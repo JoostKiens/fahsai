@@ -5,6 +5,7 @@ import StationsTable from '@/components/City/StationsTable.astro';
 import NearbyCities from '@/components/City/NearbyCities.astro';
 import { WindArrow } from '@/components/InfoPanel/WindArrow';
 import { compassToDeg } from '@/components/InfoPanel/utils.ambient';
+import { HeaderIsland } from '@/islands/HeaderIsland';
 import { CityChartIsland } from '@/islands/CityChartIsland';
 import { CityHeadlineIsland } from '@/islands/CityHeadlineIsland';
 import { createI18n } from '@/i18n-instance';
@@ -18,6 +19,7 @@ import {
   summaryHtml,
   trendDays,
 } from '@/lib/cityPage';
+import { fetchCityList } from '@/lib/sitemap';
 import { pm25ToCategory } from '@/utils/aqiColors';
 
 export const prerender = false;
@@ -34,7 +36,12 @@ if (result.status !== 'ok') {
   Astro.response.headers.set('Cache-Control', 'no-store');
 }
 const page = result.status === 'ok' ? result.page : null;
-const baselineDiff = page ? await fetchBaselineDiff(page) : null;
+// both are optional extras (the baseline sentence, search finding a city page), fetched together
+const [baselineDiff, cityList] = await Promise.all([
+  page ? fetchBaselineDiff(page) : null,
+  fetchCityList({ timeoutMs: 1500 }),
+]);
+const cities = (cityList ?? []).map(({ slug, name }) => ({ slug, name }));
 // TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
 const meta = page
   ? { ...cityMeta(page, t), noindex: false }
@@ -51,10 +58,7 @@ const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
 ---
 
 <Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title) : []}>
-  <!-- the app's header without its search and menus, which need the map's stores -->
-  <header class="h-12 flex items-center px-4 border-b border-zinc-800 bg-zinc-900">
-    <a href="/" class="text-[13px] font-semibold text-zinc-100">Fahsai</a>
-  </header>
+  <HeaderIsland client:load lang={lang} context="page" stationsDate={page?.date} cities={cities} />
 
   <main class="mx-auto w-full max-w-[1120px] px-4 py-6 flex flex-col gap-4">
     <h1 class="text-2xl font-semibold">{page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}</h1>

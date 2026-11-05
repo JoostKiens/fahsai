@@ -1,8 +1,17 @@
 import { Header } from '@/components/Header/Header';
+import type { SearchTarget } from '@/components/Header/utils.search-target';
 import type { Language } from '@/i18n-instance';
 import { ServerIslandRoot } from './ServerIslandRoot';
 
-export function HeaderIsland({ lang }: { lang: Language }) {
+interface Props {
+  lang: Language;
+  /** 'page' on a page without the map: see Header */
+  context?: 'map' | 'page';
+  stationsDate?: string;
+  cities?: SearchTarget[];
+}
+
+export function HeaderIsland({ lang, context = 'map', stationsDate, cities }: Props) {
   return (
     <ServerIslandRoot
       lang={lang}
@@ -13,7 +22,7 @@ export function HeaderIsland({ lang }: { lang: Language }) {
         </header>
       }
     >
-      <Header />
+      <Header context={context} stationsDate={stationsDate} cities={cities} />
     </ServerIslandRoot>
   );
 }

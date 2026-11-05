@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
-import { useStationReadings, type LatestMeasurement } from '@/hooks/useStationReadings';
+import { useQuery } from '@tanstack/react-query';
+import {
+  fetchStationReadings,
+  useStationReadings,
+  type LatestMeasurement,
+} from '@/hooks/useStationReadings';
+import { staleTimeForArray } from '@/utils/queryHelpers';
 import { useUIStore } from '@/store/uiStore';
 import { mapRef } from '@/utils/mapRef';
 import { pm25ToRgb, contrastColor } from '@/utils/aqiColors';
 import { CloseIcon } from './Icons';
+import type { SearchResult } from './utils.search-target';
 import { AppScrollArea } from '@/components/AppScrollArea';
 import {
   FUSE_KEYS,
@@ -60,10 +67,28 @@ function Pm25Dot({ value }: { value: number }) {
  * geocoding. Choosing a station selects it and moves the map to it; choosing a place moves the
  * map there. On mobile it opens from a search button as a full-width field.
  */
-export function Search() {
+export function Search({
+  onSelect,
+  stationsDate,
+}: {
+  /** Where a choice goes when there is no map to move (see Header's 'page' context) */
+  onSelect?: (result: SearchResult) => void;
+  /** With `onSelect`: the day whose stations are searched, loaded when the field is first used */
+  stationsDate?: string;
+}) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
-  const { data: stations } = useStationReadings();
+  const { data: mapStations } = useStationReadings();
+  const [hasFocused, setHasFocused] = useState(false);
+  // Without the map nothing loads the stations (the map's query waits for the latest date), and a
+  // page should not fetch them before the visitor reaches for search.
+  const { data: pageStations } = useQuery({
+    queryKey: ['aqi-latest', 'pm25', stationsDate],
+    queryFn: () => fetchStationReadings(stationsDate ?? ''),
+    staleTime: staleTimeForArray,
+    enabled: onSelect !== undefined && hasFocused && stationsDate !== undefined,
+  });
+  const stations = onSelect ? pageStations : mapStations;
   const setSelectedPoint = useUIStore((s) => s.setSelectedPoint);
 
   const [query, setQuery] = useState('');
@@ -165,6 +190,11 @@ export function Search() {
 
   const selectStation = useCallback(
     (m: LatestMeasurement) => {
+      if (onSelect) {
+        onSelect({ type: 'station', data: m });
+        close();
+        return;
+      }
       setSelectedPoint({
         lngLat: [m.lng, m.lat],
         station: {
@@ -179,16 +209,21 @@ export function Search() {
       mapRef.current?.flyTo({ center: [m.lng, m.lat], zoom: 12, duration: 800 });
       close();
     },
-    [setSelectedPoint, close],
+    [onSelect, setSelectedPoint, close],
   );
 
   const selectPlace = useCallback(
     (p: PlaceResult) => {
+      if (onSelect) {
+        onSelect({ type: 'place', data: p });
+        close();
+        return;
+      }
       setSelectedPoint(null);
       mapRef.current?.flyTo({ center: [p.lng, p.lat], zoom: 11, duration: 800 });
       close();
     },
-    [setSelectedPoint, close],
+    [onSelect, setSelectedPoint, close],
   );
 
   function selectActive() {
@@ -245,6 +280,7 @@ export function Search() {
               setIsOpen(true);
             }}
             onFocus={() => {
+              setHasFocused(true);
               if (query.length >= 1) setIsOpen(true);
             }}
             onKeyDown={onKeyDown}
