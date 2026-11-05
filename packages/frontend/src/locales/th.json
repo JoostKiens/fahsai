@@ -171,5 +171,12 @@
   "city.colDistance": "Distance (km)",
   "city.noReading": "No reading",
   "city.whoMultiple": "{{multiple}}× the WHO 24-hour guideline",
-  "city.sources": "Station data from OpenAQ. The figure for a day is the median of the stations' daily means, for the stations within 20 km of the city centre."
+  "city.sources": "Station data from OpenAQ. The figure for a day is the median of the stations' daily means, for the stations within 20 km of the city centre.",
+  "city.metaTitle": "{{name}} air quality: PM2.5 {{pm25}} µg/m³ ({{date}}) | Fahsai",
+  "city.metaTitleNoData": "{{name}} air quality | Fahsai",
+  "city.metaDescription": "PM2.5 in {{name}} on {{date}}: {{pm25}} µg/m³, the median of {{count}} ground stations. With the 7-day trend, wind and fire detections.",
+  "city.metaDescriptionNoData": "No ground station in {{name}} has reported PM2.5 for {{date}} yet.",
+  "city.fallbackTitle": "Air quality",
+  "city.summaryLabel": "Summary",
+  "city.windSpeed": "{{speed}} km/h"
 }

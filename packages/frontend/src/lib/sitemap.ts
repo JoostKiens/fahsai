@@ -1,9 +1,7 @@
 import type { CityListItem } from '@thailand-aq/types';
-import { apiUrl } from '@/lib/api';
 import { cityUrl } from '@/lib/cityPage';
-
-const SITE = 'https://fahsai.fyi';
-const REQUEST_TIMEOUT_MS = 4000;
+import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
+import { SITE } from '@/lib/site';
 
 const MAP_ALTERNATES = [
   `<xhtml:link rel="alternate" hreflang="en" href="${SITE}/" />`,
@@ -12,21 +10,10 @@ const MAP_ALTERNATES = [
 ].join('\n    ');
 
 /** The cities that have a page, or null when the API cannot say. Never throws. */
-export async function fetchCityList({ fetchFn = fetch }: { fetchFn?: typeof fetch } = {}): Promise<
-  CityListItem[] | null
-> {
-  try {
-    const res = await fetchFn(apiUrl('/cities'), {
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`${res.status}`);
-    const body = (await res.json()) as { data?: unknown };
-    if (!Array.isArray(body.data)) throw new Error('unexpected body');
-    return body.data as CityListItem[];
-  } catch (error) {
-    console.warn('[sitemap] /cities failed:', error);
-    return null;
-  }
+export async function fetchCityList(options: FetchOptions = {}): Promise<CityListItem[] | null> {
+  const answer = await fetchApi('/cities', options);
+  const data = (answer?.body as { data?: unknown } | null)?.data;
+  return answer?.ok && Array.isArray(data) ? (data as CityListItem[]) : null;
 }
 
 function escapeXml(text: string): string {

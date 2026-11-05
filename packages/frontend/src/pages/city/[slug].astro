@@ -27,15 +27,19 @@ const { slug = '' } = Astro.params;
 const result = await fetchCityPage(slug);
 const { t } = createI18n(lang);
 
-// 404 for a city that is not in the list, 503 when the API could not be reached. Neither is cached.
-if (result.status !== 'ok') Astro.response.status = result.status === 'not-found' ? 404 : 503;
+// 404 for a city that is not in the list, 503 when the API could not be reached. no-store keeps
+// the ISR layer from holding either for the hour.
+if (result.status !== 'ok') {
+  Astro.response.status = result.status === 'not-found' ? 404 : 503;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
 const page = result.status === 'ok' ? result.page : null;
 const baselineDiff = page ? await fetchBaselineDiff(page) : null;
 // TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
 const meta = page
-  ? cityMeta(page)
+  ? { ...cityMeta(page, t), noindex: false }
   : {
-      title: 'Air quality | Fahsai',
+      title: `${t('city.fallbackTitle')} | Fahsai`,
       description: t('city.unavailable'),
       canonical: Astro.url.href,
       noindex: true,
@@ -46,14 +50,14 @@ const cardClass = 'rounded-lg border border-zinc-700/60 bg-zinc-900 p-4';
 const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
 ---
 
-<Content lang={lang} {...meta} jsonLd={page && !meta.noindex ? cityJsonLd(page) : []}>
+<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title) : []}>
   <!-- the app's header without its search and menus, which need the map's stores -->
   <header class="h-12 flex items-center px-4 border-b border-zinc-800 bg-zinc-900">
     <a href="/" class="text-[13px] font-semibold text-zinc-100">Fahsai</a>
   </header>
 
   <main class="mx-auto w-full max-w-[1120px] px-4 py-6 flex flex-col gap-4">
-    <h1 class="text-2xl font-semibold">{page ? t('city.h1', { name: page.name }) : 'Air quality'}</h1>
+    <h1 class="text-2xl font-semibold">{page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}</h1>
 
     {!page && <p>{t('city.unavailable')}</p>}
     {page && !hasReading && <p>{t('city.noData', { name: page.name, date: page.date })}</p>}
@@ -61,7 +65,7 @@ const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
     {
       page && page.pm25 !== null && (
         <>
-          <section class={`${cardClass} flex flex-col gap-3`} aria-label="Summary">
+          <section class={`${cardClass} flex flex-col gap-3`} aria-label={t('city.summaryLabel')}>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
               <CityHeadlineIsland
                 lang={lang}
@@ -80,7 +84,9 @@ const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
                   )}
                   <span class="text-zinc-400">{t('history.wind')}</span>
                   <span>{page.drivers.windFrom}</span>
-                  <span class="font-mono">{Math.round(page.drivers.windSpeedKmh)} km/h</span>
+                  <span class="font-mono">
+                    {t('city.windSpeed', { speed: Math.round(page.drivers.windSpeedKmh) })}
+                  </span>
                 </span>
               )}
             </div>

@@ -6,21 +6,17 @@ import {
   type CityStationDay,
 } from '@thailand-aq/types';
 import type { i18n } from 'i18next';
-import { apiUrl } from '@/lib/api';
+import { SITE } from '@/lib/site';
+import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
 import type { PmBarDay } from '@/components/InfoPanel/PmBarChart';
 import { pm25ToCategory } from '@/utils/aqiColors';
 import { dateLocale } from '@/utils/locale';
 
-const SITE = 'https://fahsai.fyi';
-const REQUEST_TIMEOUT_MS = 4000;
+// the baseline sentence is optional: a slow answer must not hold the page up for long
+const BASELINE_TIMEOUT_MS = 1500;
 
 export type CityPageResult =
   { status: 'ok'; page: CityPage } | { status: 'not-found' } | { status: 'unavailable' };
-
-interface Options {
-  fetchFn?: typeof fetch;
-  timeoutMs?: number;
-}
 
 /**
  * The data for a city page. Called while Astro renders, so it never throws: an unknown city is
@@ -28,32 +24,38 @@ interface Options {
  */
 export async function fetchCityPage(
   slug: string,
-  { fetchFn = fetch, timeoutMs = REQUEST_TIMEOUT_MS }: Options = {},
+  options: FetchOptions = {},
 ): Promise<CityPageResult> {
-  const path = `/cities/${encodeURIComponent(slug)}`;
-  try {
-    const res = await fetchFn(apiUrl(path), { signal: AbortSignal.timeout(timeoutMs) });
-    if (res.status === 404) return { status: 'not-found' };
-    if (!res.ok) throw new Error(`${res.status}`);
-    const body = (await res.json()) as unknown;
-    if (!isCityPage(body)) throw new Error('unexpected body');
-    return { status: 'ok', page: body };
-  } catch (error) {
-    console.warn(`[cityPage] ${path} failed:`, error);
+  const answer = await fetchApi(`/cities/${encodeURIComponent(slug)}`, options);
+  if (answer?.status === 404) return { status: 'not-found' };
+  if (!answer?.ok) return { status: 'unavailable' };
+  if (!isCityPage(answer.body)) {
+    console.warn('[cityPage] the API sent something that is not a city page');
     return { status: 'unavailable' };
   }
+  return { status: 'ok', page: answer.body };
 }
 
+// Everything the page reads, so a partial or changed answer is `unavailable` and not a crash
 function isCityPage(body: unknown): body is CityPage {
+  if (typeof body !== 'object' || body === null) return false;
+  const page = body as Record<string, unknown>;
+  const isNumberOrNull = (value: unknown) => value === null || typeof value === 'number';
   return (
-    typeof body === 'object' &&
-    body !== null &&
-    'slug' in body &&
-    typeof body.slug === 'string' &&
-    'stations' in body &&
-    Array.isArray(body.stations) &&
-    'trend' in body &&
-    Array.isArray(body.trend)
+    typeof page.slug === 'string' &&
+    typeof page.name === 'string' &&
+    typeof page.date === 'string' &&
+    typeof page.lat === 'number' &&
+    typeof page.lng === 'number' &&
+    typeof page.zoom === 'number' &&
+    typeof page.stationCount === 'number' &&
+    isNumberOrNull(page.pm25) &&
+    isNumberOrNull(page.whoMultiple) &&
+    Array.isArray(page.stations) &&
+    Array.isArray(page.trend) &&
+    Array.isArray(page.summary) &&
+    Array.isArray(page.nearby) &&
+    (page.drivers === null || (typeof page.drivers === 'object' && page.drivers !== undefined))
   );
 }
 
@@ -66,24 +68,27 @@ export function cityUrl(slug: string): string {
   return `${SITE}/city/${slug}`;
 }
 
-export function cityMeta(page: CityPage) {
+/**
+ * The head tags of a city page. No "today": the figure is the newest complete day, which for part
+ * of every day is yesterday, so the title and description say which day it is.
+ */
+export function cityMeta(page: CityPage, t: i18n['t']) {
   const { name, pm25, date, stationCount } = page;
-  const hasReading = pm25 !== null;
   return {
-    title: hasReading
-      ? `${name} air quality today: PM2.5 ${pm25} µg/m³ | Fahsai`
-      : `${name} air quality | Fahsai`,
-    description: hasReading
-      ? `PM2.5 in ${name} on ${date}: ${pm25} µg/m³, the median of ${stationCount} ground stations. With the 7-day trend, wind and fire detections.`
-      : `No ground station in ${name} has reported PM2.5 for ${date} yet.`,
+    title:
+      pm25 === null
+        ? t('city.metaTitleNoData', { name })
+        : t('city.metaTitle', { name, pm25, date }),
+    description:
+      pm25 === null
+        ? t('city.metaDescriptionNoData', { name, date })
+        : t('city.metaDescription', { name, pm25, date, count: stationCount }),
     canonical: cityUrl(page.slug),
-    // a page with no figure has nothing to rank for, and would be a thin page in the index
-    noindex: !hasReading,
   };
 }
 
 /** Structured data for a city page: a breadcrumb, and the page with the place it is about. */
-export function cityJsonLd(page: CityPage): object[] {
+export function cityJsonLd(page: CityPage, title: string): object[] {
   const url = cityUrl(page.slug);
   return [
     {
@@ -98,7 +103,7 @@ export function cityJsonLd(page: CityPage): object[] {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
       url,
-      name: cityMeta(page).title,
+      name: title,
       // the day of the data the page shows (the page itself is rebuilt hourly)
       dateModified: page.date,
       about: {
@@ -132,6 +137,11 @@ function distanceKm(from: { lat: number; lng: number }, to: { lat: number; lng: 
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
 }
 
+// OpenAQ has a station called ' ': no letter or digit says nothing to a reader
+function isReadableName(name: string): boolean {
+  return /[\p{L}\p{N}]/u.test(name);
+}
+
 export interface ListedStation {
   id: string;
   name: string;
@@ -148,7 +158,7 @@ export interface ListedStation {
 export function listedStations(page: CityPage): ListedStation[] {
   return page.stations
     .filter((s): s is CityStationDay & { pm25: number } => s.pm25 !== null)
-    .filter((s) => /[\p{L}\p{N}]/u.test(s.name))
+    .filter((s) => isReadableName(s.name))
     .map((s) => ({
       id: s.id,
       name: s.name,
@@ -171,26 +181,25 @@ export interface BaselineDiff {
  */
 export async function fetchBaselineDiff(
   page: CityPage,
-  { fetchFn = fetch, timeoutMs = REQUEST_TIMEOUT_MS }: Options = {},
+  { timeoutMs = BASELINE_TIMEOUT_MS, ...options }: FetchOptions = {},
 ): Promise<BaselineDiff | null> {
   if (!page.drivers?.baselineCategory) return null;
   const station = page.stations.find((s) => s.id === page.drivers?.representativeStationId);
-  if (!station || station.pm25 === null) return null;
+  // a station the list leaves out for its name cannot be named in a sentence either
+  if (!station || station.pm25 === null || !isReadableName(station.name)) return null;
 
-  const path = `/stations/${encodeURIComponent(station.id)}/baseline`;
-  try {
-    const res = await fetchFn(apiUrl(path), { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) throw new Error(`${res.status}`);
-    const { data } = (await res.json()) as BaselineResponse;
-    const [, month, day] = page.date.split('-').map(Number);
-    const typical = data.find((d) => d.month === month && d.day === day);
-    if (!typical || typical.n < BASELINE_DISPLAY_GATE || typical.medianPm25 <= 0) return null;
-    const percent = Math.round(((station.pm25 - typical.medianPm25) / typical.medianPm25) * 100);
-    return { station: station.name, percent };
-  } catch (error) {
-    console.warn(`[cityPage] ${path} failed, leaving the baseline sentence out:`, error);
-    return null;
-  }
+  const answer = await fetchApi(`/stations/${encodeURIComponent(station.id)}/baseline`, {
+    ...options,
+    timeoutMs,
+  });
+  const data = (answer?.body as BaselineResponse | null)?.data;
+  if (!answer?.ok || !Array.isArray(data)) return null;
+
+  const [, month, day] = page.date.split('-').map(Number);
+  const typical = data.find((d) => d.month === month && d.day === day);
+  if (!typical || typical.n < BASELINE_DISPLAY_GATE || typical.medianPm25 <= 0) return null;
+  const percent = Math.round(((station.pm25 - typical.medianPm25) / typical.medianPm25) * 100);
+  return { station: station.name, percent };
 }
 
 /** The trend as the bar chart takes it: a day nobody reported has no bar, not a bar of 0. */
@@ -203,6 +212,8 @@ export function trendDays(page: CityPage): PmBarDay[] {
 }
 
 const BASELINE_PREFIX = 'city.summary.baseline.';
+// a key is plain words and dots; anything else is not one of ours and is not put in the page
+const PLAIN_KEY = /^[A-Za-z][\w.]*$/;
 
 function escapeHtml(text: string): string {
   return text
@@ -212,6 +223,15 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+// The API chose the wording (above or below) from its own comparison; the percentage is worked out
+// here. Where the two disagree, or the percentage is 0, the sentence is left out rather than say
+// the opposite of the figure.
+function agreesWithKey(key: string, diff: BaselineDiff | null): diff is BaselineDiff {
+  if (!diff || diff.percent === 0) return false;
+  const isAbove = /[Aa]bove$/.test(key);
+  return isAbove ? diff.percent > 0 : diff.percent < 0;
+}
+
 /**
  * The page's summary sentences as HTML, for `set:html`: the day goes in a <time> element, the level
  * sentence gets the AQI category, and the baseline sentences get their station and percentage (or
@@ -219,8 +239,9 @@ function escapeHtml(text: string): string {
  */
 export function summaryHtml(page: CityPage, t: i18n['t'], diff: BaselineDiff | null): string[] {
   return page.summary.flatMap(({ key, params }: CitySentence) => {
+    if (!PLAIN_KEY.test(key)) return [];
     const isBaseline = key.startsWith(BASELINE_PREFIX);
-    if (isBaseline && !diff) return [];
+    if (isBaseline && !agreesWithKey(key, diff)) return [];
 
     const values: Record<string, string | number> = {};
     for (const [name, value] of Object.entries(params)) {

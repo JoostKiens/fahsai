@@ -12,6 +12,7 @@ import {
   summaryHtml,
   trendDays,
 } from './cityPage';
+import { createI18n } from '@/i18n-instance';
 
 const PAGE: CityPage = {
   slug: 'chiang-mai',
@@ -69,6 +70,8 @@ describe('fetchCityPage', () => {
     ['a server error', respond({}, 500)],
     ['a network failure', vi.fn<typeof fetch>(() => Promise.reject(new Error('down')))],
     ['a body that is not a city page', respond({ hello: 'world' })],
+    ['a city page missing a field the page reads', respond({ ...PAGE, nearby: undefined })],
+    ['a city page whose summary is not a list', respond({ ...PAGE, summary: 'x' })],
   ])('says unavailable, and does not throw, on %s', async (_name, fetchFn) => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -83,28 +86,35 @@ describe('cityMapLink', () => {
 });
 
 describe('cityMeta', () => {
+  const { t } = createI18n('en');
+
   it('puts the city, the figure and the day in the title and description', () => {
-    const meta = cityMeta(PAGE);
+    const meta = cityMeta(PAGE, t);
 
     expect(meta.title).toContain('Chiang Mai');
     expect(meta.title).toContain('11');
     expect(meta.description).toContain('2026-11-03');
     expect(meta.description).toContain('17 ground stations');
     expect(meta.canonical).toBe('https://fahsai.fyi/city/chiang-mai');
-    expect(meta.noindex).toBe(false);
   });
 
-  it('keeps a page without a reading out of the index', () => {
-    const meta = cityMeta(NO_DATA);
+  it('does not say "today": the data is for the newest complete day, which can be yesterday', () => {
+    const meta = cityMeta(PAGE, t);
 
-    expect(meta.noindex).toBe(true);
+    expect(`${meta.title} ${meta.description}`).not.toMatch(/today/i);
+  });
+
+  it('keeps a city with no reading in the index: that is a passing state, not a thin page', () => {
+    const meta = cityMeta(NO_DATA, t);
+
+    expect(meta).not.toHaveProperty('noindex');
     expect(meta.title).not.toContain('null');
   });
 });
 
 describe('cityJsonLd', () => {
   it('describes the breadcrumb, and the page with its place and the day it was updated', () => {
-    const [crumbs, webPage] = cityJsonLd(PAGE);
+    const [crumbs, webPage] = cityJsonLd(PAGE, 'T');
 
     expect(crumbs).toMatchObject({
       '@type': 'BreadcrumbList',
@@ -126,7 +136,7 @@ describe('cityJsonLd', () => {
   });
 
   it('has no Dataset: that is for the methodology page', () => {
-    expect(JSON.stringify(cityJsonLd(PAGE))).not.toContain('Dataset');
+    expect(JSON.stringify(cityJsonLd(PAGE, 'T'))).not.toContain('Dataset');
   });
 });
 
@@ -222,6 +232,12 @@ describe('fetchBaselineDiff', () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
+  it('is null when the station’s name would read as blank', async () => {
+    const blank = { ...withRepresentative, stations: [station('rep', "' '", 30)] };
+
+    expect(await fetchBaselineDiff(blank, { fetchFn: respond(baseline(40)) })).toBeNull();
+  });
+
   it('is null, and does not throw, when the API fails', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -263,6 +279,29 @@ describe('summaryHtml', () => {
     expect(summaryHtml(page, t, { station: 'Rep', percent: 50 })[0]).toContain(
       'station=Rep,percent=50',
     );
+  });
+
+  it.each([
+    ['above', -3],
+    ['wellAbove', 0],
+    ['below', 3],
+    ['wellBelow', 0],
+  ])('leaves out "%s" when the percentage (%i) does not agree with it', (category, percent) => {
+    const page = { ...PAGE, summary: [sentence(`city.summary.baseline.${category}`)] };
+
+    expect(summaryHtml(page, t, { station: 'Rep', percent })).toEqual([]);
+  });
+
+  it('keeps "below" when the percentage is negative, and says it without the sign', () => {
+    const page = { ...PAGE, summary: [sentence('city.summary.baseline.below')] };
+
+    expect(summaryHtml(page, t, { station: 'Rep', percent: -20 })[0]).toContain('percent=20');
+  });
+
+  it('drops a sentence whose key is not plain words, so a key cannot add markup', () => {
+    const page = { ...PAGE, summary: [sentence('<b>x</b>')] };
+
+    expect(summaryHtml(page, t, null)).toEqual([]);
   });
 
   it('leaves the baseline sentence out when there is no percentage, rather than guess', () => {

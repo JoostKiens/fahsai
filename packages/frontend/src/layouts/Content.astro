@@ -2,6 +2,7 @@
 // A lean layout for pages that scroll: no map, no placeholder preloads, no inline guard script
 // (Base.astro is the map app's shell and fixes the page to the screen height).
 import '@/content.css';
+import { serializeJsonLd } from '@/lib/jsonLd';
 
 interface Props {
   lang: 'en' | 'th';
@@ -35,7 +36,7 @@ const { lang, title, description, canonical, noindex = false, jsonLd = [] } = As
     <meta property="og:description" content={description} />
     <meta property="og:image" content="https://fahsai.fyi/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    {jsonLd.map((item) => <script is:inline type="application/ld+json" set:html={JSON.stringify(item)} />)}
+    {jsonLd.map((item) => <script is:inline type="application/ld+json" set:html={serializeJsonLd(item)} />)}
   </head>
   <body>
     <slot />

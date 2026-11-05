@@ -5,7 +5,7 @@ import { degToCompass } from './utils.ambient';
 import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { WindArrow } from './WindArrow';
-import { DAY_LABEL_H, DEFAULT_BAR_H as MAX_BAR_H, PmBarChart, formatDayLabel } from './PmBarChart';
+import { DAY_LABEL_H, DEFAULT_BAR_H, PmBarChart, formatDayLabel } from './PmBarChart';
 
 const SHIMMER_ROWS: [string, string, string, string][] = [
   ['w-8', 'w-14', 'w-5', 'w-5'],
@@ -29,7 +29,7 @@ export function ShimmerHistory() {
         </div>
         <div
           className="flex items-end gap-1.5 flex-1"
-          style={{ height: `${MAX_BAR_H + DAY_LABEL_H}px` }}
+          style={{ height: `${DEFAULT_BAR_H + DAY_LABEL_H}px` }}
         >
           {Array.from({ length: 5 }, (_, i) => {
             const barH = 36 + (i % 3) * 16;
@@ -37,7 +37,7 @@ export function ShimmerHistory() {
               <div key={i} className="flex flex-col items-center flex-1">
                 <div
                   className="w-full rounded-t-[5px] animate-pulse [animation-duration:1.2s] bg-zinc-700"
-                  style={{ height: `${barH}px`, marginTop: `${MAX_BAR_H - barH}px` }}
+                  style={{ height: `${barH}px`, marginTop: `${DEFAULT_BAR_H - barH}px` }}
                 />
                 <Shimmer className="h-4.5 w-8 mt-1" />
               </div>
