@@ -10,6 +10,7 @@ import {
   formatDay,
   listedStations,
   summaryHtml,
+  trendDays,
 } from './cityPage';
 
 const PAGE: CityPage = {
@@ -271,5 +272,22 @@ describe('summaryHtml', () => {
     };
 
     expect(summaryHtml(page, t, null)).toHaveLength(1);
+  });
+});
+
+describe('trendDays', () => {
+  it('keeps a day nobody reported as a day without readings', () => {
+    const page = {
+      ...PAGE,
+      trend: [
+        { date: '2026-11-02', pm25: null, stationCount: 0 },
+        { date: '2026-11-03', pm25: 11, stationCount: 17 },
+      ],
+    };
+
+    expect(trendDays(page)).toEqual([
+      { date: '2026-11-02', pm25: 0, readingCount: 0 },
+      { date: '2026-11-03', pm25: 11, readingCount: 17 },
+    ]);
   });
 });

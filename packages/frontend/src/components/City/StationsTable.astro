@@ -10,13 +10,12 @@ interface Props {
 const { stations, t } = Astro.props;
 ---
 
-<section aria-labelledby="stations-heading">
-  <h2 id="stations-heading" class="text-lg font-semibold mb-3">{t('city.stations')}</h2>
-  <table class="w-full max-w-2xl text-sm">
+<div class="overflow-x-auto">
+  <table class="w-full text-sm">
     <thead>
       <tr class="text-left text-zinc-400">
-        <th class="py-1 font-medium">{t('city.colStation')}</th>
-        <th class="py-1 font-medium">{t('city.colPm25')}</th>
+        <th class="py-1 pr-3 font-medium">{t('city.colStation')}</th>
+        <th class="py-1 pr-3 font-medium">{t('city.colPm25')}</th>
         <th class="py-1 font-medium">{t('city.colDistance')}</th>
       </tr>
     </thead>
@@ -25,11 +24,11 @@ const { stations, t } = Astro.props;
         stations.map((station) => (
           <tr class="border-t border-zinc-800">
             <td class="py-1 pr-3">{station.name}</td>
-            <td class="py-1 pr-3">{station.pm25}</td>
-            <td class="py-1">{station.distanceKm}</td>
+            <td class="py-1 pr-3 font-mono">{station.pm25}</td>
+            <td class="py-1 font-mono">{station.distanceKm}</td>
           </tr>
         ))
       }
     </tbody>
   </table>
-</section>
+</div>

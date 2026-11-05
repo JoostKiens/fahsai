@@ -170,5 +170,6 @@
   "city.colStation": "Station",
   "city.colDistance": "Distance (km)",
   "city.noReading": "No reading",
+  "city.whoMultiple": "{{multiple}}× the WHO 24-hour guideline",
   "city.sources": "Station data from OpenAQ. The figure for a day is the median of the stations' daily means, for the stations within 20 km of the city centre."
 }

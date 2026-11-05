@@ -7,6 +7,7 @@ import {
 } from '@thailand-aq/types';
 import type { i18n } from 'i18next';
 import { apiUrl } from '@/lib/api';
+import type { PmBarDay } from '@/components/InfoPanel/PmBarChart';
 import { pm25ToCategory } from '@/utils/aqiColors';
 import { dateLocale } from '@/utils/locale';
 
@@ -190,6 +191,15 @@ export async function fetchBaselineDiff(
     console.warn(`[cityPage] ${path} failed, leaving the baseline sentence out:`, error);
     return null;
   }
+}
+
+/** The trend as the bar chart takes it: a day nobody reported has no bar, not a bar of 0. */
+export function trendDays(page: CityPage): PmBarDay[] {
+  return page.trend.map(({ date, pm25, stationCount }) => ({
+    date,
+    pm25: pm25 ?? 0,
+    readingCount: pm25 === null ? 0 : stationCount,
+  }));
 }
 
 const BASELINE_PREFIX = 'city.summary.baseline.';

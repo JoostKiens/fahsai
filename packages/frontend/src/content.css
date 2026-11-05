@@ -7,10 +7,13 @@
 @import '@fontsource/ibm-plex-sans-thai/thai-400.css';
 @import '@fontsource/ibm-plex-sans-thai/thai-500.css';
 @import '@fontsource/ibm-plex-sans-thai/thai-600.css';
+@import '@fontsource/geist-mono/latin-400.css';
+@import '@fontsource/geist-mono/latin-500.css';
 @import 'tailwindcss';
 
 @theme {
   --font-sans: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
   --color-zinc-500: #8e8e97;
 }
 
