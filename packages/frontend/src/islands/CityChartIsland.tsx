@@ -14,7 +14,7 @@ export function CityChartIsland({
 }) {
   return (
     <ServerIslandRoot lang={lang} name="CityChart" fallback={null}>
-      <PmBarChart days={days} barHeight={barHeight} />
+      <PmBarChart days={days} barHeight={barHeight} scale="pcd" />
     </ServerIslandRoot>
   );
 }

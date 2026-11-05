@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import type { StationDayHistory } from '@thailand-aq/types';
 import { TWEEN_ENTER } from '@/utils/animation';
-import { pm25ToRgb, pm25ToSoftRgb } from '@/utils/aqiColors';
+import { pm25ToRgb, pm25ToSoftRgb, type RGB } from '@/utils/aqiColors';
+import { pm25ToPcdBand } from '@/utils/pcdBands';
 import { niceMax } from '@/utils/niceMax';
 import { dateLocale } from '@/utils/locale';
 
@@ -46,6 +47,15 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
   );
 }
 
+/** The fill and the edge colour of a bar */
+function barColors(pm25: number, scale: 'epa' | 'pcd'): [RGB, RGB] {
+  if (scale === 'pcd') {
+    const { rgb } = pm25ToPcdBand(pm25);
+    return [rgb, rgb];
+  }
+  return [pm25ToSoftRgb(pm25), pm25ToRgb(pm25)];
+}
+
 /**
  * A bar per day for PM2.5, coloured by category, with a y-axis, day labels and a value tooltip on
  * hover or tap. The bars are plain markup, so it renders on the server; the tooltip only exists
@@ -54,8 +64,11 @@ function BarTooltip({ value, x, y }: { value: number; x: number; y: number }) {
 export function PmBarChart({
   days,
   barHeight = DEFAULT_BAR_H,
+  scale = 'epa',
 }: {
   days: PmBarDay[];
+  /** The colour scale: the map's US EPA, or the Thai PCD scale the public pages use */
+  scale?: 'epa' | 'pcd';
   /** Height of the tallest possible bar, in px */
   barHeight?: number;
 }) {
@@ -117,8 +130,7 @@ export function PmBarChart({
           {days.map(({ date, pm25: val, readingCount }) => {
             const barH =
               readingCount > 0 ? Math.max(2, Math.round((val / maxPm25) * barHeight)) : 0;
-            const [sr, sg, sb] = pm25ToSoftRgb(val);
-            const [r, g, b] = pm25ToRgb(val);
+            const [[sr, sg, sb], [r, g, b]] = barColors(val, scale);
             const isActive = activeDate === date;
             const hasData = readingCount > 0;
 

@@ -57,8 +57,14 @@ describe('cityDay', () => {
     // c did not report
   ]);
 
-  it('takes the median of the stations that reported, rounded to a whole number', () => {
+  it('takes the median of the stations that reported, to one decimal', () => {
+    // medians of 10 and 20.04 is 15.02; a whole number would hide that 25.4 bands as Moderate
     expect(cityDay(STATIONS, means, '2026-11-03').pm25).toBe(15);
+  });
+
+  it('keeps the decimal that decides a PCD band', () => {
+    const near = new Map([['a', new Map([['2026-11-03', { mean: 25.43, count: 1 }]])]]);
+    expect(cityDay(STATIONS.slice(0, 1), near, '2026-11-03').pm25).toBe(25.4);
   });
 
   it('counts only the stations that reported', () => {

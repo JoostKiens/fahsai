@@ -25,7 +25,31 @@ preserving absolute color accuracy. Always filter data server-side; only send th
 
 ---
 
-## AQI color scale
+## Two scales: US EPA (map) and Thai PCD (public pages)
+
+One scale per audience. The map (and InfoPanel, legend, heatmap) uses US EPA, below. The public
+pages (city pages, `/city`, later the haze guide and station pages) use the Thai PCD scale, and
+only that: `utils/pcdBands.ts`, five bands, no extra bands or shading above 75 µg/m³. A public
+page never imports the `aqiColors.ts` bands or the `aqi.*` labels (`contrastColor` is shared).
+Labels are the `pcd.*` keys; English is Air4Thai's own wording. Each view names its scale.
+
+| Band (Thai)             | English        | PM2.5 µg/m³, 24h | Hex       |
+| ----------------------- | -------------- | ---------------- | --------- |
+| ดีมาก                   | Excellent      | 0–15.0           | `#3BCCFF` |
+| ดี                      | Satisfactory   | 15.1–25.0        | `#92D050` |
+| ปานกลาง                 | Moderate       | 25.1–37.5        | `#FFFF00` |
+| เริ่มมีผลกระทบต่อสุขภาพ | Unhealthy      | 37.6–75.0        | `#FFA200` |
+| มีผลกระทบต่อสุขภาพ      | Very Unhealthy | 75.1+            | `#F04646` |
+
+The bands are Table 2's PM2.5 concentrations, not Table 1's AQI index (0–25, 26–50, 51–100, 101–200,
+201+); index 25 is 15 µg/m³. Source: PCD, Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ" Tables 1 and 2
+(https://air4thai.pcd.go.th/webV3/#/AQIInfo), verified 2026-11-05. Legal basis: PCD announcement
+of 3 July 2023 (Royal Gazette); 24-hour PM2.5 standard 37.5 µg/m³. Show µg/m³ with a band, never
+an index number. The mean is rounded to 0.1 before banding; the API sends the city figure to one
+decimal for that, and pages show it whole. `PmBarChart` takes `scale="pcd"` on public pages. PCD defines a rolling 24-hour
+average; the city figure is a calendar-day mean, close enough for banding.
+
+## AQI color scale (US EPA, map)
 
 US EPA official thresholds. Values are raw **PM2.5 µg/m³**, not AQI index values.
 Colors defined once in `packages/frontend/src/utils/aqiColors.ts`, shared by both

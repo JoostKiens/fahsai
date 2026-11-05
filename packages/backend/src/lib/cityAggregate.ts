@@ -34,7 +34,7 @@ export function stationDayMeans(readings: Reading[]): StationDayMeans {
 
 const oneDecimal = (value: number) => Math.round(value * 10) / 10;
 
-/** The city's figure for one day: the median of the stations that reported, as a whole number. */
+/** The city's figure for one day: the median of the stations that reported, to one decimal (PCD bands at that precision). */
 function dayFigure(
   stationIds: string[],
   means: StationDayMeans,
@@ -43,7 +43,7 @@ function dayFigure(
   const reported = stationIds.flatMap((id) => means.get(id)?.get(date)?.mean ?? []);
   const cityMedian = median(reported);
   return {
-    pm25: cityMedian === null ? null : Math.round(cityMedian),
+    pm25: cityMedian === null ? null : oneDecimal(cityMedian),
     stationCount: reported.length,
   };
 }

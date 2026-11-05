@@ -1,6 +1,6 @@
 ---
 import Content from '@/layouts/Content.astro';
-import AqiChip from '@/components/City/AqiChip.astro';
+import PcdChip from '@/components/City/PcdChip.astro';
 import ContentFooter from '@/components/ContentFooter.astro';
 import { HeaderIsland } from '@/islands/HeaderIsland';
 import { createI18n } from '@/i18n-instance';
@@ -36,6 +36,7 @@ const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, n
     <section class="flex flex-col gap-2 py-2">
       <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">{t('city.indexH1')}</h1>
       <p class="text-[13px] text-zinc-400">{t('city.indexIntro')}</p>
+      <p class="text-[11px] text-zinc-400">{t('pcd.scaleName')}</p>
     </section>
 
     {!cities && <p>{t('city.indexUnavailable')}</p>}
@@ -53,7 +54,7 @@ const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, n
                 >
                   <span>{city.name}</span>
                   {city.pm25 !== null ? (
-                    <AqiChip value={city.pm25} />
+                    <PcdChip value={city.pm25} t={t} />
                   ) : (
                     <span class="text-[11px] text-zinc-500">{t('city.noFigure')}</span>
                   )}
