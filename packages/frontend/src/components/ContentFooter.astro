@@ -1,0 +1,24 @@
+---
+import type { i18n } from 'i18next';
+
+interface Props {
+  t: i18n['t'];
+}
+
+const { t } = Astro.props;
+const linkClass = 'underline underline-offset-2 hover:text-zinc-100';
+---
+
+<footer class="border-t border-zinc-800 mt-8">
+  <div
+    class="mx-auto w-full max-w-[1120px] px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-[12px] text-zinc-400"
+  >
+    <span set:html={t('city.footerAbout')} />
+    <nav class="flex gap-4">
+      <a class={linkClass} href="/">{t('city.footerMap')}</a>
+      <a class={linkClass} href="https://github.com/JoostKiens/fahsai">{t('city.footerGithub')}</a>
+      <a class={linkClass} href="https://github.com/JoostKiens/fahsai-mcp-server">{t('city.footerMcp')}</a>
+    </nav>
+    <p class="basis-full [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-zinc-100" set:html={t('city.footerCredits')} />
+  </div>
+</footer>

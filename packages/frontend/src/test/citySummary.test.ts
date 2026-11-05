@@ -32,4 +32,19 @@ describe('city summary sentences', () => {
     expect(en['city.summary.noFires']).toMatch(/have been detected/);
     expect(Object.values(en).join('\n')).not.toMatch(/are burning|is burning|burning now/i);
   });
+
+  // The regional text under each city page: the same rules, and it claims no cause for a place
+  describe.each(Object.keys(en).filter((key) => key.startsWith('city.why.')))('%s (en)', (key) => {
+    const text = en[key as keyof typeof en];
+
+    it('names no country and blames no sector', () => {
+      expect(text).not.toMatch(
+        /myanmar|burma|laos|cambodia|vietnam|china|india|malaysia|agricultur|farm|crop|forest burning/i,
+      );
+    });
+
+    it('states no time window and has no em-dash', () => {
+      expect(text).not.toMatch(/\b\d+\s*(hours?|days?|weeks?|h)\b|recently|past few|—/i);
+    });
+  });
 });

@@ -3,7 +3,10 @@ import { describe, it, expect, vi } from 'vitest';
 import type { CityPage } from '@thailand-aq/types';
 import {
   cityJsonLd,
+  cityBreadcrumbs,
   cityMapLink,
+  keyTiles,
+  timeHtml,
   cityMeta,
   fetchBaselineDiff,
   fetchCityPage,
@@ -114,13 +117,14 @@ describe('cityMeta', () => {
 
 describe('cityJsonLd', () => {
   it('describes the breadcrumb, and the page with its place and the day it was updated', () => {
-    const [crumbs, webPage] = cityJsonLd(PAGE, 'T');
+    const [crumbs, webPage] = cityJsonLd(PAGE, 'T', createI18n('en').t);
 
     expect(crumbs).toMatchObject({
       '@type': 'BreadcrumbList',
       itemListElement: [
         { position: 1, name: 'Fahsai', item: 'https://fahsai.fyi/' },
-        { position: 2, name: 'Chiang Mai', item: 'https://fahsai.fyi/city/chiang-mai' },
+        { position: 2, name: 'Cities', item: 'https://fahsai.fyi/city' },
+        { position: 3, name: 'Chiang Mai', item: 'https://fahsai.fyi/city/chiang-mai' },
       ],
     });
     expect(webPage).toMatchObject({
@@ -136,7 +140,7 @@ describe('cityJsonLd', () => {
   });
 
   it('has no Dataset: that is for the methodology page', () => {
-    expect(JSON.stringify(cityJsonLd(PAGE, 'T'))).not.toContain('Dataset');
+    expect(JSON.stringify(cityJsonLd(PAGE, 'T', createI18n('en').t))).not.toContain('Dataset');
   });
 });
 
@@ -328,5 +332,82 @@ describe('trendDays', () => {
       { date: '2026-11-02', pm25: 0, readingCount: 0 },
       { date: '2026-11-03', pm25: 11, readingCount: 17 },
     ]);
+  });
+});
+
+describe('cityBreadcrumbs', () => {
+  it('is Fahsai, the list of cities, then the city: what the structured data lists', () => {
+    expect(cityBreadcrumbs(PAGE, createI18n('en').t)).toEqual([
+      { name: 'Fahsai', url: 'https://fahsai.fyi/' },
+      { name: 'Cities', url: 'https://fahsai.fyi/city' },
+      { name: 'Chiang Mai', url: 'https://fahsai.fyi/city/chiang-mai' },
+    ]);
+  });
+});
+
+describe('timeHtml', () => {
+  it('writes a day out inside a <time> element that carries the ISO date', () => {
+    expect(timeHtml('2026-11-03')).toBe('<time datetime="2026-11-03">3 Nov 2026</time>');
+  });
+});
+
+describe('summaryHtml baseline period', () => {
+  const stubT = ((key: string, params: Record<string, string | number> = {}) =>
+    `${key}|${Object.entries(params)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(',')}`) as never;
+
+  it('says which part of the month the comparison is for, from the page’s day', () => {
+    const page = {
+      ...PAGE,
+      date: '2026-11-03',
+      summary: [{ key: 'city.summary.baseline.above', params: {} }],
+    };
+
+    const [html] = summaryHtml(page, stubT, { station: 'Rep', percent: 54 });
+
+    expect(html).toContain('period=infoPanel.baseline.periodEarly|month=November');
+  });
+});
+
+describe('keyTiles', () => {
+  const drivers = {
+    originInDataArea: true,
+    upwindFireCount: 83,
+    windSpeedKmh: 3.2,
+    windFrom: 'SE',
+    camsPm25: 18.4,
+    baselineCategory: 'above' as const,
+    representativeStationId: 'rep',
+  };
+  const withDrivers = (overrides = {}) => ({ ...PAGE, drivers: { ...drivers, ...overrides } });
+
+  it('has a tile for each figure that is known', () => {
+    expect(keyTiles(withDrivers(), { station: 'Rep', percent: 54 })).toEqual([
+      { kind: 'fires', count: 83 },
+      { kind: 'wind', from: 'SE', speedKmh: 3, deg: 135 },
+      { kind: 'cams', pm25: 18 },
+      { kind: 'vsUsual', percent: 54 },
+    ]);
+  });
+
+  it('leaves out the tile of a figure that is not known, rather than show a blank', () => {
+    const tiles = keyTiles(
+      withDrivers({ upwindFireCount: null, camsPm25: null, windFrom: null }),
+      null,
+    );
+
+    expect(tiles).toEqual([]);
+  });
+
+  it('keeps a fire count of 0: no detections is a figure', () => {
+    expect(keyTiles(withDrivers({ upwindFireCount: 0 }), null)[0]).toEqual({
+      kind: 'fires',
+      count: 0,
+    });
+  });
+
+  it('has no tiles when the page has no drivers', () => {
+    expect(keyTiles(PAGE, null)).toEqual([]);
   });
 });

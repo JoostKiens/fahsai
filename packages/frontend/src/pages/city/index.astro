@@ -1,0 +1,70 @@
+---
+import Content from '@/layouts/Content.astro';
+import AqiChip from '@/components/City/AqiChip.astro';
+import ContentFooter from '@/components/ContentFooter.astro';
+import { HeaderIsland } from '@/islands/HeaderIsland';
+import { createI18n } from '@/i18n-instance';
+import { cityIndexJsonLd, fetchCityIndex } from '@/lib/cityIndex';
+import { CITIES_URL } from '@/lib/cityPage';
+import { groupByRegion } from '@/lib/cityRegions';
+
+export const prerender = false;
+
+const lang = 'en';
+const { t } = createI18n(lang);
+const index = await fetchCityIndex();
+const cities = index?.cities ?? null;
+// A failed read is not held by ISR for the hour. With no list the page is a 503; with some
+// figures missing it still shows the cities, but only for this request.
+if (!index) Astro.response.status = 503;
+if (!index?.complete) Astro.response.headers.set('Cache-Control', 'no-store');
+const groups = groupByRegion(cities ?? []);
+const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, name, country }));
+---
+
+<Content
+  lang={lang}
+  title={t('city.indexMetaTitle')}
+  description={t('city.indexMetaDescription')}
+  canonical={CITIES_URL}
+  noindex={!cities}
+  jsonLd={cities ? cityIndexJsonLd(t) : []}
+>
+  <HeaderIsland client:load lang={lang} context="page" cities={searchTargets} />
+
+  <main class="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 pb-12 pt-6">
+    <section class="flex flex-col gap-2 py-2">
+      <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">{t('city.indexH1')}</h1>
+      <p class="text-[13px] text-zinc-400">{t('city.indexIntro')}</p>
+    </section>
+
+    {!cities && <p>{t('city.indexUnavailable')}</p>}
+
+    {
+      groups.map(({ region, cities: inRegion }) => (
+        <section class="flex min-w-0 flex-col gap-3 rounded-lg border border-zinc-700/60 bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-100">{t(`city.region.${region}` as never)}</h2>
+          <ul class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
+            {inRegion.map((city) => (
+              <li>
+                <a
+                  class="flex min-h-11 items-center justify-between rounded-md bg-zinc-800 px-3 py-2 text-[13px] text-zinc-200 hover:bg-zinc-700"
+                  href={`/city/${city.slug}`}
+                >
+                  <span>{city.name}</span>
+                  {city.pm25 !== null ? (
+                    <AqiChip value={city.pm25} />
+                  ) : (
+                    <span class="text-[11px] text-zinc-500">{t('city.noFigure')}</span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </main>
+
+  <ContentFooter t={t} />
+</Content>

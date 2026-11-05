@@ -3,20 +3,26 @@ import Content from '@/layouts/Content.astro';
 import TrendTable from '@/components/City/TrendTable.astro';
 import StationsTable from '@/components/City/StationsTable.astro';
 import NearbyCities from '@/components/City/NearbyCities.astro';
-import { WindArrow } from '@/components/InfoPanel/WindArrow';
-import { compassToDeg } from '@/components/InfoPanel/utils.ambient';
+import Breadcrumb from '@/components/City/Breadcrumb.astro';
+import KeyTiles from '@/components/City/KeyTiles.astro';
+import ContentFooter from '@/components/ContentFooter.astro';
 import { HeaderIsland } from '@/islands/HeaderIsland';
 import { CityChartIsland } from '@/islands/CityChartIsland';
 import { CityHeadlineIsland } from '@/islands/CityHeadlineIsland';
 import { createI18n } from '@/i18n-instance';
+import { cityCopyGroup } from '@/lib/cityCopy';
 import {
+  baselinePeriod,
+  cityBreadcrumbs,
   cityJsonLd,
   cityMapLink,
   cityMeta,
   fetchBaselineDiff,
   fetchCityPage,
+  keyTiles,
   listedStations,
   summaryHtml,
+  timeHtml,
   trendDays,
 } from '@/lib/cityPage';
 import { fetchCityList } from '@/lib/sitemap';
@@ -54,16 +60,32 @@ const meta = page
       noindex: true,
     };
 const hasReading = page !== null && page.pm25 !== null;
-const windDeg = page?.drivers?.windFrom ? compassToDeg(page.drivers.windFrom) : null;
-const cardClass = 'rounded-lg border border-zinc-700/60 bg-zinc-900 p-4';
-const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
+const copyGroup = page ? cityCopyGroup(page.slug) : null;
+const cardClass = 'min-w-0 rounded-lg border border-zinc-700/60 bg-zinc-900 p-4';
+const headingClass = 'text-sm font-semibold text-zinc-100';
 ---
 
-<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title) : []}>
+<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title, t) : []}>
   <HeaderIsland client:load lang={lang} context="page" stationsDate={page?.date} cities={cities} />
 
-  <main class="mx-auto w-full max-w-[1120px] px-4 py-6 flex flex-col gap-4">
-    <h1 class="text-2xl font-semibold">{page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}</h1>
+  <main class="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-4 pb-12 pt-6">
+    <section class="flex flex-col gap-2 py-2">
+      {page && <Breadcrumb crumbs={cityBreadcrumbs(page, t)} label={t('city.breadcrumb')} />}
+      <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">
+        {page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}
+      </h1>
+      {
+        page && (
+          <p
+            class="text-[13px] text-zinc-400 [&_time]:text-zinc-300"
+            set:html={t('city.metaLine' as never, {
+              date: timeHtml(page.date),
+              count: page.stationCount,
+            })}
+          />
+        )
+      }
+    </section>
 
     {!page && <p>{t('city.unavailable')}</p>}
     {page && !hasReading && <p>{t('city.noData', { name: page.name, date: page.date })}</p>}
@@ -71,62 +93,69 @@ const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
     {
       page && page.pm25 !== null && (
         <>
-          <section class={`${cardClass} flex flex-col gap-3`} aria-label={t('city.summaryLabel')}>
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <CityHeadlineIsland
-                lang={lang}
-                value={page.pm25}
-                category={t(pm25ToCategory(page.pm25).key as never)}
-              />
-              {page.whoMultiple !== null && (
-                <span class="text-[12px] text-zinc-400 font-mono">
-                  {t('city.whoMultiple', { multiple: page.whoMultiple })}
+          <section class="flex flex-wrap gap-4">
+            <div class={`${cardClass} flex flex-[1_1_280px] flex-col gap-3`}>
+              <p class="text-xs text-zinc-300">{t('city.valueLabel')}</p>
+              <p class="flex items-baseline gap-2">
+                <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
+                  {page.pm25}
                 </span>
-              )}
-              {page.drivers?.windFrom && page.drivers.windSpeedKmh !== null && (
-                <span class="inline-flex items-center gap-1.5 text-[12px] text-zinc-300">
-                  {windDeg !== null && (
-                    <WindArrow dirDeg={windDeg} size={14} color="#a1a1aa" strokeWidth={1.5} />
-                  )}
-                  <span class="text-zinc-400">{t('history.wind')}</span>
-                  <span>{page.drivers.windFrom}</span>
-                  <span class="font-mono">
-                    {t('city.windSpeed', { speed: Math.round(page.drivers.windSpeedKmh) })}
+                <span class="font-mono text-sm text-zinc-400">µg/m³</span>
+              </p>
+              <div class="flex flex-wrap items-center gap-2">
+                <CityHeadlineIsland
+                  lang={lang}
+                  value={page.pm25}
+                  category={t(pm25ToCategory(page.pm25).key as never)}
+                />
+                {page.whoMultiple !== null && (
+                  <span class="text-xs text-zinc-400">
+                    {t('city.whoMultiple', { multiple: page.whoMultiple })}
                   </span>
-                </span>
-              )}
+                )}
+              </div>
             </div>
-            <div class="flex flex-col gap-2 text-sm text-zinc-300">
-              {summaryHtml(page, t, baselineDiff).map((html) => (
-                <p set:html={html} />
-              ))}
+
+            <div class={`${cardClass} flex flex-[2_1_460px] flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.driving')}</h2>
+              <p
+                class="text-[15px] leading-relaxed text-zinc-300"
+                set:html={summaryHtml(page, t, baselineDiff).join(' ')}
+              />
+              <div class="mt-auto flex flex-wrap gap-2">
+                <a
+                  class="inline-flex min-h-9 items-center justify-center rounded border border-teal-800 bg-teal-950 px-3.5 py-1.5 text-[13px] font-semibold text-teal-300 transition-colors ease-out hover:bg-teal-900"
+                  href={cityMapLink(page)}
+                >
+                  {t('city.openInMap', { name: page.name })}
+                </a>
+              </div>
             </div>
           </section>
 
-          <div class="grid gap-4 lg:grid-cols-2">
-            <section class={cardClass} aria-labelledby="trend-heading">
-              <h2 id="trend-heading" class={headingClass}>
-                {t('city.trend')} <span class="font-mono font-normal text-zinc-400">µg/m³</span>
+          <KeyTiles tiles={keyTiles(page, baselineDiff)} period={baselinePeriod(page.date, t)} t={t} />
+
+          <section class="flex flex-wrap items-start gap-4">
+            <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
+              <h2 class={headingClass}>
+                {t('city.trend')} <span class="font-mono text-xs font-normal text-zinc-500">µg/m³</span>
               </h2>
               <CityChartIsland client:visible lang={lang} days={trendDays(page)} barHeight={140} />
-              <div class="mt-4">
+              <details class="text-[13px] text-zinc-300">
+                <summary class="cursor-pointer text-xs text-zinc-400">{t('city.showTable')}</summary>
                 <TrendTable trend={page.trend} t={t} />
-              </div>
-            </section>
+              </details>
+            </div>
 
-            <section class={cardClass} aria-labelledby="stations-heading">
-              <h2 id="stations-heading" class={headingClass}>
-                {t('city.stations')}
-              </h2>
+            <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.stationsWithin')}</h2>
               <StationsTable stations={listedStations(page)} t={t} />
-            </section>
-          </div>
+            </div>
+          </section>
 
           {page.nearby.length > 0 && (
-            <section class={cardClass} aria-labelledby="nearby-heading">
-              <h2 id="nearby-heading" class={headingClass}>
-                {t('city.nearby')}
-              </h2>
+            <section class={`${cardClass} flex flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.nearby')}</h2>
               <NearbyCities nearby={page.nearby} />
             </section>
           )}
@@ -136,17 +165,27 @@ const headingClass = 'text-[13px] font-semibold text-zinc-100 mb-3';
 
     {
       page && (
-        <p>
-          <a
-            class="inline-block text-[13px] font-semibold text-teal-300 bg-teal-950 border border-teal-800 hover:bg-teal-900 rounded px-4 py-1.5 transition-colors ease-out"
-            href={cityMapLink(page)}
-          >
-            {t('city.openInMap', { name: page.name })}
-          </a>
-        </p>
+        <section class="flex flex-wrap gap-4 pt-2">
+          {copyGroup && (
+            <div class="flex min-w-0 flex-[3_1_480px] flex-col gap-2.5">
+              <h2 class="text-lg font-semibold text-zinc-100">
+                {t(`city.why.${copyGroup}.title` as never, { name: page.name })}
+              </h2>
+              <p class="text-[15px] leading-[1.7] text-zinc-300">{t(`city.why.${copyGroup}.p1` as never)}</p>
+              <p class="text-[15px] leading-[1.7] text-zinc-300">{t(`city.why.${copyGroup}.p2` as never)}</p>
+            </div>
+          )}
+          <div class={`${cardClass} flex flex-[2_1_280px] flex-col gap-1.5 self-start text-xs text-zinc-400`}>
+            <h3 class="mb-1 text-[13px] font-semibold text-zinc-100">{t('city.dataHeading')}</h3>
+            <p>{t('city.dataStations')}</p>
+            <p>{t('city.dataFires')}</p>
+            <p>{t('city.dataModel')}</p>
+            <p set:html={t('city.dataDate', { date: timeHtml(page.date) })} />
+          </div>
+        </section>
       )
     }
-
-    <footer class="text-[12px] text-zinc-400">{t('city.sources')}</footer>
   </main>
+
+  <ContentFooter t={t} />
 </Content>

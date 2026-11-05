@@ -1,5 +1,6 @@
 ---
 import type { CityNearby } from '@thailand-aq/types';
+import AqiChip from './AqiChip.astro';
 
 interface Props {
   nearby: CityNearby[];
@@ -8,14 +9,17 @@ interface Props {
 const { nearby } = Astro.props;
 ---
 
-<ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+<ul class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
   {
     nearby.map((city) => (
       <li>
-        <a class="underline underline-offset-2" href={`/city/${city.slug}`}>
-          {city.name}
+        <a
+          class="flex min-h-11 items-center justify-between rounded-md bg-zinc-800 px-3 py-2 text-[13px] text-zinc-200 hover:bg-zinc-700"
+          href={`/city/${city.slug}`}
+        >
+          <span>{city.name}</span>
+          {city.pm25 !== null && <AqiChip value={city.pm25} />}
         </a>
-        {city.pm25 !== null && <span class="text-zinc-400 font-mono"> {city.pm25} µg/m³</span>}
       </li>
     ))
   }
