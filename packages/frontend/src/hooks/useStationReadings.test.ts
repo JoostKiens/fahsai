@@ -40,4 +40,29 @@ describe('useStationReadings', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  describe('with a day of its own, for a page without the map', () => {
+    it('reads that day, whatever day the map has selected', async () => {
+      const { fetchMock, settle, latest } = renderQueryHook(
+        () => useStationReadings({ date: '2026-11-04', enabled: true }),
+        noData,
+      );
+
+      await settle(() => !latest().isPending);
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/station-readings\/latest\?date=2026-11-04$/),
+        undefined,
+      );
+    });
+
+    it('reads nothing until it is enabled, even though the map’s day is resolved', () => {
+      const { fetchMock } = renderQueryHook(
+        () => useStationReadings({ date: '2026-11-04', enabled: false }),
+        noData,
+      );
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

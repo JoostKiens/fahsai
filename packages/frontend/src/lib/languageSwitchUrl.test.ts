@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { languageSwitchUrl } from './languageSwitchUrl';
+import { isSwitch, languageSwitchUrl } from './languageSwitchUrl';
 
 describe('languageSwitchUrl', () => {
   it('goes through the redirect at / with the chosen language', () => {
@@ -21,5 +21,38 @@ describe('languageSwitchUrl', () => {
 
   it('replaces a language already in the query', () => {
     expect(languageSwitchUrl('th', '?lang=en&zoom=5')).toBe('/?lang=th&zoom=5');
+  });
+
+  describe('on a page that is not the map', () => {
+    it('asks for the same page in English', () => {
+      expect(languageSwitchUrl('en', '', '/city/chiang-mai')).toBe(
+        '/?lang=en&to=%2Fcity%2Fchiang-mai',
+      );
+    });
+
+    // TODO(JOO-101): /th/city/[slug] will exist then; this becomes '/?lang=th&to=%2Fth%2Fcity%2Fchiang-mai'
+    it('sends Thai to the Thai home page, as there is no Thai city page yet', () => {
+      expect(languageSwitchUrl('th', '', '/city/chiang-mai')).toBe('/?lang=th&to=%2Fth%2F');
+    });
+
+    it('does not add a target on the map pages', () => {
+      expect(languageSwitchUrl('th', '', '/')).toBe('/?lang=th');
+      expect(languageSwitchUrl('en', '', '/th/')).toBe('/?lang=en');
+    });
+  });
+});
+
+describe('isSwitch', () => {
+  it('is false for the language a map page is already in', () => {
+    expect(isSwitch('en', 'en', '/')).toBe(false);
+    expect(isSwitch('th', 'th', '/th/')).toBe(false);
+  });
+
+  it('is true for the other language', () => {
+    expect(isSwitch('th', 'en', '/')).toBe(true);
+  });
+
+  it('is true for English on a city page, which records it over a stored Thai preference', () => {
+    expect(isSwitch('en', 'en', '/city/chiang-mai')).toBe(true);
   });
 });
