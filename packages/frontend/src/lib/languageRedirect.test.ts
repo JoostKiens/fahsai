@@ -144,9 +144,12 @@ describe('addresses other than the English entry page', () => {
 });
 
 describe('the target of a language switch (&to=)', () => {
-  it.each(['/th/', '/city/chiang-mai/'])('accepts the pages a switch can ask for (%s)', (to) => {
-    expect(resolve(`/?lang=en&to=${encodeURIComponent(to)}`)?.location).toBe(to);
-  });
+  it.each(['/th/', '/city', '/city/chiang-mai/'])(
+    'accepts the pages a switch can ask for (%s)',
+    (to) => {
+      expect(resolve(`/?lang=en&to=${encodeURIComponent(to)}`)?.location).toBe(to);
+    },
+  );
 
   it('goes to the page asked for, and records the language', () => {
     expect(resolve('/?lang=en&to=/city/chiang-mai')).toEqual({

@@ -6,12 +6,14 @@ interface Props {
 }
 
 const { crumbs, label } = Astro.props;
-const last = crumbs.length - 1;
+// the logo in the header is the way home, so the trail starts at the list of cities
+const trail = crumbs.slice(1);
+const last = trail.length - 1;
 ---
 
-<nav aria-label={label} class="flex flex-wrap items-center gap-1.5 text-[12px] text-zinc-400">
+<nav aria-label={label} class="flex flex-wrap items-center gap-1.5 text-xs leading-normal text-zinc-500">
   {
-    crumbs.map((crumb, i) =>
+    trail.map((crumb, i) =>
       i === last ? (
         <span aria-current="page" class="text-zinc-300">
           {crumb.name}
@@ -19,7 +21,7 @@ const last = crumbs.length - 1;
       ) : (
         <>
           <a
-            class="hover:text-zinc-100 underline underline-offset-2"
+            class="text-zinc-400 hover:text-zinc-100"
             href={new URL(crumb.url).pathname}
           >
             {crumb.name}

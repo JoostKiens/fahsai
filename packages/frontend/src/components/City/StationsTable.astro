@@ -1,6 +1,7 @@
 ---
 import type { ListedStation } from '@/lib/cityPage';
 import type { i18n } from 'i18next';
+import AqiChip from './AqiChip.astro';
 
 interface Props {
   stations: ListedStation[];
@@ -11,21 +12,25 @@ const { stations, t } = Astro.props;
 ---
 
 <div class="overflow-x-auto">
-  <table class="w-full text-sm">
+  <table class="w-full min-w-[320px] border-collapse text-[13px]">
     <thead>
-      <tr class="text-left text-zinc-400">
-        <th class="py-1 pr-3 font-medium">{t('city.colStation')}</th>
-        <th class="py-1 pr-3 font-medium">{t('city.colPm25')}</th>
-        <th class="py-1 font-medium">{t('city.colDistance')}</th>
+      <tr class="text-left text-[11px] text-zinc-400">
+        <th class="py-1.5 font-medium">{t('city.colStation')}</th>
+        <th class="py-1.5 text-right font-medium">PM2.5</th>
+        <th class="py-1.5 text-right font-medium">km</th>
       </tr>
     </thead>
     <tbody>
       {
         stations.map((station) => (
           <tr class="border-t border-zinc-800">
-            <td class="py-1 pr-3">{station.name}</td>
-            <td class="py-1 pr-3 font-mono">{station.pm25}</td>
-            <td class="py-1 font-mono">{station.distanceKm}</td>
+            <td class="py-1.5 pr-3 text-zinc-200">{station.name}</td>
+            <td class="py-1.5 text-right">
+              <AqiChip value={station.pm25} />
+            </td>
+            <td class="py-1.5 pl-3 text-right font-mono text-zinc-400">
+              {station.distanceKm.toFixed(1)}
+            </td>
           </tr>
         ))
       }

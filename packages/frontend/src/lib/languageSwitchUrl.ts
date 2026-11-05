@@ -1,9 +1,9 @@
 import type { Language } from '@/i18n-instance';
 import { searchWithoutLang } from '@/lib/langParam';
 
-const CITY_PAGE = /^\/city\/[a-z0-9-]+\/?$/;
+const CITY_PAGE = /^\/city(\/[a-z0-9-]+)?\/?$/;
 // the only pages a language switch can ask for: what `equivalentPath` can return
-const SWITCH_TARGET = /^\/(th\/|city\/[a-z0-9-]+\/?)$/;
+const SWITCH_TARGET = /^\/(th\/|city(\/[a-z0-9-]+)?\/?)$/;
 
 export function isSwitchTarget(path: string): boolean {
   return SWITCH_TARGET.test(path);

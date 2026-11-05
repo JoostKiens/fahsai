@@ -1,6 +1,6 @@
 ---
 import type { CityNearby } from '@thailand-aq/types';
-import { pm25ToRgb } from '@/utils/aqiColors';
+import AqiChip from './AqiChip.astro';
 
 interface Props {
   nearby: CityNearby[];
@@ -9,26 +9,16 @@ interface Props {
 const { nearby } = Astro.props;
 ---
 
-<ul class="grid gap-3 sm:grid-cols-3">
+<ul class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
   {
     nearby.map((city) => (
       <li>
         <a
-          class="flex items-center justify-between gap-3 rounded-lg border border-zinc-700/60 px-3 py-2 text-sm hover:bg-zinc-800/60"
+          class="flex min-h-11 items-center justify-between rounded-md bg-zinc-800 px-3 py-2 text-[13px] text-zinc-200 hover:bg-zinc-700"
           href={`/city/${city.slug}`}
         >
           <span>{city.name}</span>
-          {city.pm25 !== null && (
-            <span class="inline-flex items-center gap-2 font-mono">
-              <span
-                class="size-2.5 rounded-full"
-                style={`background-color: rgb(${pm25ToRgb(city.pm25).join(',')})`}
-                aria-hidden="true"
-              />
-              {city.pm25}
-              <span class="text-[11px] text-zinc-400">µg/m³</span>
-            </span>
-          )}
+          {city.pm25 !== null && <AqiChip value={city.pm25} />}
         </a>
       </li>
     ))

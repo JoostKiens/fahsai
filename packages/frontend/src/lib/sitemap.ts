@@ -1,5 +1,5 @@
 import type { CityListItem } from '@thailand-aq/types';
-import { cityUrl } from '@/lib/cityPage';
+import { CITIES_URL, cityUrl } from '@/lib/cityPage';
 import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
 import { SITE } from '@/lib/site';
 
@@ -28,6 +28,9 @@ export function buildSitemap(citySlugs: string[]): string {
     ${MAP_ALTERNATES}
   </url>`,
   );
+  const listEntry = `  <url>
+    <loc>${CITIES_URL}</loc>
+  </url>`;
   const cityEntries = citySlugs.map(
     (slug) => `  <url>
     <loc>${escapeXml(cityUrl(slug))}</loc>
@@ -35,7 +38,7 @@ export function buildSitemap(citySlugs: string[]): string {
   );
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${[...mapEntries, ...cityEntries].join('\n')}
+${[...mapEntries, listEntry, ...cityEntries].join('\n')}
 </urlset>
 `;
 }

@@ -11,12 +11,13 @@ describe('buildSitemap', () => {
     expect(xml).toContain(
       '<xhtml:link rel="alternate" hreflang="th" href="https://fahsai.fyi/th/" />',
     );
+    expect(xml).toContain('<loc>https://fahsai.fyi/city</loc>');
     expect(xml).toContain('<loc>https://fahsai.fyi/city/chiang-mai</loc>');
     expect(xml).toContain('<loc>https://fahsai.fyi/city/bangkok</loc>');
   });
 
   it('lists just the map when there are no cities', () => {
-    expect(buildSitemap([]).match(/<url>/g)).toHaveLength(2);
+    expect(buildSitemap([]).match(/<url>/g)).toHaveLength(3); // the map twice, and the list of cities
   });
 
   it('escapes what XML does not allow, so a slug cannot break the file', () => {

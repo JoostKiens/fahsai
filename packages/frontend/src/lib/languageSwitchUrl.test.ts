@@ -35,6 +35,10 @@ describe('languageSwitchUrl', () => {
       expect(languageSwitchUrl('th', '', '/city/chiang-mai')).toBe('/?lang=th&to=%2Fth%2F');
     });
 
+    it('does the same on the list of cities', () => {
+      expect(languageSwitchUrl('en', '', '/city')).toBe('/?lang=en&to=%2Fcity');
+    });
+
     it('does not add a target on the map pages', () => {
       expect(languageSwitchUrl('th', '', '/')).toBe('/?lang=th');
       expect(languageSwitchUrl('en', '', '/th/')).toBe('/?lang=en');

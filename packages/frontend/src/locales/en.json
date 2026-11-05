@@ -205,5 +205,15 @@
   "city.footerAbout": "Fahsai (<span lang=\"th\">ฟ้าใส</span>, “clear sky”) · open source, non-commercial · by Joost Kiens",
   "city.footerMap": "Map",
   "city.footerGithub": "GitHub",
-  "city.footerMcp": "MCP server"
+  "city.footerMcp": "MCP server",
+  "city.indexH1": "Air quality by city",
+  "city.indexIntro": "The latest PM2.5 for each city Fahsai covers, from the ground stations around it.",
+  "city.indexMetaTitle": "Air quality by city | Fahsai",
+  "city.indexMetaDescription": "The latest PM2.5 for each city Fahsai covers, with the trend, wind and fire detections behind it.",
+  "city.indexUnavailable": "The list of cities is not available right now. Please try again in a few minutes.",
+  "city.region.north": "Northern Thailand",
+  "city.region.central": "Central Thailand",
+  "city.region.other": "Other cities",
+  "city.cities": "Cities",
+  "city.noFigure": "No reading"
 }

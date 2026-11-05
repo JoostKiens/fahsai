@@ -1,0 +1,17 @@
+---
+import { contrastColor, pm25ToRgb } from '@/utils/aqiColors';
+
+interface Props {
+  /** PM2.5 in µg/m³; shown rounded */
+  value: number;
+}
+
+const { value } = Astro.props;
+const rgb = pm25ToRgb(value);
+const [r, g, b] = contrastColor(rgb);
+---
+
+<span
+  class="inline-flex min-w-10 justify-center rounded px-1 py-0.5 font-mono text-[11px] font-semibold"
+  style={`background-color: rgb(${rgb.join(',')}); color: rgb(${r},${g},${b})`}>{Math.round(value)}</span
+>

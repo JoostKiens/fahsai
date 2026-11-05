@@ -123,7 +123,8 @@ describe('cityJsonLd', () => {
       '@type': 'BreadcrumbList',
       itemListElement: [
         { position: 1, name: 'Fahsai', item: 'https://fahsai.fyi/' },
-        { position: 2, name: 'Chiang Mai', item: 'https://fahsai.fyi/city/chiang-mai' },
+        { position: 2, name: 'Cities', item: 'https://fahsai.fyi/city' },
+        { position: 3, name: 'Chiang Mai', item: 'https://fahsai.fyi/city/chiang-mai' },
       ],
     });
     expect(webPage).toMatchObject({
@@ -335,9 +336,10 @@ describe('trendDays', () => {
 });
 
 describe('cityBreadcrumbs', () => {
-  it('is Fahsai, then the city: what the structured data lists too', () => {
+  it('is Fahsai, the list of cities, then the city: what the structured data lists', () => {
     expect(cityBreadcrumbs(PAGE)).toEqual([
       { name: 'Fahsai', url: 'https://fahsai.fyi/' },
+      { name: 'Cities', url: 'https://fahsai.fyi/city' },
       { name: 'Chiang Mai', url: 'https://fahsai.fyi/city/chiang-mai' },
     ]);
   });

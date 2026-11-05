@@ -66,6 +66,8 @@ export function cityMapLink({ lat, lng, zoom, date }: CityPage): string {
   return `/?lat=${lat}&lng=${lng}&zoom=${zoom}&date=${date}`;
 }
 
+export const CITIES_URL = `${SITE}/city`;
+
 export function cityUrl(slug: string): string {
   return `${SITE}/city/${slug}`;
 }
@@ -93,6 +95,7 @@ export function cityMeta(page: CityPage, t: i18n['t']) {
 export function cityBreadcrumbs(page: CityPage): { name: string; url: string }[] {
   return [
     { name: 'Fahsai', url: `${SITE}/` },
+    { name: 'Cities', url: CITIES_URL },
     { name: page.name, url: cityUrl(page.slug) },
   ];
 }
