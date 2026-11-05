@@ -44,7 +44,8 @@ Labels are the `pcd.*` keys; English is Air4Thai's own wording. Each view names 
 Source: PCD, Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ" Tables 1 and 2
 (https://air4thai.pcd.go.th/webV3/#/AQIInfo), verified 2026-11-05. Legal basis: PCD announcement
 of 3 July 2023 (Royal Gazette); 24-hour PM2.5 standard 37.5 µg/m³. Show µg/m³ with a band, never
-an index number. The mean is rounded to 0.1 before banding. PCD defines a rolling 24-hour
+an index number. The mean is rounded to 0.1 before banding; the API sends the city figure to one
+decimal for that, and pages show it whole. `PmBarChart` takes `scale="pcd"` on public pages. PCD defines a rolling 24-hour
 average; the city figure is a calendar-day mean, close enough for banding.
 
 ## AQI color scale (US EPA, map)

@@ -1,7 +1,7 @@
 ---
 import type { ListedStation } from '@/lib/cityPage';
 import type { i18n } from 'i18next';
-import AqiChip from './AqiChip.astro';
+import PcdChip from './PcdChip.astro';
 
 interface Props {
   stations: ListedStation[];
@@ -26,7 +26,7 @@ const { stations, t } = Astro.props;
           <tr class="border-t border-zinc-800">
             <td class="py-1.5 pr-3 text-zinc-200">{station.name}</td>
             <td class="py-1.5 text-right">
-              <AqiChip value={station.pm25} />
+              <PcdChip value={station.pm25} t={t} />
             </td>
             <td class="py-1.5 pl-3 text-right font-mono text-zinc-400">
               {station.distanceKm.toFixed(1)}

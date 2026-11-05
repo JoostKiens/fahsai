@@ -25,7 +25,7 @@ const { trend, t } = Astro.props;
           <td class="py-1.5">
             <time datetime={day.date}>{formatDay(day.date)}</time>
           </td>
-          <td class="py-1.5 text-right font-mono">{day.pm25 ?? t('city.noReading')}</td>
+          <td class="py-1.5 text-right font-mono">{day.pm25 === null ? t('city.noReading') : Math.round(day.pm25)}</td>
         </tr>
       ))
     }

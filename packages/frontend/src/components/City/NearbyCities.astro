@@ -1,12 +1,14 @@
 ---
 import type { CityNearby } from '@thailand-aq/types';
-import AqiChip from './AqiChip.astro';
+import type { i18n } from 'i18next';
+import PcdChip from './PcdChip.astro';
 
 interface Props {
   nearby: CityNearby[];
+  t: i18n['t'];
 }
 
-const { nearby } = Astro.props;
+const { nearby, t } = Astro.props;
 ---
 
 <ul class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
@@ -18,7 +20,7 @@ const { nearby } = Astro.props;
           href={`/city/${city.slug}`}
         >
           <span>{city.name}</span>
-          {city.pm25 !== null && <AqiChip value={city.pm25} />}
+          {city.pm25 !== null && <PcdChip value={city.pm25} t={t} />}
         </a>
       </li>
     ))

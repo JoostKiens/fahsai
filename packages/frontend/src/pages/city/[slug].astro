@@ -97,7 +97,7 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
               <p class="text-xs text-zinc-300">{t('city.valueLabel')}</p>
               <p class="flex items-baseline gap-2">
                 <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
-                  {page.pm25}
+                  {Math.round(page.pm25)}
                 </span>
                 <span class="font-mono text-sm text-zinc-400">µg/m³</span>
               </p>
@@ -152,7 +152,7 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
           {page.nearby.length > 0 && (
             <section class={`${cardClass} flex flex-col gap-3`}>
               <h2 class={headingClass}>{t('city.nearby')}</h2>
-              <NearbyCities nearby={page.nearby} />
+              <NearbyCities nearby={page.nearby} t={t} />
             </section>
           )}
         </>

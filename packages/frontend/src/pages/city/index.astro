@@ -1,6 +1,6 @@
 ---
 import Content from '@/layouts/Content.astro';
-import AqiChip from '@/components/City/AqiChip.astro';
+import PcdChip from '@/components/City/PcdChip.astro';
 import ContentFooter from '@/components/ContentFooter.astro';
 import { HeaderIsland } from '@/islands/HeaderIsland';
 import { createI18n } from '@/i18n-instance';
@@ -54,7 +54,7 @@ const searchTargets = (cities ?? []).map(({ slug, name, country }) => ({ slug, n
                 >
                   <span>{city.name}</span>
                   {city.pm25 !== null ? (
-                    <AqiChip value={city.pm25} />
+                    <PcdChip value={city.pm25} t={t} />
                   ) : (
                     <span class="text-[11px] text-zinc-500">{t('city.noFigure')}</span>
                   )}

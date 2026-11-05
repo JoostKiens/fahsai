@@ -268,6 +268,18 @@ describe('summaryHtml', () => {
     expect(html).toContain('category=pcd.excellent');
   });
 
+  it('shows the figure whole but bands it from the decimal', () => {
+    const page = {
+      ...PAGE,
+      summary: [sentence('city.summary.level', { date: '2026-11-03', pm25: 25.4 })],
+    };
+
+    const [html] = summaryHtml(page, t, null);
+
+    expect(html).toContain('pm25=25,'); // shown as 25
+    expect(html).toContain('category=pcd.moderate'); // PCD: 25.1 and up is Moderate
+  });
+
   it('escapes what the API sends, so a name cannot add markup', () => {
     const page = {
       ...PAGE,

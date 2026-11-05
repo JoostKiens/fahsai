@@ -12,10 +12,10 @@ const DAYS = [
   { date: '2026-11-03', pm25: 11, readingCount: 2 },
 ];
 
-function render(barHeight?: number): string {
+function render(barHeight?: number, scale?: 'epa' | 'pcd'): string {
   return renderToString(
     <I18nextProvider i18n={createI18n('en')}>
-      <PmBarChart days={DAYS} barHeight={barHeight} />
+      <PmBarChart days={DAYS} barHeight={barHeight} scale={scale} />
     </I18nextProvider>,
   );
 }
@@ -32,6 +32,14 @@ describe('PmBarChart on the server', () => {
 
   it('draws a bar only for a day with readings', () => {
     expect(render().match(/border-radius:5px 5px 0 0/g)).toHaveLength(2);
+  });
+
+  it('colours by US EPA unless asked for the PCD scale', () => {
+    expect(render()).toContain('rgb(240,210,50)'); // 26 µg/m³: EPA Moderate
+    const pcd = render(undefined, 'pcd');
+    expect(pcd).toContain('rgb(255,255,0)'); // 26: PCD Moderate
+    expect(pcd).toContain('rgb(59,204,255)'); // 11: PCD Excellent
+    expect(pcd).not.toContain('rgb(240,210,50)');
   });
 
   it('is 72 px tall by default and takes its height from barHeight', () => {

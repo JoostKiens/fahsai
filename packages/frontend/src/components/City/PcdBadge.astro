@@ -18,7 +18,6 @@ const [r, g, b] = contrastColor(band.rgb);
 <span
   class="inline-flex items-center gap-2 rounded py-1 pl-2 pr-2.5 text-[12px] font-medium"
   style={`background-color: rgb(${band.rgb.join(',')}); color: rgb(${r},${g},${b})`}
-  aria-label={`PM2.5 ${Math.round(value)}, ${label}`}
 >
   <span class="text-[20px] font-semibold leading-none tabular-nums">{Math.round(value)}</span>
   <span class="max-w-22 text-[11px] leading-tight">{label}</span>

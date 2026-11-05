@@ -1,18 +1,21 @@
 ---
+import type { i18n } from 'i18next';
 import { contrastColor } from '@/utils/aqiColors';
 import { pm25ToPcdBand } from '@/utils/pcdBands';
 
 interface Props {
   /** PM2.5 in µg/m³; shown rounded */
   value: number;
+  t: i18n['t'];
 }
 
-const { value } = Astro.props;
-const rgb = pm25ToPcdBand(value).rgb;
-const [r, g, b] = contrastColor(rgb);
+const { value, t } = Astro.props;
+const band = pm25ToPcdBand(value);
+const [r, g, b] = contrastColor(band.rgb);
 ---
 
 <span
   class="inline-flex min-w-10 justify-center rounded px-1 py-0.5 font-mono text-[11px] font-semibold"
-  style={`background-color: rgb(${rgb.join(',')}); color: rgb(${r},${g},${b})`}>{Math.round(value)}</span
+  style={`background-color: rgb(${band.rgb.join(',')}); color: rgb(${r},${g},${b})`}
+  >{Math.round(value)}<span class="sr-only"> {t(band.key as never)}</span></span
 >
