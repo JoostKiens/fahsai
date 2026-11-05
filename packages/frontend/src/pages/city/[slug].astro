@@ -4,7 +4,15 @@ import TrendTable from '@/components/City/TrendTable.astro';
 import StationsTable from '@/components/City/StationsTable.astro';
 import NearbyCities from '@/components/City/NearbyCities.astro';
 import { createI18n } from '@/i18n-instance';
-import { cityJsonLd, cityMapLink, cityMeta, fetchCityPage } from '@/lib/cityPage';
+import {
+  cityJsonLd,
+  cityMapLink,
+  cityMeta,
+  fetchBaselineDiff,
+  fetchCityPage,
+  listedStations,
+  summaryHtml,
+} from '@/lib/cityPage';
 
 export const prerender = false;
 
@@ -15,6 +23,8 @@ const { t } = createI18n('en');
 // 404 for a city that is not in the list, 503 when the API could not be reached. Neither is cached.
 if (result.status !== 'ok') Astro.response.status = result.status === 'not-found' ? 404 : 503;
 const page = result.status === 'ok' ? result.page : null;
+const baselineDiff = page ? await fetchBaselineDiff(page) : null;
+// TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
 const meta = page
   ? cityMeta(page)
   : {
@@ -44,12 +54,12 @@ const meta = page
       page && page.pm25 !== null && (
         <>
           <section aria-label="Summary" class="flex flex-col gap-2">
-            {page.summary.map(({ key, params }) => (
-              <p>{t(key as 'city.summary.level', params)}</p>
+            {summaryHtml(page, t, baselineDiff).map((html) => (
+              <p set:html={html} />
             ))}
           </section>
           <TrendTable trend={page.trend} t={t} />
-          <StationsTable stations={page.stations} t={t} />
+          <StationsTable stations={listedStations(page)} t={t} />
           <NearbyCities nearby={page.nearby} t={t} />
         </>
       )

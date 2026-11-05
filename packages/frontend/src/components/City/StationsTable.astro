@@ -1,17 +1,13 @@
 ---
-import type { CityStationDay } from '@thailand-aq/types';
+import type { ListedStation } from '@/lib/cityPage';
 import type { i18n } from 'i18next';
 
 interface Props {
-  stations: CityStationDay[];
+  stations: ListedStation[];
   t: i18n['t'];
 }
 
 const { stations, t } = Astro.props;
-// only the stations behind the city's figure (the API also sends those without a reading), highest first
-const reporting = stations
-  .filter((station) => station.pm25 !== null)
-  .sort((a, b) => (b.pm25 ?? 0) - (a.pm25 ?? 0));
 ---
 
 <section aria-labelledby="stations-heading">
@@ -21,16 +17,16 @@ const reporting = stations
       <tr class="text-left text-zinc-400">
         <th class="py-1 font-medium">{t('city.colStation')}</th>
         <th class="py-1 font-medium">{t('city.colPm25')}</th>
-        <th class="py-1 font-medium">{t('city.colReadings')}</th>
+        <th class="py-1 font-medium">{t('city.colDistance')}</th>
       </tr>
     </thead>
     <tbody>
       {
-        reporting.map((station) => (
+        stations.map((station) => (
           <tr class="border-t border-zinc-800">
             <td class="py-1 pr-3">{station.name}</td>
             <td class="py-1 pr-3">{station.pm25}</td>
-            <td class="py-1">{station.readingCount}</td>
+            <td class="py-1">{station.distanceKm}</td>
           </tr>
         ))
       }

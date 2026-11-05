@@ -1,7 +1,16 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
 import type { CityPage } from '@thailand-aq/types';
-import { cityJsonLd, cityMapLink, cityMeta, fetchCityPage } from './cityPage';
+import {
+  cityJsonLd,
+  cityMapLink,
+  cityMeta,
+  fetchBaselineDiff,
+  fetchCityPage,
+  formatDay,
+  listedStations,
+  summaryHtml,
+} from './cityPage';
 
 const PAGE: CityPage = {
   slug: 'chiang-mai',
@@ -93,8 +102,8 @@ describe('cityMeta', () => {
 });
 
 describe('cityJsonLd', () => {
-  it('describes the breadcrumb and the dataset, both pointing at the canonical address', () => {
-    const [crumbs, dataset] = cityJsonLd(PAGE);
+  it('describes the breadcrumb, and the page with its place and the day it was updated', () => {
+    const [crumbs, webPage] = cityJsonLd(PAGE);
 
     expect(crumbs).toMatchObject({
       '@type': 'BreadcrumbList',
@@ -103,10 +112,164 @@ describe('cityJsonLd', () => {
         { position: 2, name: 'Chiang Mai', item: 'https://fahsai.fyi/city/chiang-mai' },
       ],
     });
-    expect(dataset).toMatchObject({
-      '@type': 'Dataset',
+    expect(webPage).toMatchObject({
+      '@type': 'WebPage',
       url: 'https://fahsai.fyi/city/chiang-mai',
-      spatialCoverage: { geo: { latitude: 18.7883, longitude: 98.9853 } },
+      dateModified: '2026-11-03',
+      about: {
+        '@type': 'Place',
+        name: 'Chiang Mai',
+        geo: { latitude: 18.7883, longitude: 98.9853 },
+      },
     });
+  });
+
+  it('has no Dataset: that is for the methodology page', () => {
+    expect(JSON.stringify(cityJsonLd(PAGE))).not.toContain('Dataset');
+  });
+});
+
+describe('formatDay', () => {
+  it('writes the day out in full', () => {
+    expect(formatDay('2026-11-04')).toBe('4 Nov 2026');
+  });
+});
+
+function station(id: string, name: string, pm25: number | null, lat = PAGE.lat, lng = PAGE.lng) {
+  return { id, name, lat, lng, pm25, readingCount: pm25 === null ? 0 : 1 };
+}
+
+describe('listedStations', () => {
+  it('keeps only stations that reported, highest first', () => {
+    const page = {
+      ...PAGE,
+      stations: [station('a', 'A', 10), station('b', 'B', null), station('c', 'C', 30)],
+    };
+
+    expect(listedStations(page).map((s) => s.id)).toEqual(['c', 'a']);
+  });
+
+  it.each(['', '   ', "' '"])('drops a station whose name has no letter or digit (%j)', (name) => {
+    const page = { ...PAGE, stations: [station('a', name, 10), station('b', 'Real', 12)] };
+
+    expect(listedStations(page).map((s) => s.id)).toEqual(['b']);
+  });
+
+  it('keeps Thai names', () => {
+    const page = { ...PAGE, stations: [station('a', 'สันโป่ง', 10)] };
+
+    expect(listedStations(page)).toHaveLength(1);
+  });
+
+  it('gives the distance from the city centre in km, to one decimal, so same-named stations differ', () => {
+    // 0.1° of latitude is 11.1 km, 0.2° is 22.2 km
+    const page = {
+      ...PAGE,
+      stations: [
+        station('a', 'สันโป่ง', 10, PAGE.lat + 0.1),
+        station('b', 'สันโป่ง', 9, PAGE.lat + 0.2),
+      ],
+    };
+
+    expect(listedStations(page).map((s) => s.distanceKm)).toEqual([11.1, 22.2]);
+  });
+});
+
+describe('fetchBaselineDiff', () => {
+  const withRepresentative = {
+    ...PAGE,
+    date: '2026-11-03',
+    stations: [station('rep', 'Rep', 30)],
+    drivers: {
+      originInDataArea: true,
+      upwindFireCount: 1,
+      windSpeedKmh: 5,
+      windFrom: 'N',
+      camsPm25: 10,
+      baselineCategory: 'above' as const,
+      representativeStationId: 'rep',
+    },
+  };
+  const baseline = (n: number, medianPm25 = 20) => ({
+    data: [{ month: 11, day: 3, medianPm25, p25Pm25: 10, p75Pm25: 25, n }],
+  });
+
+  it('is the representative station’s reading against the median for the same day', async () => {
+    const fetchFn = respond(baseline(40));
+
+    expect(await fetchBaselineDiff(withRepresentative, { fetchFn })).toEqual({
+      station: 'Rep',
+      percent: 50,
+    });
+    expect(urlOf(fetchFn.mock.calls[0][0])).toMatch(/\/stations\/rep\/baseline$/);
+  });
+
+  it('is null when the history is too thin to compare with', async () => {
+    expect(
+      await fetchBaselineDiff(withRepresentative, { fetchFn: respond(baseline(29)) }),
+    ).toBeNull();
+  });
+
+  it('asks for nothing when the reading is normal for the season', async () => {
+    const fetchFn = respond(baseline(40));
+    const normal = {
+      ...withRepresentative,
+      drivers: { ...withRepresentative.drivers, baselineCategory: null },
+    };
+
+    expect(await fetchBaselineDiff(normal, { fetchFn })).toBeNull();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('is null, and does not throw, when the API fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    expect(await fetchBaselineDiff(withRepresentative, { fetchFn: respond({}, 500) })).toBeNull();
+  });
+});
+
+describe('summaryHtml', () => {
+  const t = ((key: string, params: Record<string, string | number> = {}) =>
+    `${key}|${Object.entries(params)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(',')}`) as never;
+  const sentence = (key: string, params = {}) => ({ key, params });
+
+  it('puts the day in a <time> element, and the AQI category next to the figure', () => {
+    const page = {
+      ...PAGE,
+      summary: [sentence('city.summary.level', { date: '2026-11-03', pm25: 11 })],
+    };
+
+    const [html] = summaryHtml(page, t, null);
+
+    expect(html).toContain('date=<time datetime="2026-11-03">3 Nov 2026</time>');
+    expect(html).toContain('category=aqi.moderate');
+  });
+
+  it('escapes what the API sends, so a name cannot add markup', () => {
+    const page = {
+      ...PAGE,
+      summary: [sentence('city.summary.wind', { from: '<img src=x>', speed: 5 })],
+    };
+
+    expect(summaryHtml(page, t, null)[0]).toContain('from=&lt;img src=x&gt;');
+  });
+
+  it('gives the baseline sentence its station and percentage', () => {
+    const page = { ...PAGE, summary: [sentence('city.summary.baseline.above')] };
+
+    expect(summaryHtml(page, t, { station: 'Rep', percent: 50 })[0]).toContain(
+      'station=Rep,percent=50',
+    );
+  });
+
+  it('leaves the baseline sentence out when there is no percentage, rather than guess', () => {
+    const page = {
+      ...PAGE,
+      summary: [sentence('city.summary.baseline.above'), sentence('city.summary.noFires')],
+    };
+
+    expect(summaryHtml(page, t, null)).toHaveLength(1);
   });
 });

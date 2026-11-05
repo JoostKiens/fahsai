@@ -2,6 +2,7 @@
 import type { CityTrendDay } from '@thailand-aq/types';
 import type { i18n } from 'i18next';
 import { pm25ToRgb } from '@/utils/aqiColors';
+import { formatDay } from '@/lib/cityPage';
 
 interface Props {
   trend: CityTrendDay[];
@@ -42,9 +43,9 @@ const maxPm25 = Math.max(1, ...trend.map((day) => day.pm25 ?? 0));
     </thead>
     <tbody>
       {
-        [...trend].reverse().map((day) => (
+        trend.map((day) => (
           <tr class="border-t border-zinc-800">
-            <td class="py-1">{day.date}</td>
+            <td class="py-1"><time datetime={day.date}>{formatDay(day.date)}</time></td>
             <td class="py-1">{day.pm25 ?? t('city.noReading')}</td>
           </tr>
         ))

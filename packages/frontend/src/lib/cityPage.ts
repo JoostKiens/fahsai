@@ -1,5 +1,14 @@
-import type { CityPage } from '@thailand-aq/types';
+import {
+  BASELINE_DISPLAY_GATE,
+  type BaselineResponse,
+  type CityPage,
+  type CitySentence,
+  type CityStationDay,
+} from '@thailand-aq/types';
+import type { i18n } from 'i18next';
 import { apiUrl } from '@/lib/api';
+import { pm25ToCategory } from '@/utils/aqiColors';
+import { dateLocale } from '@/utils/locale';
 
 const SITE = 'https://fahsai.fyi';
 const REQUEST_TIMEOUT_MS = 4000;
@@ -72,7 +81,7 @@ export function cityMeta(page: CityPage) {
   };
 }
 
-/** Structured data for a city page: a breadcrumb and the dataset the figures come from. */
+/** Structured data for a city page: a breadcrumb, and the page with the place it is about. */
 export function cityJsonLd(page: CityPage): object[] {
   const url = cityUrl(page.slug);
   return [
@@ -86,23 +95,137 @@ export function cityJsonLd(page: CityPage): object[] {
     },
     {
       '@context': 'https://schema.org',
-      '@type': 'Dataset',
-      name: `${page.name} daily PM2.5`,
-      description: `Daily PM2.5 for ${page.name}: the median of the daily means of the ground stations within 20 km, from OpenAQ.`,
+      '@type': 'WebPage',
       url,
-      isAccessibleForFree: true,
-      license: 'https://creativecommons.org/licenses/by/4.0/',
-      temporalCoverage: `${page.trend[0]?.date ?? page.date}/${page.date}`,
-      spatialCoverage: {
+      name: cityMeta(page).title,
+      // the day of the data the page shows (the page itself is rebuilt hourly)
+      dateModified: page.date,
+      about: {
         '@type': 'Place',
         name: page.name,
         geo: { '@type': 'GeoCoordinates', latitude: page.lat, longitude: page.lng },
       },
-      variableMeasured: {
-        '@type': 'PropertyValue',
-        name: 'PM2.5 concentration',
-        unitText: 'µg/m³',
-      },
     },
   ];
+}
+
+/** A day written out, for example 4 Nov 2026. */
+export function formatDay(isoDate: string, lang = 'en'): string {
+  return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString(dateLocale(lang), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+const EARTH_RADIUS_KM = 6371;
+
+function distanceKm(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
+  const rad = Math.PI / 180;
+  const dLat = (to.lat - from.lat) * rad;
+  const dLng = (to.lng - from.lng) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(from.lat * rad) * Math.cos(to.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
+}
+
+export interface ListedStation {
+  id: string;
+  name: string;
+  pm25: number;
+  /** From the city centre, to one decimal */
+  distanceKm: number;
+}
+
+/**
+ * The stations behind the city's figure, highest first. A station whose name has no letter or digit
+ * (OpenAQ has one called ' ') says nothing to a reader, so it is left out of the list; its readings
+ * still count in the figure.
+ */
+export function listedStations(page: CityPage): ListedStation[] {
+  return page.stations
+    .filter((s): s is CityStationDay & { pm25: number } => s.pm25 !== null)
+    .filter((s) => /[\p{L}\p{N}]/u.test(s.name))
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      pm25: s.pm25,
+      distanceKm: Math.round(distanceKm(page, s) * 10) / 10,
+    }))
+    .sort((a, b) => b.pm25 - a.pm25);
+}
+
+export interface BaselineDiff {
+  station: string;
+  /** How far the station's reading is from the median for the same day in earlier years, in % */
+  percent: number;
+}
+
+/**
+ * The representative station's reading against the median for that day of earlier years. Null when
+ * the page has no baseline sentence to give it to (the reading is normal), the station's history
+ * is thin (under BASELINE_DISPLAY_GATE years of days), or the API cannot say. Never throws.
+ */
+export async function fetchBaselineDiff(
+  page: CityPage,
+  { fetchFn = fetch, timeoutMs = REQUEST_TIMEOUT_MS }: Options = {},
+): Promise<BaselineDiff | null> {
+  if (!page.drivers?.baselineCategory) return null;
+  const station = page.stations.find((s) => s.id === page.drivers?.representativeStationId);
+  if (!station || station.pm25 === null) return null;
+
+  const path = `/stations/${encodeURIComponent(station.id)}/baseline`;
+  try {
+    const res = await fetchFn(apiUrl(path), { signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const { data } = (await res.json()) as BaselineResponse;
+    const [, month, day] = page.date.split('-').map(Number);
+    const typical = data.find((d) => d.month === month && d.day === day);
+    if (!typical || typical.n < BASELINE_DISPLAY_GATE || typical.medianPm25 <= 0) return null;
+    const percent = Math.round(((station.pm25 - typical.medianPm25) / typical.medianPm25) * 100);
+    return { station: station.name, percent };
+  } catch (error) {
+    console.warn(`[cityPage] ${path} failed, leaving the baseline sentence out:`, error);
+    return null;
+  }
+}
+
+const BASELINE_PREFIX = 'city.summary.baseline.';
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * The page's summary sentences as HTML, for `set:html`: the day goes in a <time> element, the level
+ * sentence gets the AQI category, and the baseline sentences get their station and percentage (or
+ * are left out when there is none). Every value the API sent is escaped.
+ */
+export function summaryHtml(page: CityPage, t: i18n['t'], diff: BaselineDiff | null): string[] {
+  return page.summary.flatMap(({ key, params }: CitySentence) => {
+    const isBaseline = key.startsWith(BASELINE_PREFIX);
+    if (isBaseline && !diff) return [];
+
+    const values: Record<string, string | number> = {};
+    for (const [name, value] of Object.entries(params)) {
+      values[name] = typeof value === 'string' ? escapeHtml(value) : value;
+    }
+    if (typeof params.date === 'string') {
+      values.date = `<time datetime="${escapeHtml(params.date)}">${escapeHtml(formatDay(params.date))}</time>`;
+    }
+    if (key === 'city.summary.level' && typeof params.pm25 === 'number') {
+      values.category = t(pm25ToCategory(params.pm25).key as never);
+    }
+    if (isBaseline && diff) {
+      values.station = escapeHtml(diff.station);
+      values.percent = Math.abs(diff.percent);
+    }
+    return [t(key as never, values)];
+  });
 }
