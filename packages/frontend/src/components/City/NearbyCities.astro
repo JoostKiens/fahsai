@@ -1,5 +1,6 @@
 ---
 import type { CityNearby } from '@thailand-aq/types';
+import { pm25ToRgb } from '@/utils/aqiColors';
 
 interface Props {
   nearby: CityNearby[];
@@ -8,14 +9,27 @@ interface Props {
 const { nearby } = Astro.props;
 ---
 
-<ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+<ul class="grid gap-3 sm:grid-cols-3">
   {
     nearby.map((city) => (
       <li>
-        <a class="underline underline-offset-2" href={`/city/${city.slug}`}>
-          {city.name}
+        <a
+          class="flex items-center justify-between gap-3 rounded-lg border border-zinc-700/60 px-3 py-2 text-sm hover:bg-zinc-800/60"
+          href={`/city/${city.slug}`}
+        >
+          <span>{city.name}</span>
+          {city.pm25 !== null && (
+            <span class="inline-flex items-center gap-2 font-mono">
+              <span
+                class="size-2.5 rounded-full"
+                style={`background-color: rgb(${pm25ToRgb(city.pm25).join(',')})`}
+                aria-hidden="true"
+              />
+              {city.pm25}
+              <span class="text-[11px] text-zinc-400">µg/m³</span>
+            </span>
+          )}
         </a>
-        {city.pm25 !== null && <span class="text-zinc-400 font-mono"> {city.pm25} µg/m³</span>}
       </li>
     ))
   }

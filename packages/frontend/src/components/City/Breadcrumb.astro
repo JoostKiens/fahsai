@@ -1,0 +1,32 @@
+---
+interface Props {
+  /** The trail, the last one being the page itself */
+  crumbs: { name: string; url: string }[];
+  label: string;
+}
+
+const { crumbs, label } = Astro.props;
+const last = crumbs.length - 1;
+---
+
+<nav aria-label={label} class="flex flex-wrap items-center gap-1.5 text-[12px] text-zinc-400">
+  {
+    crumbs.map((crumb, i) =>
+      i === last ? (
+        <span aria-current="page" class="text-zinc-300">
+          {crumb.name}
+        </span>
+      ) : (
+        <>
+          <a
+            class="hover:text-zinc-100 underline underline-offset-2"
+            href={new URL(crumb.url).pathname}
+          >
+            {crumb.name}
+          </a>
+          <span aria-hidden="true">/</span>
+        </>
+      ),
+    )
+  }
+</nav>

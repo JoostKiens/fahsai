@@ -1,5 +1,6 @@
 import {
   BASELINE_DISPLAY_GATE,
+  dateToPeriodKey,
   type BaselineResponse,
   type CityPage,
   type CitySentence,
@@ -9,6 +10,7 @@ import type { i18n } from 'i18next';
 import { SITE } from '@/lib/site';
 import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
 import type { PmBarDay } from '@/components/InfoPanel/PmBarChart';
+import { compassToDeg } from '@/components/InfoPanel/utils.ambient';
 import { pm25ToCategory } from '@/utils/aqiColors';
 import { dateLocale } from '@/utils/locale';
 
@@ -87,6 +89,14 @@ export function cityMeta(page: CityPage, t: i18n['t']) {
   };
 }
 
+/** The trail above the page: what is shown at the top of it, and what the structured data lists. */
+export function cityBreadcrumbs(page: CityPage): { name: string; url: string }[] {
+  return [
+    { name: 'Fahsai', url: `${SITE}/` },
+    { name: page.name, url: cityUrl(page.slug) },
+  ];
+}
+
 /** Structured data for a city page: a breadcrumb, and the page with the place it is about. */
 export function cityJsonLd(page: CityPage, title: string): object[] {
   const url = cityUrl(page.slug);
@@ -94,10 +104,12 @@ export function cityJsonLd(page: CityPage, title: string): object[] {
     {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Fahsai', item: `${SITE}/` },
-        { '@type': 'ListItem', position: 2, name: page.name, item: url },
-      ],
+      itemListElement: cityBreadcrumbs(page).map(({ name, url: item }, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name,
+        item,
+      })),
     },
     {
       '@context': 'https://schema.org',
@@ -140,6 +152,11 @@ function distanceKm(from: { lat: number; lng: number }, to: { lat: number; lng: 
 // OpenAQ has a station called ' ': no letter or digit says nothing to a reader
 function isReadableName(name: string): boolean {
   return /[\p{L}\p{N}]/u.test(name);
+}
+
+/** A day as a <time> element: written out for people, ISO for machines. */
+export function timeHtml(isoDate: string): string {
+  return `<time datetime="${escapeHtml(isoDate)}">${escapeHtml(formatDay(isoDate))}</time>`;
 }
 
 export interface ListedStation {
@@ -232,6 +249,42 @@ function agreesWithKey(key: string, diff: BaselineDiff | null): diff is Baseline
   return isAbove ? diff.percent > 0 : diff.percent < 0;
 }
 
+// "early November": the part of the month the baseline compares the day with
+export function baselinePeriod(isoDate: string, t: i18n['t']): string {
+  const day = Number(isoDate.slice(8, 10));
+  const month = new Date(`${isoDate}T00:00:00Z`).toLocaleDateString(dateLocale('en'), {
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  return t(`infoPanel.baseline.${dateToPeriodKey(day)}` as never, { month });
+}
+
+export type KeyTile =
+  | { kind: 'fires'; count: number }
+  | { kind: 'wind'; from: string; speedKmh: number; deg: number | null }
+  | { kind: 'cams'; pm25: number }
+  | { kind: 'vsUsual'; percent: number };
+
+/** The figures under the headline, one tile each; a figure that is not known has no tile. */
+export function keyTiles(page: CityPage, diff: BaselineDiff | null): KeyTile[] {
+  const { drivers } = page;
+  if (!drivers) return [];
+  const tiles: KeyTile[] = [];
+  if (drivers.upwindFireCount !== null)
+    tiles.push({ kind: 'fires', count: drivers.upwindFireCount });
+  if (drivers.windFrom !== null && drivers.windSpeedKmh !== null) {
+    tiles.push({
+      kind: 'wind',
+      from: drivers.windFrom,
+      speedKmh: Math.round(drivers.windSpeedKmh),
+      deg: compassToDeg(drivers.windFrom),
+    });
+  }
+  if (drivers.camsPm25 !== null) tiles.push({ kind: 'cams', pm25: Math.round(drivers.camsPm25) });
+  if (diff) tiles.push({ kind: 'vsUsual', percent: diff.percent });
+  return tiles;
+}
+
 /**
  * The page's summary sentences as HTML, for `set:html`: the day goes in a <time> element, the level
  * sentence gets the AQI category, and the baseline sentences get their station and percentage (or
@@ -248,7 +301,7 @@ export function summaryHtml(page: CityPage, t: i18n['t'], diff: BaselineDiff | n
       values[name] = typeof value === 'string' ? escapeHtml(value) : value;
     }
     if (typeof params.date === 'string') {
-      values.date = `<time datetime="${escapeHtml(params.date)}">${escapeHtml(formatDay(params.date))}</time>`;
+      values.date = timeHtml(params.date);
     }
     if (key === 'city.summary.level' && typeof params.pm25 === 'number') {
       values.category = t(pm25ToCategory(params.pm25).key as never);
@@ -256,6 +309,7 @@ export function summaryHtml(page: CityPage, t: i18n['t'], diff: BaselineDiff | n
     if (isBaseline && diff) {
       values.station = escapeHtml(diff.station);
       values.percent = Math.abs(diff.percent);
+      values.period = baselinePeriod(page.date, t);
     }
     return [t(key as never, values)];
   });
