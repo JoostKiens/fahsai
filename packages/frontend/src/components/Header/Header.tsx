@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -9,6 +10,7 @@ import { HeaderMenu } from './HeaderMenu';
 import { CloseIcon, GearIcon, GithubIcon, InfoIcon } from './Icons';
 import { LanguagePill } from './LanguagePill';
 import { Search } from './Search';
+import { pageSearchTarget, type SearchResult, type SearchTarget } from './utils.search-target';
 
 function Logo({ size }: { size: number }) {
   return (
@@ -21,6 +23,25 @@ function Logo({ size }: { size: number }) {
       />
       <path d="M0 40 Q 10 30 20 38 Q 30 46 38 36 Q 44 30 48 38 L 48 48 L 0 48 Z" fill="#ffffff" />
     </svg>
+  );
+}
+
+// The logo and name: a link to the map on a page that is not the map, plain markup on the map
+function Brand({
+  isLink,
+  className,
+  children,
+}: {
+  isLink: boolean;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return isLink ? (
+    <a href="/" className={className}>
+      {children}
+    </a>
+  ) : (
+    <div className={className}>{children}</div>
   );
 }
 
@@ -94,7 +115,27 @@ function AppDialog({
   );
 }
 
-export function Header() {
+const NO_CITIES: SearchTarget[] = [];
+
+interface HeaderProps {
+  /**
+   * 'map': the app's header over the map. 'page': the same header on a page without the map (a city
+   * page): no Settings, no h1 (the page has its own), and search goes to the map instead of moving it.
+   */
+  context?: 'map' | 'page';
+  /** 'page' only: the day whose stations search offers, loaded when the field is first used */
+  stationsDate?: string;
+  /** 'page' only: the cities that have a page, so a search for one goes there */
+  cities?: SearchTarget[];
+}
+
+export function Header({ context = 'map', stationsDate, cities = NO_CITIES }: HeaderProps) {
+  const isPage = context === 'page';
+  // a stable handler, so Search's callbacks are not rebuilt on every render
+  const handlePageSelect = useCallback(
+    (result: SearchResult) => window.location.assign(pageSearchTarget(result, cities)),
+    [cities],
+  );
   const { t } = useTranslation();
   const aboutOpen = useUIStore((s) => s.aboutOpen);
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
@@ -107,25 +148,29 @@ export function Header() {
   return (
     <>
       <header className="h-12 flex items-center px-3 md:px-4 gap-2 md:gap-4 border-b border-zinc-800 bg-zinc-900 shrink-0 z-20">
-        <h1 className="sr-only">Fahsai — {t('header.subtitle')}</h1>
+        {isPage ? (
+          <p className="sr-only">Fahsai — {t('header.subtitle')}</p>
+        ) : (
+          <h1 className="sr-only">Fahsai — {t('header.subtitle')}</h1>
+        )}
 
-        {/* Desktop brand */}
-        <div className="hidden md:flex items-center gap-2 shrink-0">
+        {/* Desktop brand: a link back to the map on a page without the map */}
+        <Brand isLink={isPage} className="hidden md:flex items-center gap-2 shrink-0">
           <Logo size={26} />
           <div className="leading-tight">
             <p className="text-[13px] font-semibold text-zinc-100">Fahsai</p>
             <p className="text-[11px] text-zinc-400">{t('header.subtitle')}</p>
           </div>
-        </div>
+        </Brand>
 
         {/* Mobile brand */}
-        <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
+        <Brand isLink={isPage} className="flex md:hidden items-center gap-2 flex-1 min-w-0">
           <Logo size={22} />
           <span className="text-[12px] font-semibold text-zinc-100 truncate">Fahsai</span>
-        </div>
+        </Brand>
 
         {/* Desktop search */}
-        <Search />
+        <Search stationsDate={stationsDate} onSelect={isPage ? handlePageSelect : undefined} />
 
         {/* Desktop right cluster */}
         <div className="hidden md:flex items-center gap-1 shrink-0">
@@ -142,15 +187,17 @@ export function Header() {
           >
             <GithubIcon />
           </IconBtn>
-          <IconBtn ariaLabel={t('header.settings')} onClick={() => setSettingsOpen(true)}>
-            <GearIcon />
-          </IconBtn>
+          {!isPage && (
+            <IconBtn ariaLabel={t('header.settings')} onClick={() => setSettingsOpen(true)}>
+              <GearIcon />
+            </IconBtn>
+          )}
         </div>
 
         {/* Mobile right cluster */}
         <div className="flex md:hidden items-center gap-1 shrink-0">
           <LanguagePill />
-          <HeaderMenu />
+          <HeaderMenu showSettings={!isPage} />
         </div>
       </header>
 
@@ -165,33 +212,35 @@ export function Header() {
       </AppDialog>
 
       {/* Settings dialog */}
-      <AppDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        title={t('header.settings')}
-      >
-        <div>
-          <p className="text-[11px] font-medium text-zinc-300 mb-2">{t('settings.dateRange')}</p>
-          <div className="inline-flex rounded-md border border-zinc-700 divide-x divide-zinc-700 overflow-hidden">
-            {SCRUBBER_RANGE_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => {
-                  setScrubberDays(opt);
-                  setScrubberDay(opt - 1);
-                }}
-                className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-175 ${
-                  scrubberDays === opt
-                    ? 'bg-teal-700 text-white'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                }`}
-              >
-                {opt}d
-              </button>
-            ))}
+      {!isPage && (
+        <AppDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          title={t('header.settings')}
+        >
+          <div>
+            <p className="text-[11px] font-medium text-zinc-300 mb-2">{t('settings.dateRange')}</p>
+            <div className="inline-flex rounded-md border border-zinc-700 divide-x divide-zinc-700 overflow-hidden">
+              {SCRUBBER_RANGE_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => {
+                    setScrubberDays(opt);
+                    setScrubberDay(opt - 1);
+                  }}
+                  className={`px-3 py-1.5 text-[12px] font-medium transition-colors ease-out hover:duration-175 ${
+                    scrubberDays === opt
+                      ? 'bg-teal-700 text-white'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  }`}
+                >
+                  {opt}d
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </AppDialog>
+        </AppDialog>
+      )}
     </>
   );
 }

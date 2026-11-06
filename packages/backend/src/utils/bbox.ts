@@ -22,3 +22,6 @@ export function parseBbox(raw: string | undefined): Bbox {
   const [west, south, east, north] = str.split(',').map(Number) as [number, number, number, number];
   return { west, south, east, north };
 }
+
+/** The area the data covers (CAMS, wind, fires): what a request gets when it gives no bbox. */
+export const DATA_AREA: Bbox = parseBbox(DEFAULT_BBOX);

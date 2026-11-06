@@ -50,6 +50,8 @@ export const FULL_CONTEXT: ScientificContext = {
     trajectory: {
       hoursTraced: 48,
       origin: { lat: 20.5, lng: 99.5, region: 'Shan State, Myanmar', date: '2026-03-12' },
+      leftDataArea: false,
+      leftDataAreaAfterHours: null,
       corridorWidthKm: 60,
       meanWindSpeedKmh: 11.8,
       waypoints: [
@@ -78,6 +80,7 @@ export const FULL_CONTEXT: ScientificContext = {
       areaTotalFrpMw: 310.5,
       firesAreLocal: false,
       areaFireRadiusKm: 75,
+      dataAvailable: true,
     },
   },
   upwindSources: {

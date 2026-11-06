@@ -1,0 +1,34 @@
+---
+interface Props {
+  /** The trail, the last one being the page itself */
+  crumbs: { name: string; url: string }[];
+  label: string;
+}
+
+const { crumbs, label } = Astro.props;
+// the logo in the header is the way home, so the trail starts at the list of cities
+const trail = crumbs.slice(1);
+const last = trail.length - 1;
+---
+
+<nav aria-label={label} class="flex flex-wrap items-center gap-1.5 text-xs leading-normal text-zinc-500">
+  {
+    trail.map((crumb, i) =>
+      i === last ? (
+        <span aria-current="page" class="text-zinc-300">
+          {crumb.name}
+        </span>
+      ) : (
+        <>
+          <a
+            class="text-zinc-400 hover:text-zinc-100"
+            href={new URL(crumb.url).pathname}
+          >
+            {crumb.name}
+          </a>
+          <span aria-hidden="true">/</span>
+        </>
+      ),
+    )
+  }
+</nav>

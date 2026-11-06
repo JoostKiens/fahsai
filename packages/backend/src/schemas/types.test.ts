@@ -4,6 +4,8 @@ import type { ScientificContext, ExplainCase } from '../lib/buildScientificConte
 import type {
   ApiError,
   BaselineResponse,
+  CityListItem,
+  CityPage,
   FirePoint,
   PM25DailySummary,
   PM25GridColumns,
@@ -15,6 +17,7 @@ import type {
   WindReading,
 } from '@thailand-aq/types';
 import { ApiErrorSchema } from './common.js';
+import { CityListItemSchema, CityPageSchema } from './city.js';
 import { PM25DailySummarySchema, PM25GridColumnsSchema, PM25GridPointSchema } from './aq.js';
 import { EXPLAIN_CASES, ScientificContextSchema } from './explain.js';
 import { FirePointSchema } from './fire.js';
@@ -61,5 +64,10 @@ describe('schemas match the shared types', () => {
   it('ScientificContext and ExplainCase', () => {
     expectTypeOf<Static<typeof ScientificContextSchema>>().toEqualTypeOf<ScientificContext>();
     expectTypeOf<(typeof EXPLAIN_CASES)[number]>().toEqualTypeOf<ExplainCase>();
+  });
+
+  it('CityListItem and CityPage', () => {
+    expectTypeOf<Static<typeof CityListItemSchema>>().toEqualTypeOf<CityListItem>();
+    expectTypeOf<Static<typeof CityPageSchema>>().toEqualTypeOf<CityPage>();
   });
 });

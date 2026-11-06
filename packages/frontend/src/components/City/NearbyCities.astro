@@ -1,0 +1,28 @@
+---
+import type { CityNearby } from '@thailand-aq/types';
+import type { i18n } from 'i18next';
+import PcdChip from './PcdChip.astro';
+
+interface Props {
+  nearby: CityNearby[];
+  t: i18n['t'];
+}
+
+const { nearby, t } = Astro.props;
+---
+
+<ul class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2">
+  {
+    nearby.map((city) => (
+      <li>
+        <a
+          class="flex min-h-11 items-center justify-between rounded-md bg-zinc-800 px-3 py-2 text-[13px] text-zinc-200 hover:bg-zinc-700"
+          href={`/city/${city.slug}`}
+        >
+          <span>{city.name}</span>
+          {city.pm25 !== null && <PcdChip value={city.pm25} t={t} />}
+        </a>
+      </li>
+    ))
+  }
+</ul>

@@ -25,7 +25,31 @@ preserving absolute color accuracy. Always filter data server-side; only send th
 
 ---
 
-## AQI color scale
+## Two scales: US EPA (map) and Thai PCD (public pages)
+
+One scale per audience. The map (and InfoPanel, legend, heatmap) uses US EPA, below. The public
+pages (city pages, `/city`, later the haze guide and station pages) use the Thai PCD scale, and
+only that: `utils/pcdBands.ts`, five bands, no extra bands or shading above 75 µg/m³. A public
+page never imports the `aqiColors.ts` bands or the `aqi.*` labels (`contrastColor` is shared).
+Labels are the `pcd.*` keys; English is Air4Thai's own wording. Each view names its scale.
+
+| Band (Thai)             | English        | PM2.5 µg/m³, 24h | Hex       |
+| ----------------------- | -------------- | ---------------- | --------- |
+| ดีมาก                   | Excellent      | 0–15.0           | `#3BCCFF` |
+| ดี                      | Satisfactory   | 15.1–25.0        | `#92D050` |
+| ปานกลาง                 | Moderate       | 25.1–37.5        | `#FFFF00` |
+| เริ่มมีผลกระทบต่อสุขภาพ | Unhealthy      | 37.6–75.0        | `#FFA200` |
+| มีผลกระทบต่อสุขภาพ      | Very Unhealthy | 75.1+            | `#F04646` |
+
+The bands are Table 2's PM2.5 concentrations, not Table 1's AQI index (0–25, 26–50, 51–100, 101–200,
+201+); index 25 is 15 µg/m³. Source: PCD, Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ" Tables 1 and 2
+(https://air4thai.pcd.go.th/webV3/#/AQIInfo), verified 2026-11-05. Legal basis: PCD announcement
+of 3 July 2023 (Royal Gazette); 24-hour PM2.5 standard 37.5 µg/m³. Show µg/m³ with a band, never
+an index number. The mean is rounded to 0.1 before banding; the API sends the city figure to one
+decimal for that, and pages show it whole. `PmBarChart` takes `scale="pcd"` on public pages. PCD defines a rolling 24-hour
+average; the city figure is a calendar-day mean, close enough for banding.
+
+## AQI color scale (US EPA, map)
 
 US EPA official thresholds. Values are raw **PM2.5 µg/m³**, not AQI index values.
 Colors defined once in `packages/frontend/src/utils/aqiColors.ts`, shared by both
@@ -79,13 +103,24 @@ function).
 | `Map`      | browser only (`client:only`) | `IslandRoot`       | map, overlay, URL and date sync, data toasts, analytics; the `#intro` text is its fallback slot |
 | `Scrubber` | server, then hydrated        | `ServerIslandRoot` | time scrubber, with the API's latest date and timeline fetched while the page renders           |
 
+City pages (`src/pages/city/[slug].astro`, English only until JOO-101) are also rendered on demand
+with the one-hour ISR. They use `layouts/Content.astro`, a lean scrolling layout (`content.css`:
+`index.css` pins the page to the screen height for the map). `lib/cityPage.ts` fetches
+`GET /api/v1/cities/:slug` (404 for an unknown city, 503 when the API is down, neither cached) and
+builds the meta tags and JSON-LD; the API sends the summary as i18n keys (`city.summary.*`) and
+`src/test/citySummary.test.ts` checks the locale files have every key and keep to the wording rules.
+`pages/sitemap.xml.ts` builds the sitemap from `GET /api/v1/cities`.
+
 - The islands share the Zustand stores below and one `QueryClient` (`lib/queryClient.ts`). Each is
   its own React root, so a render error takes down one island, not the page.
-- While the map loads, its region shows a blurred basemap at the default view
-  (`MapPlaceholder.astro` in the server HTML, `MapLoadingPlaceholder.tsx` until Mapbox's `load`).
+- While the map loads, its region shows a blurred basemap at the view the map starts at: the phone
+  view below 768 px, the default view above (`MapPlaceholder.astro` in the server HTML,
+  `MapLoadingPlaceholder.tsx` until Mapbox's `load`; `Base.astro` preloads only the matching one).
   It is a real `<img>`, preloaded in `Base.astro`: Chrome counts it as the LCP, where the Mapbox
-  logo that appears with the map would be a late LCP. It always shows the default view, so a link to
-  another place shows that for a moment. The `#intro` text stays in the HTML, visually hidden.
+  logo that appears with the map would be a late LCP. For a link to another place the image is left
+  out (dark background): `lib/placeholderGuard.ts` flags `<html>` from `<head>` before the first
+  paint (its hash is added to the CSP in `astro.config.mjs`), and `MapLoadingPlaceholder` checks the
+  store. The `#intro` text stays in the HTML, visually hidden.
   Regenerate the image with `scripts/generate-map-placeholder.sh`; a test checks the script's view
   and style against the app's.
 - A server-rendered island can only import code that works without a browser. Read the query string
@@ -94,7 +129,9 @@ function).
 - Language comes from the page: `ServerIslandRoot` takes a `lang` prop, `IslandRoot` loads
   `@/i18n`, which reads it from the address (see `docs/adr/0002-i18n-thai-language.md`).
 - A server-rendered island hydrates against its stores' _initial_ state (Zustand's server snapshot),
-  so the stores start from defaults and apply the URL and saved settings right after creation. Do
+  so the stores start from defaults and apply the URL and saved settings right after creation (the
+  date, the selection, and the map's centre and zoom via `initialMapView`; the address bar is written
+  from the store, so a view the store lacks would overwrite the link's). Do
   not put page-specific values in a store's initial state. `Scrubber` takes `initialData` and shows
   it only until the browser has the real latest date; the live values then win.
 - The scrubber keeps the height in `SCRUBBER_BAR_CLS` as its minimum, in every state, so the sidebar

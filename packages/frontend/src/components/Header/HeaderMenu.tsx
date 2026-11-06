@@ -20,10 +20,10 @@ function MoreIcon() {
 }
 
 /**
- * The header's "More options" menu: Settings, About, and a link to the GitHub repository.
+ * The header's "More options" menu: Settings (not on pages without the map), About, and a link to the GitHub repository.
  * Settings and About only set a flag in the UI store; `Header` renders the dialogs themselves.
  */
-export function HeaderMenu() {
+export function HeaderMenu({ showSettings = true }: { showSettings?: boolean }) {
   const { t } = useTranslation();
   const setAboutOpen = useUIStore((s) => s.setAboutOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
@@ -36,12 +36,14 @@ export function HeaderMenu() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={4} align="end" className="z-40">
           <Menu.Popup className="w-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden py-1">
-            <Menu.Item className={ITEM_CLS} onClick={() => setSettingsOpen(true)}>
-              <span className="text-zinc-500">
-                <GearIcon size={14} />
-              </span>
-              {t('menu.settings')}
-            </Menu.Item>
+            {showSettings && (
+              <Menu.Item className={ITEM_CLS} onClick={() => setSettingsOpen(true)}>
+                <span className="text-zinc-500">
+                  <GearIcon size={14} />
+                </span>
+                {t('menu.settings')}
+              </Menu.Item>
+            )}
             <Menu.Item className={ITEM_CLS} onClick={() => setAboutOpen(true)}>
               <span className="text-zinc-500">
                 <InfoIcon size={14} />

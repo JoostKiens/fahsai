@@ -1,0 +1,187 @@
+---
+import Content from '@/layouts/Content.astro';
+import TrendTable from '@/components/City/TrendTable.astro';
+import StationsTable from '@/components/City/StationsTable.astro';
+import NearbyCities from '@/components/City/NearbyCities.astro';
+import Breadcrumb from '@/components/City/Breadcrumb.astro';
+import KeyTiles from '@/components/City/KeyTiles.astro';
+import ContentFooter from '@/components/ContentFooter.astro';
+import { HeaderIsland } from '@/islands/HeaderIsland';
+import { CityChartIsland } from '@/islands/CityChartIsland';
+import PcdBadge from '@/components/City/PcdBadge.astro';
+import { createI18n } from '@/i18n-instance';
+import { cityCopyGroup } from '@/lib/cityCopy';
+import {
+  baselinePeriod,
+  cityBreadcrumbs,
+  cityJsonLd,
+  cityMapLink,
+  cityMeta,
+  fetchBaselineDiff,
+  fetchCityPage,
+  keyTiles,
+  listedStations,
+  summaryHtml,
+  timeHtml,
+  trendDays,
+} from '@/lib/cityPage';
+import { fetchCityList } from '@/lib/sitemap';
+
+export const prerender = false;
+
+const lang = 'en';
+const { slug = '' } = Astro.params;
+const result = await fetchCityPage(slug);
+const { t } = createI18n(lang);
+
+// 404 for a city that is not in the list, 503 when the API could not be reached. no-store keeps
+// the ISR layer from holding either for the hour.
+if (result.status !== 'ok') {
+  Astro.response.status = result.status === 'not-found' ? 404 : 503;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+const page = result.status === 'ok' ? result.page : null;
+// both are optional extras (the baseline sentence, search finding a city page), fetched together
+const [baselineDiff, cityList] = page
+  ? await Promise.all([fetchBaselineDiff(page), fetchCityList({ timeoutMs: 1500 })])
+  : [null, null];
+// A page without the list would keep search from finding the city pages for as long as ISR holds
+// it, so it is not held.
+if (page && !cityList) Astro.response.headers.set('Cache-Control', 'no-store');
+const cities = (cityList ?? []).map(({ slug, name, country }) => ({ slug, name, country }));
+// TODO: say where the detected fires are ("mostly to the SE") once the API sends their direction
+const meta = page
+  ? { ...cityMeta(page, t), noindex: false }
+  : {
+      title: `${t('city.fallbackTitle')} | Fahsai`,
+      description: t('city.unavailable'),
+      canonical: Astro.url.href,
+      noindex: true,
+    };
+const hasReading = page !== null && page.pm25 !== null;
+const copyGroup = page ? cityCopyGroup(page.slug) : null;
+const cardClass = 'min-w-0 rounded-lg border border-zinc-700/60 bg-zinc-900 p-4';
+const headingClass = 'text-sm font-semibold text-zinc-100';
+---
+
+<Content lang={lang} {...meta} jsonLd={page ? cityJsonLd(page, meta.title, t) : []}>
+  <HeaderIsland client:load lang={lang} context="page" stationsDate={page?.date} cities={cities} />
+
+  <main class="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-4 pb-12 pt-6">
+    <section class="flex flex-col gap-2 py-2">
+      {page && <Breadcrumb crumbs={cityBreadcrumbs(page, t)} label={t('city.breadcrumb')} />}
+      <h1 class="text-[28px] font-semibold leading-[1.2] text-zinc-100">
+        {page ? t('city.h1', { name: page.name }) : t('city.fallbackTitle')}
+      </h1>
+      {
+        page && (
+          <p
+            class="text-[13px] text-zinc-400 [&_time]:text-zinc-300"
+            set:html={t('city.metaLine' as never, {
+              date: timeHtml(page.date),
+              count: page.stationCount,
+            })}
+          />
+        )
+      }
+    </section>
+
+    {!page && <p>{t('city.unavailable')}</p>}
+    {page && !hasReading && <p>{t('city.noData', { name: page.name, date: page.date })}</p>}
+
+    {
+      page && page.pm25 !== null && (
+        <>
+          <section class="flex flex-wrap gap-4">
+            <div class={`${cardClass} flex flex-[1_1_280px] flex-col gap-3`}>
+              <p class="text-xs text-zinc-300">{t('city.valueLabel')}</p>
+              <p class="flex items-baseline gap-2">
+                <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
+                  {Math.round(page.pm25)}
+                </span>
+                <span class="font-mono text-sm text-zinc-400">µg/m³</span>
+              </p>
+              <div class="flex flex-wrap items-center gap-2">
+                <PcdBadge value={page.pm25} t={t} />
+                {page.whoMultiple !== null && (
+                  <span class="text-xs text-zinc-400">
+                    {t('city.whoMultiple', { multiple: page.whoMultiple })}
+                  </span>
+                )}
+              </div>
+              <p class="text-[11px] text-zinc-400">{t('pcd.scaleName')}</p>
+            </div>
+
+            <div class={`${cardClass} flex flex-[2_1_460px] flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.driving')}</h2>
+              <p
+                class="text-[15px] leading-relaxed text-zinc-300"
+                set:html={summaryHtml(page, t, baselineDiff).join(' ')}
+              />
+              <div class="mt-auto flex flex-wrap gap-2">
+                <a
+                  class="inline-flex min-h-9 items-center justify-center rounded border border-teal-800 bg-teal-950 px-3.5 py-1.5 text-[13px] font-semibold text-teal-300 transition-colors ease-out hover:bg-teal-900"
+                  href={cityMapLink(page)}
+                >
+                  {t('city.openInMap', { name: page.name })}
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <KeyTiles tiles={keyTiles(page, baselineDiff)} period={baselinePeriod(page.date, t)} t={t} />
+
+          <section class="flex flex-wrap items-start gap-4">
+            <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
+              <h2 class={headingClass}>
+                {t('city.trend')} <span class="font-mono text-xs font-normal text-zinc-500">µg/m³</span>
+              </h2>
+              <CityChartIsland client:visible lang={lang} days={trendDays(page)} barHeight={140} />
+              <details class="text-[13px] text-zinc-300">
+                <summary class="cursor-pointer text-xs text-zinc-400">{t('city.showTable')}</summary>
+                <TrendTable trend={page.trend} t={t} />
+              </details>
+            </div>
+
+            <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.stationsWithin')}</h2>
+              <StationsTable stations={listedStations(page)} t={t} />
+            </div>
+          </section>
+
+          {page.nearby.length > 0 && (
+            <section class={`${cardClass} flex flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.nearby')}</h2>
+              <NearbyCities nearby={page.nearby} t={t} />
+            </section>
+          )}
+        </>
+      )
+    }
+
+    {
+      page && (
+        <section class="flex flex-wrap gap-4 pt-2">
+          {copyGroup && (
+            <div class="flex min-w-0 flex-[3_1_480px] flex-col gap-2.5">
+              <h2 class="text-lg font-semibold text-zinc-100">
+                {t(`city.why.${copyGroup}.title` as never, { name: page.name })}
+              </h2>
+              <p class="text-[15px] leading-[1.7] text-zinc-300">{t(`city.why.${copyGroup}.p1` as never)}</p>
+              <p class="text-[15px] leading-[1.7] text-zinc-300">{t(`city.why.${copyGroup}.p2` as never)}</p>
+            </div>
+          )}
+          <div class={`${cardClass} flex flex-[2_1_280px] flex-col gap-1.5 self-start text-xs text-zinc-400`}>
+            <h3 class="mb-1 text-[13px] font-semibold text-zinc-100">{t('city.dataHeading')}</h3>
+            <p>{t('city.dataStations')}</p>
+            <p>{t('city.dataFires')}</p>
+            <p>{t('city.dataModel')}</p>
+            <p set:html={t('city.dataDate', { date: timeHtml(page.date) })} />
+          </div>
+        </section>
+      )
+    }
+  </main>
+
+  <ContentFooter t={t} />
+</Content>

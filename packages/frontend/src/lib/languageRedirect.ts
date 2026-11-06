@@ -1,5 +1,6 @@
 import type { Language } from '@/i18n-instance';
-import { searchWithoutLang } from '@/lib/langParam';
+import { searchWithoutParams } from '@/lib/langParam';
+import { isSwitchTarget } from '@/lib/languageSwitchUrl';
 
 const ENGLISH_PAGE = '/';
 const THAI_PAGE = '/th/';
@@ -21,7 +22,8 @@ export interface LanguageRedirect {
 
 /**
  * The language redirect (see CONTEXT.md): what to do with a request for the English entry page.
- * In order: a `?lang=` from the language switch is recorded and followed; otherwise the stored
+ * In order: a `?lang=` from the language switch is recorded and followed (to its `?to=` page when
+ * it names one on this site); otherwise the stored
  * preference decides; with none, the browser's top language does. Only the switch records a
  * preference. Any other address is left alone: the address a visitor asked for wins. Returns null
  * when the English page should be served as it is.
@@ -35,12 +37,21 @@ export function resolveLanguageRedirect({
 
   const chosen = new URLSearchParams(url.search).get('lang');
   if (isLanguage(chosen)) {
-    const page = chosen === 'th' ? THAI_PAGE : ENGLISH_PAGE;
-    return { location: page + searchWithoutLang(url.search), rememberAs: chosen };
+    const page =
+      sameSitePath(new URLSearchParams(url.search).get('to')) ??
+      (chosen === 'th' ? THAI_PAGE : ENGLISH_PAGE);
+    return { location: page + searchWithoutParams(url.search, ['lang', 'to']), rememberAs: chosen };
   }
 
   const wantsThai = isLanguage(cookieLang) ? cookieLang === 'th' : prefersThai(acceptLanguage);
   return wantsThai ? { location: THAI_PAGE + url.search, rememberAs: null } : null;
+}
+
+// The page the language switch asked for (`to`), when it is one a switch can ask for: the Thai home
+// page or a city page. Nothing wider: no query or fragment to clash with the rest of the query,
+// and no path of the API or the build, let alone another site.
+function sameSitePath(to: string | null): string | null {
+  return to !== null && isSwitchTarget(to) ? to : null;
 }
 
 function isLanguage(value: string | null | undefined): value is Language {

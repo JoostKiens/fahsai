@@ -1,16 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { Type, TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import type { PM25DailySummary, PM25GridPoint } from '@thailand-aq/types';
+import type { PM25DailySummary } from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
-import { HISTORICAL_TTL_SECONDS, CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
+import { CACHE_CONTROL_IMMUTABLE } from '../cache/client.js';
 import { cacheGet, cacheSet } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { RETENTION_DAYS } from '../jobs/prune.js';
 import { parseBbox } from '../utils/bbox.js';
-import { fetchAllPages } from '../utils/backfill.js';
 import { nearestGridPoint } from '../utils/trajectory.js';
 import { toGridColumns } from '../utils/camsColumns.js';
 import { AppError } from '../lib/app-error.js';
+import { getCamsGridForDate } from '../lib/camsGrid.js';
 import {
   PM25DailySummarySchema,
   PM25GridColumnsSchema,
@@ -18,40 +18,12 @@ import {
 } from '../schemas/aq.js';
 import { Bbox, DateString, errorResponses } from '../schemas/common.js';
 
-const PAGE_SIZE = 1000;
-// Full CAMS grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis
-// so a rate-limited partial ingest never poisons the hot cache.
-const MIN_COMPLETE_POINTS = 4000;
-
 // Daily summary covers at most the scrubber window; cap matches prune.ts RETENTION_DAYS,
 // since no cams_daily_summary row survives past that window anyway.
 const MAX_SUMMARY_DAYS = RETENTION_DAYS;
 // The newest day's p95 is recomputed each ingest, so this series is not immutable.
 const SUMMARY_TTL_SECONDS = 60 * 60; // 1 hour
 const CACHE_CONTROL_SUMMARY = `public, max-age=${SUMMARY_TTL_SECONDS}`;
-
-async function fetchCamsGridFromDb(date: string): Promise<PM25GridPoint[]> {
-  return fetchAllPages<PM25GridPoint>(
-    (from, to) =>
-      supabase.from('cams_grid').select('lat, lng, pm25').eq('date', date).range(from, to),
-    PAGE_SIZE,
-  );
-}
-
-async function getCamsGridForDate(date: string): Promise<PM25GridPoint[]> {
-  let points = await cacheGet<PM25GridPoint[]>(`cams:pm25:${date}`);
-
-  if (!points?.length || points.length < MIN_COMPLETE_POINTS) {
-    points = await fetchCamsGridFromDb(date);
-
-    // Only re-populate Redis when data is complete — partial ingests must not poison the cache.
-    if (points.length >= MIN_COMPLETE_POINTS) {
-      void cacheSet(`cams:pm25:${date}`, points, { ex: HISTORICAL_TTL_SECONDS });
-    }
-  }
-
-  return points;
-}
 
 export function camsRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<TypeBoxTypeProvider>();

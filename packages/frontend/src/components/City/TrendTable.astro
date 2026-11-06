@@ -1,0 +1,33 @@
+---
+import type { CityTrendDay } from '@thailand-aq/types';
+import type { i18n } from 'i18next';
+import { formatDay } from '@/lib/cityPage';
+
+interface Props {
+  trend: CityTrendDay[];
+  t: i18n['t'];
+}
+
+const { trend, t } = Astro.props;
+---
+
+<table class="mt-2 w-full border-collapse text-[13px]">
+  <thead>
+    <tr class="text-left text-[11px] text-zinc-400">
+      <th class="py-1.5 font-medium">{t('city.colDate')}</th>
+      <th class="py-1.5 text-right font-medium">{t('city.colPm25')}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      trend.map((day) => (
+        <tr class="border-t border-zinc-800">
+          <td class="py-1.5">
+            <time datetime={day.date}>{formatDay(day.date)}</time>
+          </td>
+          <td class="py-1.5 text-right font-mono">{day.pm25 === null ? t('city.noReading') : Math.round(day.pm25)}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

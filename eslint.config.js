@@ -13,6 +13,7 @@ export default [
       '**/.vite/**',
       '**/coverage/**',
       '**/storybook-static/**',
+      '.claude/worktrees/**', // other checkouts of this repo, without their own node_modules
     ],
   },
 

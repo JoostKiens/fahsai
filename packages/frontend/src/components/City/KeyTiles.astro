@@ -1,0 +1,70 @@
+---
+import type { i18n } from 'i18next';
+import { WindArrow } from '@/components/InfoPanel/WindArrow';
+import type { KeyTile } from '@/lib/cityPage';
+
+interface Props {
+  tiles: KeyTile[];
+  /** "early November", for the label of the comparison with what is usual */
+  period: string;
+  t: i18n['t'];
+}
+
+const { tiles, period, t } = Astro.props;
+const tileClass =
+  'rounded-lg border border-zinc-700/60 bg-zinc-900 px-4 py-3.5 flex flex-col gap-1';
+const labelClass = 'text-xs text-zinc-300';
+const valueClass = 'font-mono text-2xl text-zinc-100';
+const sourceClass = 'text-[11px] text-zinc-500';
+---
+
+<section aria-label={t('city.keyNumbers')} class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+  {
+    tiles.map((tile) => (
+      <div class={tileClass}>
+        {tile.kind === 'fires' && (
+          <>
+            <p class={labelClass}>{t('city.tile.fires')}</p>
+            <p class={valueClass}>{tile.count}</p>
+            <p class={sourceClass}>{t('city.tile.firesSource')}</p>
+          </>
+        )}
+        {tile.kind === 'wind' && (
+          <>
+            <p class={labelClass}>{t('city.tile.wind')}</p>
+            <p class={`${valueClass} flex items-center gap-2`}>
+              {tile.deg !== null && (
+                <span class="inline-flex">
+                  <WindArrow dirDeg={tile.deg} size={16} color="#a1a1aa" strokeWidth={1.5} />
+                </span>
+              )}
+              <span class="font-sans text-sm text-zinc-400">{tile.from}</span>
+              {tile.speedKmh}
+              <span class="font-sans text-sm text-zinc-400">km/h</span>
+            </p>
+            <p class={sourceClass}>{t('city.tile.windSource')}</p>
+          </>
+        )}
+        {tile.kind === 'cams' && (
+          <>
+            <p class={labelClass}>{t('city.tile.cams')}</p>
+            <p class={valueClass}>
+              {tile.pm25} <span class="font-sans text-sm text-zinc-400">µg/m³</span>
+            </p>
+            <p class={sourceClass}>{t('city.tile.camsSource')}</p>
+          </>
+        )}
+        {tile.kind === 'vsUsual' && (
+          <>
+            <p class={labelClass}>{t('city.tile.vsUsual', { period })}</p>
+            <p class={valueClass}>
+              {tile.percent > 0 ? '+' : ''}
+              {tile.percent}%
+            </p>
+            <p class={sourceClass}>{t('city.tile.vsUsualSource')}</p>
+          </>
+        )}
+      </div>
+    ))
+  }
+</section>

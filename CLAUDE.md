@@ -87,7 +87,7 @@ working in a file, mention it rather than fixing it silently.
 │   │       └── data/         # static reference data (urban sources, geo regions)
 │   └── frontend/             # Astro + React islands
 │       └── src/
-│           ├── pages/          # index.astro, th/index.astro (on demand, cached with ISR)
+│           ├── pages/          # index.astro, th/index.astro, city/[slug].astro, sitemap.xml.ts (on demand, cached with ISR)
 │           ├── middleware.ts   # edge middleware: the language redirect at /
 │           ├── layouts/        # Base.astro (head tags, structured data, en/th copy) and
 │           │                   # AppShell.astro (lays out the four islands)
