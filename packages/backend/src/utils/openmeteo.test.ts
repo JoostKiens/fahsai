@@ -147,6 +147,24 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(sleepDelays()).toEqual(Array.from({ length: batchCount }, () => 35_000));
   });
 
+  it('retries a timed-out archive batch on the forecast endpoint with the same request', async () => {
+    const requests: { url: string; body: string }[] = [];
+    let call = 0;
+    const { readings } = await runGrid((url, init) => {
+      call += 1;
+      requests.push({ url, body: init.body });
+      return call === 3 ? Promise.reject(timeoutError()) : Promise.resolve(okResponse(init.body));
+    });
+
+    expect(readings).toHaveLength(gridPointCount);
+    const [timedOut, retried, next] = requests.slice(2, 5);
+    expect(timedOut.url).toBe('https://archive-api.open-meteo.com/v1/archive');
+    expect(retried.url).toBe('https://api.open-meteo.com/v1/forecast');
+    expect(retried.body).toBe(timedOut.body);
+    // The batch after the retry goes back to the archive endpoint.
+    expect(next.url).toBe('https://archive-api.open-meteo.com/v1/archive');
+  });
+
   it('retries a batch whose response body times out while streaming', async () => {
     let call = 0;
     const { readings, fetchSpy } = await runGrid((_url, init) => {
@@ -174,8 +192,10 @@ describe('fetchWeatherGridForDate timeouts', () => {
     // Both timeouts are logged with the host and the elapsed time, the last as the final one.
     const timeouts = warnings().filter((message) => message.includes('timed out after'));
     expect(timeouts).toHaveLength(2);
-    expect(timeouts[0]).toMatch(/after \d+ms on archive-api\.open-meteo\.com, retrying in 35s$/);
-    expect(timeouts[1]).toMatch(/after \d+ms on archive-api\.open-meteo\.com, giving up$/);
+    expect(timeouts[0]).toMatch(
+      /after \d+ms on archive-api\.open-meteo\.com, retrying on api\.open-meteo\.com in 35s$/,
+    );
+    expect(timeouts[1]).toMatch(/after \d+ms on api\.open-meteo\.com, giving up$/);
   });
 
   it('does not retry an error that is not a timeout', async () => {

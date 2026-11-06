@@ -117,9 +117,8 @@ async function fetchWeatherBatch(
   date: string,
   isToday: boolean,
 ): Promise<WeatherReading[]> {
-  const baseUrl = isToday
-    ? 'https://api.open-meteo.com/v1/forecast'
-    : 'https://archive-api.open-meteo.com/v1/archive';
+  const forecastUrl = 'https://api.open-meteo.com/v1/forecast';
+  const baseUrl = isToday ? forecastUrl : 'https://archive-api.open-meteo.com/v1/archive';
 
   // Use POST so that large lat/lng arrays go in the JSON body rather than the URL.
   // GET with 1,000 locations produces ~11,000-char URLs which nginx rejects (414).
@@ -137,10 +136,13 @@ async function fetchWeatherBatch(
   let res: Response | undefined;
   let bodyText = '';
   let timeoutRetriesLeft = WEATHER_TIMEOUT_MAX_RETRIES;
+  // Archive stalls come and go (JOO-128); the forecast endpoint returns the same values for
+  // a past day, so a timed-out batch is retried there. Only this batch switches.
+  let url = baseUrl;
   for (let attempt = 0; attempt <= WEATHER_429_MAX_RETRIES; attempt++) {
     const startedAt = Date.now();
     try {
-      res = await fetch(baseUrl, {
+      res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: requestBody,
@@ -153,10 +155,11 @@ async function fetchWeatherBatch(
       // Host and elapsed time help tell a slow endpoint from a stalled connection. The
       // final failure is logged too, so every timeout of a run shows up.
       console.warn(
-        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(baseUrl).host}, ${canRetry ? `retrying in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s` : 'giving up'}`,
+        `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(url).host}, ${canRetry ? `retrying on ${new URL(forecastUrl).host} in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s` : 'giving up'}`,
       );
       if (!canRetry) throw err;
       timeoutRetriesLeft -= 1;
+      url = forecastUrl;
       await sleep(WEATHER_BATCH_PAUSE_MS);
       continue;
     }
