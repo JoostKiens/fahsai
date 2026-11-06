@@ -47,6 +47,9 @@ keeps API keys server-side.
 
 - Source: `https://api.open-meteo.com/v1/forecast` (today) /
   `https://archive-api.open-meteo.com/v1/archive` (past dates)
+- A batch that times out is retried once, after a 35 s pause. For a day up to 2 days old the retry
+  goes to the forecast endpoint, so one stored day can mix sources; the log line says
+  `retrying on api.open-meteo.com`. Older days retry on the archive endpoint.
 - Parameters:
   - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
   - Daily aggregate: `precipitation_sum`
