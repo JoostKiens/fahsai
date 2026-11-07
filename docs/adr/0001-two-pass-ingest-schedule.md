@@ -19,9 +19,9 @@ Fetches today's UTC date via `ingest-cams-today.ts`. By 23:00 UTC the BKK day ha
 
 **OpenAQ measurements (`station-readings-ingest`) — two passes**
 
-| Pass | Time (UTC) | Target date | Purpose |
-|---|---|---|---|
-| Pass 1 | `0 23 * * *` on D | D (today) | Optimistic early write; makes data visible by ~23:30 UTC (06:30 BKK) |
+| Pass   | Time (UTC)         | Target date   | Purpose                                                                                    |
+| ------ | ------------------ | ------------- | ------------------------------------------------------------------------------------------ |
+| Pass 1 | `0 23 * * *` on D  | D (today)     | Optimistic early write; makes data visible by ~23:30 UTC (06:30 BKK)                       |
 | Pass 2 | `0 4 * * *` on D+1 | D (yesterday) | Safety net; overwrites any partial averages Pass 1 wrote before slow stations had reported |
 
 Pass 1 uses `ingest-station-readings-today.ts` (explicit today date). Pass 2 uses the existing `ingest-station-readings.ts` (defaults to yesterday). The upsert uses `ignoreDuplicates: false` so Pass 2 always overwrites Pass 1 values with the fully-finalised daily average.
@@ -57,7 +57,7 @@ This does not change the two-pass schedule. Whether pass 2 (and the CAMS/weather
 Details above that have since changed (the decision itself, single-pass CAMS and two-pass OpenAQ, still stands):
 
 - The `ingest-cams-today.ts` and `ingest-station-readings-today.ts` wrapper scripts no longer exist. Pass 1 now runs `ingest-station-readings.ts --today` (`railway:ingest:station-readings:today`), and CAMS runs `ingest-cams.ts` (`railway:ingest:cams:today`).
-- CAMS also has a fallback cron, `ingest-cams-today-fallback.ts` at `0 1 * * *`, which re-ingests yesterday if `cams_grid` has fewer than 4,000 rows.
+- CAMS also has a fallback cron, `ingest-cams-today-fallback.ts` at `0 1 * * *`, which re-ingests yesterday if `cams_grid` has fewer than 4,000 rows. It later moved to `0 3 * * *`, so it stays clear of the weather job and its fallback (ADR 0008).
 - The weather-ingest fallback runs at `0 4 * * *`, not `0 5 * * *`.
 - The `latest-date` gate now also requires weather (`weather_readings` ≥ 4,000 rows), so it checks four sources, not three.
 - The schedule lives in `.railway/railway.ts` (Railway Infrastructure as Code); the cron table is in `docs/claude/architecture.md`, not CLAUDE.md.
@@ -69,5 +69,6 @@ This supersedes the weather times above (`0 2 * * *`, fallback `0 5`, later `0 4
 - The ingest still targets the Bangkok calendar day before the one at run time. At 00:00 UTC that is the day that ended at 17:00 UTC, the same date the 02:00 run fetched, from the same Open-Meteo archive endpoint (which fills recent days from forecast models).
 - Checked before moving: a full-grid fetch at 23:30 UTC for 2026-10-31 was identical to what the 02:00 run stored (all 4,599 points, every field). A fetch 14 hours after the 02:00 run for 2026-10-29 was also identical, so the archive does not revise these values within a day.
 - Not earlier than 00:00: Open-Meteo counts each location as a call (600/min, 5,000/hour, 10,000/day, per IP), so the weather grid costs 4,599 calls, as much as CAMS at 23:00. Sharing CAMS's hour would hit the hourly limit; sharing its UTC day would leave no room for a retry. Open-Meteo doesn't document how a multi-location request counts or when the limits reset; the per-location count is from our production 429s on 2026-11-02, and the reset times are assumed to be the clock hour and UTC midnight.
+- Superseded by [ADR 0008](0008-cams-from-copernicus-ads.md): CAMS no longer uses Open-Meteo, so the "not earlier than 00:00" limit above is gone and weather now runs at `0 23 * * *`.
 - The weather batches were 5 s apart, which hit the minutely limit every few batches. They are now 35 s apart, like CAMS, so a run takes about 10 minutes.
 - A 429 or a timeout still delays the day: `pRetry` re-fetches the whole grid, and an hourly 429 waits 65 minutes. The fallback stays 2 hours after the primary so it rarely starts while the primary is still waiting.

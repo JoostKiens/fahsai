@@ -50,9 +50,9 @@ export default defineRailway((ctx) => {
     build,
     start: "pnpm --filter backend run railway:ingest:weather:today",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    // An hour after ingest-cams, in a new UTC day: each grid costs 4,599 of Open-Meteo's
-    // per-IP calls (5k/hour, 10k/day).
-    deploy: { cronSchedule: "0 0 * * *", restartPolicyType: "NEVER" },
+    // Same hour as ingest-cams, which reads the Copernicus ADS and uses no Open-Meteo calls. The
+    // fallback CAMS job (03:00) is the only other user of Open-Meteo's per-IP calls (5k/hour, 10k/day).
+    deploy: { cronSchedule: "0 23 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "wind-ingest" },
     env: sharedEnv,
   });
@@ -105,7 +105,7 @@ export default defineRailway((ctx) => {
     build,
     start: "pnpm --filter backend run railway:ingest:cams:today:fallback",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 1 * * *", restartPolicyType: "NEVER" },
+    deploy: { cronSchedule: "0 3 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "cams-ingest-fallback" },
     env: sharedEnv,
   });
@@ -116,7 +116,7 @@ export default defineRailway((ctx) => {
     replicas: { "asia-southeast1-eqsg3a": 1 },
     deploy: { cronSchedule: "0 23 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "aq-ingest-72f6" },
-    env: sharedEnv,
+    env: { ...sharedEnv, ADS_API_KEY: preserve() },
   });
 
   // After the last ingest touching yesterday's data (baseline, 04:40 UTC). References the shared

@@ -107,9 +107,11 @@ create unique index if not exists power_plants_name_country_idx on power_plants 
 create index if not exists power_plants_fuel_type_idx on power_plants (fuel_type);
 
 -- CAMS PM2.5 gridded model (005_aq_grid.sql, renamed to cams_grid in 013_rename_aq_grid.sql)
--- `date` is a Bangkok calendar day (Asia/Bangkok): Open-Meteo is queried with
--- timezone=Asia/Bangkok so start_date/end_date and the hourly average window
--- both cover 00:00-24:00 BKK, not UTC.
+-- `date` is a Bangkok calendar day (Asia/Bangkok): the 24 hours cover 00:00-24:00 BKK, not UTC
+-- (Open-Meteo is queried with timezone=Asia/Bangkok; the ADS path picks the same 24 instants).
+-- Source: the Copernicus ADS since the switch date in ADR 0008, Open-Meteo before it and as the
+-- fallback. The ADS path stores lat/lng as clean 0.1 values (29.8), Open-Meteo stored 29.800003, so
+-- ingest deletes the date's rows before inserting a complete grid; there is no source column.
 -- Pruned after 140 days. Redis (cams:pm25:{date}, TTL 7d) is the hot cache.
 create table if not exists cams_grid (
   date  date    not null,

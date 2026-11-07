@@ -38,7 +38,7 @@ All panels show the reverse-geocoded place name and country flag for the clicked
 
 The bottom slider steps through the selected history window. Press **Play** (or hit **Space**) to animate through dates automatically at 800 ms per step.
 
-The history window — 30, 60, 90, or 120 days — is configurable in Settings and persisted across sessions. New data is typically available by about 07:10 Bangkok time each morning.
+The history window — 30, 60, 90, or 120 days — is configurable in Settings and persisted across sessions. New data is typically available by about 06:30 Bangkok time each morning.
 
 Map position, zoom, and selected date are reflected in the URL, so any view is fully shareable.
 
@@ -56,13 +56,14 @@ When a station reads at least twice (or less than 40% of) the distance-weighted 
 
 ## Data
 
-| Source                                                              | What                                        | Cadence | License        |
-| ------------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
-| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
-| [OpenAQ](https://openaq.org/) v3                                    | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
-| [Open-Meteo](https://open-meteo.com/)                               | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
-| [WRI Global Power Plant Database](https://resourcewatch.org/)       | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
-| [Mapbox](https://www.mapbox.com/)                                   | Base map                                    | —       | Mapbox TOS     |
+| Source                                                                    | What                                        | Cadence | License        |
+| ------------------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21)       | Fire detections — location, FRP, confidence | Daily   | NASA open data |
+| [OpenAQ](https://openaq.org/) v3                                          | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
+| [Copernicus Atmosphere Data Store](https://ads.atmosphere.copernicus.eu/) | CAMS PM2.5 atmospheric model (ECMWF)        | Daily   | CC BY 4.0      |
+| [Open-Meteo](https://open-meteo.com/)                                     | Wind grid (CAMS fallback)                   | Daily   | CC BY 4.0      |
+| [WRI Global Power Plant Database](https://resourcewatch.org/)             | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
+| [Mapbox](https://www.mapbox.com/)                                         | Base map                                    | —       | Mapbox TOS     |
 
 ---
 

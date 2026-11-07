@@ -57,8 +57,10 @@ keeps API keys server-side.
   (`n/a` for a header the response lacks; the 429 path logs all headers instead). A first batch that
   starts below the full 600 means other traffic uses our IP. Each weather and CAMS job logs
   `[egress-ip] <address>` once at the start, without waiting for it. The hour and day counters are
-  fixed windows (they reset at the clock hour and the day boundary, assumed UTC), per IP. A clean
-  day is 9,198 of 10,000 calls (weather plus CAMS), and an hour with one run leaves 401 of 5,000.
+  fixed windows (they reset at the clock hour and the day boundary, assumed UTC), per IP. With CAMS
+  on the Copernicus ADS a clean day is 4,599 of 10,000 calls (weather only). A run of the
+  Open-Meteo CAMS fallback adds another 4,599 (9,198 on a day when both run). An hour with one run
+  leaves 401 of 5,000.
 - Parameters:
   - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
   - Daily aggregate: `precipitation_sum`
@@ -67,7 +69,8 @@ keeps API keys server-side.
   Fetched in 16 batches of ≤300 with 35 s between batches (~10 min total).
   Batch size capped at 300 — payload grows linearly; 500 caused 413 errors (confirmed May 2026).
   Free tier counts each location as a call (600/min, 5,000/hour, 10,000/day, per IP), so a run
-  costs 4,599 calls, the same as the CAMS grid (seen in production 429s, 2026-11-02).
+  costs 4,599 calls, as did the CAMS grid when it came from Open-Meteo (seen in production 429s,
+  2026-11-02).
   429 backoff: 65 s for minutely, 65 min for hourly, abort with exit code 1 for daily.
 - Schedule: daily (0 0 \* \* \* UTC)
 - Storage:
@@ -85,18 +88,46 @@ keeps API keys server-side.
 - License: CC BY 4.0 — attribution link required in UI footer
 - Consumed by: wind particle layer + station InfoPanel's 5-day weather table
 
-### Open-Meteo Air Quality — PM2.5 gridded model (CAMS)
+### Copernicus ADS — PM2.5 gridded model (CAMS)
 
-- Source: `https://air-quality-api.open-meteo.com/v1/air-quality`
-- Parameters: `pm2_5` (hourly), daily mean computed per grid point
-- Grid: 0.4° spacing over bbox [89,1,114,30] → 4,599 points; fetched in 16 batches of 300
-  (sequential, 35 s pause between batches, with 429 retry backoff)
-- No API key required
+Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cams-from-copernicus-ads.md).
+
+- Source: Copernicus Atmosphere Data Store, dataset `cams-global-atmospheric-composition-forecasts`
+  (ECMWF), `https://ads.atmosphere.copernicus.eu/api/retrieve/v1`. Variable
+  `particulate_matter_2.5um`, GRIB edition 1, hourly fields on a 0.4° grid (about 45 km), runs at
+  00 and 12 UTC. Key `ADS_API_KEY`, sent as `PRIVATE-TOKEN` to the ADS only, never to the host the
+  file is downloaded from. A job still unfinished after 60 minutes (the fallback cron runs 4 hours after the job) is cancelled with
+  `DELETE /jobs/{id}` (best effort, not yet checked against the real ADS), so it does not stay in
+  the ADS queue.
+- A Bangkok day D is 24 hourly instants, 17:00 UTC on D-1 to 16:00 UTC on D. Two runs cover it
+  (`CAMS_RUNS`, `utils/camsAds.ts`): the 12 UTC run of D-1 for lead hours 5 to 11, and the 00 UTC
+  run of D for lead hours 0 to 16. The 00 UTC run is published by 10:00 UTC, 13 hours before the
+  23:00 UTC job. These are forecast hours, not measurements (Open-Meteo's past values are too).
+- Area `[30.4, 88.8, 0.8, 114]`, one ring wider than our grid: our points sit 0.2° off the CAMS
+  nodes (89.2°E, 1.2°N), so the edge points need the cell beyond them.
+- A job makes the two requests in parallel (submit, poll, download; about 25 s for a day). Each
+  request has timeouts and retries on connection errors, 5xx and 429; other 4xx errors and a failed
+  ADS job fail at once. Then `utils/grib1.ts` decodes the files (edition 1, simple packing, no
+  bitmap, regular lat/lng grid; anything else throws), `utils/camsAdsGrid.ts` requires exactly one
+  field for each of hours 5 to 28, and `utils/camsResample.ts` takes the mean over the 24 hours,
+  converts kg/m³ to µg/m³, and sets each of our 4,599 points to the mean of the four surrounding
+  CAMS cells, rounded to 0.1.
+- Source switch: `CAMS_SOURCE=ads|openmeteo`; unset means `ads`; any other value throws. The
+  fallback cron always passes `openmeteo`.
+- Fallback source: Open-Meteo Air Quality, `https://air-quality-api.open-meteo.com/v1/air-quality`
+  (`pm2_5` hourly, daily mean per point, 16 batches of 300, 35 s apart, 429 backoff, no key,
+  4,599 calls).
 - Schedule: daily (0 23 \* \* \* UTC)
 - Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
   first; on miss reads from Supabase. Ingest writes to both. Pruned after 140 days.
-- License: CC BY 4.0 (same Open-Meteo footer attribution covers both weather and AQ)
-- Data source: CAMS (Copernicus Atmosphere Monitoring Service), ~11 km resolution
+- Both sources **replace the day**: once the job holds the full grid (4,599 points) it deletes
+  the date's `cams_grid` rows, then inserts; a failed insert is retried. Open-Meteo stores its own rounding of the coordinates
+  (29.800003), the ADS path stores 29.8, so the `(date, lat, lng)` upsert key never matches across
+  sources. This also covers the fallback running after an ADS run that died mid-insert. A partial
+  fetch deletes nothing and only adds rows (`ignoreDuplicates: true`).
+- License: CC BY 4.0, credit to Copernicus CAMS / ECMWF, marked as modified (daily mean,
+  resampled). The ADS publishes no required sentence beyond the licence. Open-Meteo stays credited
+  for wind and weather.
 - Script: `pnpm --filter backend run ingest:cams YYYY-MM-DD`
 - Daily summary: cams-ingest also stores the day's 95th-percentile PM2.5 in `cams_daily_summary`
   (gated on a complete grid). Backfill: `pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD`.
@@ -135,13 +166,17 @@ stations-ingest        — monthly   (0 22 4 * *)    fetches OpenAQ locations by
   ingest-stations                                   including pm25_sensor_ids and datetime_last;
                                                     skips locations where datetimeLast > 30 days
 
-cams-ingest            — daily     (0 23 * * *)    fetches CAMS PM2.5 grid for TODAY via
-  ingest-cams                                       ingest-cams.ts; single pass — CAMS is
-  ingest-cams-today-fallback                        deterministic so values don't change between runs;
+cams-ingest            — daily     (0 23 * * *)    fetches the CAMS PM2.5 grid for TODAY via
+  ingest-cams                                       ingest-cams.ts from the Copernicus ADS
+  ingest-cams-today-fallback                        (CAMS_SOURCE, default ads; two runs, see the ADS
+                                                    section above); single pass — CAMS is
+                                                    deterministic so values don't change between runs;
                                                     grid visible by ~23:30 UTC (06:30 BKK).
-                                                    Fallback runs at (0 1 * * *): targets yesterday
-                                                    (already next calendar day); re-ingests if
-                                                    cams_grid has < 4,000 rows for that date.
+                                                    Fallback runs at (0 3 * * *): targets yesterday
+                                                    (already next calendar day); re-ingests from
+                                                    Open-Meteo if cams_grid has < 4,000 rows for that
+                                                    date. Needs ADS_API_KEY on the ingest-cams service;
+                                                    without it the job fails and the fallback runs.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -177,7 +212,7 @@ station-baseline-ingest — daily (40 4 * * *)           its own Railway cron (i
                                                         recomputed from a single year's data. A full re-backfill
                                                         (backfill:station-baseline) remains manual/one-off.
 
-weather-ingest        — daily     (0 0 * * *)    fetches Open-Meteo weather grid for YESTERDAY at
+weather-ingest        — daily     (0 23 * * *)   fetches Open-Meteo weather grid for YESTERDAY at
   ingest-weather                                  07:00 UTC snapshot via the archive API (which
   ingest-weather-today-fallback                   fills recent days from NWP forecast models, not
                                                   ERA5 reanalysis); upserts to Supabase
@@ -186,10 +221,10 @@ weather-ingest        — daily     (0 0 * * *)    fetches Open-Meteo weather gr
                                                   grid, pre-computes station_weather for all known
                                                   stations. Uses paginated
                                                   .range() queries to bypass Supabase 1000-row cap.
-                                                  Runs an hour after ingest-cams, in a new UTC
-                                                  day: each grid costs 4,599 of Open-Meteo's
+                                                  Runs in the same hour as ingest-cams (23:00
+                                                  UTC); the ADS path uses none of Open-Meteo's
                                                   per-IP calls (5,000/hour, 10,000/day).
-                                                  Data visible by ~00:10 UTC (07:10 BKK).
+                                                  Data visible by ~23:30 UTC (06:30 BKK).
                                                   Fallback runs at (0 2 * * *): checks row count
                                                   for yesterday; re-ingests if < 4,000 rows.
 
@@ -220,8 +255,8 @@ The UI shows the most recent date where all three gating sources have complete d
 (cams_grid ≥ 4,000 rows, station_readings ≥ 1, weather_readings ≥ 4,000 rows),
 served by `GET /api/latest-date`. Fires are not gated: a day with 0 detections is valid, and
 both fires runs finish before the other sources land.
-The date typically becomes available at ~00:10 UTC (07:10 BKK), when weather_readings lands:
-cams_grid and station_readings are in by ~23:30 UTC (06:30 BKK), but the gate waits for wind.
+The date typically becomes available at ~23:30 UTC (06:30 BKK), when the last of cams_grid,
+station_readings and weather_readings lands (all three start at 23:00 UTC).
 The 30-minute `latest-complete-date` cache can add up to half an hour.
 If station-readings-ingest pass 1 misses slow-reporting stations, pass 2 fills gaps at ~04:30 UTC (11:30 BKK).
 See `docs/adr/0001-two-pass-ingest-schedule.md`.

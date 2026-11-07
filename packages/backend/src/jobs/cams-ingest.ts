@@ -1,8 +1,10 @@
+import { AQ_LAT_COUNT, AQ_LNG_COUNT } from '@thailand-aq/consts';
 import pRetry, { AbortError } from 'p-retry';
 import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
+import { fetchAdsGrid } from '../utils/camsAdsGrid.js';
 import { logEgressIp } from '../utils/egressIp.js';
 import { fetchAirQualityGrid, isConnectionError, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
@@ -11,18 +13,27 @@ import { getYesterdayBkk } from '../utils/bkkDate.js';
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
+const FULL_GRID_POINTS = AQ_LNG_COUNT * AQ_LAT_COUNT;
 
-export async function runCamsIngest(date?: string): Promise<{ stored: number }> {
-  const targetDate = date ?? getYesterdayBkk();
+export type CamsSource = 'ads' | 'openmeteo';
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-    throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
-  }
+/** Reads CAMS_SOURCE. Unset means the Copernicus ADS; the fallback cron names Open-Meteo itself. */
+export function parseCamsSource(value: string | undefined): CamsSource {
+  if (value === undefined || value === '') return 'ads';
+  if (value === 'ads' || value === 'openmeteo') return value;
+  throw new Error(`[cams-ingest] invalid CAMS_SOURCE "${value}" — expected ads or openmeteo`);
+}
 
-  // Diagnostic only: it must not delay the ingest, and it never throws.
-  void logEgressIp();
-  console.log(`[cams-ingest] Fetching PM2.5 grid from Open-Meteo for ${targetDate}...`);
-  const points = await pRetry(
+// The client retries its own requests. A job that failed (forecast not published yet) or a
+// timeout is not helped by starting over a minute later: the fallback cron covers it.
+function fetchFromAds(targetDate: string) {
+  const apiKey = process.env.ADS_API_KEY;
+  if (!apiKey) throw new Error('[cams-ingest] ADS_API_KEY env var is required for source "ads"');
+  return fetchAdsGrid(targetDate, apiKey);
+}
+
+function fetchFromOpenMeteo(targetDate: string) {
+  return pRetry(
     async () => {
       try {
         return await fetchAirQualityGrid(targetDate);
@@ -51,6 +62,42 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
       },
     },
   );
+}
+
+async function deleteDay(targetDate: string): Promise<void> {
+  await pRetry(
+    async () => {
+      const { error } = await supabase.from('cams_grid').delete().eq('date', targetDate);
+      if (error) throw new Error(`[cams-ingest] Supabase delete failed: ${error.message}`);
+    },
+    {
+      retries: 3,
+      minTimeout: 1000,
+      factor: 2,
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
+        console.warn(
+          `[cams-ingest] Supabase delete attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
+        ),
+    },
+  );
+  console.log(`[cams-ingest] Cleared cams_grid rows for ${targetDate} before writing`);
+}
+
+export async function runCamsIngest(
+  date: string | undefined,
+  { source }: { source: CamsSource },
+): Promise<{ stored: number }> {
+  const targetDate = date ?? getYesterdayBkk();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
+  }
+
+  // Diagnostic only: it must not delay the ingest, and it never throws.
+  void logEgressIp();
+  console.log(`[cams-ingest] Fetching PM2.5 grid for ${targetDate} from source "${source}"...`);
+  const points =
+    source === 'ads' ? await fetchFromAds(targetDate) : await fetchFromOpenMeteo(targetDate);
   console.log(`[cams-ingest] Fetched ${points.length} grid points`);
 
   if (points.length === 0) {
@@ -59,6 +106,14 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     );
     return { stored: 0 };
   }
+
+  // Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path clean values
+  // (29.8). The upsert key (date, lat, lng) would not match, so rows from the other source would
+  // stay and the day would hold both. That also happens when the fallback follows an ADS run that
+  // died halfway through its inserts. Replace the day instead, whatever the source, but only once
+  // we hold the full grid. A partial Open-Meteo run (some batches skipped, 4,000 or more points)
+  // must not delete rows an earlier run saved: it keeps adding the points it is missing.
+  if (points.length === FULL_GRID_POINTS) await deleteDay(targetDate);
 
   // Persist to Supabase first — durable store must be written before the cache.
   // If Redis write fails after this, the API route will read from Supabase on cache
@@ -72,8 +127,10 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
         const { error } = await supabase
           .from('cams_grid')
           .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
+        // Retried, not aborted: by now the day may be cleared, and an insert that gives up on
+        // the first error leaves it empty until the fallback runs.
         if (error)
-          throw new AbortError(
+          throw new Error(
             `[cams-ingest] Supabase upsert failed (batch ${batchNum}): ${error.message}`,
           );
       },

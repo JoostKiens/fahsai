@@ -100,8 +100,8 @@ function AirQualityGroup() {
         checked={aqGrid}
         onToggle={() => toggleLayer('aqGrid')}
       />
-      <LayerAttribution href="https://open-meteo.com/">
-        {t('layers.viaCamsOpenMeteo')}
+      <LayerAttribution href="https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts">
+        {t('layers.viaCams')}
       </LayerAttribution>
 
       {(aqGrid || aqStations) && (
