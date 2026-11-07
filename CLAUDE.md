@@ -335,7 +335,10 @@ The following attributions must appear in the UI footer or an "About" panel:
 
 - Fire data: "Fire data courtesy NASA FIRMS (firms.modaps.eosdis.nasa.gov)"
 - AQI data: "Air quality data from OpenAQ (openaq.org)"
-- Weather/AQ model: `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>` (CC BY 4.0)
+- PM2.5 model: "Copernicus Atmosphere Monitoring Service (CAMS), ECMWF" with a link to the CC BY 4.0
+  licence, and a note that the data is modified (daily mean, resampled). Copernicus ADS gives no
+  required wording beyond the licence (ADR 0008)
+- Weather/wind: `<a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>` (CC BY 4.0)
 - Power plant data: "Power plant data from WRI Global Power Plant Database (resourcewatch.org)" (CC BY 4.0)
 - Map tiles: Mapbox attribution (rendered automatically by Mapbox GL JS — do not hide it)
 

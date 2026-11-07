@@ -97,8 +97,8 @@ cells.**
   for a date the ADS stored adds a second set of rows, because the coordinates differ. Rerun such a
   date with the ADS path, which replaces it.
 - **Open-Meteo budget.** The CAMS job no longer uses it: a clean day is 4,599 of 10,000 calls
-  (weather only). The weather job runs an hour after the CAMS job for that reason, and could move
-  earlier.
+  (weather only). The weather job moved from 00:00 to 23:00 UTC, the CAMS job's hour, so
+  yesterday can appear at about 06:30 Bangkok, not 07:10. That time is expected, not yet measured.
 - **Not tested.** The ADS from Railway (Singapore), and the ADS when a run is delayed (reports show
   2 to 3 hours after model upgrades). The measurements are three to five days in one season.
 - **Not a measurement.** Both sources serve forecast hours of a model. The product text says
