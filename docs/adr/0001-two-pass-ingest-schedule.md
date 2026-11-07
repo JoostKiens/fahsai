@@ -57,7 +57,7 @@ This does not change the two-pass schedule. Whether pass 2 (and the CAMS/weather
 Details above that have since changed (the decision itself, single-pass CAMS and two-pass OpenAQ, still stands):
 
 - The `ingest-cams-today.ts` and `ingest-station-readings-today.ts` wrapper scripts no longer exist. Pass 1 now runs `ingest-station-readings.ts --today` (`railway:ingest:station-readings:today`), and CAMS runs `ingest-cams.ts` (`railway:ingest:cams:today`).
-- CAMS also has a fallback cron, `ingest-cams-today-fallback.ts` at `0 1 * * *`, which re-ingests yesterday if `cams_grid` has fewer than 4,000 rows.
+- CAMS also has a fallback cron, `ingest-cams-today-fallback.ts` at `0 1 * * *`, which re-ingests yesterday if `cams_grid` has fewer than 4,000 rows. It later moved to `0 3 * * *`, so it stays clear of the weather job and its fallback (ADR 0008).
 - The weather-ingest fallback runs at `0 4 * * *`, not `0 5 * * *`.
 - The `latest-date` gate now also requires weather (`weather_readings` ≥ 4,000 rows), so it checks four sources, not three.
 - The schedule lives in `.railway/railway.ts` (Railway Infrastructure as Code); the cron table is in `docs/claude/architecture.md`, not CLAUDE.md.

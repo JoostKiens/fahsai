@@ -51,7 +51,7 @@ export default defineRailway((ctx) => {
     start: "pnpm --filter backend run railway:ingest:weather:today",
     replicas: { "asia-southeast1-eqsg3a": 1 },
     // Same hour as ingest-cams, which reads the Copernicus ADS and uses no Open-Meteo calls. The
-    // fallback CAMS job (01:00) is the only other user of Open-Meteo's per-IP calls (5k/hour, 10k/day).
+    // fallback CAMS job (03:00) is the only other user of Open-Meteo's per-IP calls (5k/hour, 10k/day).
     deploy: { cronSchedule: "0 23 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "wind-ingest" },
     env: sharedEnv,
@@ -105,7 +105,7 @@ export default defineRailway((ctx) => {
     build,
     start: "pnpm --filter backend run railway:ingest:cams:today:fallback",
     replicas: { "asia-southeast1-eqsg3a": 1 },
-    deploy: { cronSchedule: "0 1 * * *", restartPolicyType: "NEVER" },
+    deploy: { cronSchedule: "0 3 * * *", restartPolicyType: "NEVER" },
     networking: { privateNetworkEndpoint: "cams-ingest-fallback" },
     env: sharedEnv,
   });

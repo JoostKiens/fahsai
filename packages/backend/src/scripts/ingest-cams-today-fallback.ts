@@ -8,7 +8,7 @@ import { allowSlowConnects } from '../utils/network.js';
 allowSlowConnects();
 
 const MIN_COMPLETE_POINTS = 4000;
-// Fallback runs at 01:00 UTC, primary at 23:00 UTC the day before — both resolve
+// Fallback runs at 03:00 UTC, primary at 23:00 UTC the day before — both resolve
 // to the same Bangkok-yesterday target (see getYesterdayBkk), so this fallback
 // re-checks/re-runs the same date the primary cron was aiming for.
 const targetDate = getYesterdayBkk();

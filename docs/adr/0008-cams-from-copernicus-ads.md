@@ -55,7 +55,8 @@ cells.**
   rounding of the coordinates (29.800003), the ADS path stores 29.8, so the upsert key
   `(date, lat, lng)` never matches across sources. There is no `source` column and no schema change.
 - **Switch and fallback.** `CAMS_SOURCE=ads|openmeteo`, unset means `ads`. The fallback cron
-  (01:00 UTC) always uses Open-Meteo. If the ADS job fails, the fallback fills the day.
+  (03:00 UTC) always uses Open-Meteo. It runs an hour after the weather fallback (02:00), so the
+  two grids never share Open-Meteo's hourly limit. If the ADS job fails, the fallback fills the day.
 - **Decoder.** We decode the GRIB edition 1 files ourselves (simple packing, regular lat/lng grid,
   no bitmap). Anything else throws, so a change in the ADS output fails loudly.
 - **Attribution.** The dataset is CC BY 4.0. The ADS gives no required wording beyond the licence,

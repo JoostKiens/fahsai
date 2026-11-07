@@ -69,8 +69,8 @@ All times UTC. Bangkok is UTC+7, so "yesterday" in the app is the Bangkok calend
 | Time         | Job                                                                        | Writes                                                                        |
 | ------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | 23:00        | `ingest-cams`, `ingest-weather-readings`, `ingest-station-readings` pass 1 | CAMS PM2.5 grid (4,599 points), wind and weather grid, station daily averages |
-| 01:00        | `ingest-fallback-cams`                                                     | Re-runs CAMS from Open-Meteo if the grid is incomplete                        |
 | 02:00        | `ingest-weather-readings-fallback`, `prune`                                | Re-runs weather if the grid is incomplete; deletes rows > 140 days            |
+| 03:00        | `ingest-fallback-cams`                                                     | Re-runs CAMS from Open-Meteo if the grid is incomplete                        |
 | 04:00        | `ingest-station-readings` pass 2                                           | Final station averages                                                        |
 | 04:30        | `ingest-station-fire-pressure`                                             | Fire count and FRP within 75 km of each station, over 14 days                 |
 | 04:40        | `ingest-station-baseline`                                                  | Seasonal PM2.5 baseline for stations that don't have one yet                  |

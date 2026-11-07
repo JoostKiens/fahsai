@@ -170,7 +170,7 @@ cams-ingest            — daily     (0 23 * * *)    fetches the CAMS PM2.5 grid
                                                     section above); single pass — CAMS is
                                                     deterministic so values don't change between runs;
                                                     grid visible by ~23:30 UTC (06:30 BKK).
-                                                    Fallback runs at (0 1 * * *): targets yesterday
+                                                    Fallback runs at (0 3 * * *): targets yesterday
                                                     (already next calendar day); re-ingests from
                                                     Open-Meteo if cams_grid has < 4,000 rows for that
                                                     date. Needs ADS_API_KEY on the ingest-cams service;
