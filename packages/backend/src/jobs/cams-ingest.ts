@@ -3,6 +3,7 @@ import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
+import { fetchAdsGrid } from '../utils/camsAdsGrid.js';
 import { logEgressIp } from '../utils/egressIp.js';
 import { fetchAirQualityGrid, isConnectionError, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
@@ -12,17 +13,25 @@ const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
 
-export async function runCamsIngest(date?: string): Promise<{ stored: number }> {
-  const targetDate = date ?? getYesterdayBkk();
+export type CamsSource = 'ads' | 'openmeteo';
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-    throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
-  }
+/** Reads CAMS_SOURCE. Unset means Open-Meteo, so nothing changes until the variable is set. */
+export function parseCamsSource(value: string | undefined): CamsSource {
+  if (value === undefined || value === '') return 'openmeteo';
+  if (value === 'ads' || value === 'openmeteo') return value;
+  throw new Error(`[cams-ingest] invalid CAMS_SOURCE "${value}" — expected ads or openmeteo`);
+}
 
-  // Diagnostic only: it must not delay the ingest, and it never throws.
-  void logEgressIp();
-  console.log(`[cams-ingest] Fetching PM2.5 grid from Open-Meteo for ${targetDate}...`);
-  const points = await pRetry(
+// The client retries its own requests. A job that failed (forecast not published yet) or a
+// timeout is not helped by starting over a minute later: the fallback cron covers it.
+function fetchFromAds(targetDate: string) {
+  const apiKey = process.env.ADS_API_KEY;
+  if (!apiKey) throw new Error('[cams-ingest] ADS_API_KEY env var is required for source "ads"');
+  return fetchAdsGrid(targetDate, apiKey);
+}
+
+function fetchFromOpenMeteo(targetDate: string) {
+  return pRetry(
     async () => {
       try {
         return await fetchAirQualityGrid(targetDate);
@@ -51,6 +60,23 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
       },
     },
   );
+}
+
+export async function runCamsIngest(
+  date?: string,
+  { source = 'openmeteo' }: { source?: CamsSource } = {},
+): Promise<{ stored: number }> {
+  const targetDate = date ?? getYesterdayBkk();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+    throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
+  }
+
+  // Diagnostic only: it must not delay the ingest, and it never throws.
+  void logEgressIp();
+  console.log(`[cams-ingest] Fetching PM2.5 grid for ${targetDate} from source "${source}"...`);
+  const points =
+    source === 'ads' ? await fetchFromAds(targetDate) : await fetchFromOpenMeteo(targetDate);
   console.log(`[cams-ingest] Fetched ${points.length} grid points`);
 
   if (points.length === 0) {

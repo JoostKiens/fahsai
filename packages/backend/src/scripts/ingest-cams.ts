@@ -1,4 +1,4 @@
-import { runCamsIngest } from '../jobs/cams-ingest.js';
+import { parseCamsSource, runCamsIngest } from '../jobs/cams-ingest.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 import { allowSlowConnects } from '../utils/network.js';
 
@@ -6,7 +6,9 @@ import { allowSlowConnects } from '../utils/network.js';
 allowSlowConnects();
 
 try {
-  const result = await runCamsIngest(process.argv[2]);
+  const result = await runCamsIngest(process.argv[2], {
+    source: parseCamsSource(process.env.CAMS_SOURCE),
+  });
   console.log('[cams-ingest] done', result);
   await waitForRollbar();
   process.exit(0);

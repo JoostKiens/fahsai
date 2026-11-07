@@ -29,7 +29,8 @@ try {
   }
 
   console.log(`[cams-fallback] only ${count ?? 0} rows for ${targetDate} — running ingest`);
-  const result = await runCamsIngest(targetDate);
+  // Always Open-Meteo, whatever CAMS_SOURCE says: this run exists for when the primary source failed.
+  const result = await runCamsIngest(targetDate, { source: 'openmeteo' });
   console.log('[cams-fallback] done', result);
   await waitForRollbar();
   process.exit(0);

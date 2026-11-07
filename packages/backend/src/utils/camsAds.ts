@@ -11,8 +11,7 @@ export const CAMS_AREA = [30.4, 88.8, 0.8, 114] as const;
 
 // The 12 UTC run, hours 5 to 28, covers one Bangkok day (17:00 UTC the day before to 16:00 UTC).
 const RUN_TIME = '12:00';
-const FIRST_LEAD_HOUR = 5;
-const LEAD_HOUR_COUNT = 24;
+export const CAMS_LEAD_HOURS = Array.from({ length: 24 }, (_, i) => 5 + i);
 
 const FAILED_STATUSES = ['failed', 'rejected', 'dismissed'];
 const ERROR_BODY_MAX_CHARS = 200;
@@ -68,7 +67,7 @@ export function buildRequestBody(bangkokDate: string) {
       variable: ['particulate_matter_2.5um'],
       date: [`${runDate}/${runDate}`],
       time: [RUN_TIME],
-      leadtime_hour: Array.from({ length: LEAD_HOUR_COUNT }, (_, i) => String(FIRST_LEAD_HOUR + i)),
+      leadtime_hour: CAMS_LEAD_HOURS.map(String),
       type: ['forecast'],
       data_format: 'grib',
       area: [...CAMS_AREA],
