@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import net from 'node:net';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 vi.mock('../cache/client.js', () => ({ HISTORICAL_TTL_SECONDS: 604_800 }));
@@ -13,8 +14,25 @@ import { fetchAirQualityGrid } from '../utils/openmeteo.js';
 import { runCamsIngest } from './cams-ingest.js';
 
 describe('runCamsIngest', () => {
+  const originalConnectTimeoutMs = net.getDefaultAutoSelectFamilyAttemptTimeout();
+
   beforeEach(() => {
     vi.mocked(fetchAirQualityGrid).mockReset();
+  });
+
+  afterEach(() => {
+    net.setDefaultAutoSelectFamilyAttemptTimeout(originalConnectTimeoutMs);
+  });
+
+  it('allows slow connects before it fetches the grid (JOO-136)', async () => {
+    vi.mocked(fetchAirQualityGrid).mockImplementation(() => {
+      expect(net.getDefaultAutoSelectFamilyAttemptTimeout()).toBe(2_000);
+      return Promise.resolve([]);
+    });
+
+    await runCamsIngest('2026-11-03');
+
+    expect(fetchAirQualityGrid).toHaveBeenCalledTimes(1);
   });
 
   it('does not restart the grid when a batch keeps timing out', async () => {
