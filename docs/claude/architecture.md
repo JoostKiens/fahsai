@@ -47,9 +47,16 @@ keeps API keys server-side.
 
 - Source: `https://api.open-meteo.com/v1/forecast` (today) /
   `https://archive-api.open-meteo.com/v1/archive` (past dates)
-- A batch that times out is retried once, after a 35 s pause. For a day up to 2 days old the retry
-  goes to the forecast endpoint, so one stored day can mix sources; the log line says
-  `retrying on api.open-meteo.com`. Older days retry on the archive endpoint.
+- A batch that times out is retried after a 35 s pause, but the whole run gets only one such
+  retry: a second stalled batch fails the run and the 02:00 UTC fallback fills the day. For a day
+  up to 2 days old the retry goes to the forecast endpoint, so one stored day can mix sources; the
+  log line says `retrying on api.open-meteo.com`. Older days retry on the archive endpoint.
+- Rate-limit visibility: every Open-Meteo batch logs `[openmeteo] … rate limit: cost, remaining of
+limit per Ns`, the budget of the current minute (a first batch that starts below the full 600
+  means other traffic uses our IP). Each weather and CAMS job logs `[egress-ip]` once at the start.
+  The hour and day counters are fixed windows (they reset at the clock hour and the day
+  boundary, assumed UTC), per IP. A clean day is 9,198 of 10,000 calls (weather plus CAMS), and an
+  hour with one run leaves 401 of 5,000.
 - Parameters:
   - Hourly snapshot at 07:00 UTC (14:00 BKK): `wind_speed_10m`, `wind_direction_10m`, `relative_humidity_2m`
   - Daily aggregate: `precipitation_sum`
