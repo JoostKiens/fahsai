@@ -154,6 +154,23 @@ export async function fetchCamsGrib({
     `[cams-ads] submitted job ${jobId} for ${date} (${run.time} UTC run of ${camsRunDate(date, run.runDayOffset)})`,
   );
 
+  // A job we gave up on would otherwise stay in the ADS queue, and the ADS limits the requests a
+  // user may have queued. Best effort: whatever fails here must not hide the timeout.
+  async function cancelJob(): Promise<void> {
+    try {
+      const res = await fetchImpl(jobUrl, {
+        method: 'DELETE',
+        headers: adsHeaders,
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+      console.warn(`[cams-ads] cancelled job ${jobId} after the timeout (HTTP ${res.status})`);
+    } catch (err) {
+      console.warn(
+        `[cams-ads] could not cancel job ${jobId}: ${describeFetchError(err) ?? (err instanceof Error ? err.message : 'unknown error')}`,
+      );
+    }
+  }
+
   const deadline = Date.now() + pollTimeoutMs;
   for (;;) {
     const state = await call('poll', jobUrl, { headers: adsHeaders }, requestTimeoutMs, readJson);
@@ -162,7 +179,10 @@ export async function fetchCamsGrib({
     if (status !== undefined && FAILED_STATUSES.includes(status)) {
       throw new AdsJobError(status, readString(state, 'message') ?? JSON.stringify(state));
     }
-    if (Date.now() >= deadline) throw new AdsTimeoutError(pollTimeoutMs);
+    if (Date.now() >= deadline) {
+      await cancelJob();
+      throw new AdsTimeoutError(pollTimeoutMs);
+    }
     await sleep(pollIntervalMs);
   }
 

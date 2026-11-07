@@ -199,6 +199,30 @@ describe('fetchCamsGrib', () => {
     );
   });
 
+  it('cancels the job it gave up on', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(job('running')));
+
+    await expect(run(fetchImpl, { pollIntervalMs: 2, pollTimeoutMs: 20 })).rejects.toThrow(
+      AdsTimeoutError,
+    );
+
+    const last = fetchImpl.mock.calls.at(-1);
+    expect(urlOf(last?.[0] ?? '')).toBe(`${BASE}/jobs/job-1`);
+    expect(last?.[1]?.method).toBe('DELETE');
+  });
+
+  it('still reports the timeout when the cancel fails', async () => {
+    const fetchImpl = vi.fn<typeof fetch>((_url, init) =>
+      init?.method === 'DELETE'
+        ? Promise.reject(new Error('connection reset'))
+        : Promise.resolve(job('running')),
+    );
+
+    await expect(run(fetchImpl, { pollIntervalMs: 2, pollTimeoutMs: 20 })).rejects.toThrow(
+      AdsTimeoutError,
+    );
+  });
+
   it('retries a poll that fails with a server error', async () => {
     const fetchImpl = fetchReturning(
       job('accepted'),

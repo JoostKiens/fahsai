@@ -1,3 +1,4 @@
+import { AQ_LAT_COUNT, AQ_LNG_COUNT } from '@thailand-aq/consts';
 import pRetry, { AbortError } from 'p-retry';
 import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
@@ -12,6 +13,7 @@ import { getYesterdayBkk } from '../utils/bkkDate.js';
 const DB_BATCH_SIZE = 500;
 // Full grid is 63×73 = 4,599 points. Require ≥90% before caching to Redis.
 const MIN_COMPLETE_POINTS = 4000;
+const FULL_GRID_POINTS = AQ_LNG_COUNT * AQ_LAT_COUNT;
 
 export type CamsSource = 'ads' | 'openmeteo';
 
@@ -109,8 +111,9 @@ export async function runCamsIngest(
   // (29.8). The upsert key (date, lat, lng) would not match, so rows from the other source would
   // stay and the day would hold both. That also happens when the fallback follows an ADS run that
   // died halfway through its inserts. Replace the day instead, whatever the source, but only once
-  // we hold a complete grid, so a failed or partial fetch never deletes anything.
-  if (points.length >= MIN_COMPLETE_POINTS) await deleteDay(targetDate);
+  // we hold the full grid. A partial Open-Meteo run (some batches skipped, 4,000 or more points)
+  // must not delete rows an earlier run saved: it keeps adding the points it is missing.
+  if (points.length === FULL_GRID_POINTS) await deleteDay(targetDate);
 
   // Persist to Supabase first — durable store must be written before the cache.
   // If Redis write fails after this, the API route will read from Supabase on cache
@@ -124,8 +127,10 @@ export async function runCamsIngest(
         const { error } = await supabase
           .from('cams_grid')
           .upsert(batch, { onConflict: 'date,lat,lng', ignoreDuplicates: true });
+        // Retried, not aborted: by now the day may be cleared, and an insert that gives up on
+        // the first error leaves it empty until the fallback runs.
         if (error)
-          throw new AbortError(
+          throw new Error(
             `[cams-ingest] Supabase upsert failed (batch ${batchNum}): ${error.message}`,
           );
       },

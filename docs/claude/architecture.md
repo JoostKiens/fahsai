@@ -96,7 +96,9 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
   (ECMWF), `https://ads.atmosphere.copernicus.eu/api/retrieve/v1`. Variable
   `particulate_matter_2.5um`, GRIB edition 1, hourly fields on a 0.4° grid (about 45 km), runs at
   00 and 12 UTC. Key `ADS_API_KEY`, sent as `PRIVATE-TOKEN` to the ADS only, never to the host the
-  file is downloaded from.
+  file is downloaded from. A job still unfinished after 10 minutes is cancelled with
+  `DELETE /jobs/{id}` (best effort, not yet checked against the real ADS), so it does not stay in
+  the ADS queue.
 - A Bangkok day D is 24 hourly instants, 17:00 UTC on D-1 to 16:00 UTC on D. Two runs cover it
   (`CAMS_RUNS`, `utils/camsAds.ts`): the 12 UTC run of D-1 for lead hours 5 to 11, and the 00 UTC
   run of D for lead hours 0 to 16. The 00 UTC run is published by 10:00 UTC, 13 hours before the
@@ -118,8 +120,8 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
 - Schedule: daily (0 23 \* \* \* UTC)
 - Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
   first; on miss reads from Supabase. Ingest writes to both. Pruned after 140 days.
-- Both sources **replace the day**: once the job holds a complete grid (≥ 4,000 points) it deletes
-  the date's `cams_grid` rows, then inserts. Open-Meteo stores its own rounding of the coordinates
+- Both sources **replace the day**: once the job holds the full grid (4,599 points) it deletes
+  the date's `cams_grid` rows, then inserts; a failed insert is retried. Open-Meteo stores its own rounding of the coordinates
   (29.800003), the ADS path stores 29.8, so the `(date, lat, lng)` upsert key never matches across
   sources. This also covers the fallback running after an ADS run that died mid-insert. A partial
   fetch deletes nothing and only adds rows (`ignoreDuplicates: true`).

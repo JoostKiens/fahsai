@@ -51,8 +51,8 @@ cells.**
 - **Completeness.** The job requires one field for each of the 24 hours. A partial day is never
   stored.
 - **Storage.** Same `cams_grid` table, Redis key and API. Both sources **replace the day**:
-  once the job holds a complete grid (4,000 points or more) it deletes the date's rows, then
-  inserts. Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path stores
+  once the job holds the full grid (all 4,599 points) it deletes the date's rows, then inserts
+  (an insert that fails is retried, because the day is already cleared). Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path stores
   29.8, so the upsert key `(date, lat, lng)` never matches across sources. Without the delete, a
   fallback run after an ADS run that died halfway through its inserts would leave both sets in the
   day. A partial fetch deletes nothing. There is no `source` column and no schema change.
@@ -63,7 +63,9 @@ cells.**
   no bitmap). Anything else throws, so a change in the ADS output fails loudly.
 - **Attribution.** The dataset is CC BY 4.0. The ADS gives no required wording beyond the licence,
   so we credit the Copernicus Atmosphere Monitoring Service (ECMWF), link the licence, and say the
-  data is modified (daily mean, resampled). Open-Meteo stays credited for wind and weather.
+  data is modified (daily mean, resampled). Open-Meteo stays credited for wind and weather. Days before the switch date, and fallback
+  days, still hold Open-Meteo's CAMS values, and the PM2.5 lines credit only Copernicus. That is
+  accepted: Open-Meteo serves the same CAMS data, and its credit stays in the wind and weather lines.
 
 ## Alternatives considered
 
@@ -96,14 +98,17 @@ cells.**
 - **A new secret.** `ADS_API_KEY` must be set on the `ingest-cams` service before deploying. Without
   it the job fails at once and the fallback cron runs. The key is sent to the ADS only, never to the
   host the file is downloaded from.
-- **A rerun by hand replaces the day.** Either source, given a complete grid, deletes the date's
-  rows first, so a rerun with the other source swaps the whole day. A partial Open-Meteo fetch
-  still only adds missing rows. If an ADS run and then the fallback both fetch a partial grid, the
+- **A rerun by hand replaces the day.** Either source, given the full grid, deletes the date's
+  rows first, so a rerun with the other source swaps the whole day. An Open-Meteo run that skipped
+  batches (4,000 to 4,598 points) still only adds the rows it has, so it never removes rows an
+  earlier run saved. If an ADS run and then the fallback both fetch a partial grid, the
   day can still hold both coordinate sets; that needs two failures in a row.
 - **Open-Meteo budget.** The CAMS job no longer uses it: a clean day is 4,599 of 10,000 calls
   (weather only). The weather job moved from 00:00 to 23:00 UTC, the CAMS job's hour, so
   yesterday can appear at about 06:30 Bangkok, not 07:10. That time is expected, not yet measured.
-- **Not tested.** The ADS from Railway (Singapore), and the ADS when a run is delayed (reports show
+- **Not tested.** The ADS from Railway (Singapore), whether the ADS accepts `DELETE /jobs/{id}`
+  to cancel a job that timed out (the client tries it and ignores a failure), and the ADS when a
+  run is delayed (reports show
   2 to 3 hours after model upgrades). The measurements are three to five days in one season.
 - **Not a measurement.** Both sources serve forecast hours of a model. The product text says
   "modelled", not "measured".

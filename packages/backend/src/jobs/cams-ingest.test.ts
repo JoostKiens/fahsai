@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // A fake cams_grid table that records the order of writes.
 const db = vi.hoisted(() => {
   const writes: string[] = [];
-  const state = { deleteError: null as { message: string } | null };
+  const state = { deleteError: null as { message: string } | null, failingUpserts: 0 };
   const from = () => ({
     delete: () => ({
       eq: (column: string, value: string) => {
@@ -13,6 +13,10 @@ const db = vi.hoisted(() => {
     }),
     upsert: () => {
       writes.push('upsert');
+      if (state.failingUpserts > 0) {
+        state.failingUpserts -= 1;
+        return Promise.resolve({ error: { message: 'connection reset' } });
+      }
       return Promise.resolve({ error: null });
     },
   });
@@ -60,6 +64,7 @@ describe('runCamsIngest with source "ads"', () => {
     vi.mocked(computeP95).mockReturnValue(12);
     db.writes.length = 0;
     db.state.deleteError = null;
+    db.state.failingUpserts = 0;
     vi.stubEnv('ADS_API_KEY', 'test-key');
   });
 
@@ -78,7 +83,7 @@ describe('runCamsIngest with source "ads"', () => {
   });
 
   it('does not delete when the grid is incomplete', async () => {
-    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(3999));
+    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(4598));
 
     await runCamsIngest('2026-11-06', { source: 'ads' });
 
@@ -107,12 +112,27 @@ describe('runCamsIngest with source "ads"', () => {
     expect(db.writes[0]).toBe('delete date=2026-11-06');
   });
 
-  it('keeps accumulating on the Open-Meteo path when the grid is incomplete', async () => {
-    vi.mocked(fetchAirQualityGrid).mockResolvedValue(gridOf(3999));
+  it('keeps accumulating on the Open-Meteo path when the grid is not the full 4,599', async () => {
+    // 4,500 passes the Redis gate but is a run that skipped batches: rows an earlier run saved
+    // for the other points must survive.
+    vi.mocked(fetchAirQualityGrid).mockResolvedValue(gridOf(4500));
 
     await runCamsIngest('2026-11-06', { source: 'openmeteo' });
 
     expect(db.writes.every((w) => w === 'upsert')).toBe(true);
+  });
+
+  it('retries an insert that fails after the day was cleared', async () => {
+    vi.useFakeTimers();
+    db.state.failingUpserts = 2;
+    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(4599));
+
+    const attempt = runCamsIngest('2026-11-06', { source: 'ads' });
+    await vi.advanceTimersByTimeAsync(30_000);
+    await attempt;
+
+    // 10 batches of 500, plus the 2 failed attempts of the first one
+    expect(db.writes.filter((w) => w === 'upsert')).toHaveLength(12);
   });
 
   it('fetches from the ADS and makes no Open-Meteo calls', async () => {
