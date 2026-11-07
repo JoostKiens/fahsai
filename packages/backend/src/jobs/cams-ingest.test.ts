@@ -37,8 +37,8 @@ import { parseCamsSource, runCamsIngest } from './cams-ingest.js';
 
 describe('parseCamsSource', () => {
   it.each([
-    [undefined, 'openmeteo'],
-    ['', 'openmeteo'],
+    [undefined, 'ads'],
+    ['', 'ads'],
     ['openmeteo', 'openmeteo'],
     ['ads', 'ads'],
   ])('reads %j as %s', (value, expected) => {
@@ -142,7 +142,7 @@ describe('runCamsIngest', () => {
   it('looks up the egress IP once per run', async () => {
     vi.mocked(fetchAirQualityGrid).mockResolvedValue([]);
 
-    await runCamsIngest('2026-11-03');
+    await runCamsIngest('2026-11-03', { source: 'openmeteo' });
 
     expect(logEgressIp).toHaveBeenCalledTimes(1);
   });
@@ -151,7 +151,7 @@ describe('runCamsIngest', () => {
     const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
     vi.mocked(fetchAirQualityGrid).mockRejectedValue(timeout);
 
-    await expect(runCamsIngest('2026-11-03')).rejects.toBe(timeout);
+    await expect(runCamsIngest('2026-11-03', { source: 'openmeteo' })).rejects.toBe(timeout);
 
     expect(fetchAirQualityGrid).toHaveBeenCalledTimes(1);
   });
@@ -160,7 +160,7 @@ describe('runCamsIngest', () => {
     const failure = new TypeError('fetch failed');
     vi.mocked(fetchAirQualityGrid).mockRejectedValue(failure);
 
-    await expect(runCamsIngest('2026-11-03')).rejects.toBe(failure);
+    await expect(runCamsIngest('2026-11-03', { source: 'openmeteo' })).rejects.toBe(failure);
 
     expect(fetchAirQualityGrid).toHaveBeenCalledTimes(1);
   });

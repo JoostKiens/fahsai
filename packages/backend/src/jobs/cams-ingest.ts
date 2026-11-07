@@ -15,9 +15,9 @@ const MIN_COMPLETE_POINTS = 4000;
 
 export type CamsSource = 'ads' | 'openmeteo';
 
-/** Reads CAMS_SOURCE. Unset means Open-Meteo, so nothing changes until the variable is set. */
+/** Reads CAMS_SOURCE. Unset means the Copernicus ADS; the fallback cron names Open-Meteo itself. */
 export function parseCamsSource(value: string | undefined): CamsSource {
-  if (value === undefined || value === '') return 'openmeteo';
+  if (value === undefined || value === '') return 'ads';
   if (value === 'ads' || value === 'openmeteo') return value;
   throw new Error(`[cams-ingest] invalid CAMS_SOURCE "${value}" — expected ads or openmeteo`);
 }
@@ -82,8 +82,8 @@ async function deleteDay(targetDate: string): Promise<void> {
 }
 
 export async function runCamsIngest(
-  date?: string,
-  { source = 'openmeteo' }: { source?: CamsSource } = {},
+  date: string | undefined,
+  { source }: { source: CamsSource },
 ): Promise<{ stored: number }> {
   const targetDate = date ?? getYesterdayBkk();
 
