@@ -56,13 +56,14 @@ When a station reads at least twice (or less than 40% of) the distance-weighted 
 
 ## Data
 
-| Source                                                              | What                                        | Cadence | License        |
-| ------------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
-| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21) | Fire detections — location, FRP, confidence | Daily   | NASA open data |
-| [OpenAQ](https://openaq.org/) v3                                    | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
-| [Open-Meteo](https://open-meteo.com/)                               | Wind grid + CAMS PM2.5 atmospheric model    | Daily   | CC BY 4.0      |
-| [WRI Global Power Plant Database](https://resourcewatch.org/)       | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
-| [Mapbox](https://www.mapbox.com/)                                   | Base map                                    | —       | Mapbox TOS     |
+| Source                                                                    | What                                        | Cadence | License        |
+| ------------------------------------------------------------------------- | ------------------------------------------- | ------- | -------------- |
+| [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS/NOAA-21)       | Fire detections — location, FRP, confidence | Daily   | NASA open data |
+| [OpenAQ](https://openaq.org/) v3                                          | PM2.5 ground stations                       | Daily   | CC BY 4.0      |
+| [Copernicus Atmosphere Data Store](https://ads.atmosphere.copernicus.eu/) | CAMS PM2.5 atmospheric model (ECMWF)        | Daily   | CC BY 4.0      |
+| [Open-Meteo](https://open-meteo.com/)                                     | Wind grid (CAMS fallback)                   | Daily   | CC BY 4.0      |
+| [WRI Global Power Plant Database](https://resourcewatch.org/)             | Coal, gas, oil, diesel power plants         | Static  | CC BY 4.0      |
+| [Mapbox](https://www.mapbox.com/)                                         | Base map                                    | —       | Mapbox TOS     |
 
 ---
 
