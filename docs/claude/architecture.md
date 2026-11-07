@@ -96,7 +96,7 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
   (ECMWF), `https://ads.atmosphere.copernicus.eu/api/retrieve/v1`. Variable
   `particulate_matter_2.5um`, GRIB edition 1, hourly fields on a 0.4° grid (about 45 km), runs at
   00 and 12 UTC. Key `ADS_API_KEY`, sent as `PRIVATE-TOKEN` to the ADS only, never to the host the
-  file is downloaded from. A job still unfinished after 10 minutes is cancelled with
+  file is downloaded from. A job still unfinished after 60 minutes (the fallback cron runs 4 hours after the job) is cancelled with
   `DELETE /jobs/{id}` (best effort, not yet checked against the real ADS), so it does not stay in
   the ADS queue.
 - A Bangkok day D is 24 hourly instants, 17:00 UTC on D-1 to 16:00 UTC on D. Two runs cover it

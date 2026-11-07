@@ -102,7 +102,8 @@ export async function fetchCamsGrib({
   requestTimeoutMs = 30_000,
   downloadTimeoutMs = 120_000,
   pollIntervalMs = 5_000,
-  pollTimeoutMs = 10 * 60_000,
+  // The fallback cron runs 4 hours after the 23:00 UTC job, so a slow ADS queue can be waited out.
+  pollTimeoutMs = 60 * 60_000,
   retries = 3,
   retryDelayMs = 2_000,
 }: FetchCamsGribOptions): Promise<Buffer> {
