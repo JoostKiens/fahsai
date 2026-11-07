@@ -183,6 +183,8 @@ FIRMS_MAP_KEY=
 OPENAQ_API_KEY=
 GEMINI_API_KEY=
 CDS_API_KEY=                  # Copernicus CDS, ERA5 backfill only
+ADS_API_KEY=                  # Copernicus ADS, CAMS PM2.5 grid (ingest:cams)
+CAMS_SOURCE=                  # ads | openmeteo; unset means ads
 ROLLBAR_TOKEN=
 ```
 
