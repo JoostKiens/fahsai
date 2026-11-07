@@ -25,14 +25,15 @@ describe('runCamsIngest', () => {
   });
 
   it('allows slow connects before it fetches the grid (JOO-136)', async () => {
+    let connectTimeoutMsAtFetch: number | undefined;
     vi.mocked(fetchAirQualityGrid).mockImplementation(() => {
-      expect(net.getDefaultAutoSelectFamilyAttemptTimeout()).toBe(2_000);
+      connectTimeoutMsAtFetch = net.getDefaultAutoSelectFamilyAttemptTimeout();
       return Promise.resolve([]);
     });
 
     await runCamsIngest('2026-11-03');
 
-    expect(fetchAirQualityGrid).toHaveBeenCalledTimes(1);
+    expect(connectTimeoutMsAtFetch).toBe(2_000);
   });
 
   it('does not restart the grid when a batch keeps timing out', async () => {
