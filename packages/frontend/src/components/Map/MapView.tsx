@@ -28,6 +28,7 @@ const MAX_BOUNDS: mapboxgl.LngLatBoundsLike = [...VIEWPORT_BBOX];
 const CUSTOM_ATTRIBUTION = [
   'NASA FIRMS',
   '<a href="https://openaq.org" target="_blank" rel="noreferrer">OpenAQ</a> CC BY 4.0',
+  '<a href="https://atmosphere.copernicus.eu" target="_blank" rel="noreferrer">Copernicus CAMS</a> (ECMWF) CC BY 4.0',
   '<a href="https://open-meteo.com" target="_blank" rel="noreferrer">Open-Meteo</a> CC BY 4.0',
 ];
 

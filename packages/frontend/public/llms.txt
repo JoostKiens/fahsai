@@ -6,7 +6,7 @@
 
 - **Active fires**: NASA FIRMS VIIRS satellite fire detections, updated daily
 - **PM2.5 air quality**: Ground station readings from OpenAQ (about 460 stations report on a typical day, most of them in Thailand and Laos)
-- **Gridded PM2.5 model**: Copernicus CAMS data via Open-Meteo, ~11 km resolution
+- **Gridded PM2.5 model**: Copernicus CAMS global forecast data (ECMWF), ~45 km resolution
 - **Wind patterns**: Animated wind particle visualization showing atmospheric transport
 - **Power plants**: Coal, gas, and oil power plants from WRI Global Power Plant Database
 - **History**: Time scrubber to explore how fires, wind, and air quality interact over a configurable 30, 60, 90, or 120-day window
@@ -24,7 +24,7 @@ Thailand, Myanmar, Laos, Cambodia, Vietnam and Singapore; most of Bhutan, Bangla
 
 - Fire data: NASA FIRMS (firms.modaps.eosdis.nasa.gov) — VIIRS S-NPP satellite
 - Air quality stations: OpenAQ (openaq.org) — CC BY 4.0
-- Gridded PM2.5: Copernicus CAMS via Open-Meteo (open-meteo.com) — CC BY 4.0
+- Gridded PM2.5: Copernicus CAMS global atmospheric composition forecasts (ECMWF), via the Copernicus Atmosphere Data Store (ads.atmosphere.copernicus.eu) — CC BY 4.0, modified (daily mean, resampled onto our grid)
 - Wind and weather: Open-Meteo (open-meteo.com) — CC BY 4.0
 - Power plants: WRI Global Power Plant Database (resourcewatch.org) — CC BY 4.0
 - Base map: Mapbox (mapbox.com) — Mapbox TOS

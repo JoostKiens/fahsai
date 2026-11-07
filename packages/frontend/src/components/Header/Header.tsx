@@ -205,8 +205,8 @@ export function Header({ context = 'map', stationsDate, cities = NO_CITIES }: He
       <AppDialog open={aboutOpen} onClose={() => setAboutOpen(false)} title={t('header.about')}>
         <p className="text-[13px] text-zinc-300 leading-relaxed">{t('about.body')}</p>
         <p className="mt-3 text-[12px] text-zinc-400">
-          Data: NASA FIRMS (VIIRS/NOAA-21, near real-time), OpenAQ, Copernicus CAMS via Open-Meteo,
-          WRI.
+          Data: NASA FIRMS (VIIRS/NOAA-21, near real-time), OpenAQ, Copernicus CAMS (ECMWF), wind
+          and weather by Open-Meteo, WRI.
         </p>
         <p className="mt-3 text-[12px] text-zinc-400">By Joost Kiens.</p>
       </AppDialog>

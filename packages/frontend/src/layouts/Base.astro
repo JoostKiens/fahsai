@@ -68,7 +68,7 @@ const structuredData = {
       featureList: [
         'Daily fire detection from NASA FIRMS VIIRS satellite data',
         'PM2.5 air quality readings from OpenAQ ground stations',
-        'Gridded PM2.5 model from Copernicus CAMS via Open-Meteo',
+        'Gridded PM2.5 model from Copernicus CAMS (ECMWF)',
         'Animated wind particle visualization',
         '120-day historical time scrubber',
       ],
@@ -82,7 +82,7 @@ const structuredData = {
       '@type': 'Dataset',
       name: 'Thailand Region Fire, PM2.5, and Wind Dataset',
       description:
-        'Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS via Open-Meteo), and weather across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore.',
+        'Aggregated daily data covering active fire detections (NASA FIRMS VIIRS), PM2.5 ground station readings (OpenAQ), gridded PM2.5 model (Copernicus CAMS), and wind and weather (Open-Meteo) across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Singapore.',
       url: copy.url,
       keywords: [
         'air quality',
@@ -127,12 +127,12 @@ const structuredData = {
         },
         {
           '@type': 'CreativeWork',
-          name: 'Copernicus Atmosphere Monitoring Service (CAMS) PM2.5 forecasts',
-          url: 'https://atmosphere.copernicus.eu',
+          name: 'Copernicus Atmosphere Monitoring Service (CAMS) global atmospheric composition forecasts',
+          url: 'https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts',
         },
         {
           '@type': 'CreativeWork',
-          name: 'Open-Meteo weather and air quality API',
+          name: 'Open-Meteo weather API',
           url: 'https://open-meteo.com',
         },
         {
