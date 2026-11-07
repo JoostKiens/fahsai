@@ -1,6 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../db/client.js', () => ({ supabase: {} }));
+// A fake cams_grid table that records the order of writes.
+const db = vi.hoisted(() => {
+  const writes: string[] = [];
+  const state = { deleteError: null as { message: string } | null };
+  const from = () => ({
+    delete: () => ({
+      eq: (column: string, value: string) => {
+        writes.push(`delete ${column}=${value}`);
+        return Promise.resolve({ error: state.deleteError });
+      },
+    }),
+    upsert: () => {
+      writes.push('upsert');
+      return Promise.resolve({ error: null });
+    },
+  });
+  return { writes, state, from };
+});
+vi.mock('../db/client.js', () => ({ supabase: { from: db.from } }));
 vi.mock('../cache/client.js', () => ({ HISTORICAL_TTL_SECONDS: 604_800 }));
 vi.mock('../cache/safe.js', () => ({ cacheReplace: vi.fn() }));
 vi.mock('./cams-summary.js', () => ({ computeP95: vi.fn(), upsertCamsDailySummary: vi.fn() }));
@@ -12,6 +30,7 @@ vi.mock('../utils/openmeteo.js', async (importOriginal) => ({
 }));
 
 import { fetchAdsGrid } from '../utils/camsAdsGrid.js';
+import { computeP95 } from './cams-summary.js';
 import { logEgressIp } from '../utils/egressIp.js';
 import { fetchAirQualityGrid } from '../utils/openmeteo.js';
 import { parseCamsSource, runCamsIngest } from './cams-ingest.js';
@@ -31,15 +50,61 @@ describe('parseCamsSource', () => {
   });
 });
 
+const gridOf = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({ lat: 1 + i * 0.001, lng: 89, pm25: 10 }));
+
 describe('runCamsIngest with source "ads"', () => {
   beforeEach(() => {
     vi.mocked(fetchAdsGrid).mockReset();
     vi.mocked(fetchAirQualityGrid).mockReset();
+    vi.mocked(computeP95).mockReturnValue(12);
+    db.writes.length = 0;
+    db.state.deleteError = null;
     vi.stubEnv('ADS_API_KEY', 'test-key');
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it('replaces the day: deletes the date first, then writes the grid', async () => {
+    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(4599));
+
+    await runCamsIngest('2026-11-06', { source: 'ads' });
+
+    expect(db.writes[0]).toBe('delete date=2026-11-06');
+    expect(db.writes.slice(1)).toEqual(Array(10).fill('upsert')); // 4,599 rows in batches of 500
+  });
+
+  it('does not delete when the grid is incomplete', async () => {
+    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(3999));
+
+    await runCamsIngest('2026-11-06', { source: 'ads' });
+
+    expect(db.writes).not.toContain('delete date=2026-11-06');
+  });
+
+  it('writes nothing when the delete keeps failing', async () => {
+    vi.useFakeTimers();
+    db.state.deleteError = { message: 'connection reset' };
+    vi.mocked(fetchAdsGrid).mockResolvedValue(gridOf(4599));
+
+    const attempt = expect(runCamsIngest('2026-11-06', { source: 'ads' })).rejects.toThrow(
+      /delete failed: connection reset/,
+    );
+    await vi.advanceTimersByTimeAsync(30_000);
+    await attempt;
+
+    expect(db.writes).not.toContain('upsert');
+  });
+
+  it('leaves the Open-Meteo path alone: it never deletes', async () => {
+    vi.mocked(fetchAirQualityGrid).mockResolvedValue(gridOf(4599));
+
+    await runCamsIngest('2026-11-06', { source: 'openmeteo' });
+
+    expect(db.writes.every((w) => w === 'upsert')).toBe(true);
   });
 
   it('fetches from the ADS and makes no Open-Meteo calls', async () => {

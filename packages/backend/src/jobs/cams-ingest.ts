@@ -62,6 +62,25 @@ function fetchFromOpenMeteo(targetDate: string) {
   );
 }
 
+async function deleteDay(targetDate: string): Promise<void> {
+  await pRetry(
+    async () => {
+      const { error } = await supabase.from('cams_grid').delete().eq('date', targetDate);
+      if (error) throw new Error(`[cams-ingest] Supabase delete failed: ${error.message}`);
+    },
+    {
+      retries: 3,
+      minTimeout: 1000,
+      factor: 2,
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft }) =>
+        console.warn(
+          `[cams-ingest] Supabase delete attempt ${attemptNumber} failed, ${retriesLeft} retries left: ${error.message}`,
+        ),
+    },
+  );
+  console.log(`[cams-ingest] Cleared cams_grid rows for ${targetDate} before writing`);
+}
+
 export async function runCamsIngest(
   date?: string,
   { source = 'openmeteo' }: { source?: CamsSource } = {},
@@ -85,6 +104,12 @@ export async function runCamsIngest(
     );
     return { stored: 0 };
   }
+
+  // Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path clean values
+  // (29.8). The upsert key (date, lat, lng) would not match, so rows from the other source would
+  // stay and the day would hold both. Replace the day instead, but only once we hold a complete
+  // grid, so a failed or partial fetch never deletes anything.
+  if (source === 'ads' && points.length >= MIN_COMPLETE_POINTS) await deleteDay(targetDate);
 
   // Persist to Supabase first — durable store must be written before the cache.
   // If Redis write fails after this, the API route will read from Supabase on cache
