@@ -20,15 +20,12 @@ describe('runCamsIngest', () => {
     vi.mocked(logEgressIp).mockClear();
   });
 
-  it('looks up the egress IP before it fetches the grid', async () => {
-    vi.mocked(fetchAirQualityGrid).mockImplementation(() => {
-      expect(logEgressIp).toHaveBeenCalledTimes(1);
-      return Promise.resolve([]);
-    });
+  it('looks up the egress IP once per run', async () => {
+    vi.mocked(fetchAirQualityGrid).mockResolvedValue([]);
 
     await runCamsIngest('2026-11-03');
 
-    expect(fetchAirQualityGrid).toHaveBeenCalledTimes(1);
+    expect(logEgressIp).toHaveBeenCalledTimes(1);
   });
 
   it('does not restart the grid when a batch keeps timing out', async () => {

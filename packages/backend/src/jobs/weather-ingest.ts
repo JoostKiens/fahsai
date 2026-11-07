@@ -4,7 +4,12 @@ import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
 import { logEgressIp } from '../utils/egressIp.js';
-import { fetchWeatherGridForDate, isTimeoutError, OpenMeteoHttpError } from '../utils/openmeteo.js';
+import {
+  createTimeoutRetryBudget,
+  fetchWeatherGridForDate,
+  isTimeoutError,
+  OpenMeteoHttpError,
+} from '../utils/openmeteo.js';
 import { precomputeStationWeather } from '../utils/computeStationWeather.js';
 import { bangkokDateString, getYesterdayBkk } from '../utils/bkkDate.js';
 
@@ -27,12 +32,15 @@ export async function runWeatherIngest(date?: string): Promise<{ stored: number 
   const calendarDayBkk = bangkokDateString();
   const targetDate = date ?? getYesterdayBkk();
 
-  await logEgressIp();
+  // Diagnostic only: it must not delay the ingest, and it never throws.
+  void logEgressIp();
+  // One budget for every attempt of this run: a restart after a 5xx must not get a fresh one.
+  const timeoutRetryBudget = createTimeoutRetryBudget();
   console.log(`[weather-ingest] Fetching weather grid for ${targetDate} from Open-Meteo...`);
   const readings = await pRetry(
     async () => {
       try {
-        return await fetchWeatherGridForDate(targetDate, { calendarDayBkk });
+        return await fetchWeatherGridForDate(targetDate, { calendarDayBkk, timeoutRetryBudget });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[weather-ingest] fetch error: ${msg}`);

@@ -50,6 +50,8 @@ const HISTORICAL_HOUR_BKK = 14;
 export type FetchWeatherGridOptions = {
   /** Bangkok calendar day (Asia/Bangkok, YYYY-MM-DD) — decides forecast vs archive API. */
   calendarDayBkk: string;
+  /** Shared by every attempt of one run. Defaults to a fresh budget per call. */
+  timeoutRetryBudget?: TimeoutRetryBudget;
 };
 
 interface OpenMeteoWeatherResult {
@@ -80,6 +82,21 @@ const WEATHER_REQUEST_TIMEOUT_MS = 30_000;
 // The retry waits one batch pause to stay under 600 calls a minute. Timeouts and 429s share the
 // same attempt loop, so one batch sends at most WEATHER_429_MAX_RETRIES + 1 requests.
 const WEATHER_TIMEOUT_MAX_RETRIES_PER_RUN = 1;
+
+// Owns the count: a caller shares one budget between attempts (a restart after a 5xx starts a new
+// grid fetch) and cannot overspend or reset it by accident.
+export function createTimeoutRetryBudget(retries = WEATHER_TIMEOUT_MAX_RETRIES_PER_RUN) {
+  let left = retries;
+  return {
+    tryUse(): boolean {
+      if (left <= 0) return false;
+      left -= 1;
+      return true;
+    },
+  };
+}
+
+export type TimeoutRetryBudget = ReturnType<typeof createTimeoutRetryBudget>;
 // The timeout retry of a recent past day goes to the forecast endpoint instead of the archive
 // one (JOO-128: archive stalls come and go, the retry on the same host stalled too). Only a
 // day up to this old: the forecast endpoint serves about the last 92 days, and archive and
@@ -99,13 +116,13 @@ function parseRateLimitReason(bodyText: string): string {
   }
 }
 
-// Open-Meteo reports the budget of the current minute on every response. Logging it shows how
-// much of the minute other traffic on our IP used (JOO-135): a first batch that starts below
-// the full budget means the IP is shared.
+// Open-Meteo reports the budget of the current minute on every successful response. Logging it
+// shows how much of the minute other traffic on our IP used (JOO-135): a first batch that starts
+// below the full budget means the IP is shared. key=value so it can be grepped and parsed.
 function logRateLimit(label: string, res: Response): void {
   const header = (name: string) => res.headers.get(name) ?? 'n/a';
   console.log(
-    `[openmeteo] ${label} rate limit: cost ${header('x-ratelimit-cost')}, remaining ${header('x-ratelimit-remaining')} of ${header('x-ratelimit-limit')} per ${header('x-ratelimit-window')}s`,
+    `[openmeteo] ${label} rate limit: cost=${header('x-ratelimit-cost')} remaining=${header('x-ratelimit-remaining')} limit=${header('x-ratelimit-limit')} window_s=${header('x-ratelimit-window')}`,
   );
 }
 
@@ -135,8 +152,8 @@ async function fetchWeatherBatch(
   {
     isToday,
     canFailOver,
-    timeoutRetries,
-  }: { isToday: boolean; canFailOver: boolean; timeoutRetries: { left: number } },
+    timeoutRetryBudget,
+  }: { isToday: boolean; canFailOver: boolean; timeoutRetryBudget: TimeoutRetryBudget },
 ): Promise<WeatherReading[]> {
   const forecastUrl = 'https://api.open-meteo.com/v1/forecast';
   const baseUrl = isToday ? forecastUrl : 'https://archive-api.open-meteo.com/v1/archive';
@@ -172,7 +189,7 @@ async function fetchWeatherBatch(
       bodyText = await readBody(res);
     } catch (err) {
       if (!isTimeoutError(err)) throw err;
-      const canRetry = timeoutRetries.left > 0 && attempt < WEATHER_429_MAX_RETRIES;
+      const canRetry = attempt < WEATHER_429_MAX_RETRIES && timeoutRetryBudget.tryUse();
       // Host and elapsed time help tell a slow endpoint from a stalled connection. The
       // final failure is logged too, so every timeout of a run shows up.
       const retryUrl = canFailOver ? forecastUrl : url;
@@ -182,14 +199,13 @@ async function fetchWeatherBatch(
         `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(url).host}, ${canRetry ? `retrying${retryWhere} in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s` : 'giving up'}`,
       );
       if (!canRetry) throw err;
-      timeoutRetries.left -= 1;
       url = retryUrl;
       await sleep(WEATHER_BATCH_PAUSE_MS);
       continue;
     }
 
     if (res.status !== 429) {
-      logRateLimit('weather batch', res);
+      if (res.ok) logRateLimit('weather batch', res);
       break;
     }
 
@@ -262,7 +278,7 @@ export async function fetchWeatherGridForDate(
   const isToday = date === options.calendarDayBkk;
   const ageDays = (Date.parse(options.calendarDayBkk) - Date.parse(date)) / 86_400_000;
   const canFailOver = ageDays >= 0 && ageDays <= WEATHER_FAILOVER_MAX_AGE_DAYS;
-  const timeoutRetries = { left: WEATHER_TIMEOUT_MAX_RETRIES_PER_RUN };
+  const timeoutRetryBudget = options.timeoutRetryBudget ?? createTimeoutRetryBudget();
 
   // Build flat list of all grid points
   const allLats: number[] = [];
@@ -294,7 +310,7 @@ export async function fetchWeatherGridForDate(
     const readings = await fetchWeatherBatch(b.lats, b.lngs, date, {
       isToday,
       canFailOver,
-      timeoutRetries,
+      timeoutRetryBudget,
     });
     results.push(...readings);
     if (i < batches.length - 1) await sleep(WEATHER_BATCH_PAUSE_MS);
@@ -364,7 +380,7 @@ async function fetchAQBatch(
       throw err;
     }
     if (res.status !== 429) {
-      logRateLimit('AQ batch', res);
+      if (res.ok) logRateLimit('AQ batch', res);
       break;
     }
 

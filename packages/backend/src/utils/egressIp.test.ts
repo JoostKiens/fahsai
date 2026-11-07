@@ -32,6 +32,26 @@ describe('logEgressIp', () => {
     expect(logSpy).not.toHaveBeenCalled();
   });
 
+  it('does not log a page that is not an address, even with status 200', async () => {
+    const page = `<html>${'x'.repeat(5_000)}</html>`;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(page)));
+
+    await logEgressIp();
+
+    expect(logSpy).not.toHaveBeenCalled();
+    const [message] = warnSpy.mock.calls[0] as [string];
+    expect(message).toMatch(/^\[egress-ip\] lookup failed: unexpected response "<html>x+"$/);
+    expect(message.length).toBeLessThan(120);
+  });
+
+  it('logs an IPv6 address', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('2001:db8::7')));
+
+    await logEgressIp();
+
+    expect(logSpy).toHaveBeenCalledWith('[egress-ip] 2001:db8::7');
+  });
+
   it('warns and returns when the lookup times out', async () => {
     const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeout));

@@ -20,15 +20,23 @@ describe('runWeatherIngest', () => {
     vi.mocked(logEgressIp).mockClear();
   });
 
-  it('looks up the egress IP before it fetches the grid', async () => {
-    vi.mocked(fetchWeatherGridForDate).mockImplementation(() => {
-      expect(logEgressIp).toHaveBeenCalledTimes(1);
-      return Promise.resolve([]);
-    });
+  it('looks up the egress IP once per run', async () => {
+    vi.mocked(fetchWeatherGridForDate).mockResolvedValue([]);
 
     await runWeatherIngest('2026-11-03');
 
-    expect(fetchWeatherGridForDate).toHaveBeenCalledTimes(1);
+    expect(logEgressIp).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes one timeout retry budget to the grid fetch', async () => {
+    vi.mocked(fetchWeatherGridForDate).mockResolvedValue([]);
+
+    await runWeatherIngest('2026-11-03');
+
+    const [, options] = vi.mocked(fetchWeatherGridForDate).mock.calls[0];
+    // A real budget with its one retry still unspent.
+    expect(options.timeoutRetryBudget?.tryUse()).toBe(true);
+    expect(options.timeoutRetryBudget?.tryUse()).toBe(false);
   });
 
   it('does not restart the grid when a batch keeps timing out', async () => {

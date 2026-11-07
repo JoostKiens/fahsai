@@ -19,7 +19,8 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
   }
 
-  await logEgressIp();
+  // Diagnostic only: it must not delay the ingest, and it never throws.
+  void logEgressIp();
   console.log(`[cams-ingest] Fetching PM2.5 grid from Open-Meteo for ${targetDate}...`);
   const points = await pRetry(
     async () => {
