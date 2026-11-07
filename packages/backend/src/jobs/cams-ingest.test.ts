@@ -4,17 +4,28 @@ vi.mock('../db/client.js', () => ({ supabase: {} }));
 vi.mock('../cache/client.js', () => ({ HISTORICAL_TTL_SECONDS: 604_800 }));
 vi.mock('../cache/safe.js', () => ({ cacheReplace: vi.fn() }));
 vi.mock('./cams-summary.js', () => ({ computeP95: vi.fn(), upsertCamsDailySummary: vi.fn() }));
+vi.mock('../utils/egressIp.js', () => ({ logEgressIp: vi.fn() }));
 vi.mock('../utils/openmeteo.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/openmeteo.js')>()),
   fetchAirQualityGrid: vi.fn(),
 }));
 
+import { logEgressIp } from '../utils/egressIp.js';
 import { fetchAirQualityGrid } from '../utils/openmeteo.js';
 import { runCamsIngest } from './cams-ingest.js';
 
 describe('runCamsIngest', () => {
   beforeEach(() => {
     vi.mocked(fetchAirQualityGrid).mockReset();
+    vi.mocked(logEgressIp).mockClear();
+  });
+
+  it('looks up the egress IP once per run', async () => {
+    vi.mocked(fetchAirQualityGrid).mockResolvedValue([]);
+
+    await runCamsIngest('2026-11-03');
+
+    expect(logEgressIp).toHaveBeenCalledTimes(1);
   });
 
   it('does not restart the grid when a batch keeps timing out', async () => {

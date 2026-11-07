@@ -11,6 +11,8 @@ vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn(() => Promise.resolve
 
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
+  createTimeoutRetryBudget,
+  fetchAirQualityGrid,
   fetchWeatherGridForDate,
   isConnectionError,
   isTimeoutError,
@@ -75,7 +77,7 @@ describe('fetchWeatherGridForDate timeouts', () => {
     return new DOMException('The operation was aborted due to timeout', 'TimeoutError');
   }
 
-  function okResponse(requestBody: string) {
+  function okResponse(requestBody: string, headers?: Record<string, string>) {
     const { latitude } = JSON.parse(requestBody) as { latitude: number[] };
     const results = latitude.map(() => ({
       hourly: {
@@ -86,18 +88,25 @@ describe('fetchWeatherGridForDate timeouts', () => {
       },
       daily: { time: ['2026-11-03'], precipitation_sum: [0] },
     }));
-    return new Response(JSON.stringify(results), { status: 200 });
+    return new Response(JSON.stringify(results), { status: 200, headers });
   }
 
   type FetchInit = { body: string };
 
   async function runGrid(
     fetchMock: (url: string, init: FetchInit) => Promise<Response>,
-    { date = '2026-11-03', calendarDayBkk = '2026-11-04' } = {},
+    {
+      date = '2026-11-03',
+      calendarDayBkk = '2026-11-04',
+      timeoutRetryBudget = undefined as ReturnType<typeof createTimeoutRetryBudget> | undefined,
+    } = {},
   ) {
     const fetchSpy = vi.fn(fetchMock);
     vi.stubGlobal('fetch', fetchSpy);
-    const outcome = await fetchWeatherGridForDate(date, { calendarDayBkk }).then(
+    const outcome = await fetchWeatherGridForDate(date, {
+      calendarDayBkk,
+      timeoutRetryBudget,
+    }).then(
       (readings) => ({ readings, error: undefined }),
       (error: unknown) => ({ readings: undefined, error }),
     );
@@ -105,19 +114,26 @@ describe('fetchWeatherGridForDate timeouts', () => {
   }
 
   let warnSpy: MockInstance<typeof console.warn>;
+  let logSpy: MockInstance<typeof console.log>;
 
   beforeEach(() => {
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
     warnSpy.mockRestore();
+    logSpy.mockRestore();
     vi.unstubAllGlobals();
     vi.mocked(sleep).mockClear();
   });
 
   function warnings() {
     return warnSpy.mock.calls.map(([message]) => String(message));
+  }
+
+  function logs() {
+    return logSpy.mock.calls.map(([message]) => String(message));
   }
 
   function sleepDelays() {
@@ -132,6 +148,42 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(readings).toHaveLength(gridPointCount);
     expect(fetchSpy).toHaveBeenCalledTimes(batchCount);
     expect(sleepDelays()).toEqual(Array.from({ length: batchCount - 1 }, () => 35_000));
+  });
+
+  it('logs the rate-limit budget Open-Meteo reports for every batch', async () => {
+    const budget = {
+      'x-ratelimit-cost': '300.0',
+      'x-ratelimit-remaining': '300.0',
+      'x-ratelimit-limit': '600.0',
+      'x-ratelimit-window': '60',
+    };
+    await runGrid((_url, init) => Promise.resolve(okResponse(init.body, budget)));
+
+    const lines = logs().filter((message) => message.includes('rate limit'));
+    expect(lines).toHaveLength(batchCount);
+    expect(lines[0]).toBe(
+      '[openmeteo] weather batch rate limit: cost=300.0 remaining=300.0 limit=600.0 window_s=60',
+    );
+  });
+
+  it('logs n/a for rate-limit headers a response does not carry', async () => {
+    await runGrid((_url, init) => Promise.resolve(okResponse(init.body)));
+
+    const [first] = logs().filter((message) => message.includes('rate limit'));
+    expect(first).toBe(
+      '[openmeteo] weather batch rate limit: cost=n/a remaining=n/a limit=n/a window_s=n/a',
+    );
+  });
+
+  it('does not log a rate-limit budget for a failed response', async () => {
+    const { error } = await runGrid(() =>
+      Promise.resolve(
+        new Response('bad gateway', { status: 502, headers: { 'x-ratelimit-remaining': '1.0' } }),
+      ),
+    );
+
+    expect(error).toBeDefined();
+    expect(logs().filter((message) => message.includes('rate limit'))).toEqual([]);
   });
 
   it('re-fetches only the batch that timed out, after one batch pause', async () => {
@@ -233,10 +285,89 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(timeouts[1]).toMatch(/after \d+ms on api\.open-meteo\.com, giving up$/);
   });
 
+  it('gives up on a second stalled batch once the run has used its one retry', async () => {
+    let call = 0;
+    const { error, fetchSpy } = await runGrid((_url, init) => {
+      call += 1;
+      // Call 3 is batch 3 (stalls), call 4 its retry (succeeds), call 5 is batch 4 (stalls).
+      return call === 3 || call === 5
+        ? Promise.reject(timeoutError())
+        : Promise.resolve(okResponse(init.body));
+    });
+
+    expect(isTimeoutError(error)).toBe(true);
+    // Batches 1 and 2, batch 3 and its retry, then batch 4 once: a second retry would spend
+    // another 300 calls of an hour that has 401 to spare.
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    const timeouts = warnings().filter((message) => message.includes('timed out after'));
+    expect(timeouts).toHaveLength(2);
+    expect(timeouts[0]).toMatch(/retrying on api\.open-meteo\.com in 35s$/);
+    expect(timeouts[1]).toMatch(/on archive-api\.open-meteo\.com, giving up$/);
+  });
+
+  it('shares one timeout retry between two grid fetches of the same run', async () => {
+    const timeoutRetryBudget = createTimeoutRetryBudget();
+    let firstCalls = 0;
+    // First fetch: batch 3 stalls once and its retry succeeds, which spends the run's retry.
+    await runGrid(
+      (_url, init) => {
+        firstCalls += 1;
+        return firstCalls === 3
+          ? Promise.reject(timeoutError())
+          : Promise.resolve(okResponse(init.body));
+      },
+      { timeoutRetryBudget },
+    );
+    // Second fetch of the same run (a restart after a 5xx): its first stall must give up.
+    const { error, fetchSpy } = await runGrid(() => Promise.reject(timeoutError()), {
+      timeoutRetryBudget,
+    });
+
+    expect(isTimeoutError(error)).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('does not retry an error that is not a timeout', async () => {
     const { error, fetchSpy } = await runGrid(() => Promise.reject(new TypeError('fetch failed')));
 
     expect(error).toBeInstanceOf(TypeError);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fetchAirQualityGrid rate-limit logging', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.mocked(sleep).mockClear();
+  });
+
+  it('logs the rate-limit budget for every AQ batch', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchSpy = vi.fn((url: string) => {
+      const latitudes = new URL(url).searchParams.get('latitude')?.split(',') ?? [];
+      const results = latitudes.map((latitude) => ({
+        latitude: Number(latitude),
+        longitude: 100,
+        hourly: { time: ['2026-11-03T00:00'], pm2_5: [12] },
+      }));
+      return Promise.resolve(
+        new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'x-ratelimit-cost': '300.0', 'x-ratelimit-remaining': '300.0' },
+        }),
+      );
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await fetchAirQualityGrid('2026-11-03');
+
+    const lines = logSpy.mock.calls
+      .map(([message]) => String(message))
+      .filter((message) => message.includes('rate limit'));
+    expect(lines).toHaveLength(16);
+    expect(lines[0]).toBe(
+      '[openmeteo] AQ batch rate limit: cost=300.0 remaining=300.0 limit=n/a window_s=n/a',
+    );
   });
 });
