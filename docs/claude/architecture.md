@@ -118,11 +118,11 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
 - Schedule: daily (0 23 \* \* \* UTC)
 - Storage: Supabase `cams_grid` + Redis `cams:pm25:{YYYY-MM-DD}` TTL 7d. Route checks Redis
   first; on miss reads from Supabase. Ingest writes to both. Pruned after 140 days.
-- The ADS path **replaces the day**: once it holds a complete grid it deletes the date's
-  `cams_grid` rows, then inserts. Open-Meteo stores its own rounding of the coordinates (29.800003),
-  the ADS path stores 29.8, so the `(date, lat, lng)` upsert key never matches across sources. The
-  Open-Meteo path still uses `ignoreDuplicates: true`, so a manual Open-Meteo run for a date the
-  ADS stored adds a second set of rows. Don't run it by hand for such a date.
+- Both sources **replace the day**: once the job holds a complete grid (≥ 4,000 points) it deletes
+  the date's `cams_grid` rows, then inserts. Open-Meteo stores its own rounding of the coordinates
+  (29.800003), the ADS path stores 29.8, so the `(date, lat, lng)` upsert key never matches across
+  sources. This also covers the fallback running after an ADS run that died mid-insert. A partial
+  fetch deletes nothing and only adds rows (`ignoreDuplicates: true`).
 - License: CC BY 4.0, credit to Copernicus CAMS / ECMWF, marked as modified (daily mean,
   resampled). The ADS publishes no required sentence beyond the licence. Open-Meteo stays credited
   for wind and weather.

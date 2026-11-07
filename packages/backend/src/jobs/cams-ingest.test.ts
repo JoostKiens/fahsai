@@ -99,8 +99,16 @@ describe('runCamsIngest with source "ads"', () => {
     expect(db.writes).not.toContain('upsert');
   });
 
-  it('leaves the Open-Meteo path alone: it never deletes', async () => {
+  it('replaces the day on the Open-Meteo path too, so a half-written ADS day leaves no twins', async () => {
     vi.mocked(fetchAirQualityGrid).mockResolvedValue(gridOf(4599));
+
+    await runCamsIngest('2026-11-06', { source: 'openmeteo' });
+
+    expect(db.writes[0]).toBe('delete date=2026-11-06');
+  });
+
+  it('keeps accumulating on the Open-Meteo path when the grid is incomplete', async () => {
+    vi.mocked(fetchAirQualityGrid).mockResolvedValue(gridOf(3999));
 
     await runCamsIngest('2026-11-06', { source: 'openmeteo' });
 

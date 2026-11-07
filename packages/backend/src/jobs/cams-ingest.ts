@@ -107,9 +107,10 @@ export async function runCamsIngest(
 
   // Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path clean values
   // (29.8). The upsert key (date, lat, lng) would not match, so rows from the other source would
-  // stay and the day would hold both. Replace the day instead, but only once we hold a complete
-  // grid, so a failed or partial fetch never deletes anything.
-  if (source === 'ads' && points.length >= MIN_COMPLETE_POINTS) await deleteDay(targetDate);
+  // stay and the day would hold both. That also happens when the fallback follows an ADS run that
+  // died halfway through its inserts. Replace the day instead, whatever the source, but only once
+  // we hold a complete grid, so a failed or partial fetch never deletes anything.
+  if (points.length >= MIN_COMPLETE_POINTS) await deleteDay(targetDate);
 
   // Persist to Supabase first — durable store must be written before the cache.
   // If Redis write fails after this, the API route will read from Supabase on cache

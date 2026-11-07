@@ -50,10 +50,12 @@ cells.**
   all four neighbours. If a file does not cover a point, the job throws.
 - **Completeness.** The job requires one field for each of the 24 hours. A partial day is never
   stored.
-- **Storage.** Same `cams_grid` table, Redis key and API. The ADS path **replaces the day**: it
-  deletes the date's rows once it holds a complete grid, then inserts. Open-Meteo stores its own
-  rounding of the coordinates (29.800003), the ADS path stores 29.8, so the upsert key
-  `(date, lat, lng)` never matches across sources. There is no `source` column and no schema change.
+- **Storage.** Same `cams_grid` table, Redis key and API. Both sources **replace the day**:
+  once the job holds a complete grid (4,000 points or more) it deletes the date's rows, then
+  inserts. Open-Meteo stores its own rounding of the coordinates (29.800003), the ADS path stores
+  29.8, so the upsert key `(date, lat, lng)` never matches across sources. Without the delete, a
+  fallback run after an ADS run that died halfway through its inserts would leave both sets in the
+  day. A partial fetch deletes nothing. There is no `source` column and no schema change.
 - **Switch and fallback.** `CAMS_SOURCE=ads|openmeteo`, unset means `ads`. The fallback cron
   (03:00 UTC) always uses Open-Meteo. It runs an hour after the weather fallback (02:00), so the
   two grids never share Open-Meteo's hourly limit. If the ADS job fails, the fallback fills the day.
@@ -94,9 +96,10 @@ cells.**
 - **A new secret.** `ADS_API_KEY` must be set on the `ingest-cams` service before deploying. Without
   it the job fails at once and the fallback cron runs. The key is sent to the ADS only, never to the
   host the file is downloaded from.
-- **Rerun by hand with care.** The Open-Meteo path still skips existing keys. Running it by hand
-  for a date the ADS stored adds a second set of rows, because the coordinates differ. Rerun such a
-  date with the ADS path, which replaces it.
+- **A rerun by hand replaces the day.** Either source, given a complete grid, deletes the date's
+  rows first, so a rerun with the other source swaps the whole day. A partial Open-Meteo fetch
+  still only adds missing rows. If an ADS run and then the fallback both fetch a partial grid, the
+  day can still hold both coordinate sets; that needs two failures in a row.
 - **Open-Meteo budget.** The CAMS job no longer uses it: a clean day is 4,599 of 10,000 calls
   (weather only). The weather job moved from 00:00 to 23:00 UTC, the CAMS job's hour, so
   yesterday can appear at about 06:30 Bangkok, not 07:10. That time is expected, not yet measured.
