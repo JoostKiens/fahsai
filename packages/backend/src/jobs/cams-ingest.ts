@@ -3,6 +3,7 @@ import { describeFetchError } from '../utils/fetchError.js';
 import { HISTORICAL_TTL_SECONDS } from '../cache/client.js';
 import { cacheReplace } from '../cache/safe.js';
 import { supabase } from '../db/client.js';
+import { logEgressIp } from '../utils/egressIp.js';
 import { fetchAirQualityGrid, isConnectionError, OpenMeteoHttpError } from '../utils/openmeteo.js';
 import { computeP95, upsertCamsDailySummary } from './cams-summary.js';
 import { getYesterdayBkk } from '../utils/bkkDate.js';
@@ -18,6 +19,7 @@ export async function runCamsIngest(date?: string): Promise<{ stored: number }> 
     throw new Error(`[cams-ingest] invalid date "${targetDate}" — expected YYYY-MM-DD`);
   }
 
+  await logEgressIp();
   console.log(`[cams-ingest] Fetching PM2.5 grid from Open-Meteo for ${targetDate}...`);
   const points = await pRetry(
     async () => {
