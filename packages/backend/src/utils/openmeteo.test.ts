@@ -11,6 +11,7 @@ vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn(() => Promise.resolve
 
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
+  fetchAirQualityGrid,
   fetchWeatherGridForDate,
   isConnectionError,
   isTimeoutError,
@@ -75,7 +76,7 @@ describe('fetchWeatherGridForDate timeouts', () => {
     return new DOMException('The operation was aborted due to timeout', 'TimeoutError');
   }
 
-  function okResponse(requestBody: string) {
+  function okResponse(requestBody: string, headers?: Record<string, string>) {
     const { latitude } = JSON.parse(requestBody) as { latitude: number[] };
     const results = latitude.map(() => ({
       hourly: {
@@ -86,7 +87,7 @@ describe('fetchWeatherGridForDate timeouts', () => {
       },
       daily: { time: ['2026-11-03'], precipitation_sum: [0] },
     }));
-    return new Response(JSON.stringify(results), { status: 200 });
+    return new Response(JSON.stringify(results), { status: 200, headers });
   }
 
   type FetchInit = { body: string };
@@ -105,19 +106,26 @@ describe('fetchWeatherGridForDate timeouts', () => {
   }
 
   let warnSpy: MockInstance<typeof console.warn>;
+  let logSpy: MockInstance<typeof console.log>;
 
   beforeEach(() => {
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
     warnSpy.mockRestore();
+    logSpy.mockRestore();
     vi.unstubAllGlobals();
     vi.mocked(sleep).mockClear();
   });
 
   function warnings() {
     return warnSpy.mock.calls.map(([message]) => String(message));
+  }
+
+  function logs() {
+    return logSpy.mock.calls.map(([message]) => String(message));
   }
 
   function sleepDelays() {
@@ -132,6 +140,31 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(readings).toHaveLength(gridPointCount);
     expect(fetchSpy).toHaveBeenCalledTimes(batchCount);
     expect(sleepDelays()).toEqual(Array.from({ length: batchCount - 1 }, () => 35_000));
+  });
+
+  it('logs the rate-limit budget Open-Meteo reports for every batch', async () => {
+    const budget = {
+      'x-ratelimit-cost': '300.0',
+      'x-ratelimit-remaining': '300.0',
+      'x-ratelimit-limit': '600.0',
+      'x-ratelimit-window': '60',
+    };
+    await runGrid((_url, init) => Promise.resolve(okResponse(init.body, budget)));
+
+    const lines = logs().filter((message) => message.includes('rate limit'));
+    expect(lines).toHaveLength(batchCount);
+    expect(lines[0]).toBe(
+      '[openmeteo] weather batch rate limit: cost 300.0, remaining 300.0 of 600.0 per 60s',
+    );
+  });
+
+  it('logs n/a for rate-limit headers a response does not carry', async () => {
+    await runGrid((_url, init) => Promise.resolve(okResponse(init.body)));
+
+    const [first] = logs().filter((message) => message.includes('rate limit'));
+    expect(first).toBe(
+      '[openmeteo] weather batch rate limit: cost n/a, remaining n/a of n/a per n/as',
+    );
   });
 
   it('re-fetches only the batch that timed out, after one batch pause', async () => {
@@ -238,5 +271,42 @@ describe('fetchWeatherGridForDate timeouts', () => {
 
     expect(error).toBeInstanceOf(TypeError);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fetchAirQualityGrid rate-limit logging', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.mocked(sleep).mockClear();
+  });
+
+  it('logs the rate-limit budget for every AQ batch', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchSpy = vi.fn((url: string) => {
+      const latitudes = new URL(url).searchParams.get('latitude')?.split(',') ?? [];
+      const results = latitudes.map((latitude) => ({
+        latitude: Number(latitude),
+        longitude: 100,
+        hourly: { time: ['2026-11-03T00:00'], pm2_5: [12] },
+      }));
+      return Promise.resolve(
+        new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { 'x-ratelimit-cost': '300.0', 'x-ratelimit-remaining': '300.0' },
+        }),
+      );
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await fetchAirQualityGrid('2026-11-03');
+
+    const lines = logSpy.mock.calls
+      .map(([message]) => String(message))
+      .filter((message) => message.includes('rate limit'));
+    expect(lines).toHaveLength(16);
+    expect(lines[0]).toBe(
+      '[openmeteo] AQ batch rate limit: cost 300.0, remaining 300.0 of n/a per n/as',
+    );
   });
 });

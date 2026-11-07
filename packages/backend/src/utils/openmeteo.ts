@@ -98,6 +98,16 @@ function parseRateLimitReason(bodyText: string): string {
   }
 }
 
+// Open-Meteo reports the budget of the current minute on every response. Logging it shows how
+// much of the minute other traffic on our IP used (JOO-135): a first batch that starts below
+// the full budget means the IP is shared.
+function logRateLimit(label: string, res: Response): void {
+  const header = (name: string) => res.headers.get(name) ?? 'n/a';
+  console.log(
+    `[openmeteo] ${label} rate limit: cost ${header('x-ratelimit-cost')}, remaining ${header('x-ratelimit-remaining')} of ${header('x-ratelimit-limit')} per ${header('x-ratelimit-window')}s`,
+  );
+}
+
 // A failure to reach Open-Meteo or to finish a request in time, as opposed to an HTTP error.
 export function isConnectionError(err: unknown): err is Error {
   return (
@@ -175,7 +185,10 @@ async function fetchWeatherBatch(
       continue;
     }
 
-    if (res.status !== 429) break;
+    if (res.status !== 429) {
+      logRateLimit('weather batch', res);
+      break;
+    }
 
     // Log every header on 429 so we can see what rate-limit info Open-Meteo exposes.
     const allHeaders: Record<string, string> = {};
@@ -342,7 +355,10 @@ async function fetchAQBatch(
       );
       throw err;
     }
-    if (res.status !== 429) break;
+    if (res.status !== 429) {
+      logRateLimit('AQ batch', res);
+      break;
+    }
 
     const body = (await res.json().catch(() => null)) as { reason?: string } | null;
     const reason = body?.reason ?? '';
