@@ -73,12 +73,13 @@ const WEATHER_429_MAX_RETRIES = 3;
 const WEATHER_429_FALLBACK_MS = 65_000;
 
 const WEATHER_REQUEST_TIMEOUT_MS = 30_000;
-// A timed-out batch is retried once on its own, so the batches already fetched are kept.
-// The retry may spend that batch's 300 calls again. A full run is 4,599 of the 5,000 calls
-// an hour, so a second retry (5,199) would not fit. It waits one batch pause to stay under
-// 600 calls a minute. Timeouts and 429s share the same attempt loop, so one batch sends at
-// most WEATHER_429_MAX_RETRIES + 1 requests.
-const WEATHER_TIMEOUT_MAX_RETRIES = 1;
+// A timed-out batch is retried on its own, so the batches already fetched are kept. The retry
+// spends that batch's 300 calls again. A full run is 4,599 of the 5,000 calls an hour, so one
+// retry (4,899) fits and a second (5,199) would not: the whole run gets one timeout retry, not
+// one per batch. A second stalled batch fails the run and the 02:00 UTC fallback fills the day.
+// The retry waits one batch pause to stay under 600 calls a minute. Timeouts and 429s share the
+// same attempt loop, so one batch sends at most WEATHER_429_MAX_RETRIES + 1 requests.
+const WEATHER_TIMEOUT_MAX_RETRIES_PER_RUN = 1;
 // The timeout retry of a recent past day goes to the forecast endpoint instead of the archive
 // one (JOO-128: archive stalls come and go, the retry on the same host stalled too). Only a
 // day up to this old: the forecast endpoint serves about the last 92 days, and archive and
@@ -131,8 +132,11 @@ async function fetchWeatherBatch(
   lats: number[],
   lngs: number[],
   date: string,
-  isToday: boolean,
-  canFailOver: boolean,
+  {
+    isToday,
+    canFailOver,
+    timeoutRetries,
+  }: { isToday: boolean; canFailOver: boolean; timeoutRetries: { left: number } },
 ): Promise<WeatherReading[]> {
   const forecastUrl = 'https://api.open-meteo.com/v1/forecast';
   const baseUrl = isToday ? forecastUrl : 'https://archive-api.open-meteo.com/v1/archive';
@@ -152,7 +156,6 @@ async function fetchWeatherBatch(
 
   let res: Response | undefined;
   let bodyText = '';
-  let timeoutRetriesLeft = WEATHER_TIMEOUT_MAX_RETRIES;
   // Only the timed-out batch switches endpoint. A 429 after the switch is waited out on the
   // forecast endpoint, as it would be on the archive one; whether the two hosts count calls
   // separately is not known, so the budget above assumes they share one.
@@ -169,7 +172,7 @@ async function fetchWeatherBatch(
       bodyText = await readBody(res);
     } catch (err) {
       if (!isTimeoutError(err)) throw err;
-      const canRetry = timeoutRetriesLeft > 0 && attempt < WEATHER_429_MAX_RETRIES;
+      const canRetry = timeoutRetries.left > 0 && attempt < WEATHER_429_MAX_RETRIES;
       // Host and elapsed time help tell a slow endpoint from a stalled connection. The
       // final failure is logged too, so every timeout of a run shows up.
       const retryUrl = canFailOver ? forecastUrl : url;
@@ -179,7 +182,7 @@ async function fetchWeatherBatch(
         `[openmeteo] weather batch timed out after ${Date.now() - startedAt}ms on ${new URL(url).host}, ${canRetry ? `retrying${retryWhere} in ${Math.round(WEATHER_BATCH_PAUSE_MS / 1000)}s` : 'giving up'}`,
       );
       if (!canRetry) throw err;
-      timeoutRetriesLeft -= 1;
+      timeoutRetries.left -= 1;
       url = retryUrl;
       await sleep(WEATHER_BATCH_PAUSE_MS);
       continue;
@@ -259,6 +262,7 @@ export async function fetchWeatherGridForDate(
   const isToday = date === options.calendarDayBkk;
   const ageDays = (Date.parse(options.calendarDayBkk) - Date.parse(date)) / 86_400_000;
   const canFailOver = ageDays >= 0 && ageDays <= WEATHER_FAILOVER_MAX_AGE_DAYS;
+  const timeoutRetries = { left: WEATHER_TIMEOUT_MAX_RETRIES_PER_RUN };
 
   // Build flat list of all grid points
   const allLats: number[] = [];
@@ -287,7 +291,11 @@ export async function fetchWeatherGridForDate(
   for (let i = 0; i < batches.length; i++) {
     const b = batches[i];
     console.log(`[openmeteo] weather batch ${i + 1}/${batches.length} (${b.lats.length} points)`);
-    const readings = await fetchWeatherBatch(b.lats, b.lngs, date, isToday, canFailOver);
+    const readings = await fetchWeatherBatch(b.lats, b.lngs, date, {
+      isToday,
+      canFailOver,
+      timeoutRetries,
+    });
     results.push(...readings);
     if (i < batches.length - 1) await sleep(WEATHER_BATCH_PAUSE_MS);
   }

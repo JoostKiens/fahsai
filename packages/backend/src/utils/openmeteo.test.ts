@@ -266,6 +266,26 @@ describe('fetchWeatherGridForDate timeouts', () => {
     expect(timeouts[1]).toMatch(/after \d+ms on api\.open-meteo\.com, giving up$/);
   });
 
+  it('gives up on a second stalled batch once the run has used its one retry', async () => {
+    let call = 0;
+    const { error, fetchSpy } = await runGrid((_url, init) => {
+      call += 1;
+      // Call 3 is batch 3 (stalls), call 4 its retry (succeeds), call 5 is batch 4 (stalls).
+      return call === 3 || call === 5
+        ? Promise.reject(timeoutError())
+        : Promise.resolve(okResponse(init.body));
+    });
+
+    expect(isTimeoutError(error)).toBe(true);
+    // Batches 1 and 2, batch 3 and its retry, then batch 4 once: a second retry would spend
+    // another 300 calls of an hour that has 401 to spare.
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    const timeouts = warnings().filter((message) => message.includes('timed out after'));
+    expect(timeouts).toHaveLength(2);
+    expect(timeouts[0]).toMatch(/retrying on api\.open-meteo\.com in 35s$/);
+    expect(timeouts[1]).toMatch(/on archive-api\.open-meteo\.com, giving up$/);
+  });
+
   it('does not retry an error that is not a timeout', async () => {
     const { error, fetchSpy } = await runGrid(() => Promise.reject(new TypeError('fetch failed')));
 
