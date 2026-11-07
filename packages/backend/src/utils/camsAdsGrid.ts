@@ -1,12 +1,17 @@
 import type { PM25GridPoint } from '@thailand-aq/types';
-import { CAMS_LEAD_HOURS, fetchCamsGrib } from './camsAds.js';
+import { CAMS_LEAD_HOURS, CAMS_RUNS, fetchCamsGrib } from './camsAds.js';
 import { dailyMean, resampleToAqGrid, toMicrograms } from './camsResample.js';
 import { decodeGrib1, type Grib1Message } from './grib1.js';
 
 /** The day's PM2.5 grid from the Copernicus ADS, on our 63 × 73 grid, in µg/m³. */
 export async function fetchAdsGrid(date: string, apiKey: string): Promise<PM25GridPoint[]> {
-  const grib = await fetchCamsGrib({ date, apiKey });
-  return gridFromMessages(decodeGrib1(grib));
+  const perRun = await Promise.all(
+    CAMS_RUNS.map(async (run) => {
+      const grib = await fetchCamsGrib({ date, run, apiKey });
+      return decodeGrib1(grib).map((m) => ({ ...m, leadHour: m.leadHour + run.leadShift }));
+    }),
+  );
+  return gridFromMessages(perRun.flat());
 }
 
 export function gridFromMessages(messages: Grib1Message[]): PM25GridPoint[] {

@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AQ_LAT_COUNT, AQ_LNG_COUNT } from '@thailand-aq/consts';
-import { CAMS_LEAD_HOURS } from './camsAds.js';
-import { gridFromMessages } from './camsAdsGrid.js';
-import type { Grib1Message } from './grib1.js';
+
+// The network and the file format are the boundaries: mock them, keep the assembly real.
+vi.mock('./camsAds.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./camsAds.js')>()),
+  fetchCamsGrib: vi.fn(),
+}));
+vi.mock('./grib1.js', () => ({ decodeGrib1: vi.fn() }));
+
+import { CAMS_LEAD_HOURS, CAMS_RUNS, fetchCamsGrib } from './camsAds.js';
+import { fetchAdsGrid, gridFromMessages } from './camsAdsGrid.js';
+import { decodeGrib1, type Grib1Message } from './grib1.js';
 
 const geometry = { ni: 64, nj: 75, lat1: 30.4, lng1: 88.8, dLat: 0.4, dLng: 0.4 };
 
@@ -42,5 +50,47 @@ describe('gridFromMessages', () => {
     const wrongHours = fullDay(() => 1e-8).map((m) => ({ ...m, leadHour: m.leadHour + 1 }));
 
     expect(() => gridFromMessages(wrongHours)).toThrow(/hours 5 to 28/);
+  });
+});
+
+describe('fetchAdsGrid', () => {
+  beforeEach(() => {
+    vi.mocked(fetchCamsGrib).mockReset();
+    vi.mocked(decodeGrib1).mockReset();
+    // The "file" is just the run's time; the decoder returns what that run holds.
+    vi.mocked(fetchCamsGrib).mockImplementation(({ run }) =>
+      Promise.resolve(Buffer.from(run.time)),
+    );
+    vi.mocked(decodeGrib1).mockImplementation((buf) => {
+      const run = CAMS_RUNS.find((r) => r.time === buf.toString());
+      return (run?.leadHours ?? []).map((hour) => message(hour, 1e-8));
+    });
+  });
+
+  it('requests each run once, with the date and the key', async () => {
+    await fetchAdsGrid('2026-11-06', 'secret-key');
+
+    expect(fetchCamsGrib).toHaveBeenCalledTimes(CAMS_RUNS.length);
+    CAMS_RUNS.forEach((run) =>
+      expect(fetchCamsGrib).toHaveBeenCalledWith({ date: '2026-11-06', run, apiKey: 'secret-key' }),
+    );
+  });
+
+  it('numbers the hours of the second run after the first, so the day has hours 5 to 28', async () => {
+    // Without the lead shift the runs would repeat hours 5 to 11 and gridFromMessages would throw.
+    const points = await fetchAdsGrid('2026-11-06', 'secret-key');
+
+    expect(points).toHaveLength(AQ_LNG_COUNT * AQ_LAT_COUNT);
+    expect(points[0].pm25).toBe(10);
+  });
+
+  it('fails when one run fails, so a partial day is never stored', async () => {
+    vi.mocked(fetchCamsGrib).mockImplementation(({ run }) =>
+      run.time === '00:00'
+        ? Promise.reject(new Error('ADS job failed'))
+        : Promise.resolve(Buffer.from(run.time)),
+    );
+
+    await expect(fetchAdsGrid('2026-11-06', 'secret-key')).rejects.toThrow('ADS job failed');
   });
 });

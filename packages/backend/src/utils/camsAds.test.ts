@@ -4,6 +4,8 @@ import {
   AdsJobError,
   AdsTimeoutError,
   CAMS_AREA,
+  CAMS_LEAD_HOURS,
+  CAMS_RUNS,
   buildRequestBody,
   camsRunDate,
   fetchCamsGrib,
@@ -44,6 +46,7 @@ function fetchReturning(...responses: Array<Response | Error>) {
 function run(fetchImpl: typeof fetch, options: object = {}) {
   return fetchCamsGrib({
     date: '2026-11-06',
+    run: CAMS_RUNS[0],
     apiKey: 'secret-key',
     fetchImpl,
     ...fast,
@@ -51,35 +54,71 @@ function run(fetchImpl: typeof fetch, options: object = {}) {
   });
 }
 
+const [EVENING_RUN, MORNING_RUN] = CAMS_RUNS;
+
 describe('camsRunDate', () => {
-  it('is the day before the Bangkok day', () => {
-    expect(camsRunDate('2026-11-06')).toBe('2026-11-05');
+  it('is the day before the Bangkok day for an offset of -1', () => {
+    expect(camsRunDate('2026-11-06', -1)).toBe('2026-11-05');
+  });
+
+  it('is the Bangkok day itself for an offset of 0', () => {
+    expect(camsRunDate('2026-11-06', 0)).toBe('2026-11-06');
   });
 
   it('crosses a month boundary', () => {
-    expect(camsRunDate('2026-12-01')).toBe('2026-11-30');
+    expect(camsRunDate('2026-12-01', -1)).toBe('2026-11-30');
   });
 });
 
 describe('buildRequestBody', () => {
-  const { inputs } = buildRequestBody('2026-11-06');
+  it('asks for the 12 UTC run of the day before, hours 5 to 11', () => {
+    const { inputs } = buildRequestBody('2026-11-06', EVENING_RUN);
 
-  it('asks for the 12 UTC run of the day before, hours 5 to 28', () => {
     expect(inputs).toMatchObject({
       variable: ['particulate_matter_2.5um'],
       date: ['2026-11-05/2026-11-05'],
       time: ['12:00'],
       type: ['forecast'],
       data_format: 'grib',
+      leadtime_hour: ['5', '6', '7', '8', '9', '10', '11'],
     });
-    expect(inputs.leadtime_hour).toHaveLength(24);
-    expect(inputs.leadtime_hour[0]).toBe('5');
-    expect(inputs.leadtime_hour[23]).toBe('28');
+  });
+
+  it('asks for the 00 UTC run of the Bangkok day, hours 0 to 16', () => {
+    const { inputs } = buildRequestBody('2026-11-06', MORNING_RUN);
+
+    expect(inputs.date).toEqual(['2026-11-06/2026-11-06']);
+    expect(inputs.time).toEqual(['00:00']);
+    expect(inputs.leadtime_hour).toHaveLength(17);
+    expect(inputs.leadtime_hour[0]).toBe('0');
+    expect(inputs.leadtime_hour[16]).toBe('16');
   });
 
   it('asks for one ring more than our grid, so every point has four neighbours', () => {
+    const { inputs } = buildRequestBody('2026-11-06', EVENING_RUN);
+
     expect(inputs.area).toEqual([30.4, 88.8, 0.8, 114]);
     expect(CAMS_AREA).toEqual([30.4, 88.8, 0.8, 114]);
+  });
+});
+
+describe('CAMS_RUNS', () => {
+  const HOUR_MS = 3_600_000;
+
+  it('together cover each of the 24 hours of the Bangkok day exactly once', () => {
+    const validTimes = CAMS_RUNS.flatMap((r) => {
+      const runStart = Date.parse(`${camsRunDate('2026-11-06', r.runDayOffset)}T${r.time}:00Z`);
+      return r.leadHours.map((lead) => runStart + lead * HOUR_MS);
+    }).sort((a, b) => a - b);
+
+    const dayStart = Date.parse('2026-11-05T17:00:00Z'); // 00:00 in Bangkok on 6 Nov
+    expect(validTimes).toEqual(Array.from({ length: 24 }, (_, i) => dayStart + i * HOUR_MS));
+  });
+
+  it('number the hours 5 to 28 once the lead shift is applied', () => {
+    const numbered = CAMS_RUNS.flatMap((r) => r.leadHours.map((h) => h + r.leadShift));
+
+    expect(numbered.sort((a, b) => a - b)).toEqual(CAMS_LEAD_HOURS);
   });
 });
 
@@ -119,7 +158,7 @@ describe('fetchCamsGrib', () => {
 
     const [submit, , results, file] = fetchImpl.mock.calls;
     expect(submit[1]?.method).toBe('POST');
-    expect(JSON.parse(bodyOf(submit[1]))).toEqual(buildRequestBody('2026-11-06'));
+    expect(JSON.parse(bodyOf(submit[1]))).toEqual(buildRequestBody('2026-11-06', EVENING_RUN));
     expect(new Headers(submit[1]?.headers).get('PRIVATE-TOKEN')).toBe('secret-key');
     expect(new Headers(results[1]?.headers).get('PRIVATE-TOKEN')).toBe('secret-key');
     // The download host is not the ADS: never send it the key.
