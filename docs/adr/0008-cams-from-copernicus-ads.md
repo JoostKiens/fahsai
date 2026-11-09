@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-07
 **Status:** Accepted
-**Switch date:** _fill in the first Bangkok date stored from the ADS when this is deployed._ Days
-before it come from Open-Meteo.
+**Switch date:** 2026-11-07, the first Bangkok date stored from the ADS (stored by the 23:00 UTC job
+on 7 Nov, about 06:00 Bangkok on 8 Nov). Days before it come from Open-Meteo.
 
 ## Context
 
