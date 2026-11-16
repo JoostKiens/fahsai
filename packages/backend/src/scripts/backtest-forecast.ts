@@ -222,7 +222,8 @@ async function fetchCamsDailyMeans({ city }: { city: CityDef }): Promise<Map<str
     hourly: 'pm2_5',
     start_date: firstFetchDate,
     end_date: endDate,
-    timezone: 'Asia/Bangkok',
+    // UTC days, to match the station means: each OpenAQ S3 file holds one UTC day.
+    timezone: 'GMT',
   });
   const url = `https://air-quality-api.open-meteo.com/v1/air-quality?${params.toString()}`;
 
