@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import type { PM25GridColumns, PM25GridPoint } from '@thailand-aq/types';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 import { zipGridColumns } from '@/utils/camsColumns';
 import { fetchApiData } from '@/lib/api';
+import type { KeepPreviousOption } from '@/utils/queryHelpers';
 
 export async function fetchCamsGrid(date: string): Promise<PM25GridPoint[]> {
   const columns = await fetchApiData<PM25GridColumns | null>(
@@ -14,7 +15,7 @@ export async function fetchCamsGrid(date: string): Promise<PM25GridPoint[]> {
   return columns ? zipGridColumns(columns) : [];
 }
 
-export function useCamsGrid() {
+export function useCamsGrid({ keepPrevious = false }: KeepPreviousOption = {}) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
@@ -22,5 +23,6 @@ export function useCamsGrid() {
     queryFn: () => fetchCamsGrid(selectedDate),
     staleTime: staleTimeForArray,
     enabled: latestDateResolved,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   });
 }

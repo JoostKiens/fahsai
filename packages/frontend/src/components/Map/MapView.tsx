@@ -53,11 +53,12 @@ export function MapView() {
   const [windOverlay, setWindOverlay] = useState<MapboxOverlay | null>(null);
   const [compactAttribution, setCompactAttribution] = useState(false);
 
-  const { data: fires } = useFires();
-  const { data: aqi } = useStationReadings();
-  const { data: aqGrid } = useCamsGrid();
+  // The previous date stays drawn while the next one loads, so the map doesn't flash bare basemap.
+  const { data: fires } = useFires({ keepPrevious: true });
+  const { data: aqi } = useStationReadings({ keepPrevious: true });
+  const { data: aqGrid } = useCamsGrid({ keepPrevious: true });
   const pm25Bitmap = useCamsBitmap(aqGrid);
-  const { data: wind } = useWind();
+  const { data: wind } = useWind({ keepPrevious: true });
 
   const aqGridConfig = useLayerStore((s) => s.layers.aqGrid);
   const aqStationsConfig = useLayerStore((s) => s.layers.aqStations);

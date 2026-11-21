@@ -1,14 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import type { FirePoint } from '@thailand-aq/types';
 import { staleTimeForArray } from '@/utils/queryHelpers';
 import { fetchApiData } from '@/lib/api';
+import type { KeepPreviousOption } from '@/utils/queryHelpers';
 
 export function fetchFires(date: string): Promise<FirePoint[]> {
   return fetchApiData<FirePoint[]>(`/fires?date=${date}`, 'fires', []);
 }
 
-export function useFires() {
+export function useFires({ keepPrevious = false }: KeepPreviousOption = {}) {
   const selectedDate = useTimeStore((s) => s.selectedDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
   return useQuery({
@@ -16,5 +17,6 @@ export function useFires() {
     queryFn: () => fetchFires(selectedDate),
     staleTime: staleTimeForArray,
     enabled: latestDateResolved,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   });
 }
