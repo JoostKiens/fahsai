@@ -1,9 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { WindReading } from '@thailand-aq/types';
 import { useTimeStore } from '@/store/timeStore';
-import { staleTimeForArray } from '@/utils/queryHelpers';
+import { staleTimeForArray, type KeepPreviousOption } from '@/utils/queryHelpers';
 import { fetchApiData } from '@/lib/api';
-import type { KeepPreviousOption } from '@/utils/queryHelpers';
 
 export function fetchWind(date: string): Promise<WindReading[]> {
   return fetchApiData<WindReading[]>(`/weather/wind?date=${date}`, 'wind', []);

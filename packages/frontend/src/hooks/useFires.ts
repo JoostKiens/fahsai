@@ -1,9 +1,8 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import type { FirePoint } from '@thailand-aq/types';
-import { staleTimeForArray } from '@/utils/queryHelpers';
+import { staleTimeForArray, type KeepPreviousOption } from '@/utils/queryHelpers';
 import { fetchApiData } from '@/lib/api';
-import type { KeepPreviousOption } from '@/utils/queryHelpers';
 
 export function fetchFires(date: string): Promise<FirePoint[]> {
   return fetchApiData<FirePoint[]>(`/fires?date=${date}`, 'fires', []);

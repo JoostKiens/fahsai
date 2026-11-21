@@ -166,9 +166,11 @@ export const PlayWaitsForTheMap: Story = {
     await expect(useUIStore.getState().scrubberDay).toBe(0);
     useUIStore.setState({ mapDataLoading: false });
     await waitFor(() => expect(useUIStore.getState().scrubberDay).toBe(1), { timeout: 2000 });
-    // A play step sets the date straight away, without the drag debounce (300 ms).
-    await expect(useTimeStore.getState().selectedDate).toBe(
-      dayToDate(1, LATEST_DATE, SCRUBBER_DAYS),
+    // A play step sets the date on the next render, without the drag debounce (300 ms).
+    await waitFor(
+      () =>
+        expect(useTimeStore.getState().selectedDate).toBe(dayToDate(1, LATEST_DATE, SCRUBBER_DAYS)),
+      { timeout: 200 },
     );
     await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
   },

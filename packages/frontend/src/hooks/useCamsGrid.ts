@@ -1,10 +1,9 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTimeStore } from '@/store/timeStore';
 import type { PM25GridColumns, PM25GridPoint } from '@thailand-aq/types';
-import { staleTimeForArray } from '@/utils/queryHelpers';
+import { staleTimeForArray, type KeepPreviousOption } from '@/utils/queryHelpers';
 import { zipGridColumns } from '@/utils/camsColumns';
 import { fetchApiData } from '@/lib/api';
-import type { KeepPreviousOption } from '@/utils/queryHelpers';
 
 export async function fetchCamsGrid(date: string): Promise<PM25GridPoint[]> {
   const columns = await fetchApiData<PM25GridColumns | null>(

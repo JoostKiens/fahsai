@@ -165,12 +165,12 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
         </div>
 
         {ready ? (
-          <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-29 shrink-0">
+          <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-30 shrink-0">
             {formatDate(dateStr, locale)}
             <DateLoadingIndicator loading={mapDataLoading} />
           </span>
         ) : (
-          <Shimmer className="hidden md:block h-[19.5px] w-29 shrink-0" />
+          <Shimmer className="hidden md:block h-[19.5px] w-30 shrink-0" />
         )}
 
         <div className="flex-1 min-w-0">
