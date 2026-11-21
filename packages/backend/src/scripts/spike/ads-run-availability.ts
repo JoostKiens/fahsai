@@ -8,7 +8,7 @@
 import { appendFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
-import { AdsJobError, fetchCamsGrib, type CamsRun } from '../../utils/camsAds.js';
+import { AdsHttpError, fetchCamsGrib, type CamsRun } from '../../utils/camsAds.js';
 import { decodeGrib1 } from '../../utils/grib1.js';
 
 const HOUR_MS = 3_600_000;
@@ -91,8 +91,12 @@ async function probe({
     outcome = messages > 0 ? 'available' : 'not-yet';
     detail = `${messages} messages`;
   } catch (err) {
-    // the ADS answers a request for a run it does not hold yet with a failed job
-    outcome = err instanceof AdsJobError ? 'not-yet' : 'error';
+    // the ADS rejects a request for a run it does not hold yet (seen 2026-11-21), not a failed job
+    const isNotPublished =
+      err instanceof AdsHttpError &&
+      err.status === 400 &&
+      err.message.includes('not produced a valid combination');
+    outcome = isNotPublished ? 'not-yet' : 'error';
     detail = (err as Error).message.slice(0, 300);
   }
   const line = {
