@@ -15,7 +15,7 @@ import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
 import { DateLoadingIndicator } from './DateLoadingIndicator';
-import { TimelineChart } from './TimelineChart';
+import { CHART_HEIGHT_PX, TimelineChart } from './TimelineChart';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 
 const PLAY_INTERVAL_MS = 1000;
@@ -192,7 +192,10 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
           <Shimmer className="hidden md:block h-[19.5px] w-30 shrink-0" />
         )}
 
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0"
+          style={{ '--chart-h': `${CHART_HEIGHT_PX}px` } as React.CSSProperties}
+        >
           {/* Timeline chart — desktop only, aligned to the slider width */}
           <div className="hidden md:block">
             <TimelineChart
@@ -214,7 +217,9 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                 disabled={!latestDateResolved}
                 className="w-full url-date:hidden"
               >
-                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
+                {/* On desktop the control reaches up over the timeline chart, so a click on the
+                    chart picks that day too. */}
+                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60 md:-mt-(--chart-h) md:pt-(--chart-h)">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                     <Slider.Thumb
                       ref={thumbRef}
@@ -223,7 +228,18 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                       getAriaValueText={(_, value) =>
                         formatDate(dayToDate(value, latestDate, scrubberDays), locale)
                       }
-                    />
+                    >
+                      {/* Invisible grab strip: Base UI counts a press inside the thumb as grabbing
+                          it, so this widens the hit area (24px for a mouse, 44px for touch, the
+                          WCAG target sizes) and, on desktop, reaches up over the timeline chart's
+                          marker line. Its top is measured from the thumb's centre (the chart's
+                          top is the chart height plus half the 4px track above it), so a bigger
+                          touch thumb doesn't push it out over the map. */}
+                      <span
+                        aria-hidden
+                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 pointer-coarse:w-11 h-full md:h-auto md:top-[calc(50%-var(--chart-h)-2px)]"
+                      />
+                    </Slider.Thumb>
                   </Slider.Track>
                 </Slider.Control>
               </Slider.Root>

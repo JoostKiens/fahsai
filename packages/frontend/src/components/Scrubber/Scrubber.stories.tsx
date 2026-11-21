@@ -187,6 +187,49 @@ export const ArrowKeyMovesADay: Story = {
   },
 };
 
+// Presses whatever the browser hit-tests at a point, so a layer painted on top of the slider
+// (like the chart) catches the press the way it would for a real click.
+async function pressAt(
+  userEvent: Parameters<NonNullable<Story['play']>>[0]['userEvent'],
+  x: number,
+  y: number,
+) {
+  const target = document.elementFromPoint(x, y);
+  if (!target) throw new Error(`Nothing at (${x}, ${y})`);
+  await userEvent.pointer([
+    { keys: '[MouseLeft>]', target, coords: { clientX: x, clientY: y } },
+    { keys: '[/MouseLeft]', target, coords: { clientX: x, clientY: y } },
+  ]);
+}
+
+function chartRect(canvasElement: HTMLElement) {
+  const chart = canvasElement.querySelector('svg[preserveAspectRatio="none"]');
+  if (!chart) throw new Error('No timeline chart');
+  return chart.getBoundingClientRect();
+}
+
+// On desktop a click anywhere on the chart picks the day under it.
+export const ClickOnChartPicksADay: Story = {
+  play: async ({ canvasElement, userEvent }) => {
+    const chart = await waitFor(() => chartRect(canvasElement));
+    await pressAt(userEvent, chart.left + chart.width * 0.2, chart.top + chart.height / 2);
+    await expect(useUIStore.getState().scrubberDay).toBe(Math.round((SCRUBBER_DAYS - 1) * 0.2));
+  },
+};
+
+// A press on the chart's marker line, beside the dot, lands on the thumb (its grab strip), so it
+// grabs the thumb instead of jumping. Above the chart it lands outside it, off the strip.
+export const ThumbGrabStripCoversTheMarker: Story = {
+  play: async ({ canvas, canvasElement }) => {
+    const chart = await waitFor(() => chartRect(canvasElement));
+    const thumb = canvas.getByRole('slider', { name: 'Select date' }).parentElement!;
+    const { left, width } = thumb.getBoundingClientRect();
+    const x = left + width / 2 - 10;
+    await expect(thumb.contains(document.elementFromPoint(x, chart.top + 2))).toBe(true);
+    await expect(thumb.contains(document.elementFromPoint(x, chart.top - 2))).toBe(false);
+  },
+};
+
 // Play waits while the map is still loading the day, so it never runs ahead of the map.
 export const PlayWaitsForTheMap: Story = {
   beforeEach: () => {
