@@ -107,6 +107,7 @@ export function TimelineChart({ timeline, scrubberDay, latestDate, scrubberDays 
         strokeOpacity="0.35"
         strokeWidth="1"
         vectorEffect="non-scaling-stroke"
+        className="url-date:hidden"
       />
     </svg>
   );

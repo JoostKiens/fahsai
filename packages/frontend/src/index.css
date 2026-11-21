@@ -22,6 +22,10 @@
   }
 }
 
+/* urlDateGuard.ts flags <html> while the scrubber may still show the latest day instead of the
+   link's date */
+@custom-variant url-date (html[data-url-date] &);
+
 @custom-variant pointer-coarse {
   @media (pointer: coarse) {
     @slot;

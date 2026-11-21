@@ -125,6 +125,12 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     return () => document.removeEventListener('keydown', onKey);
   }, [playing, setPlaying, latestDateResolved]);
 
+  // A link to a date shows placeholders until here (see urlDateGuard.ts): the server rendered the
+  // latest day, and useLatestDate moves the scrubber to the link's day when the latest date resolves.
+  useEffect(() => {
+    if (latestDateResolved) document.documentElement.removeAttribute('data-url-date');
+  }, [latestDateResolved]);
+
   function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
     setScrubberDay(value);
     if (playing) setPlaying(false);
@@ -140,10 +146,13 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
         {ready ? (
-          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-100 tabular-nums">
-            {formatDate(dateStr, locale)}
-            <DateLoadingIndicator loading={mapDataLoading} />
-          </span>
+          <>
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-100 tabular-nums url-date:hidden">
+              {formatDate(dateStr, locale)}
+              <DateLoadingIndicator loading={mapDataLoading} />
+            </span>
+            <Shimmer className="hidden url-date:block h-[19.5px] w-28 self-center" />
+          </>
         ) : (
           <Shimmer className="h-[19.5px] w-28 self-center" />
         )}
@@ -165,10 +174,13 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
         </div>
 
         {ready ? (
-          <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-30 shrink-0">
-            {formatDate(dateStr, locale)}
-            <DateLoadingIndicator loading={mapDataLoading} />
-          </span>
+          <>
+            <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-30 shrink-0 url-date:hidden">
+              {formatDate(dateStr, locale)}
+              <DateLoadingIndicator loading={mapDataLoading} />
+            </span>
+            <Shimmer className="hidden url-date:md:block h-[19.5px] w-30 shrink-0" />
+          </>
         ) : (
           <Shimmer className="hidden md:block h-[19.5px] w-30 shrink-0" />
         )}
@@ -193,7 +205,7 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                 max={scrubberDays - 1}
                 step={1}
                 disabled={!latestDateResolved}
-                className="w-full"
+                className="w-full url-date:hidden"
               >
                 <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
@@ -208,6 +220,9 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                   </Slider.Track>
                 </Slider.Control>
               </Slider.Root>
+              <div className="hidden url-date:flex w-full items-center">
+                <Shimmer className="h-1 w-full rounded-full" />
+              </div>
               <Tooltip.Root open={isDragging}>
                 <Tooltip.Portal>
                   <Tooltip.Positioner side="top" sideOffset={8} anchor={thumbRef} className="z-50">

@@ -33,6 +33,14 @@ async function expectReservedHeight(canvasElement: HTMLElement) {
   await expect(reserved - natural).toBeLessThan(1);
 }
 
+function isShown(element: Element) {
+  return element.checkVisibility();
+}
+
+function visibleShimmers(canvasElement: HTMLElement) {
+  return [...canvasElement.querySelectorAll('.animate-pulse')].filter(isShown);
+}
+
 const summaryHandler = http.get('*/api/v1/cams/summary', () => HttpResponse.json(summaryResponse));
 
 const meta = {
@@ -76,11 +84,35 @@ export const FromServerData: Story = {
     await expect(
       canvasElement.querySelector('svg[preserveAspectRatio="none"] path'),
     ).not.toBeNull();
-    await expect(canvasElement.querySelector('.animate-pulse')).toBeNull();
+    await expect(visibleShimmers(canvasElement)).toHaveLength(0);
     // Looks real, but nothing is wired to the map until the browser has the latest date.
     await expect(canvas.getByRole('slider', { name: 'Select date' })).toBeDisabled();
     await expect(canvas.getByRole('button', { name: 'Play' })).toBeDisabled();
     await expectReservedHeight(canvasElement);
+  },
+};
+
+// A link to a date: until the latest date is known the scrubber may still be on the latest day the
+// server rendered, so urlDateGuard.ts flags <html> and placeholders show instead of that day.
+export const LinkToADate: Story = {
+  args: { initialData: { latestDate: LATEST_DATE, timeline: summaryResponse.data } },
+  beforeEach: () => {
+    useTimeStore.setState({ latestDateResolved: false });
+    document.documentElement.setAttribute('data-url-date', '');
+    return () => document.documentElement.removeAttribute('data-url-date');
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(visibleShimmers(canvasElement).length).toBeGreaterThan(0);
+    await expect(canvas.queryByRole('slider', { name: 'Select date' })).toBeNull();
+    await expect(canvas.queryAllByText('24 Oct 2026').filter(isShown)).toHaveLength(0);
+    await expectReservedHeight(canvasElement);
+
+    useUIStore.setState({ scrubberDay: 9 });
+    useTimeStore.getState().setLatestDate(LATEST_DATE);
+
+    await waitFor(() => expect(visibleShimmers(canvasElement)).toHaveLength(0));
+    await expect(canvas.getAllByText('4 Oct 2026').filter(isShown).length).toBeGreaterThan(0);
+    await expect(canvas.getByRole('slider', { name: 'Select date' })).toBeEnabled();
   },
 };
 

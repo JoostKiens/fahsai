@@ -4,6 +4,7 @@ import placeholder from '@/assets/basemap-placeholder.jpg';
 import phonePlaceholder from '@/assets/basemap-placeholder-phone.jpg';
 import { DESKTOP_MEDIA_QUERY, PHONE_MEDIA_QUERY } from '@/utils/mapView';
 import { placeholderGuardScript } from '@/lib/placeholderGuard';
+import { urlDateGuardScript } from '@/lib/urlDateGuard';
 
 interface Props {
   lang: 'en' | 'th';
@@ -155,6 +156,9 @@ const structuredData = {
     <!-- Before anything paints: leave the placeholder out for a link to another place. Its hash is
          in the CSP (astro.config.mjs) -->
     <script is:inline set:html={placeholderGuardScript} />
+    <!-- Before anything paints: a link to a date shows scrubber placeholders, not the latest day.
+         Its hash is in the CSP too -->
+    <script is:inline set:html={urlDateGuardScript} />
 
     <link rel="preconnect" href="https://api.mapbox.com" crossorigin />
     {apiBase && <link rel="preconnect" href={apiBase} crossorigin />}
