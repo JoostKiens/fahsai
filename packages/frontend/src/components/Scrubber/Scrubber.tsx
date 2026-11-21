@@ -214,7 +214,9 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                 disabled={!latestDateResolved}
                 className="w-full url-date:hidden"
               >
-                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
+                {/* On desktop the control reaches up over the timeline chart (48px, see
+                    CHART_HEIGHT_PX), so a click on the chart picks that day too. */}
+                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60 md:-mt-12 md:pt-12">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                     <Slider.Thumb
                       ref={thumbRef}
@@ -223,7 +225,17 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                       getAriaValueText={(_, value) =>
                         formatDate(dayToDate(value, latestDate, scrubberDays), locale)
                       }
-                    />
+                    >
+                      {/* Invisible grab strip: Base UI counts a press inside the thumb as grabbing
+                          it, so this widens the hit area (24px for a mouse, 44px for touch, the
+                          WCAG target sizes) and, on desktop, reaches up over the timeline chart's
+                          marker line. The 48px is CHART_HEIGHT_PX in TimelineChart.tsx (a
+                          Tailwind class can't read the constant); keep both in sync. */}
+                      <span
+                        aria-hidden
+                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 pointer-coarse:w-11 h-full md:h-[calc(100%+48px)]"
+                      />
+                    </Slider.Thumb>
                   </Slider.Track>
                 </Slider.Control>
               </Slider.Root>

@@ -2,6 +2,8 @@ import { dayToDate } from '@/store/uiStore';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
 
 // Controls the chart height — change this constant to resize.
+// Scrubber.tsx repeats this value in the thumb's grab strip (md:h-[calc(100%+48px)]) and the
+// slider control (md:-mt-12 md:pt-12): keep them in sync.
 const CHART_HEIGHT_PX = 48;
 
 // The y-axis runs from 0 to the window's max, but never to less than this (µg/m³), so a quiet
