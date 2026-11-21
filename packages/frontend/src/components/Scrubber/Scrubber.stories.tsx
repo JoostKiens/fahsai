@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw/http';
 import { expect, waitFor } from 'storybook/test';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTimeStore } from '@/store/timeStore';
-import { useUIStore } from '@/store/uiStore';
+import { dayToDate, useUIStore } from '@/store/uiStore';
 import summaryResponse from './fixtures/2026-10-24/cams-summary.json';
 import { Scrubber } from './Scrubber';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
@@ -155,6 +155,25 @@ export const ArrowKeyMovesADay: Story = {
   },
 };
 
+// Play waits while the map is still loading the day, so it never runs ahead of the map.
+export const PlayWaitsForTheMap: Story = {
+  beforeEach: () => {
+    useUIStore.setState({ scrubberDay: 0, mapDataLoading: true });
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Play' }));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await expect(useUIStore.getState().scrubberDay).toBe(0);
+    useUIStore.setState({ mapDataLoading: false });
+    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBe(1), { timeout: 2000 });
+    // A play step sets the date straight away, without the drag debounce (300 ms).
+    await expect(useTimeStore.getState().selectedDate).toBe(
+      dayToDate(1, LATEST_DATE, SCRUBBER_DAYS),
+    );
+    await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
+  },
+};
+
 // Starts on the first day; playing advances it.
 export const PlayAdvances: Story = {
   beforeEach: () => {
@@ -162,7 +181,9 @@ export const PlayAdvances: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Play' }));
-    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0));
+    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0), {
+      timeout: 2000,
+    });
     await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
     await expect(useUIStore.getState().playing).toBe(false);
   },

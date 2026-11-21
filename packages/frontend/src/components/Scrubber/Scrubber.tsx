@@ -18,7 +18,7 @@ import { DateLoadingIndicator } from './DateLoadingIndicator';
 import { TimelineChart } from './TimelineChart';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 
-const PLAY_INTERVAL_MS = 800;
+const PLAY_INTERVAL_MS = 1000;
 const DEBOUNCE_MS = 300;
 
 function formatDate(dateStr: string, locale: string): string {
@@ -70,7 +70,6 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   const [isDragging, setIsDragging] = useState(false);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const hasSyncedInitialDate = useRef(false);
@@ -80,11 +79,16 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   // The first correction (once the real latestDate resolves) fires immediately so the
   // per-date data hooks (gated on latestDateResolved) don't fetch a still-stale selectedDate
-  // for another DEBOUNCE_MS. Only subsequent, user-driven changes (drag/autoplay) debounce.
+  // for another DEBOUNCE_MS. Play steps are never quick (see the play effect), so they don't wait
+  // either; only dragging and the arrow keys debounce, to skip the days passed on the way.
   useEffect(() => {
     if (!hasSyncedInitialDate.current) {
       if (!latestDateResolved) return;
       hasSyncedInitialDate.current = true;
+      setDate(dateStr);
+      return;
+    }
+    if (playing) {
       setDate(dateStr);
       return;
     }
@@ -95,22 +99,19 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [dateStr, latestDateResolved, setDate]);
+  }, [dateStr, latestDateResolved, playing, setDate]);
 
+  // Each step waits until the map has drawn the current day, then shows it for PLAY_INTERVAL_MS, so
+  // on a slow connection playback slows down instead of running ahead of the map. A day whose data
+  // is already loaded never sets mapDataLoading, so its timer runs from the step itself.
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        const current = useUIStore.getState().scrubberDay;
-        const days = getEffectiveScrubberDays();
-        setScrubberDay(current >= days - 1 ? 0 : current + 1);
-      }, PLAY_INTERVAL_MS);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, setScrubberDay]);
+    if (!playing || mapDataLoading) return;
+    const timer = setTimeout(() => {
+      const days = getEffectiveScrubberDays();
+      setScrubberDay(scrubberDay >= days - 1 ? 0 : scrubberDay + 1);
+    }, PLAY_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [playing, mapDataLoading, scrubberDay, setScrubberDay]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
