@@ -1,10 +1,9 @@
 import { dayToDate } from '@/store/uiStore';
 import { pm25ToRgbLerped } from '@/utils/aqiColors';
 
-// Controls the chart height — change this constant to resize.
-// Scrubber.tsx repeats this value in the thumb's grab strip (md:h-[calc(100%+48px)]) and the
-// slider control (md:-mt-12 md:pt-12): keep them in sync.
-const CHART_HEIGHT_PX = 48;
+// Controls the chart height — change this constant to resize. Scrubber.tsx passes it to its
+// classes as --chart-h, so the slider's hit areas stretch over the chart at the same height.
+export const CHART_HEIGHT_PX = 48;
 
 // The y-axis runs from 0 to the window's max, but never to less than this (µg/m³), so a quiet
 // window isn't stretched to full height and looks calm instead of like a spike.
@@ -76,6 +75,9 @@ export function TimelineChart({ timeline, scrubberDay, latestDate, scrubberDays 
       viewBox={`0 0 ${xMax} 100`}
       preserveAspectRatio="none"
       aria-hidden
+      // The slider control sits over the chart and takes its clicks; this keeps the chart from
+      // catching them in a browser that paints it on top.
+      className="pointer-events-none"
     >
       <defs>
         <linearGradient
