@@ -14,10 +14,11 @@ import type { ScrubberData } from '@/lib/scrubberData';
 import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
+import { DateLoadingIndicator } from './DateLoadingIndicator';
 import { TimelineChart } from './TimelineChart';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 
-const PLAY_INTERVAL_MS = 800;
+const PLAY_INTERVAL_MS = 1000;
 const DEBOUNCE_MS = 300;
 
 function formatDate(dateStr: string, locale: string): string {
@@ -51,6 +52,7 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
   const scrubberDays = useEffectiveScrubberDays();
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
+  const mapDataLoading = useUIStore((s) => s.mapDataLoading);
   const setDate = useTimeStore((s) => s.setDate);
   const storeLatestDate = useTimeStore((s) => s.latestDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
@@ -68,7 +70,6 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   const [isDragging, setIsDragging] = useState(false);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const hasSyncedInitialDate = useRef(false);
@@ -78,11 +79,16 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   // The first correction (once the real latestDate resolves) fires immediately so the
   // per-date data hooks (gated on latestDateResolved) don't fetch a still-stale selectedDate
-  // for another DEBOUNCE_MS. Only subsequent, user-driven changes (drag/autoplay) debounce.
+  // for another DEBOUNCE_MS. Play steps are never quick (see the play effect), so they don't wait
+  // either; only dragging and the arrow keys debounce, to skip the days passed on the way.
   useEffect(() => {
     if (!hasSyncedInitialDate.current) {
       if (!latestDateResolved) return;
       hasSyncedInitialDate.current = true;
+      setDate(dateStr);
+      return;
+    }
+    if (playing) {
       setDate(dateStr);
       return;
     }
@@ -93,22 +99,19 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [dateStr, latestDateResolved, setDate]);
+  }, [dateStr, latestDateResolved, playing, setDate]);
 
+  // Each step waits until the map has drawn the current day, then shows it for PLAY_INTERVAL_MS, so
+  // on a slow connection playback slows down instead of running ahead of the map. A day whose data
+  // is already loaded never sets mapDataLoading, so its timer runs from the step itself.
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        const current = useUIStore.getState().scrubberDay;
-        const days = getEffectiveScrubberDays();
-        setScrubberDay(current >= days - 1 ? 0 : current + 1);
-      }, PLAY_INTERVAL_MS);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, setScrubberDay]);
+    if (!playing || mapDataLoading) return;
+    const timer = setTimeout(() => {
+      const days = getEffectiveScrubberDays();
+      setScrubberDay(scrubberDay >= days - 1 ? 0 : scrubberDay + 1);
+    }, PLAY_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [playing, mapDataLoading, scrubberDay, setScrubberDay]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -137,8 +140,9 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
         {ready ? (
-          <span className="text-[13px] font-semibold text-zinc-100 tabular-nums">
+          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-100 tabular-nums">
             {formatDate(dateStr, locale)}
+            <DateLoadingIndicator loading={mapDataLoading} />
           </span>
         ) : (
           <Shimmer className="h-[19.5px] w-28 self-center" />
@@ -161,11 +165,12 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
         </div>
 
         {ready ? (
-          <span className="hidden md:block text-[13px] font-medium text-zinc-200 tabular-nums w-25 shrink-0">
+          <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-30 shrink-0">
             {formatDate(dateStr, locale)}
+            <DateLoadingIndicator loading={mapDataLoading} />
           </span>
         ) : (
-          <Shimmer className="hidden md:block h-[19.5px] w-25 shrink-0" />
+          <Shimmer className="hidden md:block h-[19.5px] w-30 shrink-0" />
         )}
 
         <div className="flex-1 min-w-0">

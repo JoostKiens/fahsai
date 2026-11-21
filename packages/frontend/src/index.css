@@ -13,6 +13,13 @@
   --font-mono: 'Geist Mono', ui-monospace, monospace;
   /* Lifted from #71717b so small secondary text passes WCAG AA (4.5:1) on zinc-900 and zinc-800. */
   --color-zinc-500: #8e8e97;
+  /* Holds back a loading cue so a quick load never flashes it (DateLoadingIndicator.tsx) */
+  --animate-fade-in-late: fade-in 150ms ease-out 300ms both;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 @custom-variant pointer-coarse {

@@ -112,6 +112,7 @@
   "explain.disclaimer": "AI-generated — may contain errors",
 
   "scrubber.selectDate": "Select date",
+  "scrubber.loadingDate": "Loading data for this date",
   "scrubber.play": "Play",
   "scrubber.pause": "Pause",
   "scrubber.dateNotAvailable": "Date not available — showing the nearest available date instead.",

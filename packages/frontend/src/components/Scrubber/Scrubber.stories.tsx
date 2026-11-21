@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw/http';
 import { expect, waitFor } from 'storybook/test';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTimeStore } from '@/store/timeStore';
-import { useUIStore } from '@/store/uiStore';
+import { dayToDate, useUIStore } from '@/store/uiStore';
 import summaryResponse from './fixtures/2026-10-24/cams-summary.json';
 import { Scrubber } from './Scrubber';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
@@ -40,7 +40,7 @@ const meta = {
   parameters: { msw: { handlers: [summaryHandler] } },
   beforeEach: () => {
     useSettingsStore.setState({ scrubberDays: SCRUBBER_DAYS });
-    useUIStore.setState({ scrubberDay: SCRUBBER_DAYS - 1 });
+    useUIStore.setState({ scrubberDay: SCRUBBER_DAYS - 1, mapDataLoading: false });
     useTimeStore.setState({
       latestDate: LATEST_DATE,
       latestDateResolved: true,
@@ -100,6 +100,23 @@ export const Mobile: Story = {
   play: ({ canvasElement }) => expectReservedHeight(canvasElement),
 };
 
+// The map is still loading the selected date: a spinner fades in beside the date.
+export const LoadingDate: Story = {
+  beforeEach: () => {
+    useUIStore.setState({ mapDataLoading: true });
+  },
+  play: async ({ canvas, canvasElement }) => {
+    // Both date labels carry one; CSS hides the one for the other layout.
+    await expect((await canvas.findAllByText('Loading data for this date')).length).toBe(2);
+    await expectReservedHeight(canvasElement);
+  },
+};
+
+export const LoadingDateMobile: Story = {
+  ...LoadingDate,
+  globals: { viewport: { value: 'mobile1', isRotated: false } },
+};
+
 // Until the API reports its latest date, the controls are placeholders.
 export const WaitingForLatestDate: Story = {
   beforeEach: () => {
@@ -138,6 +155,27 @@ export const ArrowKeyMovesADay: Story = {
   },
 };
 
+// Play waits while the map is still loading the day, so it never runs ahead of the map.
+export const PlayWaitsForTheMap: Story = {
+  beforeEach: () => {
+    useUIStore.setState({ scrubberDay: 0, mapDataLoading: true });
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Play' }));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await expect(useUIStore.getState().scrubberDay).toBe(0);
+    useUIStore.setState({ mapDataLoading: false });
+    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBe(1), { timeout: 2000 });
+    // A play step sets the date on the next render, without the drag debounce (300 ms).
+    await waitFor(
+      () =>
+        expect(useTimeStore.getState().selectedDate).toBe(dayToDate(1, LATEST_DATE, SCRUBBER_DAYS)),
+      { timeout: 200 },
+    );
+    await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
+  },
+};
+
 // Starts on the first day; playing advances it.
 export const PlayAdvances: Story = {
   beforeEach: () => {
@@ -145,7 +183,9 @@ export const PlayAdvances: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Play' }));
-    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0));
+    await waitFor(() => expect(useUIStore.getState().scrubberDay).toBeGreaterThan(0), {
+      timeout: 2000,
+    });
     await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
     await expect(useUIStore.getState().playing).toBe(false);
   },

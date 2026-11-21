@@ -53,17 +53,37 @@ export function MapView() {
   const [windOverlay, setWindOverlay] = useState<MapboxOverlay | null>(null);
   const [compactAttribution, setCompactAttribution] = useState(false);
 
-  const { data: fires } = useFires();
-  const { data: aqi } = useStationReadings();
-  const { data: aqGrid } = useCamsGrid();
+  // The previous date stays drawn while the next one loads, so the map doesn't flash bare basemap.
+  // The scrubber shows that the date is still loading (mapDataLoading).
+  const firesQuery = useFires({ keepPrevious: true });
+  const aqiQuery = useStationReadings({ keepPrevious: true });
+  const aqGridQuery = useCamsGrid({ keepPrevious: true });
+  const windQuery = useWind({ keepPrevious: true });
+  const fires = firesQuery.data;
+  const aqi = aqiQuery.data;
+  const aqGrid = aqGridQuery.data;
+  const wind = windQuery.data;
   const pm25Bitmap = useCamsBitmap(aqGrid);
-  const { data: wind } = useWind();
 
   const aqGridConfig = useLayerStore((s) => s.layers.aqGrid);
   const aqStationsConfig = useLayerStore((s) => s.layers.aqStations);
   const firesConfig = useLayerStore((s) => s.layers.fires);
   const windConfig = useLayerStore((s) => s.layers.wind);
   const powerPlantsConfig = useLayerStore((s) => s.layers.powerPlants);
+
+  // Only layers on show count, so a hidden layer never holds up play or shows the spinner.
+  const loading = (q: { isPlaceholderData: boolean; isLoading: boolean }, visible: boolean) =>
+    visible && (q.isPlaceholderData || q.isLoading);
+  const dataLoading =
+    loading(firesQuery, firesConfig.visible) ||
+    loading(aqiQuery, aqStationsConfig.visible) ||
+    loading(aqGridQuery, aqGridConfig.visible) ||
+    loading(windQuery, windConfig.visible);
+  const setMapDataLoading = useUIStore((s) => s.setMapDataLoading);
+  useEffect(() => {
+    setMapDataLoading(dataLoading);
+    return () => setMapDataLoading(false);
+  }, [dataLoading, setMapDataLoading]);
 
   const deckPickedRef = useRef(false);
 
@@ -184,12 +204,16 @@ export function MapView() {
 
   // Fire sizes follow zoom in the shader, so the fires layer is built outside the zoom- and
   // selection-dependent effect below and only rebuilt when its own inputs change.
+  const firesAreStale = firesQuery.isPlaceholderData;
   const firesLayer = useMemo(() => {
     if (!firesConfig.visible || !fires) return null;
     const onFireClick = (info: PickingInfo) => {
       if (!info.object) return;
-      const d = info.object as FirePoint;
       deckPickedRef.current = true;
+      // A fire drawn from the previous date while the next loads would open as the new date's;
+      // InfoPanel only clears a fire when the date changes, which already happened.
+      if (firesAreStale) return;
+      const d = info.object as FirePoint;
       setSelectedPoint({
         lngLat: [d.lng, d.lat],
         fire: {
@@ -201,7 +225,7 @@ export function MapView() {
       });
     };
     return createFiresLayer(fires, firesConfig.opacity, onFireClick);
-  }, [fires, firesConfig.visible, firesConfig.opacity, setSelectedPoint]);
+  }, [fires, firesAreStale, firesConfig.visible, firesConfig.opacity, setSelectedPoint]);
 
   // Power plants, fires and stations, drawn in that order. Stations are zoom-dependent
   // (clustering), so this reruns on zoomend.
