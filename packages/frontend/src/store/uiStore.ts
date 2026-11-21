@@ -53,6 +53,9 @@ interface UIStore {
   setSessionScrubberDays: (days: number | null) => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
+  /** The map is still loading the selected date (and may be drawing the previous one meanwhile) */
+  mapDataLoading: boolean;
+  setMapDataLoading: (loading: boolean) => void;
   mapCenter: [number, number]; // [lng, lat]
   setMapCenter: (center: [number, number]) => void;
   mapZoom: number;
@@ -104,6 +107,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSessionScrubberDays: (days) => set({ sessionScrubberDays: days }),
   playing: false,
   setPlaying: (playing) => set({ playing }),
+  mapDataLoading: false,
+  setMapDataLoading: (mapDataLoading) => set({ mapDataLoading }),
   mapCenter: [...DEFAULT_CENTER],
   setMapCenter: (center) => set({ mapCenter: center }),
   mapZoom: DEFAULT_ZOOM,

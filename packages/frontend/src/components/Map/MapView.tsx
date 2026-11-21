@@ -54,11 +54,24 @@ export function MapView() {
   const [compactAttribution, setCompactAttribution] = useState(false);
 
   // The previous date stays drawn while the next one loads, so the map doesn't flash bare basemap.
-  const { data: fires } = useFires({ keepPrevious: true });
-  const { data: aqi } = useStationReadings({ keepPrevious: true });
-  const { data: aqGrid } = useCamsGrid({ keepPrevious: true });
+  // The scrubber shows that the date is still loading (mapDataLoading).
+  const firesQuery = useFires({ keepPrevious: true });
+  const aqiQuery = useStationReadings({ keepPrevious: true });
+  const aqGridQuery = useCamsGrid({ keepPrevious: true });
+  const windQuery = useWind({ keepPrevious: true });
+  const fires = firesQuery.data;
+  const aqi = aqiQuery.data;
+  const aqGrid = aqGridQuery.data;
+  const wind = windQuery.data;
   const pm25Bitmap = useCamsBitmap(aqGrid);
-  const { data: wind } = useWind({ keepPrevious: true });
+  const dataLoading = [firesQuery, aqiQuery, aqGridQuery, windQuery].some(
+    (q) => q.isPlaceholderData || q.isLoading,
+  );
+  const setMapDataLoading = useUIStore((s) => s.setMapDataLoading);
+  useEffect(() => {
+    setMapDataLoading(dataLoading);
+    return () => setMapDataLoading(false);
+  }, [dataLoading, setMapDataLoading]);
 
   const aqGridConfig = useLayerStore((s) => s.layers.aqGrid);
   const aqStationsConfig = useLayerStore((s) => s.layers.aqStations);

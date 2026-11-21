@@ -40,7 +40,7 @@ const meta = {
   parameters: { msw: { handlers: [summaryHandler] } },
   beforeEach: () => {
     useSettingsStore.setState({ scrubberDays: SCRUBBER_DAYS });
-    useUIStore.setState({ scrubberDay: SCRUBBER_DAYS - 1 });
+    useUIStore.setState({ scrubberDay: SCRUBBER_DAYS - 1, mapDataLoading: false });
     useTimeStore.setState({
       latestDate: LATEST_DATE,
       latestDateResolved: true,
@@ -98,6 +98,23 @@ export const LiveDateWinsOverServerData: Story = {
 export const Mobile: Story = {
   globals: { viewport: { value: 'mobile1', isRotated: false } },
   play: ({ canvasElement }) => expectReservedHeight(canvasElement),
+};
+
+// The map is still loading the selected date: a spinner fades in beside the date.
+export const LoadingDate: Story = {
+  beforeEach: () => {
+    useUIStore.setState({ mapDataLoading: true });
+  },
+  play: async ({ canvas, canvasElement }) => {
+    // Both date labels carry one; CSS hides the one for the other layout.
+    await expect((await canvas.findAllByText('Loading data for this date')).length).toBe(2);
+    await expectReservedHeight(canvasElement);
+  },
+};
+
+export const LoadingDateMobile: Story = {
+  ...LoadingDate,
+  globals: { viewport: { value: 'mobile1', isRotated: false } },
 };
 
 // Until the API reports its latest date, the controls are placeholders.
