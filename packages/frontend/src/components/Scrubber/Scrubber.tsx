@@ -20,6 +20,8 @@ import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 
 const PLAY_INTERVAL_MS = 1000;
 const DEBOUNCE_MS = 300;
+// Longer than /latest-date's three retries, so the placeholders only give up when it has failed.
+export const URL_DATE_FALLBACK_MS = 10_000;
 
 function formatDate(dateStr: string, locale: string): string {
   return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, {
@@ -127,8 +129,13 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   // A link to a date shows placeholders until here (see urlDateGuard.ts): the server rendered the
   // latest day, and useLatestDate moves the scrubber to the link's day when the latest date resolves.
+  // If it never resolves (the request failed, the map island crashed), the scrubber falls back to
+  // the server's latest day after URL_DATE_FALLBACK_MS rather than staying a placeholder.
   useEffect(() => {
-    if (latestDateResolved) document.documentElement.removeAttribute('data-url-date');
+    const showDate = () => document.documentElement.removeAttribute('data-url-date');
+    if (latestDateResolved) return showDate();
+    const timer = setTimeout(showDate, URL_DATE_FALLBACK_MS);
+    return () => clearTimeout(timer);
   }, [latestDateResolved]);
 
   function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
