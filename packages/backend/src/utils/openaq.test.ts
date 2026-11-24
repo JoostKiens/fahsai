@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Skip real backoff waits; the retry logic under test only cares that it sleeps, not for how long.
 vi.mock('node:timers/promises', () => ({ setTimeout: () => Promise.resolve() }));
 
-import { fetchSensorDailyAverage } from './openaq.js';
+import { fetchLocationLatestPm25, fetchSensorDailyAverage } from './openaq.js';
 
 const targetDate = '2026-10-04';
 
@@ -150,5 +150,78 @@ describe('fetchSensorDailyAverage', () => {
     await expect(fetchSensorDailyAverage('key', 1, targetDate)).rejects.toThrow(
       'OpenAQ sensor 1 error: 401 Unauthorized',
     );
+  });
+});
+
+describe('fetchLocationLatestPm25', () => {
+  const latest = (rows: { sensorsId: number; value: number | null; utc: string }[]) =>
+    new Response(
+      JSON.stringify({
+        results: rows.map(({ sensorsId, value, utc }) => ({
+          sensorsId,
+          value,
+          datetime: { utc },
+        })),
+      }),
+      { status: 200 },
+    );
+
+  it('picks the freshest PM2.5 sensor, not the first', async () => {
+    fetchMock.mockResolvedValueOnce(
+      latest([
+        { sensorsId: 1, value: 80, utc: '2026-03-01T00:00:00Z' },
+        { sensorsId: 2, value: 42, utc: '2026-11-24T12:00:00Z' },
+      ]),
+    );
+
+    const result = await fetchLocationLatestPm25('key', '123', [1, 2]);
+
+    expect(result.reading).toEqual({
+      sensorId: 2,
+      value: 42,
+      measuredAt: '2026-11-24T12:00:00Z',
+    });
+  });
+
+  it('ignores sensors that do not measure PM2.5', async () => {
+    fetchMock.mockResolvedValueOnce(
+      latest([
+        { sensorsId: 9, value: 400, utc: '2026-11-24T13:00:00Z' },
+        { sensorsId: 1, value: 30, utc: '2026-11-24T12:00:00Z' },
+      ]),
+    );
+
+    const result = await fetchLocationLatestPm25('key', '123', [1]);
+
+    expect(result.reading?.sensorId).toBe(1);
+  });
+
+  it('skips null and negative values', async () => {
+    fetchMock.mockResolvedValueOnce(
+      latest([
+        { sensorsId: 1, value: null, utc: '2026-11-24T12:00:00Z' },
+        { sensorsId: 2, value: -999, utc: '2026-11-24T12:00:00Z' },
+      ]),
+    );
+
+    const result = await fetchLocationLatestPm25('key', '123', [1, 2]);
+
+    expect(result).toMatchObject({ reading: null, failed: false });
+  });
+
+  it('flags failed after retries are exhausted on persistent 5xx', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(null, { status: 503 })));
+
+    const result = await fetchLocationLatestPm25('key', '123', [1]);
+
+    expect(result).toMatchObject({ reading: null, failed: true });
+  });
+
+  it('does not flag a 404 as failed', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+
+    const result = await fetchLocationLatestPm25('key', '123', [1]);
+
+    expect(result).toMatchObject({ reading: null, failed: false });
   });
 });
