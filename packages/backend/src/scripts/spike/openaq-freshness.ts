@@ -40,7 +40,9 @@ if (args.summarize !== undefined) {
   summarize(readSamples(args.summarize));
 } else {
   if (args.out === undefined) throw new Error('--out=<file> is required');
-  await sampleFor({ hours: Number(args.hours ?? 6), out: args.out });
+  const hours = Number(args.hours ?? 6);
+  if (!(hours > 0)) throw new Error('--hours must be a positive number');
+  await sampleFor({ hours, out: args.out });
   summarize(readSamples(args.out));
 }
 
@@ -89,7 +91,8 @@ async function sampleFor({ hours, out }: { hours: number; out: string }): Promis
       }
       const sample: Sample = {
         sampledAt: sampledAt.toISOString(),
-        minutePastHour: sampledAt.getUTCMinutes(),
+        // a timer that fires a moment early or late still counts for its quarter-hour mark
+        minutePastHour: (Math.round(sampledAt.getUTCMinutes() / 15) * 15) % 60,
         locationId: location.id,
         provider: location.provider?.name ?? 'unknown',
         sensorId: freshest?.sensorsId ?? null,

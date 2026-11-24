@@ -8,13 +8,13 @@ question). Run each from `packages/backend` with `node --env-file=.env.local --i
 - **OpenAQ endpoint:** `/locations/{id}/latest`, one call per footprint location. Keep the freshest
   PM2.5 sensor of each location.
 - **OpenAQ poll time:** :45 past the hour. At :45 every live location has the value for the hour
-  that started 45 minutes earlier.
-- **OpenAQ budget:** one run is 225 calls, about 4 minutes at 1.1 s spacing. That fits the
+  that ended 45 minutes earlier (at 12:45, the value stamped 12:00, covering 11:00–12:00).
+- **OpenAQ budget:** one run is 225 calls, about 5.5 minutes (1.1 s spacing plus a 336 ms median request). That fits the
   2,000-an-hour limit, including in the hour when the daily ingest (~700 calls) shares the key.
 - **CAMS horizon:** request lead hours 0–120. It costs about the same as today's 0–16: under 35 s
   per job, 1.7 MB, 33 ms to decode.
-- **CAMS poll times:** 11:00 UTC for the 00 UTC run and 23:00 UTC for the 12 UTC run. Runs appeared
-  9.3 to 10.4 h after the run time. The two slots leave at least 35 minutes of margin.
+- **CAMS poll times:** 11:00 UTC for the 00 UTC run and 23:00 UTC for the 12 UTC run. Runs first appeared
+  9.7 to 10.4 h after the run time. The two slots leave at least 35 minutes of margin.
 
 ## Method
 
@@ -61,7 +61,7 @@ question). Run each from `packages/backend` with `node --env-file=.env.local --i
 | `/sensors/{id}/hours`                  |  1 per sensor |       338 | One hour behind `/latest` (5 of 5 sensors checked) |
 | `/locations?coordinates`               |    1 per city |       582 | Lists locations; no values                         |
 
-- `/parameters/2/latest` ignores `bbox` and `coordinates`, so it pages through the whole world. Its
+- `/parameters/2/latest` ignores `bbox` and `coordinates`, so it pages through the whole world (checked by hand; the committed script tests only `datetime_min`). Its
   pages have no stable order: 10,150 rows held only 7,401 unique sensors. It silently drops
   locations. Rejected.
 - `/sensors/{id}/hours` is one call per sensor (more than per location) and lags an hour. Rejected.
@@ -72,7 +72,7 @@ question). Run each from `packages/backend` with `node --env-file=.env.local --i
 - 225 locations in all 5 footprints together; 156 have a PM2.5 sensor in `stations`; 133 had a PM2.5
   value in the last 2 h.
 - The Chiang Mai footprint matches OpenAQ's own 20 km radius query: 44 locations both ways.
-- One hourly run: 225 calls. At 1.1 s spacing that is about 4 minutes and stays under 60 a minute.
+- One hourly run: 225 calls. At 1.1 s spacing plus request time that is about 5.5 minutes, and it stays under 60 a minute.
 - Calls per hour: 225, plus ~700 in the hour the daily `ingest:station-readings` runs. Both fit under
   2,000. Do not schedule the two at the same minute, or the per-minute limit is shared.
 - Could shrink to the 156 locations with a PM2.5 sensor. Not needed for the budget.

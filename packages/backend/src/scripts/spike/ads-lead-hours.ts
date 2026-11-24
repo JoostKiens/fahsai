@@ -26,7 +26,11 @@ if (time !== '00:00' && time !== '12:00') throw new Error('--time must be 00:00 
 const apiKey = process.env.ADS_API_KEY;
 if (!apiKey) throw new Error('ADS_API_KEY env var is required');
 
-for (const maxLead of args['max-lead'].split(',').map(Number)) {
+const maxLeads = args['max-lead'].split(',').map(Number);
+if (!maxLeads.every((n) => Number.isInteger(n) && n >= 0))
+  throw new Error('--max-lead must be comma-separated whole numbers');
+
+for (const maxLead of maxLeads) {
   // runDayOffset 0 makes the "Bangkok date" argument the run date itself
   const run: CamsRun = {
     runDayOffset: 0,
@@ -42,7 +46,8 @@ for (const maxLead of args['max-lead'].split(',').map(Number)) {
     if (!isAdsApi) marks.downloadStart = Date.now();
     const res = await fetch(input, init);
     if (url.endsWith('/execution')) marks.submittedAt = Date.now();
-    if (isAdsApi && url.includes('/jobs/') && !url.endsWith('/results')) {
+    // only a successful poll is JSON for sure; leave error bodies to fetchCamsGrib
+    if (res.ok && isAdsApi && url.includes('/jobs/') && !url.endsWith('/results')) {
       const state = (await res.clone().json()) as { status?: string };
       if (state.status === 'successful') marks.successAt = Date.now();
     }

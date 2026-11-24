@@ -32,6 +32,8 @@ if (!apiKey) throw new Error('ADS_API_KEY env var is required');
 
 if (args.check !== undefined) {
   // self-check: a run that is surely published must succeed at the first probe
+  if (!/^\d{4}-\d{2}-\d{2}T(00|12)$/.test(args.check))
+    throw new Error('--check must be YYYY-MM-DDT00 or YYYY-MM-DDT12');
   const runAt = Date.parse(`${args.check}:00:00Z`);
   for (const leadHour of PROBE_LEAD_HOURS) await probe({ runAt, leadHour, out, apiKey });
 } else {
@@ -39,7 +41,9 @@ if (args.check !== undefined) {
 }
 
 function nextRuns(count: number): number[] {
-  const firstRun = Math.ceil((Date.now() - FIRST_PROBE_AFTER_MS) / (12 * HOUR_MS)) * 12 * HOUR_MS;
+  // the earliest run whose probe window (until +16 h) is still open
+  const firstRun =
+    (Math.floor((Date.now() - GIVE_UP_AFTER_MS) / (12 * HOUR_MS)) + 1) * 12 * HOUR_MS;
   return Array.from({ length: count }, (_, i) => firstRun + i * 12 * HOUR_MS);
 }
 

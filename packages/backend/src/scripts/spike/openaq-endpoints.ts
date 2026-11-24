@@ -101,7 +101,8 @@ const filtered = await pageThrough(
   'parameters/2/latest?datetime_min',
   `&datetime_min=${encodeURIComponent(sinceIso)}`,
 );
-const isFilterHonoured = filtered.every((r) => isFresh(r.datetime.utc, now));
+// an empty answer proves nothing about the filter
+const isFilterHonoured = filtered.length > 0 && filtered.every((r) => isFresh(r.datetime.utc, now));
 const global = isFilterHonoured ? filtered : await pageThrough('parameters/2/latest', '');
 const globalHits = new Set(
   global
@@ -128,7 +129,7 @@ for (const latest of [...freshByLocation.values()].slice(0, HOURS_SAMPLE_SIZE)) 
   );
 }
 
-// --- endpoint D: /locations?bbox, one call per city; says who is alive, carries no values ---
+// --- endpoint D: /locations?coordinates&radius, one call per city; says who is alive, carries no values ---
 const city = CITIES[0];
 await get(
   'locations?coordinates',
