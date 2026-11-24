@@ -48,14 +48,7 @@ export function analyzePeers(
   const peerValues = peerList.map((p) => p.pm25);
   const peerMedian = medianOf(peerValues);
 
-  let totalW = 0;
-  let sum = 0;
-  for (const p of peerList) {
-    const w = 1 / Math.max(p.distKm, 1);
-    totalW += w;
-    sum += p.pm25 * w;
-  }
-  const peerWeightedMean = totalW > 0 ? sum / totalW : 0;
+  const peerWeightedMean = inverseDistanceMean(peerList) ?? 0;
 
   const bothLow = latestPm25 < 35 && peerWeightedMean < 35;
   const outlierRatio = peerWeightedMean > 0 ? latestPm25 / peerWeightedMean : null;
@@ -66,11 +59,7 @@ export function analyzePeers(
     Math.abs(latestPm25 - peerWeightedMean) >= 20;
   const isHighOutlier = isStrongOutlier && outlierRatio !== null && outlierRatio >= 2.0;
 
-  const nonOutlierPeers =
-    peerMedian > 0 &&
-    peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4).length >= 3
-      ? peerList.filter((p) => p.pm25 <= peerMedian * 2 && p.pm25 >= peerMedian * 0.4)
-      : peerList;
+  const nonOutlierPeers = withoutOutliers(peerList);
 
   // over every peer, outliers included: dropped high readings are often the severe ones
   const severePeerCount = peerList.filter((p) =>
@@ -112,4 +101,24 @@ export function analyzePeers(
     filteredPeerMax,
     peerDistribution,
   };
+}
+
+// Keeps readings within 0.4x–2x of the median. Returns the input unchanged when fewer than 3
+// would survive, so a small or split group is never filtered down to one side.
+export function withoutOutliers<T extends { pm25: number }>(readings: T[]): T[] {
+  const center = medianOf(readings.map((r) => r.pm25));
+  const kept = readings.filter((r) => r.pm25 <= center * 2 && r.pm25 >= center * 0.4);
+  return center > 0 && kept.length >= 3 ? kept : readings;
+}
+
+// Weight 1/d, with d floored at 1 km so a station next to the point does not dominate.
+export function inverseDistanceMean(readings: { pm25: number; distKm: number }[]): number | null {
+  let totalWeight = 0;
+  let sum = 0;
+  for (const r of readings) {
+    const weight = 1 / Math.max(r.distKm, 1);
+    totalWeight += weight;
+    sum += r.pm25 * weight;
+  }
+  return totalWeight > 0 ? sum / totalWeight : null;
 }
