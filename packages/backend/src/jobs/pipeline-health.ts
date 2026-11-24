@@ -1,22 +1,29 @@
 import { checkDayCompleteness } from '../lib/dayCompleteness.js';
+import { fetchNewestCityCamsRun } from '../lib/fetchCityCams.js';
 
 const HEALTH_TIMEOUT_MS = 10_000;
+// Two runs a day: one missed run (or a run the ADS keeps rejecting as not published) makes it older.
+const CITY_CAMS_MAX_AGE_MS = 24 * 3_600_000;
 
 // Messages are fixed (date and counts go in details) so Rollbar groups each kind of problem.
 export type PipelineProblem = { message: string; details: Record<string, unknown> };
 
 // Checks what users would notice: whether `date` (normally yesterday, Bangkok) has the complete
-// data /latest-date needs, and whether the API reports its database and cache as up.
+// data /latest-date needs, whether the API reports its database and cache as up, and whether the
+// city pages' hourly CAMS values come from a recent run.
 export async function runPipelineHealth({
   apiBaseUrl,
   date,
+  now = new Date(),
 }: {
   apiBaseUrl: string;
   date: string;
+  now?: Date;
 }): Promise<PipelineProblem[]> {
-  const [completeness, healthProblem] = await Promise.all([
+  const [completeness, healthProblem, newestCityCamsRun] = await Promise.all([
     checkDayCompleteness(date),
     checkApiHealth(apiBaseUrl),
+    fetchNewestCityCamsRun(),
   ]);
 
   const problems: PipelineProblem[] = [];
@@ -27,6 +34,15 @@ export async function runPipelineHealth({
     });
   }
   if (healthProblem) problems.push(healthProblem);
+  const isCityCamsStale =
+    newestCityCamsRun === null ||
+    now.getTime() - newestCityCamsRun.getTime() > CITY_CAMS_MAX_AGE_MS;
+  if (isCityCamsStale) {
+    problems.push({
+      message: 'City CAMS run is stale',
+      details: { newestRunAt: newestCityCamsRun?.toISOString() ?? null },
+    });
+  }
   return problems;
 }
 

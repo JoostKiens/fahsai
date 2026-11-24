@@ -3,7 +3,7 @@ import type { CityDef } from '../data/cities.js';
 import { supabase } from '../db/client.js';
 import { footprintCellWeights, footprintValue } from '../lib/cityCams.js';
 import { fetchCamsGrib, isRunNotPublished, type CamsRun } from '../utils/camsAds.js';
-import { toMicrograms } from '../utils/camsResample.js';
+import { hasSameGeometry, toMicrograms } from '../utils/camsResample.js';
 import { decodeGrib1, type Grib1Message } from '../utils/grib1.js';
 
 const LOG = '[city-cams]';
@@ -96,6 +96,9 @@ export function cityRows({
   if (!isFullRun) throw new Error(`${LOG} expected lead hours 0 to 120, got ${hours.size} hours`);
 
   const [first] = messages;
+  // the weights are worked out on the first grid and index every other message the same way
+  if (!messages.every((m) => hasSameGeometry(first, m)))
+    throw new Error(`${LOG} the messages are not all on the same grid`);
   const weightsByCity = cities.map((city) => ({
     city,
     weights: footprintCellWeights(city, first),

@@ -78,6 +78,15 @@ describe('cityRows', () => {
     });
   });
 
+  it('throws when a message is on another grid', () => {
+    const messages = fullRun();
+    messages[5] = { ...messages[5], ni: 63 };
+
+    expect(() => cityRows({ messages, cities: [CITY], runAt: RUN_AT })).toThrow(
+      /not all on the same grid/,
+    );
+  });
+
   it('throws when a lead hour is missing', () => {
     expect(() => cityRows({ messages: fullRun().slice(1), cities: [CITY], runAt: RUN_AT })).toThrow(
       /expected lead hours 0 to 120/,

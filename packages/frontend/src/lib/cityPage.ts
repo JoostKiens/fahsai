@@ -35,7 +35,9 @@ export async function fetchCityPage(
     console.warn('[cityPage] the API sent something that is not a city page');
     return { status: 'unavailable' };
   }
-  return { status: 'ok', page: answer.body };
+  // shortcut: an API from before radiusKm (deployed on its own, after this) has every city at
+  // 20 km; drop the default once that API is gone.
+  return { status: 'ok', page: { ...answer.body, radiusKm: answer.body.radiusKm ?? 20 } };
 }
 
 // Everything the page reads, so a partial or changed answer is `unavailable` and not a crash
@@ -50,7 +52,7 @@ function isCityPage(body: unknown): body is CityPage {
     typeof page.lat === 'number' &&
     typeof page.lng === 'number' &&
     typeof page.zoom === 'number' &&
-    typeof page.radiusKm === 'number' &&
+    (page.radiusKm === undefined || typeof page.radiusKm === 'number') &&
     typeof page.stationCount === 'number' &&
     isNumberOrNull(page.pm25) &&
     isNumberOrNull(page.whoMultiple) &&

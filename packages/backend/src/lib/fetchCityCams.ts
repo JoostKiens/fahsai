@@ -14,3 +14,15 @@ export async function fetchCityCamsAt(slug: string, at: Date): Promise<number | 
   if (error) throw new Error(`city_cams_hourly: ${error.message}`);
   return data?.pm25 ?? null;
 }
+
+/** When the newest stored run was made; null when the table is empty. */
+export async function fetchNewestCityCamsRun(): Promise<Date | null> {
+  const { data, error } = await supabase
+    .from('city_cams_hourly')
+    .select('run_at')
+    .order('run_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ run_at: string }>();
+  if (error) throw new Error(`city_cams_hourly: ${error.message}`);
+  return data === null ? null : new Date(data.run_at);
+}

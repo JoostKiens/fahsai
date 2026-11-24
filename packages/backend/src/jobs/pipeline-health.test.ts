@@ -6,6 +6,10 @@ const { mockCheckDayCompleteness } = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/dayCompleteness.js', () => ({ checkDayCompleteness: mockCheckDayCompleteness }));
+const { mockFetchNewestCityCamsRun } = vi.hoisted(() => ({
+  mockFetchNewestCityCamsRun: vi.fn<() => Promise<Date | null>>(),
+}));
+vi.mock('../lib/fetchCityCams.js', () => ({ fetchNewestCityCamsRun: mockFetchNewestCityCamsRun }));
 
 import { runPipelineHealth } from './pipeline-health.js';
 
@@ -23,6 +27,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal('fetch', mockFetch);
   mockCheckDayCompleteness.mockResolvedValue(completeDay);
+  mockFetchNewestCityCamsRun.mockResolvedValue(new Date());
   mockFetch.mockResolvedValue(
     healthResponse(200, { status: 'ok', cache: 'connected', db: 'connected' }),
   );
@@ -98,5 +103,33 @@ describe('runPipelineHealth', () => {
       'Pipeline data incomplete',
       'API health check failed',
     ]);
+  });
+
+  describe('the city CAMS run', () => {
+    const now = new Date('2026-11-25T06:00:00Z');
+    const runWith = () =>
+      runPipelineHealth({ apiBaseUrl: 'https://api.example', date: '2026-11-24', now });
+
+    it('is fine when the newest run is less than a day old', async () => {
+      mockFetchNewestCityCamsRun.mockResolvedValue(new Date('2026-11-24T12:00:00Z'));
+
+      expect(await runWith()).toEqual([]);
+    });
+
+    it('is stale when a day has passed since the newest run', async () => {
+      mockFetchNewestCityCamsRun.mockResolvedValue(new Date('2026-11-24T00:00:00Z'));
+
+      expect(await runWith()).toEqual([
+        { message: 'City CAMS run is stale', details: { newestRunAt: '2026-11-24T00:00:00.000Z' } },
+      ]);
+    });
+
+    it('is stale when no run is stored', async () => {
+      mockFetchNewestCityCamsRun.mockResolvedValue(null);
+
+      expect(await runWith()).toEqual([
+        { message: 'City CAMS run is stale', details: { newestRunAt: null } },
+      ]);
+    });
   });
 });

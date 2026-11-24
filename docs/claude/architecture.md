@@ -180,7 +180,7 @@ cams-ingest            — daily     (0 23 * * *)    fetches the CAMS PM2.5 grid
                                                     date. Needs ADS_API_KEY on the ingest-cams service;
                                                     without it the job fails and the fallback runs.
 
-city-cams-ingest       — 4×/day  (0 0,11,12,23 * * *) hourly CAMS PM2.5 per city from the newest run
+city-cams-ingest       — 4×/day  (30 0,11,12,23 * * *) hourly CAMS PM2.5 per city from the newest run
   ingest-city-cams                                  (run time + 10 h; runs appear after 9.7 to 10.4 h,
                                                     JOO-142): lead hours 0 to 120, each the mean of the
                                                     cells the city footprint overlaps, weighted by area
@@ -188,8 +188,10 @@ city-cams-ingest       — 4×/day  (0 0,11,12,23 * * *) hourly CAMS PM2.5 per c
                                                     city_cams_hourly (upsert, then delete older runs).
                                                     Skips a run already stored in full; a run the ADS
                                                     does not hold yet (HTTP 400) exits 0, and the slot
-                                                    an hour later retries. ADS_API_KEY references
-                                                    ingest-cams's variable.
+                                                    an hour later retries. On the half hour, clear of
+                                                    ingest-cams (23:00) on the same ADS key. A run
+                                                    older than 24 h is a pipeline-health problem.
+                                                    ADS_API_KEY references ingest-cams's variable.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -249,7 +251,8 @@ prune                 — daily     (0 2 * * *)    deletes fire_points, station_
 pipeline-health       — daily     (0 6 * * *)    after the last ingest for yesterday. Checks that
                                                   yesterday is complete (the /latest-date gate,
                                                   lib/dayCompleteness.ts) and that API_BASE_URL/health
-                                                  reports db and cache up; each problem goes to
+                                                  reports db and cache up, and that the newest
+                                                  city_cams_hourly run is less than 24 h old; each problem goes to
                                                   Rollbar. Then pings HEALTHCHECK_PING_URL
                                                   (Healthchecks.io, /fail on a problem), so a missing
                                                   run (Railway stopped) also emails an alert.

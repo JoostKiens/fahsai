@@ -170,13 +170,15 @@ describe('GET /api/v1/cities against a real database', () => {
       ]);
     });
 
-    it('caches the page for the day under its own key', async () => {
+    it('caches the page for the day and hour under its own key', async () => {
       await seedChiangMai();
 
       await get('/api/v1/cities/chiang-mai');
 
       expect(redisSet).toHaveBeenCalledWith(
-        `city:v2:chiang-mai:${DATE}`,
+        expect.stringMatching(
+          new RegExp(`^city:v2:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
+        ),
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
       );
@@ -202,7 +204,7 @@ describe('GET /api/v1/cities against a real database', () => {
         whoMultiple: 0.5,
       };
       redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key === `city:v2:chiang-mai:${DATE}` ? cached : null),
+        Promise.resolve(key.startsWith(`city:v2:chiang-mai:${DATE}:`) ? cached : null),
       );
 
       const res = await get('/api/v1/cities/chiang-mai');
