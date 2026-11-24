@@ -47,8 +47,10 @@ question). Run each from `packages/backend` with `node --env-file=.env.local --i
 - The new hourly value arrives between :15 and :30.
 - At :30, every AirGradient location had it. Air4Thai had it in 8 of 12 rows.
 - At :45, every location had it, for both providers.
-- A value stamped 12:00 is first seen around 12:30. The timestamp is probably the end of the
-  measured hour (not verified against provider docs).
+- The timestamp is the end of the measured hour. Checked 2026-11-24 on 3 Air4Thai and 3
+  AirGradient sensors: `/latest` at 13:00 matched a `/sensors/{id}/measurements` period of
+  12:00–13:00 (interval 1 h). So a value stamped 12:00 covers 11:00–12:00 and is first seen around
+  12:30.
 
 ### Q2: which endpoint
 
