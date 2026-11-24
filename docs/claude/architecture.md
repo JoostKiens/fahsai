@@ -132,6 +132,8 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
 - Daily summary: cams-ingest also stores the day's 95th-percentile PM2.5 in `cams_daily_summary`
   (gated on a complete grid). Backfill: `pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD`.
   Served by `GET /api/cams/summary` (below) to draw the time scrubber's gradient line chart.
+- Per city: `ingest:city-cams` (jobs/city-cams.ts) stores hourly values per city for lead hours 0
+  to 120 of the newest run in `city_cams_hourly`, read by the city pages. See the cron list below.
 
 ---
 
@@ -177,6 +179,17 @@ cams-ingest            — daily     (0 23 * * *)    fetches the CAMS PM2.5 grid
                                                     Open-Meteo if cams_grid has < 4,000 rows for that
                                                     date. Needs ADS_API_KEY on the ingest-cams service;
                                                     without it the job fails and the fallback runs.
+
+city-cams-ingest       — 4×/day  (0 0,11,12,23 * * *) hourly CAMS PM2.5 per city from the newest run
+  ingest-city-cams                                  (run time + 10 h; runs appear after 9.7 to 10.4 h,
+                                                    JOO-142): lead hours 0 to 120, each the mean of the
+                                                    cells the city footprint overlaps, weighted by area
+                                                    (lib/cityCams.ts). Replaces the stored run in
+                                                    city_cams_hourly (upsert, then delete older runs).
+                                                    Skips a run already stored in full; a run the ADS
+                                                    does not hold yet (HTTP 400) exits 0, and the slot
+                                                    an hour later retries. ADS_API_KEY references
+                                                    ingest-cams's variable.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
