@@ -392,7 +392,7 @@ GET /api/v1/cities/:slug
   the reporting station closest to the city figure (computeScientificContext, in-process): wind,
   fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea,
   or when the fire data could not be read, transport.fire.dataAvailable false),
-  the seasonal baseline category, plus the CAMS value at the city centre (lib/camsNearest.ts); it is
+  the seasonal baseline category, plus the CAMS value for the current hour over the city footprint (city_cams_hourly, lib/fetchCityCams.ts); it is
   null when the context cannot be had, and the page does not depend on it. summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,

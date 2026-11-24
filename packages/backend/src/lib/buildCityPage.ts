@@ -8,7 +8,7 @@ import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../
 import { fetchAllPages } from '../utils/backfill.js';
 import { haversineKm } from '../utils/geo.js';
 import { AppError } from './app-error.js';
-import { fetchCamsNearest } from './camsNearest.js';
+import { fetchCityCamsAt } from './fetchCityCams.js';
 import { computeScientificContext } from './computeScientificContext.js';
 import { driversFromContext, pickRepresentativeStation } from './cityDrivers.js';
 import {
@@ -132,7 +132,7 @@ async function buildDrivers(
 
   const [context, cams] = await Promise.allSettled([
     withDeadline(computeScientificContext(station.id, station.lat, station.lng, date), deadlineMs),
-    fetchCamsNearest(city.lat, city.lng, date),
+    fetchCityCamsAt(city.slug, new Date()),
   ]);
   if (cams.status === 'rejected') {
     logger.warn({ err: cams.reason, slug: city.slug, date }, 'city page: no CAMS value');

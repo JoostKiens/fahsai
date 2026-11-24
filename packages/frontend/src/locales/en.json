@@ -191,7 +191,7 @@
   "city.tile.wind": "Wind",
   "city.tile.windSource": "Daily mean, Open-Meteo",
   "city.tile.cams": "Model estimate",
-  "city.tile.camsSource": "Copernicus CAMS, ~45 km grid",
+  "city.tile.camsSource": "Copernicus CAMS, this hour",
   "city.tile.vsUsual": "vs. usual for {{period}}",
   "city.tile.vsUsualSource": "Station baseline, past seasons",
   "city.keyNumbers": "Key numbers",
