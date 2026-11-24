@@ -207,6 +207,29 @@ create table city_cams_hourly (
   lead_hour  smallint     not null check (lead_hour >= 0),
   primary key (city_slug, valid_at)
 );
+
+-- Hourly city PM2.5 (20261124180000_hourly_city_value.sql, JOO-140). Both append (upsert on the
+-- key), written hourly at :45 by ingest:station-readings-hourly, pruned after 30 days.
+create table station_readings_hourly (
+  station_id   text         not null references stations(id),
+  measured_at  timestamptz  not null,  -- OpenAQ's stamp: end of the hour (12:00 covers 11–12)
+  pm25         real         not null,
+  sensor_id    integer      not null,  -- the location's freshest PM2.5 sensor
+  primary key (station_id, measured_at)
+);  -- + index on measured_at (prune)
+
+create table city_pm25_hourly (
+  city_slug       text         not null,
+  valid_at        timestamptz  not null,  -- end of the hour, as above
+  pm25            real         not null,  -- the blend (lib/cityBlend.ts)
+  station_pm25    real,                   -- distance-weighted station mean; null without stations
+  station_median  real,                   -- for the safety rule
+  station_count   smallint     not null,
+  station_weight  real         not null,  -- 0 to 1, n / (n + 2)
+  cams_pm25       real,
+  cams_run_at     timestamptz,
+  primary key (city_slug, valid_at)
+);
 ```
 
 ---
@@ -237,9 +260,10 @@ for future use.
 
 ## 140-day retention
 
-The prune job deletes rows older than **140 days** (uniform across all tables it touches:
-`fire_points`, `station_readings`, `cams_grid`, `weather_readings`, `station_weather`,
-`station_fire_pressure`, and `cams_daily_summary`).
+The prune job deletes rows older than **140 days** from `fire_points`, `station_readings`,
+`cams_grid`, `weather_readings`, `station_weather`, `station_fire_pressure`, and
+`cams_daily_summary`, and older than **30 days** from the hourly tables (`station_readings_hourly`,
+`city_pm25_hourly`).
 
 Basis: the 120-day max scrubber window (`MAX_DAYS` in `uiStore.ts`) + a 7-day buffer for the Explain
 feature's measurement history + a timezone/prune-timing buffer is roughly 130 days. Retention is

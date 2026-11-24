@@ -2,10 +2,12 @@ import {
   BASELINE_DISPLAY_GATE,
   dateToPeriodKey,
   type BaselineResponse,
+  type CityNow,
   type CityPage,
   type CitySentence,
   type CityStationDay,
 } from '@thailand-aq/types';
+import { WHO_PM25_24H_UGM3 } from '@thailand-aq/consts';
 import type { i18n } from 'i18next';
 import { SITE } from '@/lib/site';
 import { fetchApi, type FetchOptions } from '@/lib/serverFetch';
@@ -35,9 +37,13 @@ export async function fetchCityPage(
     console.warn('[cityPage] the API sent something that is not a city page');
     return { status: 'unavailable' };
   }
-  // shortcut: an API from before radiusKm (deployed on its own, after this) has every city at
-  // 20 km; drop the default once that API is gone.
-  return { status: 'ok', page: { ...answer.body, radiusKm: answer.body.radiusKm ?? 20 } };
+  // shortcut: an API from before radiusKm or now/measured (deployed on its own, after this) gets
+  // the defaults; drop them once that API is gone.
+  const { radiusKm, now, measured } = answer.body;
+  return {
+    status: 'ok',
+    page: { ...answer.body, radiusKm: radiusKm ?? 20, now: now ?? null, measured: measured ?? [] },
+  };
 }
 
 // Everything the page reads, so a partial or changed answer is `unavailable` and not a crash
@@ -60,7 +66,21 @@ function isCityPage(body: unknown): body is CityPage {
     Array.isArray(page.trend) &&
     Array.isArray(page.summary) &&
     Array.isArray(page.nearby) &&
-    (page.drivers === null || (typeof page.drivers === 'object' && page.drivers !== undefined))
+    (page.drivers === null || (typeof page.drivers === 'object' && page.drivers !== undefined)) &&
+    (page.now === undefined || page.now === null || isCityNow(page.now)) &&
+    (page.measured === undefined || Array.isArray(page.measured))
+  );
+}
+
+function isCityNow(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const now = value as Record<string, unknown>;
+  return (
+    typeof now.pm25 === 'number' &&
+    typeof now.band === 'number' &&
+    typeof now.latest === 'object' &&
+    now.latest !== null &&
+    typeof (now.latest as Record<string, unknown>).validAt === 'string'
   );
 }
 
@@ -189,6 +209,44 @@ export function listedStations(page: CityPage): ListedStation[] {
       distanceKm: Math.round(distanceKm(page, s) * 10) / 10,
     }))
     .sort((a, b) => b.pm25 - a.pm25);
+}
+
+/**
+ * The stations' latest measured hourly values, for the measured section; as listedStations. The
+ * position comes from the day's station list, which holds every footprint station.
+ */
+export function listedMeasured(page: CityPage): ListedStation[] {
+  const positions = new Map(page.stations.map((s) => [s.id, s]));
+  return page.measured
+    .filter((s) => isReadableName(s.name))
+    .flatMap((s) => {
+      const position = positions.get(s.id);
+      if (position === undefined) return [];
+      const km = Math.round(distanceKm(page, position) * 10) / 10;
+      return [{ id: s.id, name: s.name, pm25: s.pm25, distanceKm: km }];
+    })
+    .sort((a, b) => b.pm25 - a.pm25);
+}
+
+/** The headline value divided by the WHO 24-hour guideline, to one decimal, as the API does. */
+export function nowWhoMultiple(now: CityNow): number {
+  return Math.round((now.pm25 / WHO_PM25_24H_UGM3) * 10) / 10;
+}
+
+/** The i18n key that says what the latest hourly value was made from; takes `count`. */
+export function nowSourcesKey({ camsPm25 }: CityNow['latest']): string {
+  return camsPm25 === null ? 'city.nowStationsOnly' : 'city.nowSources';
+}
+
+/** The time of day in Thailand, for example "13:00 ICT". */
+export function formatHour(iso: string, lang = 'en'): string {
+  const time = new Date(iso).toLocaleTimeString(dateLocale(lang), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Asia/Bangkok',
+  });
+  return `${time} ICT`;
 }
 
 export interface BaselineDiff {

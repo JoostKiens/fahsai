@@ -26,6 +26,8 @@ function page(slug: string, pm25: number | null) {
     summary: [],
     nearby: [],
     whoMultiple: null,
+    now: null,
+    measured: [],
   };
 }
 

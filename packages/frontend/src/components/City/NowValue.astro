@@ -1,0 +1,36 @@
+---
+import type { CityNow } from '@thailand-aq/types';
+import type { i18n } from 'i18next';
+import PcdBadge from './PcdBadge.astro';
+import { formatHour, nowSourcesKey, nowWhoMultiple } from '@/lib/cityPage';
+
+interface Props {
+  now: CityNow;
+  lang: string;
+  t: i18n['t'];
+}
+
+const { now, lang, t } = Astro.props;
+const { latest } = now;
+---
+
+<p class="text-xs text-zinc-300">{t('city.nowLabel')}</p>
+<p class="flex items-baseline gap-2">
+  <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
+    {Math.round(now.pm25)}
+  </span>
+  <span class="font-mono text-sm text-zinc-400">µg/m³</span>
+</p>
+<div class="flex flex-wrap items-center gap-2">
+  <PcdBadge value={now.pm25} bandIndex={now.band} t={t} />
+  <span class="text-xs text-zinc-400">
+    {t('city.whoMultiple', { multiple: nowWhoMultiple(now) })}
+  </span>
+</div>
+{now.isBandRaised && <p class="text-xs text-zinc-300">{t('city.nowRaised')}</p>}
+<p class="text-[13px] text-zinc-300">
+  {t('city.nowLatest', { time: formatHour(latest.validAt, lang), pm25: Math.round(latest.pm25) })}
+</p>
+<p class="text-[11px] text-zinc-400">
+  {t(nowSourcesKey(latest) as never, { count: latest.stationCount })} · {t('pcd.scaleName')}
+</p>

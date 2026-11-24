@@ -407,14 +407,19 @@ GET /api/v1/cities/:slug
   fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea,
   or when the fire data could not be read, transport.fire.dataAvailable false),
   the seasonal baseline category, plus the CAMS value for the current hour over the city footprint (city_cams_hourly, lib/fetchCityCams.ts); it is
-  null when the context cannot be had, and the page does not depend on it. summary = dated,
+  null when the context cannot be had, and the page does not depend on it. now = the modelled value
+  close to now (lib/fetchCityNow.ts): the mean of the city's hourly blends (city_pm25_hourly) over
+  the last 24 h, its PCD band (never better than the band of the stations' median over the same
+  hours), and the latest hour's blend with its inputs; null before the first blend. measured = each
+  footprint station's latest hourly value from the last 2 h (station_readings_hourly). summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
   else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
   the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
-  Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour), or
+  Redis key city:v3:{slug}:{date}:{UTC hour}, TTL 1 h (a station that reports late shows up within the hour), or
   60 s when part of the day could not be read (the context failed or took over 6 s, the CAMS value
-  failed, or the fire data was not read), so one blip does not stay for the hour. Requests for the
+  failed, the fire data was not read, or the hourly value could not be read), so one blip does
+  not stay for the hour. Requests for the
   same page that arrive together share one build (per process). Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
   lib/buildCityPage.ts.
 

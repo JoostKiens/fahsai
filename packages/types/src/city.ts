@@ -51,6 +51,40 @@ export interface CitySentence {
   params: Record<string, string | number>;
 }
 
+/** The latest hourly blend the headline value ends with */
+export interface CityNowLatest {
+  /** End of the hour (ISO), as OpenAQ stamps it: 12:00 covers 11:00–12:00 */
+  validAt: string;
+  pm25: number;
+  /** Stations in the blend, after merging co-located ones and dropping outliers */
+  stationCount: number;
+  /** The stations' share of the blend, 0 to 1; the rest is CAMS */
+  stationWeight: number;
+  camsPm25: number | null;
+}
+
+/** The modelled value close to now: stations and CAMS, blended every hour */
+export interface CityNow {
+  /** Mean of the hourly blends over the last 24 h (µg/m³) */
+  pm25: number;
+  /** PCD band index, 0 = Excellent … 4 = Very unhealthy, after the safety rule */
+  band: number;
+  /** The safety rule raised the band to the band of the stations' median */
+  isBandRaised: boolean;
+  /** Hourly values in the mean, up to 24 */
+  hours: number;
+  latest: CityNowLatest;
+}
+
+/** A station's latest measured hourly value */
+export interface CityStationHour {
+  id: string;
+  name: string;
+  pm25: number;
+  /** End of the measured hour (ISO) */
+  measuredAt: string;
+}
+
 export interface CityPage extends CityListItem {
   lat: number;
   lng: number;
@@ -72,4 +106,8 @@ export interface CityPage extends CityListItem {
   nearby: CityNearby[];
   /** pm25 divided by the WHO 24-hour guideline, to one decimal; null when pm25 is null */
   whoMultiple: number | null;
+  /** The modelled value close to now; null before the first hourly blend or when it can't be read */
+  now: CityNow | null;
+  /** The latest measured hourly value of each station that reported in the last 2 h, nearest first */
+  measured: CityStationHour[];
 }
