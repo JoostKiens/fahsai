@@ -2,8 +2,10 @@
 // pages, /city, haze guide). The map keeps the US EPA scale in aqiColors.ts.
 // Source: Air4Thai "ข้อมูลดัชนีคุณภาพอากาศ", https://air4thai.pcd.go.th/webV3/#/AQIInfo (Tables 1, 2),
 // verified 2026-11-05. The bands are Table 2's PM2.5 concentrations (µg/m³), not Table 1's AQI
-// index (0–25, 26–50, ...): index 25 is 15 µg/m³.
+// index (0–25, 26–50, ...): index 25 is 15 µg/m³. The breakpoints live in @thailand-aq/consts so
+// the backend bands values the same way.
 // Legal basis: PCD announcement of 3 July 2023 (Royal Gazette).
+import { PCD_BAND_MAX_UGM3, pcdBandIndex } from '@thailand-aq/consts';
 import type { RGB } from './aqiColors';
 
 export interface PcdBand {
@@ -15,16 +17,14 @@ export interface PcdBand {
 }
 
 export const PCD_BANDS: PcdBand[] = [
-  { key: 'pcd.excellent', max: 15.0, rgb: [59, 204, 255] },
-  { key: 'pcd.satisfactory', max: 25.0, rgb: [146, 208, 80] },
-  { key: 'pcd.moderate', max: 37.5, rgb: [255, 255, 0] },
-  { key: 'pcd.unhealthy', max: 75.0, rgb: [255, 162, 0] },
-  { key: 'pcd.veryUnhealthy', max: Infinity, rgb: [240, 70, 70] },
+  { key: 'pcd.excellent', max: PCD_BAND_MAX_UGM3[0], rgb: [59, 204, 255] },
+  { key: 'pcd.satisfactory', max: PCD_BAND_MAX_UGM3[1], rgb: [146, 208, 80] },
+  { key: 'pcd.moderate', max: PCD_BAND_MAX_UGM3[2], rgb: [255, 255, 0] },
+  { key: 'pcd.unhealthy', max: PCD_BAND_MAX_UGM3[3], rgb: [255, 162, 0] },
+  { key: 'pcd.veryUnhealthy', max: PCD_BAND_MAX_UGM3[4], rgb: [240, 70, 70] },
 ];
 
-// PCD's breakpoints have one decimal (15.0 | 15.1), so the mean is rounded to 0.1 before banding.
-// A chip may show "25" yet band as 25.1 (Moderate); Air4Thai behaves the same way.
+// A chip may show "25" yet band as 25.1 (Moderate): pcdBandIndex rounds to 0.1, as Air4Thai does.
 export function pm25ToPcdBand(pm25: number): PcdBand {
-  const rounded = Math.round(pm25 * 10) / 10;
-  return PCD_BANDS.find((band) => rounded <= band.max) ?? PCD_BANDS[PCD_BANDS.length - 1];
+  return PCD_BANDS[pcdBandIndex(pm25)];
 }
