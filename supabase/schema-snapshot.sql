@@ -85,6 +85,19 @@ CREATE TABLE "public"."cams_grid" (
 );
 
 --
+-- Name: city_cams_hourly; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE "public"."city_cams_hourly" (
+    "city_slug" "text" NOT NULL,
+    "valid_at" timestamp with time zone NOT NULL,
+    "pm25" real NOT NULL,
+    "run_at" timestamp with time zone NOT NULL,
+    "lead_hour" smallint NOT NULL,
+    CONSTRAINT "city_cams_hourly_lead_hour_check" CHECK (("lead_hour" >= 0))
+);
+
+--
 -- Name: fire_points; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -272,6 +285,13 @@ ALTER TABLE ONLY "public"."cams_daily_summary"
     ADD CONSTRAINT "cams_daily_summary_pkey" PRIMARY KEY ("date");
 
 --
+-- Name: city_cams_hourly city_cams_hourly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY "public"."city_cams_hourly"
+    ADD CONSTRAINT "city_cams_hourly_pkey" PRIMARY KEY ("city_slug", "valid_at");
+
+--
 -- Name: power_plants power_plants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -420,6 +440,12 @@ ALTER TABLE "public"."cams_daily_summary" ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE "public"."cams_grid" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: city_cams_hourly; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE "public"."city_cams_hourly" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: fire_points; Type: ROW SECURITY; Schema: public; Owner: -
