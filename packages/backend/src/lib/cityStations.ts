@@ -1,5 +1,5 @@
 import type { Station } from '@thailand-aq/types';
-import { CITY_RADIUS_KM, type CityDef } from '../data/cities.js';
+import type { CityDef } from '../data/cities.js';
 import { haversineKm } from '../utils/geo.js';
 
 export type StationNearCity = Station & { distanceKm: number };
@@ -10,8 +10,7 @@ export type StationNearCity = Station & { distanceKm: number };
  */
 export function stationsNearCity(
   stations: Station[],
-  city: Pick<CityDef, 'lat' | 'lng' | 'include' | 'exclude'>,
-  radiusKm: number = CITY_RADIUS_KM,
+  city: Pick<CityDef, 'lat' | 'lng' | 'radiusKm' | 'include' | 'exclude'>,
 ): StationNearCity[] {
   const included = new Set(city.include ?? []);
   const excluded = new Set(city.exclude ?? []);
@@ -22,7 +21,8 @@ export function stationsNearCity(
     }))
     .filter(
       (station) =>
-        !excluded.has(station.id) && (station.distanceKm <= radiusKm || included.has(station.id)),
+        !excluded.has(station.id) &&
+        (station.distanceKm <= city.radiusKm || included.has(station.id)),
     )
     .sort((a, b) => a.distanceKm - b.distanceKm || a.id.localeCompare(b.id));
 }

@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { Station } from '@thailand-aq/types';
-import { CITY_RADIUS_KM } from '../data/cities.js';
 import { stationsNearCity } from './cityStations.js';
 
-const CENTRE = { lat: 18.79, lng: 98.98 };
+const CENTRE = { lat: 18.79, lng: 98.98, radiusKm: 20 };
 // One degree of latitude is about 111.2 km.
 const KM = 1 / 111.2;
 
@@ -21,10 +20,6 @@ function station(id: string, kmNorth: number): Station {
 const ids = (stations: { id: string }[]) => stations.map((s) => s.id);
 
 describe('stationsNearCity', () => {
-  it('uses a radius of 20 km', () => {
-    expect(CITY_RADIUS_KM).toBe(20);
-  });
-
   it('keeps the stations within the radius, nearest first, and drops the others', () => {
     const stations = [station('far', 25), station('mid', 10), station('near', 1)];
 

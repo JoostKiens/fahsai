@@ -57,7 +57,7 @@ export function resampleToAqGrid(field: CamsField): PM25GridPoint[] {
   return points;
 }
 
-function hasSameGeometry(a: CamsField, b: CamsField): boolean {
+export function hasSameGeometry(a: CamsField, b: CamsField): boolean {
   return (
     a.ni === b.ni &&
     a.nj === b.nj &&

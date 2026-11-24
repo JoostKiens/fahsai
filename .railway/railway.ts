@@ -118,6 +118,25 @@ export default defineRailway((ctx) => {
     networking: { privateNetworkEndpoint: "aq-ingest-72f6" },
     env: { ...sharedEnv, ADS_API_KEY: preserve() },
   });
+  // CAMS runs appear on the ADS 9.7 to 10.4 h after the run time (JOO-142): 11:30 and 23:30 UTC
+  // catch the 00 and 12 UTC runs, and the slot an hour later retries a run that was late. The
+  // half hour keeps it clear of ingest-cams (23:00), which uses the same ADS key and queue. A slot
+  // whose run is already stored does nothing. A new service has no values to preserve, so it
+  // references the shared variables and ingest-cams's ADS key.
+  const ingestCityCams = service("ingest-city-cams", {
+    source: fahsai,
+    build,
+    start: "pnpm --filter backend run railway:ingest:city-cams",
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    deploy: { cronSchedule: "30 0,11,12,23 * * *", restartPolicyType: "NEVER" },
+    env: {
+      NODE_ENV: ctx.shared.NODE_ENV,
+      ROLLBAR_TOKEN: ctx.shared.ROLLBAR_TOKEN,
+      SUPABASE_SERVICE_ROLE_KEY: ctx.shared.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_URL: ctx.shared.SUPABASE_URL,
+      ADS_API_KEY: ingestCams.env.ADS_API_KEY,
+    },
+  });
 
   // After the last ingest touching yesterday's data (baseline, 04:40 UTC). References the shared
   // variables instead of preserve(): a new service has no values to preserve, and an empty env
@@ -139,6 +158,6 @@ export default defineRailway((ctx) => {
   });
 
   return project("fahsai", {
-    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams, pipelineHealth],
+    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams, ingestCityCams, pipelineHealth],
   });
 });

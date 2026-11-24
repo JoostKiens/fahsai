@@ -16,6 +16,7 @@ function page(slug: string, pm25: number | null) {
     lat: 1,
     lng: 2,
     zoom: 9,
+    radiusKm: 20,
     date: '2026-11-04',
     pm25,
     stationCount: 1,

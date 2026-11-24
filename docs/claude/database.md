@@ -194,6 +194,19 @@ create table cams_daily_summary (
   point_count  integer           not null,  -- grid completeness at compute time
   created_at   timestamptz       not null default now()
 );
+
+-- CAMS PM2.5 per city and hour from the newest run (20261124150000_city_cams_hourly.sql):
+-- the mean of the cells the city footprint overlaps, weighted by area. Each run replaces the
+-- previous one (ingest:city-cams upserts, then deletes older runs), so it holds one run:
+-- about 121 rows per city. Not pruned; nothing older than the current run is kept.
+create table city_cams_hourly (
+  city_slug  text         not null,  -- data/cities.ts
+  valid_at   timestamptz  not null,  -- the hour the value is for
+  pm25       real         not null,  -- µg/m³, one decimal
+  run_at     timestamptz  not null,  -- the CAMS run (00 or 12 UTC)
+  lead_hour  smallint     not null check (lead_hour >= 0),
+  primary key (city_slug, valid_at)
+);
 ```
 
 ---

@@ -8,7 +8,7 @@ import { bangkokDateString, bangkokMidnightIso, bangkokMidnightUtcMs } from '../
 import { fetchAllPages } from '../utils/backfill.js';
 import { haversineKm } from '../utils/geo.js';
 import { AppError } from './app-error.js';
-import { fetchCamsNearest } from './camsNearest.js';
+import { fetchCityCamsAt } from './fetchCityCams.js';
 import { computeScientificContext } from './computeScientificContext.js';
 import { driversFromContext, pickRepresentativeStation } from './cityDrivers.js';
 import {
@@ -125,6 +125,7 @@ async function buildDrivers(
   city: CityDef,
   day: ReturnType<typeof cityDay>,
   date: string,
+  now: Date,
   deadlineMs: number,
 ): Promise<{ drivers: CityDrivers | null; complete: boolean }> {
   const station = pickRepresentativeStation(day.stations, day.pm25);
@@ -132,7 +133,7 @@ async function buildDrivers(
 
   const [context, cams] = await Promise.allSettled([
     withDeadline(computeScientificContext(station.id, station.lat, station.lng, date), deadlineMs),
-    fetchCamsNearest(city.lat, city.lng, date),
+    fetchCityCamsAt(city.slug, now),
   ]);
   if (cams.status === 'rejected') {
     logger.warn({ err: cams.reason, slug: city.slug, date }, 'city page: no CAMS value');
@@ -159,8 +160,8 @@ const inFlight = new Map<string, Promise<CityPage>>();
 
 /**
  * The page of one city for the newest complete Bangkok day, or null for a slug that is not in the
- * list. Throws a no_data error when there is no complete day. Cached for an hour, or a minute when
- * part of it could not be read.
+ * list. Throws a no_data error when there is no complete day. Cached until the hour changes (at most
+ * an hour), or a minute when part of it could not be read.
  */
 export async function buildCityPage(
   slug: string,
@@ -173,7 +174,9 @@ export async function buildCityPage(
   if (date === null)
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
-  const cacheKey = `city:v1:${slug}:${date}`;
+  // The CAMS figure is for the current hour, so a page is cached per hour, not per day.
+  const now = new Date();
+  const cacheKey = `city:v2:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
   const running = inFlight.get(cacheKey);
   if (running) return running;
 
@@ -193,7 +196,7 @@ export async function buildCityPage(
     const day = cityDay(near, means, date);
     // neither needs the other
     const [{ drivers, complete }, nearby] = await Promise.all([
-      buildDrivers(city, day, date, driversDeadlineMs),
+      buildDrivers(city, day, date, now, driversDeadlineMs),
       nearbyCities(nearbyCandidates(city), date),
     ]);
     const headline = {
@@ -212,6 +215,7 @@ export async function buildCityPage(
       lat: city.lat,
       lng: city.lng,
       zoom: city.zoom,
+      radiusKm: city.radiusKm,
       date,
       pm25: headline.pm25,
       stationCount: headline.stationCount,

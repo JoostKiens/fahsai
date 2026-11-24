@@ -1,5 +1,5 @@
 import type { Station } from '@thailand-aq/types';
-import { CITY_RADIUS_KM, type CityDef } from '../data/cities.js';
+import type { CityDef } from '../data/cities.js';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import { stationsNearCity, type StationNearCity } from './cityStations.js';
@@ -24,9 +24,9 @@ interface StationRow {
  * the centre instead of the whole table. A station without coordinates is never one of them.
  */
 export async function fetchCityStations(
-  city: Pick<CityDef, 'lat' | 'lng' | 'include' | 'exclude'>,
+  city: Pick<CityDef, 'lat' | 'lng' | 'radiusKm' | 'include' | 'exclude'>,
 ): Promise<StationNearCity[]> {
-  const latDelta = (CITY_RADIUS_KM / KM_PER_DEGREE_OF_LATITUDE) * BOX_MARGIN;
+  const latDelta = (city.radiusKm / KM_PER_DEGREE_OF_LATITUDE) * BOX_MARGIN;
   const lngDelta = latDelta / Math.max(Math.cos((city.lat * Math.PI) / 180), 0.1);
 
   // a comparison drops the rows where the column is null

@@ -132,6 +132,8 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
 - Daily summary: cams-ingest also stores the day's 95th-percentile PM2.5 in `cams_daily_summary`
   (gated on a complete grid). Backfill: `pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD`.
   Served by `GET /api/cams/summary` (below) to draw the time scrubber's gradient line chart.
+- Per city: `ingest:city-cams` (jobs/city-cams.ts) stores hourly values per city for lead hours 0
+  to 120 of the newest run in `city_cams_hourly`, read by the city pages. See the cron list below.
 
 ---
 
@@ -177,6 +179,19 @@ cams-ingest            — daily     (0 23 * * *)    fetches the CAMS PM2.5 grid
                                                     Open-Meteo if cams_grid has < 4,000 rows for that
                                                     date. Needs ADS_API_KEY on the ingest-cams service;
                                                     without it the job fails and the fallback runs.
+
+city-cams-ingest       — 4×/day  (30 0,11,12,23 * * *) hourly CAMS PM2.5 per city from the newest run
+  ingest-city-cams                                  (run time + 10 h; runs appear after 9.7 to 10.4 h,
+                                                    JOO-142): lead hours 0 to 120, each the mean of the
+                                                    cells the city footprint overlaps, weighted by area
+                                                    (lib/cityCams.ts). Replaces the stored run in
+                                                    city_cams_hourly (upsert, then delete older runs).
+                                                    Skips a run already stored in full; a run the ADS
+                                                    does not hold yet (HTTP 400) exits 0, and the slot
+                                                    an hour later retries. On the half hour, clear of
+                                                    ingest-cams (23:00) on the same ADS key. A run
+                                                    older than 24 h is a pipeline-health problem.
+                                                    ADS_API_KEY references ingest-cams's variable.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -236,7 +251,8 @@ prune                 — daily     (0 2 * * *)    deletes fire_points, station_
 pipeline-health       — daily     (0 6 * * *)    after the last ingest for yesterday. Checks that
                                                   yesterday is complete (the /latest-date gate,
                                                   lib/dayCompleteness.ts) and that API_BASE_URL/health
-                                                  reports db and cache up; each problem goes to
+                                                  reports db and cache up, and that the newest
+                                                  city_cams_hourly run is less than 24 h old; each problem goes to
                                                   Rollbar. Then pings HEALTHCHECK_PING_URL
                                                   (Healthchecks.io, /fail on a problem), so a missing
                                                   run (Railway stopped) also emails an alert.
@@ -379,7 +395,7 @@ GET /api/v1/cities/:slug
   the reporting station closest to the city figure (computeScientificContext, in-process): wind,
   fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea,
   or when the fire data could not be read, transport.fire.dataAvailable false),
-  the seasonal baseline category, plus the CAMS value at the city centre (lib/camsNearest.ts); it is
+  the seasonal baseline category, plus the CAMS value for the current hour over the city footprint (city_cams_hourly, lib/fetchCityCams.ts); it is
   null when the context cannot be had, and the page does not depend on it. summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,

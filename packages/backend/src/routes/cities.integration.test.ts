@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CityListItem, CityPage } from '@thailand-aq/types';
-import { clearTables, gridPoints, seed } from '../test/integration/db.js';
+import { clearTables, seed } from '../test/integration/db.js';
 import { buildTestApp } from '../test/test-app.js';
 import { FULL_CONTEXT } from '../test/fixtures/scientific-context.js';
 import { buildCityPage } from '../lib/buildCityPage.js';
-import { fetchCamsNearest } from '../lib/camsNearest.js';
+import { fetchCityCamsAt } from '../lib/fetchCityCams.js';
 import { citiesRoutes } from './cities.js';
 
 const { redisGet, redisSet } = vi.hoisted(() => ({ redisGet: vi.fn(), redisSet: vi.fn() }));
@@ -22,9 +22,9 @@ vi.mock('../lib/latestDate.js', () => ({
 const { computeScientificContext } = vi.hoisted(() => ({ computeScientificContext: vi.fn() }));
 vi.mock('../lib/computeScientificContext.js', () => ({ computeScientificContext }));
 
-vi.mock('../lib/camsNearest.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/camsNearest.js')>();
-  return { fetchCamsNearest: vi.fn(actual.fetchCamsNearest) };
+vi.mock('../lib/fetchCityCams.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/fetchCityCams.js')>();
+  return { fetchCityCamsAt: vi.fn(actual.fetchCityCamsAt) };
 });
 
 const DATE = '2026-10-17';
@@ -33,6 +33,22 @@ const KM = 1 / 111.2;
 const CHIANG_MAI = { lat: 18.7883, lng: 98.9853 };
 const LAMPHUN = { lat: 18.5745, lng: 99.0087 };
 const BANGKOK = { lat: 13.7563, lng: 100.5018 };
+const HOUR_MS = 3_600_000;
+
+// The hour the page reads, and the next one too, so a test that runs across the hour still finds it.
+function seedCamsNow(citySlug: string, pm25: number, hoursAhead = [0, 1]) {
+  const thisHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+  return seed(
+    'city_cams_hourly',
+    hoursAhead.map((hours) => ({
+      city_slug: citySlug,
+      valid_at: new Date(thisHour + hours * HOUR_MS).toISOString(),
+      pm25,
+      run_at: new Date(thisHour - 12 * HOUR_MS).toISOString(),
+      lead_hour: 12 + hours,
+    })),
+  );
+}
 
 function station(id: string, centre: { lat: number; lng: number }, kmNorth = 0) {
   return {
@@ -119,6 +135,7 @@ describe('GET /api/v1/cities against a real database', () => {
         name: 'Chiang Mai',
         country: 'TH',
         zoom: 10,
+        radiusKm: 20,
         date: DATE,
         pm25: 20,
         stationCount: 3,
@@ -153,13 +170,15 @@ describe('GET /api/v1/cities against a real database', () => {
       ]);
     });
 
-    it('caches the page for the day under its own key', async () => {
+    it('caches the page for the day and hour under its own key', async () => {
       await seedChiangMai();
 
       await get('/api/v1/cities/chiang-mai');
 
       expect(redisSet).toHaveBeenCalledWith(
-        `city:v1:chiang-mai:${DATE}`,
+        expect.stringMatching(
+          new RegExp(`^city:v2:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
+        ),
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
       );
@@ -173,6 +192,7 @@ describe('GET /api/v1/cities against a real database', () => {
         lat: 18.7883,
         lng: 98.9853,
         zoom: 10,
+        radiusKm: 20,
         date: DATE,
         pm25: 7,
         stationCount: 1,
@@ -184,7 +204,7 @@ describe('GET /api/v1/cities against a real database', () => {
         whoMultiple: 0.5,
       };
       redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key === `city:v1:chiang-mai:${DATE}` ? cached : null),
+        Promise.resolve(key.startsWith(`city:v2:chiang-mai:${DATE}:`) ? cached : null),
       );
 
       const res = await get('/api/v1/cities/chiang-mai');
@@ -207,10 +227,7 @@ describe('GET /api/v1/cities against a real database', () => {
 
     it('takes the drivers from the context of the station closest to the city figure', async () => {
       await seedChiangMai();
-      await seed('cams_grid', [
-        { date: DATE, lat: 18.8, lng: 99.0, pm25: 37.5 },
-        { date: DATE, lat: 18.4, lng: 99.4, pm25: 20 },
-      ]);
+      await seedCamsNow('chiang-mai', 37.5);
       computeScientificContext.mockResolvedValue(FULL_CONTEXT);
 
       const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
@@ -239,26 +256,11 @@ describe('GET /api/v1/cities against a real database', () => {
       });
     });
 
-    it('takes the CAMS value from the cached day grid, without reading the table', async () => {
+    it('gives no CAMS figure when no hour is stored for the city', async () => {
       await seedChiangMai();
-      // a full grid (4000 points or more counts as complete) with one point on Chiang Mai; the
-      // cams_grid table is empty, so only the cache can supply 99
-      const grid = [
-        ...gridPoints(4000).map((point) => ({ ...point, pm25: 11 })),
-        { lat: 18.8, lng: 99.0, pm25: 99 },
-      ];
-      redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key === `cams:pm25:${DATE}` ? grid : null),
-      );
-      computeScientificContext.mockResolvedValue(FULL_CONTEXT);
-
-      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
-
-      expect(page.drivers?.camsPm25).toBe(99);
-    });
-
-    it('gives no CAMS figure when the grid has nothing near the city', async () => {
-      await seedChiangMai();
+      // a later hour and another city do not stand in for this one
+      await seedCamsNow('chiang-mai', 50, [3]);
+      await seedCamsNow('lamphun', 50);
       computeScientificContext.mockResolvedValue(FULL_CONTEXT);
 
       const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
@@ -292,7 +294,7 @@ describe('GET /api/v1/cities against a real database', () => {
       it('keeps the drivers when only the CAMS lookup fails, without a CAMS figure, for a minute', async () => {
         await seedChiangMai();
         computeScientificContext.mockResolvedValue(FULL_CONTEXT);
-        vi.mocked(fetchCamsNearest).mockRejectedValueOnce(new Error('cams down'));
+        vi.mocked(fetchCityCamsAt).mockRejectedValueOnce(new Error('cams down'));
 
         const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
 

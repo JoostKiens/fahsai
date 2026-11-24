@@ -24,6 +24,7 @@ const PAGE: CityPage = {
   lat: 18.7883,
   lng: 98.9853,
   zoom: 10,
+  radiusKm: 20,
   date: '2026-11-03',
   pm25: 11,
   stationCount: 17,
@@ -53,6 +54,16 @@ describe('fetchCityPage', () => {
 
     expect(result).toEqual({ status: 'ok', page: PAGE });
     expect(urlOf(fetchFn.mock.calls[0][0])).toMatch(/\/cities\/chiang-mai$/);
+  });
+
+  it('takes 20 km for a page from an API that does not send the radius yet', async () => {
+    // the JSON answer leaves out a field that is undefined
+    const fetchFn = respond({ ...PAGE, radiusKm: undefined });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({
+      status: 'ok',
+      page: { ...PAGE, radiusKm: 20 },
+    });
   });
 
   it('escapes the slug, so a crafted path cannot reach another API route', async () => {
