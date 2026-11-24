@@ -4,6 +4,7 @@ import vercel from '@astrojs/vercel';
 import tailwindcss from '@tailwindcss/vite';
 import { createHash } from 'node:crypto';
 import { placeholderGuardScript } from './src/lib/placeholderGuard.ts';
+import { urlDateGuardScript } from './src/lib/urlDateGuard.ts';
 
 export default defineConfig({
   integrations: [react()],
@@ -31,9 +32,11 @@ export default defineConfig({
         "frame-ancestors 'none'",
       ],
       styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
-      // Astro hashes the scripts it bundles, not is:inline ones: this is the placeholder guard in <head>.
+      // Astro hashes the scripts it bundles, not is:inline ones: these are the guards in <head>.
       scriptDirective: {
-        hashes: [`sha256-${createHash('sha256').update(placeholderGuardScript).digest('base64')}`],
+        hashes: [placeholderGuardScript, urlDateGuardScript].map(
+          (script) => `sha256-${createHash('sha256').update(script).digest('base64')}`,
+        ),
       },
     },
   },

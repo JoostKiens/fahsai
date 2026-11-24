@@ -14,11 +14,14 @@ import type { ScrubberData } from '@/lib/scrubberData';
 import { dateLocale } from '@/utils/locale';
 import { Shimmer } from '@/components/Shimmer';
 import { PlayButton } from './PlayButton';
-import { TimelineChart } from './TimelineChart';
+import { DateLoadingIndicator } from './DateLoadingIndicator';
+import { CHART_HEIGHT_PX, TimelineChart } from './TimelineChart';
 import { SCRUBBER_BAR_CLS } from './scrubberLayout';
 
-const PLAY_INTERVAL_MS = 800;
+const PLAY_INTERVAL_MS = 1000;
 const DEBOUNCE_MS = 300;
+// Longer than /latest-date's three retries, so the placeholders only give up when it has failed.
+export const URL_DATE_FALLBACK_MS = 10_000;
 
 function formatDate(dateStr: string, locale: string): string {
   return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, {
@@ -51,6 +54,7 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
   const scrubberDays = useEffectiveScrubberDays();
   const playing = useUIStore((s) => s.playing);
   const setPlaying = useUIStore((s) => s.setPlaying);
+  const mapDataLoading = useUIStore((s) => s.mapDataLoading);
   const setDate = useTimeStore((s) => s.setDate);
   const storeLatestDate = useTimeStore((s) => s.latestDate);
   const latestDateResolved = useTimeStore((s) => s.latestDateResolved);
@@ -68,7 +72,6 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   const [isDragging, setIsDragging] = useState(false);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const hasSyncedInitialDate = useRef(false);
@@ -78,11 +81,16 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
 
   // The first correction (once the real latestDate resolves) fires immediately so the
   // per-date data hooks (gated on latestDateResolved) don't fetch a still-stale selectedDate
-  // for another DEBOUNCE_MS. Only subsequent, user-driven changes (drag/autoplay) debounce.
+  // for another DEBOUNCE_MS. Play steps are never quick (see the play effect), so they don't wait
+  // either; only dragging and the arrow keys debounce, to skip the days passed on the way.
   useEffect(() => {
     if (!hasSyncedInitialDate.current) {
       if (!latestDateResolved) return;
       hasSyncedInitialDate.current = true;
+      setDate(dateStr);
+      return;
+    }
+    if (playing) {
       setDate(dateStr);
       return;
     }
@@ -93,22 +101,19 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [dateStr, latestDateResolved, setDate]);
+  }, [dateStr, latestDateResolved, playing, setDate]);
 
+  // Each step waits until the map has drawn the current day, then shows it for PLAY_INTERVAL_MS, so
+  // on a slow connection playback slows down instead of running ahead of the map. A day whose data
+  // is already loaded never sets mapDataLoading, so its timer runs from the step itself.
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        const current = useUIStore.getState().scrubberDay;
-        const days = getEffectiveScrubberDays();
-        setScrubberDay(current >= days - 1 ? 0 : current + 1);
-      }, PLAY_INTERVAL_MS);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, setScrubberDay]);
+    if (!playing || mapDataLoading) return;
+    const timer = setTimeout(() => {
+      const days = getEffectiveScrubberDays();
+      setScrubberDay(scrubberDay >= days - 1 ? 0 : scrubberDay + 1);
+    }, PLAY_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [playing, mapDataLoading, scrubberDay, setScrubberDay]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -121,6 +126,17 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [playing, setPlaying, latestDateResolved]);
+
+  // A link to a date shows placeholders until here (see urlDateGuard.ts): the server rendered the
+  // latest day, and useLatestDate moves the scrubber to the link's day when the latest date resolves.
+  // If it never resolves (the request failed, the map island crashed), the scrubber falls back to
+  // the server's latest day after URL_DATE_FALLBACK_MS rather than staying a placeholder.
+  useEffect(() => {
+    const showDate = () => document.documentElement.removeAttribute('data-url-date');
+    if (latestDateResolved) return showDate();
+    const timer = setTimeout(showDate, URL_DATE_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [latestDateResolved]);
 
   function handleValueChange(value: number, eventDetails: SliderRootChangeEventDetails) {
     setScrubberDay(value);
@@ -137,9 +153,13 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
       {/* Row 1 — mobile only: date + timezone */}
       <div className="flex items-baseline justify-between md:hidden">
         {ready ? (
-          <span className="text-[13px] font-semibold text-zinc-100 tabular-nums">
-            {formatDate(dateStr, locale)}
-          </span>
+          <>
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-100 tabular-nums url-date:hidden">
+              {formatDate(dateStr, locale)}
+              <DateLoadingIndicator loading={mapDataLoading} />
+            </span>
+            <Shimmer className="hidden url-date:block h-[19.5px] w-28 self-center" />
+          </>
         ) : (
           <Shimmer className="h-[19.5px] w-28 self-center" />
         )}
@@ -161,14 +181,21 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
         </div>
 
         {ready ? (
-          <span className="hidden md:block text-[13px] font-medium text-zinc-200 tabular-nums w-25 shrink-0">
-            {formatDate(dateStr, locale)}
-          </span>
+          <>
+            <span className="hidden md:flex items-center gap-1.5 text-[13px] font-medium text-zinc-200 tabular-nums w-30 shrink-0 url-date:hidden">
+              {formatDate(dateStr, locale)}
+              <DateLoadingIndicator loading={mapDataLoading} />
+            </span>
+            <Shimmer className="hidden url-date:md:block h-[19.5px] w-30 shrink-0" />
+          </>
         ) : (
-          <Shimmer className="hidden md:block h-[19.5px] w-25 shrink-0" />
+          <Shimmer className="hidden md:block h-[19.5px] w-30 shrink-0" />
         )}
 
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0"
+          style={{ '--chart-h': `${CHART_HEIGHT_PX}px` } as React.CSSProperties}
+        >
           {/* Timeline chart — desktop only, aligned to the slider width */}
           <div className="hidden md:block">
             <TimelineChart
@@ -188,9 +215,11 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                 max={scrubberDays - 1}
                 step={1}
                 disabled={!latestDateResolved}
-                className="w-full"
+                className="w-full url-date:hidden"
               >
-                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60">
+                {/* On desktop the control reaches up over the timeline chart, so a click on the
+                    chart picks that day too. */}
+                <Slider.Control className="flex w-full touch-none cursor-pointer items-center data-disabled:cursor-default data-disabled:opacity-60 md:-mt-(--chart-h) md:pt-(--chart-h)">
                   <Slider.Track className="relative h-1 w-full rounded-full bg-zinc-700">
                     <Slider.Thumb
                       ref={thumbRef}
@@ -199,10 +228,24 @@ export function Scrubber({ initialData = null }: { initialData?: ScrubberData | 
                       getAriaValueText={(_, value) =>
                         formatDate(dayToDate(value, latestDate, scrubberDays), locale)
                       }
-                    />
+                    >
+                      {/* Invisible grab strip: Base UI counts a press inside the thumb as grabbing
+                          it, so this widens the hit area (24px for a mouse, 44px for touch, the
+                          WCAG target sizes) and, on desktop, reaches up over the timeline chart's
+                          marker line. Its top is measured from the thumb's centre (the chart's
+                          top is the chart height plus half the 4px track above it), so a bigger
+                          touch thumb doesn't push it out over the map. */}
+                      <span
+                        aria-hidden
+                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 pointer-coarse:w-11 h-full md:h-auto md:top-[calc(50%-var(--chart-h)-2px)]"
+                      />
+                    </Slider.Thumb>
                   </Slider.Track>
                 </Slider.Control>
               </Slider.Root>
+              <div className="hidden url-date:flex w-full items-center">
+                <Shimmer className="h-1 w-full rounded-full" />
+              </div>
               <Tooltip.Root open={isDragging}>
                 <Tooltip.Portal>
                   <Tooltip.Positioner side="top" sideOffset={8} anchor={thumbRef} className="z-50">

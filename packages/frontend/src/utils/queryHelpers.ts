@@ -18,3 +18,11 @@ interface HasNullableData {
 
 export const staleTimeForNullable = (q: HasNullableData): number =>
   q.state.data !== null && q.state.data !== undefined ? Infinity : EMPTY_DATA_STALE_MS;
+
+export interface KeepPreviousOption {
+  /**
+   * Keep the previous date's data while the next date loads (TanStack `keepPreviousData`). Only for
+   * the map, so it doesn't blank between dates; other readers must not see one day's data as another's.
+   */
+  keepPrevious?: boolean;
+}
