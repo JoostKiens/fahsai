@@ -50,6 +50,7 @@ function isCityPage(body: unknown): body is CityPage {
     typeof page.lat === 'number' &&
     typeof page.lng === 'number' &&
     typeof page.zoom === 'number' &&
+    typeof page.radiusKm === 'number' &&
     typeof page.stationCount === 'number' &&
     isNumberOrNull(page.pm25) &&
     isNumberOrNull(page.whoMultiple) &&

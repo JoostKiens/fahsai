@@ -4,7 +4,7 @@ import { fetchCityStations } from './fetchCityStations.js';
 
 // One degree of latitude is about 111.2 km.
 const KM = 1 / 111.2;
-const CENTRE = { lat: 18.79, lng: 98.98 };
+const CENTRE = { lat: 18.79, lng: 98.98, radiusKm: 20 };
 
 function station(id: string, kmNorth: number, overrides: object = {}) {
   return {

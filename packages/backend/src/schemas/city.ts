@@ -79,6 +79,10 @@ export const CityPageSchema = Type.Object({
   lat: Type.Number(),
   lng: Type.Number(),
   zoom: Type.Number({ description: 'The map zoom the “open in map” link uses.' }),
+  radiusKm: Type.Number({
+    description:
+      'The footprint: stations within this distance of the centre (km) count for the city.',
+  }),
   date: DateString,
   pm25: Type.Union([Type.Number(), Type.Null()], {
     description:

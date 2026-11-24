@@ -119,6 +119,7 @@ describe('GET /api/v1/cities against a real database', () => {
         name: 'Chiang Mai',
         country: 'TH',
         zoom: 10,
+        radiusKm: 20,
         date: DATE,
         pm25: 20,
         stationCount: 3,
@@ -159,7 +160,7 @@ describe('GET /api/v1/cities against a real database', () => {
       await get('/api/v1/cities/chiang-mai');
 
       expect(redisSet).toHaveBeenCalledWith(
-        `city:v1:chiang-mai:${DATE}`,
+        `city:v2:chiang-mai:${DATE}`,
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
       );
@@ -173,6 +174,7 @@ describe('GET /api/v1/cities against a real database', () => {
         lat: 18.7883,
         lng: 98.9853,
         zoom: 10,
+        radiusKm: 20,
         date: DATE,
         pm25: 7,
         stationCount: 1,
@@ -184,7 +186,7 @@ describe('GET /api/v1/cities against a real database', () => {
         whoMultiple: 0.5,
       };
       redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key === `city:v1:chiang-mai:${DATE}` ? cached : null),
+        Promise.resolve(key === `city:v2:chiang-mai:${DATE}` ? cached : null),
       );
 
       const res = await get('/api/v1/cities/chiang-mai');

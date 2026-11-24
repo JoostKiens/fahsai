@@ -56,6 +56,8 @@ export interface CityPage extends CityListItem {
   lng: number;
   /** The map zoom the "open in map" link uses */
   zoom: number;
+  /** The footprint: stations within this distance of the centre (km) count for the city */
+  radiusKm: number;
   /** The Bangkok day all figures are for (the newest complete day) */
   date: string;
   /** The median of the stations' daily means, rounded; null when no station reported */

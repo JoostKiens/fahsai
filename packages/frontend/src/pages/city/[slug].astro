@@ -144,7 +144,7 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
             </div>
 
             <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
-              <h2 class={headingClass}>{t('city.stationsWithin')}</h2>
+              <h2 class={headingClass}>{t('city.stationsWithin', { km: page.radiusKm })}</h2>
               <StationsTable stations={listedStations(page)} t={t} />
             </div>
           </section>
@@ -173,7 +173,7 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
           )}
           <div class={`${cardClass} flex flex-[2_1_280px] flex-col gap-1.5 self-start text-xs text-zinc-400`}>
             <h3 class="mb-1 text-[13px] font-semibold text-zinc-100">{t('city.dataHeading')}</h3>
-            <p>{t('city.dataStations')}</p>
+            <p>{t('city.dataStations', { km: page.radiusKm })}</p>
             <p>{t('city.dataFires')}</p>
             <p>{t('city.dataModel')}</p>
             <p set:html={t('city.dataDate', { date: timeHtml(page.date) })} />

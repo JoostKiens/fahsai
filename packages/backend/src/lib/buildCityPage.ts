@@ -173,7 +173,7 @@ export async function buildCityPage(
   if (date === null)
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
-  const cacheKey = `city:v1:${slug}:${date}`;
+  const cacheKey = `city:v2:${slug}:${date}`;
   const running = inFlight.get(cacheKey);
   if (running) return running;
 
@@ -212,6 +212,7 @@ export async function buildCityPage(
       lat: city.lat,
       lng: city.lng,
       zoom: city.zoom,
+      radiusKm: city.radiusKm,
       date,
       pm25: headline.pm25,
       stationCount: headline.stationCount,

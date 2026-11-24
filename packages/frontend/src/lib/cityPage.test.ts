@@ -24,6 +24,7 @@ const PAGE: CityPage = {
   lat: 18.7883,
   lng: 98.9853,
   zoom: 10,
+  radiusKm: 20,
   date: '2026-11-03',
   pm25: 11,
   stationCount: 17,
