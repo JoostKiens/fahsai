@@ -44,6 +44,15 @@ export class AdsHttpError extends Error {
   }
 }
 
+/** The ADS rejects a request for a run it does not hold yet with this 400 (JOO-142). */
+export function isRunNotPublished(err: unknown): boolean {
+  return (
+    err instanceof AdsHttpError &&
+    err.status === 400 &&
+    err.message.includes('not produced a valid combination')
+  );
+}
+
 export class AdsJobError extends Error {
   constructor(status: string, detail: string) {
     super(`ADS job ${status}: ${detail}`);
