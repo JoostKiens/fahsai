@@ -23,6 +23,8 @@ CREATE TABLE "public"."city_pm25_hourly" (
     "valid_at" timestamp with time zone NOT NULL,
     "pm25" real NOT NULL,
     "station_pm25" real,
+    -- the median of the city's stations, for the safety rule: the shown band is never better than it
+    "station_median" real,
     "station_count" smallint NOT NULL CHECK ("station_count" >= 0),
     "station_weight" real NOT NULL CHECK ("station_weight" >= 0 AND "station_weight" <= 1),
     "cams_pm25" real,

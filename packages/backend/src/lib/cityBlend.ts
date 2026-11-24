@@ -1,3 +1,4 @@
+import { pcdBandIndex } from '@thailand-aq/consts';
 import { haversineKm } from '../utils/geo.js';
 import { median } from '../utils/median.js';
 import { inverseDistanceMean, withoutOutliers } from './analyzePeers.js';
@@ -19,6 +20,8 @@ export type CityBlend = {
   pm25: number;
   /** null when no station reported */
   stationPm25: number | null;
+  /** median of the stations (co-located ones merged), for the safety rule; null without stations */
+  stationMedian: number | null;
   /** stations after merging co-located ones and dropping outliers */
   stationCount: number;
   /** share of the station value in pm25, 0 to 1 */
@@ -35,7 +38,9 @@ export function blendCityValue(
   stations: readonly StationValue[],
   camsPm25: number | null,
 ): CityBlend | null {
-  const kept = withoutOutliers(mergeCoLocated(stations));
+  const merged = mergeCoLocated(stations);
+  const stationMedian = median(merged.map((s) => s.pm25));
+  const kept = withoutOutliers(merged);
   const stationPm25 = inverseDistanceMean(
     kept.map((s) => ({ pm25: s.pm25, distKm: s.distanceKm })),
   );
@@ -44,14 +49,17 @@ export function blendCityValue(
   if (stationPm25 === null) {
     return camsPm25 === null
       ? null
-      : { pm25: camsPm25, stationPm25, stationCount, stationWeight: 0 };
+      : { pm25: camsPm25, stationPm25, stationMedian, stationCount, stationWeight: 0 };
   }
-  if (camsPm25 === null) return { pm25: stationPm25, stationPm25, stationCount, stationWeight: 1 };
+  if (camsPm25 === null) {
+    return { pm25: stationPm25, stationPm25, stationMedian, stationCount, stationWeight: 1 };
+  }
 
   const stationWeight = stationCount / (stationCount + PRIOR_STATIONS);
   return {
     pm25: stationWeight * stationPm25 + (1 - stationWeight) * camsPm25,
     stationPm25,
+    stationMedian,
     stationCount,
     stationWeight,
   };
@@ -74,4 +82,41 @@ export function mergeCoLocated(stations: readonly StationValue[]): StationValue[
     ...group[0],
     pm25: median(group.map((s) => s.pm25)) ?? group[0].pm25,
   }));
+}
+
+export type CityHour = { pm25: number; stationMedian: number | null };
+
+export type CityRollingValue = {
+  /** mean of the hourly blends */
+  pm25: number;
+  /** PCD band index, 0 = Excellent … 4 = Very unhealthy */
+  band: number;
+  /** how many hourly values the mean holds, up to 24 */
+  hours: number;
+  /** the safety rule raised the band above the blend's own */
+  isBandRaised: boolean;
+};
+
+/**
+ * The headline value: the mean of the hourly blends over the last 24 h, banded as PCD does. Safety
+ * rule: the band is never better than the band of the stations' median over the same hours, so
+ * CAMS reading low in heavy haze cannot make a city look cleaner than its stations say. The caller
+ * passes only the hours inside the window; until 24 exist, the mean holds the ones there are.
+ */
+export function cityRollingValue(hours: readonly CityHour[]): CityRollingValue | null {
+  if (hours.length === 0) return null;
+  const pm25 = mean(hours.map((h) => h.pm25));
+  const medians = hours.flatMap((h) => (h.stationMedian === null ? [] : [h.stationMedian]));
+  const blendBand = pcdBandIndex(pm25);
+  const stationBand = medians.length === 0 ? blendBand : pcdBandIndex(mean(medians));
+  return {
+    pm25,
+    band: Math.max(blendBand, stationBand),
+    hours: hours.length,
+    isBandRaised: stationBand > blendBand,
+  };
+}
+
+function mean(values: readonly number[]): number {
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }

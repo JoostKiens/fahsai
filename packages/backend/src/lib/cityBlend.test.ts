@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { blendCityValue, mergeCoLocated, type StationValue } from './cityBlend.js';
+import {
+  blendCityValue,
+  cityRollingValue,
+  mergeCoLocated,
+  type StationValue,
+} from './cityBlend.js';
 
 const CENTRE = { lat: 18.79, lng: 98.98 };
 // about 1.1 km north of the centre per 0.01 degree
@@ -15,6 +20,7 @@ describe('blendCityValue', () => {
     expect(blendCityValue([], 30)).toEqual({
       pm25: 30,
       stationPm25: null,
+      stationMedian: null,
       stationCount: 0,
       stationWeight: 0,
     });
@@ -60,5 +66,39 @@ describe('mergeCoLocated', () => {
 
   it('keeps stations further apart separate', () => {
     expect(mergeCoLocated([station(40, 0.01), station(50, 0.02)])).toHaveLength(2);
+  });
+});
+
+describe('cityRollingValue', () => {
+  const hour = (pm25: number, stationMedian: number | null = null) => ({ pm25, stationMedian });
+
+  it('bands the mean of the hourly blends', () => {
+    // mean 30: Moderate (25.1–37.5)
+    expect(cityRollingValue([hour(20), hour(40)])).toEqual({
+      pm25: 30,
+      band: 2,
+      hours: 2,
+      isBandRaised: false,
+    });
+  });
+
+  it("raises the band to the stations' median band", () => {
+    // blend mean 30 is Moderate; station median mean 60 is Unhealthy
+    const result = cityRollingValue([hour(30, 60), hour(30, 60)]);
+    expect(result).toMatchObject({ pm25: 30, band: 3, isBandRaised: true });
+  });
+
+  it("never lowers the band below the blend's own", () => {
+    const result = cityRollingValue([hour(60, 10)]);
+    expect(result).toMatchObject({ band: 3, isBandRaised: false });
+  });
+
+  it('ignores hours without stations for the safety rule', () => {
+    const result = cityRollingValue([hour(30, null), hour(30, 80)]);
+    expect(result?.band).toBe(4);
+  });
+
+  it('returns null without any hours', () => {
+    expect(cityRollingValue([])).toBeNull();
   });
 });

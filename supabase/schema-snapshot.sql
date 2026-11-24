@@ -106,6 +106,7 @@ CREATE TABLE "public"."city_pm25_hourly" (
     "valid_at" timestamp with time zone NOT NULL,
     "pm25" real NOT NULL,
     "station_pm25" real,
+    "station_median" real,
     "station_count" smallint NOT NULL,
     "station_weight" real NOT NULL,
     "cams_pm25" real,

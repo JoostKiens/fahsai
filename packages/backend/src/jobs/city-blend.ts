@@ -16,6 +16,7 @@ export type CityHourRow = {
   valid_at: string;
   pm25: number;
   station_pm25: number | null;
+  station_median: number | null;
   station_count: number;
   station_weight: number;
   cams_pm25: number | null;
@@ -73,6 +74,7 @@ export async function runCityBlend({
       valid_at: validAt.toISOString(),
       pm25: blend.pm25,
       station_pm25: blend.stationPm25,
+      station_median: blend.stationMedian,
       station_count: blend.stationCount,
       station_weight: blend.stationWeight,
       cams_pm25: camsPm25,

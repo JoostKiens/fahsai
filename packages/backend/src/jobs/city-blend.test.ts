@@ -72,6 +72,7 @@ describe('runCityBlend', () => {
         valid_at: '2026-11-24T12:00:00.000Z',
         pm25: 40,
         station_pm25: 60,
+        station_median: 60,
         station_count: 1,
         station_weight: 1 / 3,
         cams_pm25: 30,
