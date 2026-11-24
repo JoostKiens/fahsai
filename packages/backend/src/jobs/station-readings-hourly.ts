@@ -1,8 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import pRetry from 'p-retry';
-import type { CityDef } from '../data/cities.js';
 import { supabase } from '../db/client.js';
-import { fetchCityStations } from '../lib/fetchCityStations.js';
 import { fetchAllPages } from '../utils/backfill.js';
 import type { LatestPm25Result } from '../utils/openaq.js';
 
@@ -89,14 +87,11 @@ export async function runStationReadingsHourlyIngest({
   return { queried, failed, stored: rows.length, aborted };
 }
 
-/** Every station inside at least one city footprint that has a PM2.5 sensor, once. */
+/** The given footprint stations that have a PM2.5 sensor, each once. */
 export async function fetchFootprintStations(
-  cities: readonly CityDef[],
+  stationIds: readonly string[],
 ): Promise<FootprintStation[]> {
-  const ids = new Set<string>();
-  for (const city of cities) {
-    for (const station of await fetchCityStations(city)) ids.add(station.id);
-  }
+  const ids = new Set(stationIds);
   const rows = await fetchAllPages<{ id: string; pm25_sensor_ids: number[] | null }>(
     (from, to) =>
       supabase

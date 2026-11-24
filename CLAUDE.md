@@ -218,6 +218,7 @@ pnpm --filter backend run ingest:station-readings
 pnpm --filter backend run ingest:weather
 pnpm --filter backend run ingest:cams YYYY-MM-DD   # CAMS PM2.5 grid
 pnpm --filter backend run ingest:city-cams         # hourly CAMS per city, newest run
+pnpm --filter backend run ingest:station-readings-hourly  # latest hourly station PM2.5 + city blend
 pnpm --filter backend run ingest:power-plants     # WRI power plants (pass CSV path as optional arg)
 pnpm --filter backend run ingest:station-fire-pressure
 pnpm --filter backend run ingest:station-baseline

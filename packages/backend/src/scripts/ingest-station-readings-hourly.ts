@@ -1,9 +1,16 @@
 import { CITIES } from '../data/cities.js';
 import {
+  blendHour,
+  runCityBlend,
+  supabaseCityBlendSource,
+  supabaseCityHourStore,
+} from '../jobs/city-blend.js';
+import {
   fetchFootprintStations,
   runStationReadingsHourlyIngest,
   supabaseHourlyReadingStore,
 } from '../jobs/station-readings-hourly.js';
+import { fetchCityStations } from '../lib/fetchCityStations.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 import { fetchLocationLatestPm25 } from '../utils/openaq.js';
 
@@ -13,19 +20,35 @@ const MAX_FAILED_RATIO = 0.1;
 try {
   const apiKey = process.env.OPENAQ_API_KEY;
   if (!apiKey) throw new Error('[station-readings-hourly] OPENAQ_API_KEY env var is required');
-  const stations = await fetchFootprintStations(CITIES);
-  const result = await runStationReadingsHourlyIngest({
-    now: new Date(),
+  const now = new Date();
+  const cities = await Promise.all(
+    CITIES.map(async (city) => ({ slug: city.slug, stations: await fetchCityStations(city) })),
+  );
+  const stations = await fetchFootprintStations(
+    cities.flatMap((city) => city.stations.map((s) => s.id)),
+  );
+  const ingest = await runStationReadingsHourlyIngest({
+    now,
     stations,
     fetchLatest: (station) => fetchLocationLatestPm25(apiKey, station.id, station.pm25SensorIds),
     store: supabaseHourlyReadingStore,
   });
-  console.log('[station-readings-hourly] done', result);
+  console.log('[station-readings-hourly] done', ingest);
+
+  // Blended even after a bad ingest: a city then leans on CAMS, which beats no value this hour.
+  const blend = await runCityBlend({
+    validAt: blendHour(now),
+    cities,
+    source: supabaseCityBlendSource,
+    store: supabaseCityHourStore,
+  });
+  console.log('[city-blend] done', blend);
+
   // thrown after the writes, so a bad run's partial data is kept
-  if (result.aborted || result.failed > result.queried * MAX_FAILED_RATIO) {
+  if (ingest.aborted || ingest.failed > ingest.queried * MAX_FAILED_RATIO) {
     throw new Error(
-      `[station-readings-hourly] ${result.failed}/${result.queried} locations failed` +
-        (result.aborted ? ', stopped early' : ''),
+      `[station-readings-hourly] ${ingest.failed}/${ingest.queried} locations failed` +
+        (ingest.aborted ? ', stopped early' : ''),
     );
   }
   await waitForRollbar();

@@ -100,6 +100,25 @@ export default defineRailway((ctx) => {
     networking: { privateNetworkEndpoint: "aqi-ingest-pass-1" },
     env: sharedEnv,
   });
+
+  // The latest hourly station values for the city footprints, then the hourly city blend (JOO-140).
+  // At :45 every live OpenAQ location has the hour that just ended (JOO-142). One run is ~160
+  // calls over ~3 minutes, so it never shares a minute with the daily passes at :00. A new service
+  // has no values to preserve, so it references the shared variables and pass 1's OpenAQ key.
+  const ingestStationReadingsHourly = service("ingest-station-readings-hourly", {
+    source: fahsai,
+    build,
+    start: "pnpm --filter backend run railway:ingest:station-readings-hourly",
+    replicas: { "asia-southeast1-eqsg3a": 1 },
+    deploy: { cronSchedule: "45 * * * *", restartPolicyType: "NEVER" },
+    env: {
+      NODE_ENV: ctx.shared.NODE_ENV,
+      ROLLBAR_TOKEN: ctx.shared.ROLLBAR_TOKEN,
+      SUPABASE_SERVICE_ROLE_KEY: ctx.shared.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_URL: ctx.shared.SUPABASE_URL,
+      OPENAQ_API_KEY: ingestStationReadingsPass1.env.OPENAQ_API_KEY,
+    },
+  });
   const ingestFallbackCams = service("ingest-fallback-cams", {
     source: fahsai,
     build,
@@ -158,6 +177,6 @@ export default defineRailway((ctx) => {
   });
 
   return project("fahsai", {
-    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestFallbackCams, ingestCams, ingestCityCams, pipelineHealth],
+    resources: [ingestFires, ingestStations, ingestStationBaseline, prune, ingestWeatherReadings, ingestStationReadingsPass2, APIServer, ingestWeatherReadingsFallback, ingestStationFirePressure, ingestStationReadingsPass1, ingestStationReadingsHourly, ingestFallbackCams, ingestCams, ingestCityCams, pipelineHealth],
   });
 });
