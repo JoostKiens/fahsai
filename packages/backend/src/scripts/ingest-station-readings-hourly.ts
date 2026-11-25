@@ -6,6 +6,11 @@ import {
   supabaseCityHourStore,
 } from '../jobs/city-blend.js';
 import {
+  runCityForecast,
+  supabaseCityForecastSource,
+  supabaseCityForecastStore,
+} from '../jobs/city-forecast.js';
+import {
   fetchFootprintStations,
   runStationReadingsHourlyIngest,
   supabaseHourlyReadingStore,
@@ -43,6 +48,13 @@ try {
     store: supabaseCityHourStore,
   });
   console.log('[city-blend] done', blend);
+
+  const forecast = await runCityForecast({
+    blends: blend.rows,
+    source: supabaseCityForecastSource,
+    store: supabaseCityForecastStore,
+  });
+  console.log('[city-forecast] done', forecast);
 
   // thrown after the writes, so a bad run's partial data is kept
   if (ingest.aborted || ingest.failed > ingest.queried * MAX_FAILED_RATIO) {

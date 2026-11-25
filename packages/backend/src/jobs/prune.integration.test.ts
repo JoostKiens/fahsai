@@ -93,6 +93,21 @@ const TARGETS: Target[] = [
       station_weight: 0,
     }),
   },
+  {
+    key: 'cityForecastDailyDeleted',
+    table: 'city_forecast_daily',
+    column: 'issued_at',
+    values: HOURLY_INSTANTS,
+    row: (issued_at) => ({
+      city_slug: 'chiang-mai',
+      issued_at,
+      day: '2026-10-19',
+      pm25: 20,
+      hours: 24,
+      factor: 1,
+      cams_run_at: '2026-10-18T00:00:00Z',
+    }),
+  },
 ];
 
 // PostgREST renders timestamptz as +00:00; compare instants, not strings.

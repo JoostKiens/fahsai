@@ -205,7 +205,12 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
                                                 n / (n + 2). A location that errors (any status)
                                                 counts as failed; 5 in a row stop the ingest. Blends
                                                 even after a bad ingest, then exits non-zero above
-                                                10% failed locations.
+                                                10% failed locations. Then the forecast
+                                                (lib/cityForecast.ts) into city_forecast_daily:
+                                                factor = clamp(blend / CAMS, 0.5, 2) for the latest
+                                                hour, times the mean of the later CAMS hours per
+                                                Bangkok day, for today (hours still to come) and the
+                                                next 2 days. Pruned after 30 days.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
