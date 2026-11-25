@@ -30,7 +30,6 @@ const hours = (count: number, pm25: number): CamsHour[] =>
   Array.from({ length: count }, (_, i) => ({
     validAt: new Date(Date.parse(ISSUED_AT) + (i + 1) * HOUR_MS).toISOString(),
     pm25,
-    runAt: RUN_AT,
   }));
 
 async function forecast(blends: CityHourRow[], source: CityForecastSource) {
@@ -86,6 +85,31 @@ describe('runCityForecast', () => {
       camsHoursAfter: () => Promise.resolve([]),
     });
 
-    expect(result).toEqual({ stored: 0, withoutForecast: ['lamphun'] });
+    expect(result).toEqual({ stored: 0, withoutForecast: ['lamphun'], failed: [] });
   });
+
+  it('reads the hours of the run the factor was computed against', async () => {
+    const camsHoursAfter = vi.fn(() => Promise.resolve(hours(72, 10)));
+
+    await forecast([blend('chiang-mai', 40, 20)], { camsHoursAfter });
+
+    expect(camsHoursAfter).toHaveBeenCalledWith('chiang-mai', new Date(ISSUED_AT), RUN_AT);
+  });
+
+  it('still stores the other cities when one city’s CAMS read keeps failing', async () => {
+    const camsHoursAfter = vi.fn((slug: string) =>
+      slug === 'lampang' ? Promise.reject(new Error('timeout')) : Promise.resolve(hours(72, 10)),
+    );
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const { result, stored } = await forecast(
+      [blend('lampang', 40, 20), blend('chiang-mai', 40, 20)],
+      { camsHoursAfter },
+    );
+
+    expect(result.failed).toEqual(['lampang']);
+    expect(stored.map((r) => r.city_slug)).toEqual(['chiang-mai', 'chiang-mai', 'chiang-mai']);
+    // pRetry: the first try and 2 retries
+    expect(camsHoursAfter.mock.calls.filter(([slug]) => slug === 'lampang')).toHaveLength(3);
+  }, 10_000);
 });

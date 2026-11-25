@@ -84,6 +84,7 @@ function isCityForecast(value: unknown): boolean {
   const forecast = value as Record<string, unknown>;
   return (
     typeof forecast.issuedAt === 'string' &&
+    typeof forecast.factor === 'number' &&
     Array.isArray(forecast.days) &&
     forecast.days.every(
       (day: unknown) =>
@@ -91,7 +92,8 @@ function isCityForecast(value: unknown): boolean {
         day !== null &&
         typeof (day as Record<string, unknown>).date === 'string' &&
         typeof (day as Record<string, unknown>).pm25 === 'number' &&
-        typeof (day as Record<string, unknown>).band === 'number',
+        typeof (day as Record<string, unknown>).band === 'number' &&
+        typeof (day as Record<string, unknown>).hours === 'number',
     )
   );
 }
@@ -266,19 +268,16 @@ export function nowWhoMultiple(now: CityNow): number {
   return Math.round((now.pm25 / WHO_PM25_24H_UGM3) * 10) / 10;
 }
 
-const BANGKOK_OFFSET_MS = 7 * 3_600_000;
-
-/** "Today", "Tomorrow" or the weekday of a forecast day (YYYY-MM-DD, Bangkok). */
-export function forecastDayLabel(
-  date: string,
-  { nowMs, lang, t }: { nowMs: number; lang: string; t: i18n['t'] },
-): string {
-  const today = new Date(nowMs + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);
-  const tomorrow = new Date(nowMs + BANGKOK_OFFSET_MS + 24 * 3_600_000).toISOString().slice(0, 10);
-  if (date === today) return t('city.forecastToday');
-  if (date === tomorrow) return t('city.forecastTomorrow');
+/**
+ * A forecast day (YYYY-MM-DD, Bangkok) as a weekday and date, for example "Wed 25 Nov". Not
+ * "Today": ISR serves the page for up to an hour, so a page built before midnight would call
+ * yesterday today.
+ */
+export function forecastDayLabel(date: string, lang = 'en'): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString(dateLocale(lang), {
-    weekday: 'long',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
     timeZone: 'UTC',
   });
 }

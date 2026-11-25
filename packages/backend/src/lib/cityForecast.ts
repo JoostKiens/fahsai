@@ -6,6 +6,7 @@ export const FACTOR_MIN = 0.5;
 export const FACTOR_MAX = 2;
 // Today (its hours still to come) and the two days after, in Bangkok time.
 export const FORECAST_DAYS = 3;
+const HOURS_PER_DAY = 24;
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -22,7 +23,9 @@ export type ForecastDay = { day: string; pm25: number; hours: number };
 
 /**
  * The forecast per Bangkok day: the mean of the CAMS hours after issuedAt, times the factor. Today
- * counts only the hours still to come; a day without CAMS hours is left out.
+ * counts only the hours still to come. A later day must be whole: a run that stops partway through
+ * it (stale or short) would make a night-only mean pass for the day, so such a day is left out, and
+ * so are the days after it.
  */
 export function forecastDays({
   issuedAt,
@@ -41,10 +44,17 @@ export function forecastDays({
     if (Date.parse(hour.validAt) <= issuedAt.getTime()) continue;
     byDay.get(bangkokDateString(new Date(hour.validAt)))?.push(hour.pm25);
   }
-  return days.flatMap((day) => {
+  const result: ForecastDay[] = [];
+  for (const [i, day] of days.entries()) {
     const values = byDay.get(day) ?? [];
-    if (values.length === 0) return [];
+    const isToday = i === 0;
+    const isComplete = isToday ? values.length > 0 : values.length === HOURS_PER_DAY;
+    if (!isComplete) {
+      if (isToday) continue;
+      break;
+    }
     const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-    return [{ day, pm25: mean * factor, hours: values.length }];
-  });
+    result.push({ day, pm25: mean * factor, hours: values.length });
+  }
+  return result;
 }

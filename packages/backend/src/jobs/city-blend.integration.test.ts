@@ -52,21 +52,26 @@ describe('supabaseCityBlendSource against a real database', () => {
     expect(await supabaseCityBlendSource.camsAt('lampang', VALID_AT)).toBeNull();
   });
 
-  it('gives the CAMS hours after the issue hour, in order', async () => {
-    const hour = (validAt: string, pm25: number) => ({
+  it('gives the CAMS hours after the issue hour, from the given run only, in order', async () => {
+    const hour = (validAt: string, pm25: number, runAt = '2026-11-24T00:00:00Z') => ({
       city_slug: 'chiang-mai',
       valid_at: validAt,
       pm25,
-      run_at: '2026-11-24T00:00:00Z',
+      run_at: runAt,
       lead_hour: 0,
     });
     await seed('city_cams_hourly', [
       hour('2026-11-24T14:00:00Z', 1),
       hour('2026-11-24T12:00:00Z', 2), // the issue hour itself is not a forecast
       hour('2026-11-24T13:00:00Z', 3),
+      hour('2026-11-24T15:00:00Z', 4, '2026-11-24T12:00:00Z'), // a newer run being written
     ]);
 
-    const hours = await supabaseCityForecastSource.camsHoursAfter('chiang-mai', VALID_AT);
+    const hours = await supabaseCityForecastSource.camsHoursAfter(
+      'chiang-mai',
+      VALID_AT,
+      '2026-11-24T00:00:00+00:00',
+    );
 
     expect(hours.map((h) => [new Date(h.validAt).toISOString(), h.pm25])).toEqual([
       ['2026-11-24T13:00:00.000Z', 3],

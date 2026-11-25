@@ -198,8 +198,6 @@
   "city.nowRaised": "Shown at the stations’ level, which is worse than the estimate",
   "city.forecastTitle": "Next days · model estimate",
   "city.forecastNote": "The CAMS forecast, scaled to match the latest hour's estimate. A model can miss sudden smoke.",
-  "city.forecastToday": "Today",
-  "city.forecastTomorrow": "Tomorrow",
   "city.forecastRestOfDay": "rest of the day",
   "city.measuredWithin": "Measured by stations within {{km}} km, latest hour",
   "city.driving": "What's driving it",

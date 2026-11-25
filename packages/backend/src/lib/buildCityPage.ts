@@ -29,7 +29,12 @@ import {
 import { cityPageCacheKey } from './cityPageCacheKey.js';
 import { citySummary } from './citySummary.js';
 import type { StationNearCity } from './cityStations.js';
-import { fetchCityForecast, fetchCityNow, fetchMeasuredStations } from './fetchCityNow.js';
+import {
+  fetchCityForecast,
+  fetchCityNow,
+  fetchMeasuredStations,
+  fetchNewestBlendHour,
+} from './fetchCityNow.js';
 import { fetchCityStations } from './fetchCityStations.js';
 import { getLatestCompleteDate } from './latestDate.js';
 
@@ -210,7 +215,12 @@ export async function buildCityPage(
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
   const now = new Date();
-  const cacheKey = cityPageCacheKey(slug, date, now);
+  const newestBlend = await fetchNewestBlendHour(slug).catch((err: unknown) => {
+    // the key then changes on the hour only, as before the hourly blend existed
+    logger.warn({ err, slug }, 'city page: newest blend hour not read');
+    return null;
+  });
+  const cacheKey = cityPageCacheKey(slug, date, { now, newestBlend });
   const running = inFlight.get(cacheKey);
   if (running) return running;
 

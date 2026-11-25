@@ -15,18 +15,22 @@ export type CityForecastRow = {
   cams_run_at: string;
 };
 
-export type CamsHour = { validAt: string; pm25: number; runAt: string };
+export type CamsHour = { validAt: string; pm25: number };
 
 export type CityForecastSource = {
-  /** the city's CAMS hours after `after`, from the newest stored run */
-  camsHoursAfter(slug: string, after: Date): Promise<CamsHour[]>;
+  /**
+   * The city's CAMS hours after `after`, from one run only: the run the factor was computed
+   * against, so a run being replaced mid-forecast cannot mix two runs into one record.
+   */
+  camsHoursAfter(slug: string, after: Date, runAt: string): Promise<CamsHour[]>;
 };
 
 export type CityForecastStore = { upsert(rows: CityForecastRow[]): Promise<void> };
 
 /**
  * Anchors each city's CAMS forecast to its blend for the latest hour and stores the daily means.
- * A city whose blend has no CAMS value, or whose run has no later hours, gets no forecast.
+ * A city whose blend has no CAMS value, or whose run has no later hours, gets no forecast. A city
+ * whose CAMS read fails is listed in `failed` and the others are still stored.
  */
 export async function runCityForecast({
   blends,
@@ -37,20 +41,34 @@ export async function runCityForecast({
   blends: readonly CityHourRow[];
   source: CityForecastSource;
   store: CityForecastStore;
-}): Promise<{ stored: number; withoutForecast: string[] }> {
+}): Promise<{ stored: number; withoutForecast: string[]; failed: string[] }> {
   const rows: CityForecastRow[] = [];
   const withoutForecast: string[] = [];
+  const failed: string[] = [];
   for (const blend of blends) {
     const factor = anchorFactor(blend.pm25, blend.cams_pm25);
-    const issuedAt = new Date(blend.valid_at);
-    const cams = factor === null ? [] : await source.camsHoursAfter(blend.city_slug, issuedAt);
-    const days = factor === null ? [] : forecastDays({ issuedAt, factor, cams });
-    if (factor === null || days.length === 0) {
+    const runAt = blend.cams_run_at;
+    if (factor === null || runAt === null) {
       withoutForecast.push(blend.city_slug);
       continue;
     }
-    // city_cams_hourly holds one run; the newest covers the moment a new run is being written
-    const runAt = cams.reduce((newest, h) => (h.runAt > newest ? h.runAt : newest), cams[0].runAt);
+    const issuedAt = new Date(blend.valid_at);
+    let cams: CamsHour[];
+    try {
+      cams = await pRetry(() => source.camsHoursAfter(blend.city_slug, issuedAt, runAt), {
+        retries: 2,
+        minTimeout: 1_000,
+      });
+    } catch (err) {
+      failed.push(blend.city_slug);
+      console.error(`${LOG} ${blend.city_slug}: CAMS hours not read`, err);
+      continue;
+    }
+    const days = forecastDays({ issuedAt, factor, cams });
+    if (days.length === 0) {
+      withoutForecast.push(blend.city_slug);
+      continue;
+    }
     rows.push(
       ...days.map((d) => ({
         city_slug: blend.city_slug,
@@ -67,24 +85,23 @@ export async function runCityForecast({
   if (rows.length > 0) await store.upsert(rows);
   if (withoutForecast.length > 0)
     console.warn(`${LOG} no forecast for ${withoutForecast.join(', ')}`);
-  console.log(
-    `${LOG} stored ${rows.length} days for ${blends.length - withoutForecast.length} cities`,
-  );
-  return { stored: rows.length, withoutForecast };
+  console.log(`${LOG} stored ${rows.length} days`);
+  return { stored: rows.length, withoutForecast, failed };
 }
 
 export const supabaseCityForecastSource: CityForecastSource = {
-  async camsHoursAfter(slug, after) {
+  async camsHoursAfter(slug, after, runAt) {
     // at most 121 rows: one run's lead hours
     const { data, error } = await supabase
       .from('city_cams_hourly')
-      .select('valid_at, pm25, run_at')
+      .select('valid_at, pm25')
       .eq('city_slug', slug)
+      .eq('run_at', runAt)
       .gt('valid_at', after.toISOString())
       .order('valid_at')
-      .returns<{ valid_at: string; pm25: number; run_at: string }[]>();
+      .returns<{ valid_at: string; pm25: number }[]>();
     if (error) throw new Error(`city_cams_hourly: ${error.message}`);
-    return data.map((r) => ({ validAt: r.valid_at, pm25: r.pm25, runAt: r.run_at }));
+    return data.map((r) => ({ validAt: r.valid_at, pm25: r.pm25 }));
   },
 };
 

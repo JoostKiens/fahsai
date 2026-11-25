@@ -210,11 +210,12 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
                                                 factor = clamp(blend / CAMS, 0.5, 2) for the latest
                                                 hour, times the mean of the later CAMS hours per
                                                 Bangkok day, for today (hours still to come) and the
-                                                next 2 days. Pruned after 30 days. Last, it deletes
-                                                this hour's cached city pages in Redis and asks
+                                                next 2 days. Pruned after 30 days. Last, it asks
                                                 Vercel to rebuild /city/{slug} (HEAD with
                                                 x-prerender-revalidate: ISR_BYPASS_TOKEN; skipped
-                                                when unset). A failed refresh is logged only.
+                                                when unset). A failed refresh is logged only. The
+                                                API's page cache key holds the newest blend hour,
+                                                so the rebuild never gets a pre-blend page.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -431,7 +432,7 @@ GET /api/v1/cities/:slug
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
   else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
   the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
-  Redis key city:v4:{slug}:{date}:{UTC hour}, TTL 1 h (a station that reports late shows up within the hour), or
+  Redis key city:v4:{slug}:{date}:{UTC hour}:b{newest blend hour}, TTL 1 h (a station that reports late shows up within the hour), or
   60 s when part of the day could not be read (the context failed or took over 6 s, the CAMS value
   failed, the fire data was not read, or the hourly value could not be read), so one blip does
   not stay for the hour. Requests for the

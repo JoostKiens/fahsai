@@ -47,10 +47,27 @@ describe('forecastDays', () => {
     expect(tomorrow.pm25).toBe(40);
   });
 
-  it('leaves out a day the CAMS run does not reach', () => {
-    const days = forecastDays({ issuedAt: ISSUED_AT, factor: 1, cams: camsHours(20) });
+  it('leaves out a later day the CAMS run only partly covers, and the days after it', () => {
+    // 20 hours after 15:00Z: 1 hour today, then 19 of tomorrow's 24
+    const days = forecastDays({ issuedAt: ISSUED_AT, factor: 1, cams: camsHours(21) });
 
-    expect(days.map((d) => d.day)).toEqual(['2026-11-24', '2026-11-25']);
+    expect(days.map((d) => d.day)).toEqual(['2026-11-24']);
+  });
+
+  it('starts with tomorrow when today has no hours left', () => {
+    // 16:00Z is 23:00 in Bangkok: the next hour is already tomorrow
+    const issuedAt = new Date('2026-11-24T16:00:00Z');
+    const cams = Array.from({ length: 72 }, (_, i) => ({
+      validAt: new Date(issuedAt.getTime() + (i + 1) * HOUR_MS).toISOString(),
+      pm25: 20,
+    }));
+
+    const days = forecastDays({ issuedAt, factor: 1, cams });
+
+    expect(days.map((d) => [d.day, d.hours])).toEqual([
+      ['2026-11-25', 24],
+      ['2026-11-26', 24],
+    ]);
   });
 
   it('is empty without CAMS hours', () => {

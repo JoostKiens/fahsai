@@ -499,15 +499,27 @@ describe('the hourly value', () => {
     expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'unavailable' });
   });
 
-  it('labels forecast days by the Bangkok day', () => {
-    const { t } = createI18n('en');
-    // 18:00 UTC is 01:00 on 25 Nov in Bangkok
-    const nowMs = Date.parse('2026-11-24T18:00:00Z');
-    const label = (date: string) => forecastDayLabel(date, { nowMs, lang: 'en', t });
+  it('labels forecast days by weekday and date, never as today', () => {
+    expect(forecastDayLabel('2026-11-27')).toBe('Fri 27 Nov');
+  });
 
-    expect(label('2026-11-25')).toBe('Today');
-    expect(label('2026-11-26')).toBe('Tomorrow');
-    expect(label('2026-11-27')).toBe('Friday');
+  it('is unavailable when a forecast lacks its hours or factor', async () => {
+    const day = { date: '2026-11-24', pm25: 20, band: 1 };
+    const withoutHours = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, factor: 1, days: [day] },
+    });
+    const withoutFactor = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, days: [{ ...day, hours: 24 }] },
+    });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn: withoutHours })).toEqual({
+      status: 'unavailable',
+    });
+    expect(await fetchCityPage('chiang-mai', { fetchFn: withoutFactor })).toEqual({
+      status: 'unavailable',
+    });
   });
 
   it('formats the hour in Thai time', () => {

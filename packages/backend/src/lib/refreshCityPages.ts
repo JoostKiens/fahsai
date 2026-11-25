@@ -1,35 +1,24 @@
-import { cityPageCacheKey } from './cityPageCacheKey.js';
-
 const LOG = '[refresh-city-pages]';
 const SITE = 'https://fahsai.fyi';
 const REVALIDATE_TIMEOUT_MS = 15_000;
 
 /**
- * Makes the city pages show the blend just stored, instead of waiting up to an hour. First the
- * API's cached page for this hour goes (it was usually built before the blend), then Vercel is
- * asked to rebuild each page (ISR on-demand revalidation). A page that fails to refresh still
- * refreshes within the hour, so failures are logged, not thrown.
+ * Asks Vercel to rebuild each city page (ISR on-demand revalidation), so it shows the blend just
+ * stored instead of waiting up to an hour. The API's page cache needs nothing: its key holds the
+ * newest blend hour (cityPageCacheKey.ts). A page that fails to refresh still refreshes within the
+ * hour, so failures are logged, not thrown.
  */
 export async function refreshCityPages({
   slugs,
-  now,
-  latestDate,
-  deleteCacheKeys,
   bypassToken,
   fetchFn = fetch,
 }: {
   slugs: readonly string[];
-  now: Date;
-  /** the day in the page cache key (getLatestCompleteDate); null skips the cache delete */
-  latestDate: string | null;
-  deleteCacheKeys: (...keys: string[]) => Promise<void>;
-  /** ISR bypass token shared with Vercel; undefined skips the revalidation */
+  /** ISR bypass token shared with Vercel; undefined skips the refresh */
   bypassToken: string | undefined;
   fetchFn?: typeof fetch;
 }): Promise<{ revalidated: string[]; failed: string[] }> {
-  if (latestDate !== null) {
-    await deleteCacheKeys(...slugs.map((slug) => cityPageCacheKey(slug, latestDate, now)));
-  }
+  if (slugs.length === 0) return { revalidated: [], failed: [] };
   if (bypassToken === undefined || bypassToken === '') {
     console.warn(`${LOG} ISR_BYPASS_TOKEN is not set: pages refresh within the hour instead`);
     return { revalidated: [], failed: [] };

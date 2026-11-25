@@ -26,6 +26,19 @@ type CityHourRow = {
   cams_pm25: number | null;
 };
 
+/** When the city's newest hourly blend is for; null when it has none. */
+export async function fetchNewestBlendHour(slug: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('city_pm25_hourly')
+    .select('valid_at')
+    .eq('city_slug', slug)
+    .order('valid_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ valid_at: string }>();
+  if (error) throw new Error(`city_pm25_hourly: ${error.message}`);
+  return data?.valid_at ?? null;
+}
+
 /** The headline value from the hourly blends of the last 24 h; null when it is too thin or old. */
 export async function fetchCityNow(slug: string, now: Date): Promise<CityNow | null> {
   // at most 24 rows: one per hour

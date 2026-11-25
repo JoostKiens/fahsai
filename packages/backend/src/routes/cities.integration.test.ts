@@ -177,7 +177,7 @@ describe('GET /api/v1/cities against a real database', () => {
 
       expect(redisSet).toHaveBeenCalledWith(
         expect.stringMatching(
-          new RegExp(`^city:v4:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
+          new RegExp(`^city:v4:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}:bnone$`),
         ),
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
@@ -274,6 +274,27 @@ describe('GET /api/v1/cities against a real database', () => {
           { date: day(2), pm25: 80, band: 4, hours: 24 },
         ],
       });
+    });
+
+    it('caches the page under a new key once a new blend lands', async () => {
+      await seedChiangMai();
+      const thisHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+      const blendAt = (hoursAgo: number) => ({
+        city_slug: 'chiang-mai',
+        valid_at: new Date(thisHour - hoursAgo * HOUR_MS).toISOString(),
+        pm25: 20,
+        station_count: 0,
+        station_weight: 0,
+      });
+      await seed('city_pm25_hourly', [blendAt(1)]);
+      await get('/api/v1/cities/chiang-mai');
+      await seed('city_pm25_hourly', [blendAt(0)]);
+      await get('/api/v1/cities/chiang-mai');
+
+      const keys = redisSet.mock.calls.map(([key]) => String(key));
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).not.toBe(keys[1]);
+      expect(keys[1]).toMatch(new RegExp(`:b${new Date(thisHour).toISOString().slice(0, 13)}$`));
     });
 
     it('has no hourly value before the first blend', async () => {
