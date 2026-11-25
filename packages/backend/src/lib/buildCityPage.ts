@@ -1,4 +1,10 @@
-import type { CityDrivers, CityNearby, CityPage } from '@thailand-aq/types';
+import type {
+  CityDrivers,
+  CityNearby,
+  CityNow,
+  CityPage,
+  CityStationHour,
+} from '@thailand-aq/types';
 import { MS_PER_DAY } from '@thailand-aq/consts';
 import { cacheGet, cacheSet } from '../cache/safe.js';
 import { logger } from './logger.js';
@@ -20,6 +26,8 @@ import {
   type Reading,
 } from './cityAggregate.js';
 import { citySummary } from './citySummary.js';
+import type { StationNearCity } from './cityStations.js';
+import { fetchCityNow, fetchMeasuredStations } from './fetchCityNow.js';
 import { fetchCityStations } from './fetchCityStations.js';
 import { getLatestCompleteDate } from './latestDate.js';
 
@@ -155,6 +163,25 @@ async function buildDrivers(
   };
 }
 
+// The hourly value and the measured stations. A failure leaves the page on yesterday's value, as a
+// failed drivers read does, with `complete` false so the page is kept for a minute only.
+async function buildNow(
+  city: CityDef,
+  near: StationNearCity[],
+  now: Date,
+): Promise<{ now: CityNow | null; measured: CityStationHour[]; complete: boolean }> {
+  try {
+    const [cityNow, measured] = await Promise.all([
+      fetchCityNow(city.slug, now),
+      fetchMeasuredStations(near, now),
+    ]);
+    return { now: cityNow, measured, complete: true };
+  } catch (err) {
+    logger.warn({ err, slug: city.slug }, 'city page: no hourly value');
+    return { now: null, measured: [], complete: false };
+  }
+}
+
 // Requests that arrive together for the same page share one build (per process).
 const inFlight = new Map<string, Promise<CityPage>>();
 
@@ -174,9 +201,10 @@ export async function buildCityPage(
   if (date === null)
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
-  // The CAMS figure is for the current hour, so a page is cached per hour, not per day.
+  // The CAMS figure and the hourly value change every hour, so a page is cached per hour. v3: the
+  // page gained now and measured.
   const now = new Date();
-  const cacheKey = `city:v2:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
+  const cacheKey = `city:v3:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
   const running = inFlight.get(cacheKey);
   if (running) return running;
 
@@ -195,9 +223,10 @@ export async function buildCityPage(
     );
     const day = cityDay(near, means, date);
     // neither needs the other
-    const [{ drivers, complete }, nearby] = await Promise.all([
+    const [{ drivers, complete }, nearby, hourly] = await Promise.all([
       buildDrivers(city, day, date, now, driversDeadlineMs),
       nearbyCities(nearbyCandidates(city), date),
+      buildNow(city, near, now),
     ]);
     const headline = {
       name: city.name,
@@ -229,9 +258,11 @@ export async function buildCityPage(
       summary: citySummary(headline),
       nearby,
       whoMultiple: headline.whoMultiple,
+      now: hourly.now,
+      measured: hourly.measured,
     };
     void cacheSet(cacheKey, page, {
-      ex: complete ? CITY_CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS,
+      ex: complete && hourly.complete ? CITY_CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS,
     });
     return page;
   })().finally(() => inFlight.delete(cacheKey));

@@ -9,6 +9,7 @@ const TABLES = [
   { name: 'station_weather', key: 'date' },
   { name: 'station_fire_pressure', key: 'date' },
   { name: 'station_baseline', key: 'month' },
+  { name: 'station_readings_hourly', key: 'station_id' },
   { name: 'stations', key: 'id' },
   { name: 'fire_points', key: 'id' },
   { name: 'cams_grid', key: 'date' },
@@ -16,6 +17,7 @@ const TABLES = [
   { name: 'cams_daily_summary', key: 'date' },
   { name: 'power_plants', key: 'id' },
   { name: 'city_cams_hourly', key: 'city_slug' },
+  { name: 'city_pm25_hourly', key: 'city_slug' },
 ] as const;
 
 export type TableName = (typeof TABLES)[number]['name'];

@@ -177,11 +177,75 @@ describe('GET /api/v1/cities against a real database', () => {
 
       expect(redisSet).toHaveBeenCalledWith(
         expect.stringMatching(
-          new RegExp(`^city:v2:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
+          new RegExp(`^city:v3:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
         ),
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
       );
+    });
+
+    it('gives the hourly value of the last 24 h and each station’s latest measured hour', async () => {
+      await seedChiangMai();
+      const thisHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+      const at = (hoursAgo: number) => new Date(thisHour - hoursAgo * HOUR_MS).toISOString();
+      const blend = (citySlug: string, hoursAgo: number, pm25: number) => ({
+        city_slug: citySlug,
+        valid_at: at(hoursAgo),
+        pm25,
+        station_median: pm25,
+        station_count: 2,
+        station_weight: 0.5,
+        cams_pm25: 18,
+      });
+      await seed('city_pm25_hourly', [
+        blend('chiang-mai', 24, 300), // outside the 24 h window
+        // hours 23 to 12 ago at 20, hours 11 to 0 ago at 40: mean 30
+        ...Array.from({ length: 24 }, (_, hoursAgo) =>
+          blend('chiang-mai', hoursAgo, hoursAgo < 12 ? 40 : 20),
+        ),
+        blend('lamphun', 0, 90), // another city
+      ]);
+      const hourly = (stationId: string, hoursAgo: number, pm25: number) => ({
+        station_id: stationId,
+        measured_at: at(hoursAgo),
+        pm25,
+        sensor_id: 1,
+      });
+      await seed('station_readings_hourly', [
+        hourly('near', 1, 22),
+        hourly('near', 0, 25),
+        hourly('mid', 3, 60), // older than 2 h
+        hourly('too-far', 0, 99), // outside the footprint
+      ]);
+
+      const res = await get('/api/v1/cities/chiang-mai');
+
+      expect(res.statusCode).toBe(200);
+      const page = res.json<CityPage>();
+      expect(page.now).toEqual({
+        pm25: 30,
+        band: 2,
+        isBandRaised: false,
+        hours: 24,
+        latest: {
+          validAt: at(0),
+          pm25: 40,
+          stationCount: 2,
+          stationWeight: 0.5,
+          camsPm25: 18,
+        },
+      });
+      expect(page.measured).toEqual([
+        { id: 'near', name: 'Station near', pm25: 25, measuredAt: at(0) },
+      ]);
+    });
+
+    it('has no hourly value before the first blend', async () => {
+      await seedChiangMai();
+
+      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+      expect(page).toMatchObject({ now: null, measured: [] });
     });
 
     it('serves a cached page without reading the database', async () => {
@@ -202,9 +266,11 @@ describe('GET /api/v1/cities against a real database', () => {
         summary: [],
         nearby: [],
         whoMultiple: 0.5,
+        now: null,
+        measured: [],
       };
       redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key.startsWith(`city:v2:chiang-mai:${DATE}:`) ? cached : null),
+        Promise.resolve(key.startsWith(`city:v3:chiang-mai:${DATE}:`) ? cached : null),
       );
 
       const res = await get('/api/v1/cities/chiang-mai');

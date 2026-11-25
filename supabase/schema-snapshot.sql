@@ -98,6 +98,24 @@ CREATE TABLE "public"."city_cams_hourly" (
 );
 
 --
+-- Name: city_pm25_hourly; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE "public"."city_pm25_hourly" (
+    "city_slug" "text" NOT NULL,
+    "valid_at" timestamp with time zone NOT NULL,
+    "pm25" real NOT NULL,
+    "station_pm25" real,
+    "station_median" real,
+    "station_count" smallint NOT NULL,
+    "station_weight" real NOT NULL,
+    "cams_pm25" real,
+    "cams_run_at" timestamp with time zone,
+    CONSTRAINT "city_pm25_hourly_station_count_check" CHECK (("station_count" >= 0)),
+    CONSTRAINT "city_pm25_hourly_station_weight_check" CHECK ((("station_weight" >= (0)::double precision) AND ("station_weight" <= (1)::double precision)))
+);
+
+--
 -- Name: fire_points; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -218,6 +236,17 @@ CREATE TABLE "public"."station_fire_pressure" (
 );
 
 --
+-- Name: station_readings_hourly; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE "public"."station_readings_hourly" (
+    "station_id" "text" NOT NULL,
+    "measured_at" timestamp with time zone NOT NULL,
+    "pm25" real NOT NULL,
+    "sensor_id" integer NOT NULL
+);
+
+--
 -- Name: station_weather; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -292,6 +321,13 @@ ALTER TABLE ONLY "public"."city_cams_hourly"
     ADD CONSTRAINT "city_cams_hourly_pkey" PRIMARY KEY ("city_slug", "valid_at");
 
 --
+-- Name: city_pm25_hourly city_pm25_hourly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY "public"."city_pm25_hourly"
+    ADD CONSTRAINT "city_pm25_hourly_pkey" PRIMARY KEY ("city_slug", "valid_at");
+
+--
 -- Name: power_plants power_plants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -318,6 +354,13 @@ ALTER TABLE ONLY "public"."station_baseline"
 
 ALTER TABLE ONLY "public"."station_fire_pressure"
     ADD CONSTRAINT "station_fire_pressure_pkey" PRIMARY KEY ("station_id", "date");
+
+--
+-- Name: station_readings_hourly station_readings_hourly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY "public"."station_readings_hourly"
+    ADD CONSTRAINT "station_readings_hourly_pkey" PRIMARY KEY ("station_id", "measured_at");
 
 --
 -- Name: station_readings station_readings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -372,6 +415,12 @@ CREATE UNIQUE INDEX "power_plants_name_country_idx" ON "public"."power_plants" U
 CREATE INDEX "station_fire_pressure_date_idx" ON "public"."station_fire_pressure" USING "btree" ("date");
 
 --
+-- Name: station_readings_hourly_measured_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "station_readings_hourly_measured_at_idx" ON "public"."station_readings_hourly" USING "btree" ("measured_at");
+
+--
 -- Name: station_readings_measured_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -416,6 +465,13 @@ ALTER TABLE ONLY "public"."station_fire_pressure"
     ADD CONSTRAINT "station_fire_pressure_station_id_fkey" FOREIGN KEY ("station_id") REFERENCES "public"."stations"("id");
 
 --
+-- Name: station_readings_hourly station_readings_hourly_station_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY "public"."station_readings_hourly"
+    ADD CONSTRAINT "station_readings_hourly_station_id_fkey" FOREIGN KEY ("station_id") REFERENCES "public"."stations"("id");
+
+--
 -- Name: station_readings station_readings_station_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -448,6 +504,12 @@ ALTER TABLE "public"."cams_grid" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."city_cams_hourly" ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: city_pm25_hourly; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE "public"."city_pm25_hourly" ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: fire_points; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -476,6 +538,12 @@ ALTER TABLE "public"."station_fire_pressure" ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE "public"."station_readings" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: station_readings_hourly; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE "public"."station_readings_hourly" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: station_weather; Type: ROW SECURITY; Schema: public; Owner: -

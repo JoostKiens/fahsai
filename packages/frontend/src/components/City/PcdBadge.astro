@@ -1,16 +1,18 @@
 ---
 import type { i18n } from 'i18next';
 import { contrastColor } from '@/utils/aqiColors';
-import { pm25ToPcdBand } from '@/utils/pcdBands';
+import { PCD_BANDS, pm25ToPcdBand } from '@/utils/pcdBands';
 
 interface Props {
   /** PM2.5 in µg/m³; shown rounded */
   value: number;
+  /** PCD band index to show instead of the value's own, when a rule set it (the safety rule) */
+  bandIndex?: number;
   t: i18n['t'];
 }
 
-const { value, t } = Astro.props;
-const band = pm25ToPcdBand(value);
+const { value, bandIndex, t } = Astro.props;
+const band = (bandIndex === undefined ? undefined : PCD_BANDS[bandIndex]) ?? pm25ToPcdBand(value);
 const label = t(band.key as never);
 const [r, g, b] = contrastColor(band.rgb);
 ---

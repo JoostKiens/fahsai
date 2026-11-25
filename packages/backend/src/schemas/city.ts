@@ -72,6 +72,34 @@ const CitySentenceSchema = Type.Object({
   }),
 });
 
+const CityNowSchema = Type.Object({
+  pm25: Type.Number({ description: 'Mean of the hourly blends over the last 24 h (µg/m³).' }),
+  band: Type.Integer({
+    minimum: 0,
+    maximum: 4,
+    description:
+      'Thai PCD band, 0 = Excellent to 4 = Very unhealthy. Never better than the band of the stations’ median.',
+  }),
+  isBandRaised: Type.Boolean({ description: 'The stations’ median raised the band.' }),
+  hours: Type.Integer({ description: 'Hourly values in the mean, up to 24.' }),
+  latest: Type.Object({
+    validAt: Type.String({ description: 'End of the hour (ISO): 12:00 covers 11:00–12:00.' }),
+    pm25: Type.Number(),
+    stationCount: Type.Integer(),
+    stationWeight: Type.Number({
+      description: 'The stations’ share of the blend; the rest is CAMS.',
+    }),
+    camsPm25: NullableNumber,
+  }),
+});
+
+const CityStationHourSchema = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  pm25: Type.Number(),
+  measuredAt: Type.String({ description: 'End of the measured hour (ISO).' }),
+});
+
 export const CityPageSchema = Type.Object({
   slug: Type.String(),
   name: Type.String(),
@@ -105,5 +133,12 @@ export const CityPageSchema = Type.Object({
   nearby: Type.Array(CityNearbySchema),
   whoMultiple: Type.Union([Type.Number(), Type.Null()], {
     description: `pm25 divided by the WHO 24-hour guideline (${WHO_PM25_24H_UGM3} µg/m³), to one decimal.`,
+  }),
+  now: Type.Union([CityNowSchema, Type.Null()], {
+    description:
+      'A modelled value close to now (stations and CAMS blended hourly); null when there is none yet.',
+  }),
+  measured: Type.Array(CityStationHourSchema, {
+    description: 'Each station’s latest measured hourly value from the last 2 h, nearest first.',
   }),
 });

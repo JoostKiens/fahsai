@@ -11,6 +11,8 @@ const NOW = new Date('2026-10-18T18:00:00Z');
 // [older than the cutoff, exactly at it, recent]: the middle row must survive (`lt`).
 const INSTANTS = ['2026-05-31T17:59:59Z', '2026-05-31T18:00:00Z', '2026-10-01T00:00:00Z'];
 const DAYS = ['2026-05-31', '2026-06-01', '2026-10-01'];
+// the hourly tables keep 30 days: the cutoff is 2026-09-18T18:00:00Z
+const HOURLY_INSTANTS = ['2026-09-18T17:00:00Z', '2026-09-18T18:00:00Z', '2026-10-18T17:00:00Z'];
 
 type Row = Record<string, unknown>;
 type Target = {
@@ -70,6 +72,26 @@ const TARGETS: Target[] = [
     column: 'date',
     values: DAYS,
     row: (date) => ({ date, pm25_p95: 30, point_count: 4599 }),
+  },
+  {
+    key: 'stationReadingsHourlyDeleted',
+    table: 'station_readings_hourly',
+    column: 'measured_at',
+    values: HOURLY_INSTANTS,
+    row: (measured_at) => ({ station_id: 's1', measured_at, pm25: 20, sensor_id: 1 }),
+  },
+  {
+    key: 'cityPm25HourlyDeleted',
+    table: 'city_pm25_hourly',
+    column: 'valid_at',
+    values: HOURLY_INSTANTS,
+    row: (valid_at) => ({
+      city_slug: 'chiang-mai',
+      valid_at,
+      pm25: 20,
+      station_count: 0,
+      station_weight: 0,
+    }),
   },
 ];
 

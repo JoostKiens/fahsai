@@ -11,7 +11,11 @@ import {
   fetchBaselineDiff,
   fetchCityPage,
   formatDay,
+  formatHour,
+  listedMeasured,
   listedStations,
+  nowSourcesKey,
+  nowWhoMultiple,
   summaryHtml,
   trendDays,
 } from './cityPage';
@@ -34,6 +38,8 @@ const PAGE: CityPage = {
   summary: [],
   nearby: [],
   whoMultiple: 0.7,
+  now: null,
+  measured: [],
 };
 const NO_DATA: CityPage = { ...PAGE, pm25: null, whoMultiple: null, stationCount: 0 };
 
@@ -64,6 +70,18 @@ describe('fetchCityPage', () => {
       status: 'ok',
       page: { ...PAGE, radiusKm: 20 },
     });
+  });
+
+  it('takes no hourly value for a page from an API that does not send it yet', async () => {
+    const fetchFn = respond({ ...PAGE, now: undefined, measured: undefined });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'ok', page: PAGE });
+  });
+
+  it('is unavailable when the hourly value has the wrong shape', async () => {
+    const fetchFn = respond({ ...PAGE, now: { pm25: 'high' } });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'unavailable' });
   });
 
   it('escapes the slug, so a crafted path cannot reach another API route', async () => {
@@ -432,5 +450,68 @@ describe('keyTiles', () => {
 
   it('has no tiles when the page has no drivers', () => {
     expect(keyTiles(PAGE, null)).toEqual([]);
+  });
+});
+
+describe('the hourly value', () => {
+  const NOW: NonNullable<CityPage['now']> = {
+    pm25: 45,
+    band: 3,
+    isBandRaised: false,
+    hours: 24,
+    latest: {
+      validAt: '2026-11-24T06:00:00.000Z',
+      pm25: 50,
+      stationCount: 4,
+      stationWeight: 0.67,
+      camsPm25: 30,
+    },
+  };
+
+  it('gives the hourly value in the title and description, not the daily one', () => {
+    const meta = cityMeta({ ...PAGE, now: NOW }, createI18n('en').t);
+
+    expect(meta.title).toBe('Chiang Mai air quality now: PM2.5 45 µg/m³ | Fahsai');
+    expect(meta.description).toContain('last 24 hours: 45 µg/m³');
+    expect(meta.description).not.toContain(String(PAGE.pm25));
+  });
+
+  it('dates the structured data by the latest hour', () => {
+    const [, webPage] = cityJsonLd({ ...PAGE, now: NOW }, 'T', createI18n('en').t);
+
+    expect(webPage).toMatchObject({ dateModified: NOW.latest.validAt });
+  });
+
+  it('formats the hour in Thai time', () => {
+    expect(formatHour(NOW.latest.validAt)).toBe('13:00 ICT');
+  });
+
+  it('divides the 24-hour value by the WHO guideline', () => {
+    expect(nowWhoMultiple(NOW)).toBe(3);
+  });
+
+  it('says stations only when CAMS has no value', () => {
+    expect(nowSourcesKey({ ...NOW.latest, camsPm25: null })).toBe('city.nowStationsOnly');
+    expect(nowSourcesKey(NOW.latest)).toBe('city.nowSources');
+  });
+
+  it('lists measured stations highest first, with their distance', () => {
+    const page: CityPage = {
+      ...PAGE,
+      stations: [
+        { id: 'a', name: 'Near', lat: 18.7883, lng: 98.9853, pm25: 10, readingCount: 24 },
+        { id: 'b', name: 'Far', lat: 18.8883, lng: 98.9853, pm25: 10, readingCount: 24 },
+      ],
+      measured: [
+        { id: 'a', name: 'Near', pm25: 20, measuredAt: NOW.latest.validAt },
+        { id: 'b', name: 'Far', pm25: 60, measuredAt: NOW.latest.validAt },
+        { id: 'gone', name: 'Unknown', pm25: 99, measuredAt: NOW.latest.validAt },
+      ],
+    };
+
+    expect(listedMeasured(page)).toEqual([
+      { id: 'b', name: 'Far', pm25: 60, distanceKm: 11.1 },
+      { id: 'a', name: 'Near', pm25: 20, distanceKm: 0 },
+    ]);
   });
 });

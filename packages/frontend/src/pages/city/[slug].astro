@@ -9,6 +9,7 @@ import ContentFooter from '@/components/ContentFooter.astro';
 import { HeaderIsland } from '@/islands/HeaderIsland';
 import { CityChartIsland } from '@/islands/CityChartIsland';
 import PcdBadge from '@/components/City/PcdBadge.astro';
+import NowValue from '@/components/City/NowValue.astro';
 import { createI18n } from '@/i18n-instance';
 import { cityCopyGroup } from '@/lib/cityCopy';
 import {
@@ -19,7 +20,9 @@ import {
   cityMeta,
   fetchBaselineDiff,
   fetchCityPage,
+  formatHour,
   keyTiles,
+  listedMeasured,
   listedStations,
   summaryHtml,
   timeHtml,
@@ -41,6 +44,8 @@ if (result.status !== 'ok') {
   Astro.response.headers.set('Cache-Control', 'no-store');
 }
 const page = result.status === 'ok' ? result.page : null;
+// the rows the measured table shows; empty falls back to the daily station list
+const measuredStations = page ? listedMeasured(page) : [];
 // both are optional extras (the baseline sentence, search finding a city page), fetched together
 const [baselineDiff, cityList] = page
   ? await Promise.all([fetchBaselineDiff(page), fetchCityList({ timeoutMs: 1500 })])
@@ -77,10 +82,14 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
         page && (
           <p
             class="text-[13px] text-zinc-400 [&_time]:text-zinc-300"
-            set:html={t('city.metaLine' as never, {
-              date: timeHtml(page.date),
-              count: page.stationCount,
-            })}
+            set:html={
+              page.now
+                ? t('city.metaLineNow', { time: formatHour(page.now.latest.validAt, lang) })
+                : t('city.metaLine' as never, {
+                    date: timeHtml(page.date),
+                    count: page.stationCount,
+                  })
+            }
           />
         )
       }
@@ -94,22 +103,28 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
         <>
           <section class="flex flex-wrap gap-4">
             <div class={`${cardClass} flex flex-[1_1_280px] flex-col gap-3`}>
-              <p class="text-xs text-zinc-300">{t('city.valueLabel')}</p>
-              <p class="flex items-baseline gap-2">
-                <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
-                  {Math.round(page.pm25)}
-                </span>
-                <span class="font-mono text-sm text-zinc-400">µg/m³</span>
-              </p>
-              <div class="flex flex-wrap items-center gap-2">
-                <PcdBadge value={page.pm25} t={t} />
-                {page.whoMultiple !== null && (
-                  <span class="text-xs text-zinc-400">
-                    {t('city.whoMultiple', { multiple: page.whoMultiple })}
-                  </span>
-                )}
-              </div>
-              <p class="text-[11px] text-zinc-400">{t('pcd.scaleName')}</p>
+              {page.now ? (
+                <NowValue now={page.now} lang={lang} t={t} />
+              ) : (
+                <>
+                  <p class="text-xs text-zinc-300">{t('city.valueLabel')}</p>
+                  <p class="flex items-baseline gap-2">
+                    <span class="font-mono text-[56px] font-medium leading-none text-zinc-100">
+                      {Math.round(page.pm25)}
+                    </span>
+                    <span class="font-mono text-sm text-zinc-400">µg/m³</span>
+                  </p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <PcdBadge value={page.pm25} t={t} />
+                    {page.whoMultiple !== null && (
+                      <span class="text-xs text-zinc-400">
+                        {t('city.whoMultiple', { multiple: page.whoMultiple })}
+                      </span>
+                    )}
+                  </div>
+                  <p class="text-[11px] text-zinc-400">{t('pcd.scaleName')}</p>
+                </>
+              )}
             </div>
 
             <div class={`${cardClass} flex flex-[2_1_460px] flex-col gap-3`}>
@@ -144,8 +159,17 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
             </div>
 
             <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
-              <h2 class={headingClass}>{t('city.stationsWithin', { km: page.radiusKm })}</h2>
-              <StationsTable stations={listedStations(page)} t={t} />
+              {measuredStations.length > 0 ? (
+                <>
+                  <h2 class={headingClass}>{t('city.measuredWithin', { km: page.radiusKm })}</h2>
+                  <StationsTable stations={measuredStations} t={t} />
+                </>
+              ) : (
+                <>
+                  <h2 class={headingClass}>{t('city.stationsWithin', { km: page.radiusKm })}</h2>
+                  <StationsTable stations={listedStations(page)} t={t} />
+                </>
+              )}
             </div>
           </section>
 

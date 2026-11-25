@@ -133,7 +133,8 @@ Source of the PM2.5 grid since the switch recorded in [ADR 0008](../adr/0008-cam
   (gated on a complete grid). Backfill: `pnpm --filter backend run backfill:cams-summary -- --start=YYYY-MM-DD --end=YYYY-MM-DD`.
   Served by `GET /api/cams/summary` (below) to draw the time scrubber's gradient line chart.
 - Per city: `ingest:city-cams` (jobs/city-cams.ts) stores hourly values per city for lead hours 0
-  to 120 of the newest run in `city_cams_hourly`, read by the city pages. See the cron list below.
+  to 120 of the newest run in `city_cams_hourly`, read by the city pages and blended hourly with
+  the stations into `city_pm25_hourly` (`ingest:station-readings-hourly`). See the cron list below.
 
 ---
 
@@ -192,6 +193,19 @@ city-cams-ingest       — 4×/day  (30 0,11,12,23 * * *) hourly CAMS PM2.5 per 
                                                     ingest-cams (23:00) on the same ADS key. A run
                                                     older than 24 h is a pipeline-health problem.
                                                     ADS_API_KEY references ingest-cams's variable.
+
+station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every footprint station with a
+  ingest-station-readings-hourly                PM2.5 sensor via /locations/{id}/latest (freshest
+                                                PM2.5 sensor; older than 2 h skipped) into
+                                                station_readings_hourly, then the hourly city blend
+                                                (lib/cityBlend.ts) into city_pm25_hourly: each
+                                                station's newest reading in the hour ending at the
+                                                top of the hour, paired with CAMS valid_at that
+                                                hour (and its run_at). Station weight
+                                                n / (n + 2). A location that errors (any status)
+                                                counts as failed; 5 in a row stop the ingest. Blends
+                                                even after a bad ingest, then exits non-zero above
+                                                10% failed locations.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -396,14 +410,20 @@ GET /api/v1/cities/:slug
   fires along the path (null when the path left the data area, see transport.trajectory.leftDataArea,
   or when the fire data could not be read, transport.fire.dataAvailable false),
   the seasonal baseline category, plus the CAMS value for the current hour over the city footprint (city_cams_hourly, lib/fetchCityCams.ts); it is
-  null when the context cannot be had, and the page does not depend on it. summary = dated,
+  null when the context cannot be had, and the page does not depend on it. now = the modelled value
+  close to now (lib/fetchCityNow.ts): the mean of the city's hourly blends (city_pm25_hourly) over
+  the last 24 h, its PCD band (never better than the band of the stations' median over the same
+  hours), and the latest hour's blend with its inputs; null with fewer than 18 hours in the window
+  or when the latest hour is more than 2 h old, and the page then shows the daily figure. measured = each
+  footprint station's latest hourly value from the last 2 h (station_readings_hourly). summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
   else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
   the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
-  Redis key city:v1:{slug}:{date}, TTL 1 h (a station that reports late shows up within the hour), or
+  Redis key city:v3:{slug}:{date}:{UTC hour}, TTL 1 h (a station that reports late shows up within the hour), or
   60 s when part of the day could not be read (the context failed or took over 6 s, the CAMS value
-  failed, or the fire data was not read), so one blip does not stay for the hour. Requests for the
+  failed, the fire data was not read, or the hourly value could not be read), so one blip does
+  not stay for the hour. Requests for the
   same page that arrive together share one build (per process). Cache-Control: public, max-age=300. Aggregation is in lib/cityAggregate.ts, I/O in
   lib/buildCityPage.ts.
 

@@ -112,6 +112,96 @@ export async function fetchSensorDailyAverage(
     `&datetime_to=${encodeURIComponent(`${targetDate}T23:59:59${tzOffset}`)}` +
     `&limit=2`;
 
+  const response = await getWithRetries(apiKey, url, `sensor ${sensorId}`);
+  if (response.kind === 'failed') return { readings: [], ...response.rateLimit, failed: true };
+  if (response.kind === 'not-found') return { readings: [], ...response.rateLimit, failed: false };
+  const { rateLimit } = response;
+
+  const data = response.body as OpenAQHoursResponse;
+  if (data.results.length === 0) return { readings: [], ...rateLimit, failed: false };
+
+  // OpenAQ buckets days in the sensor's own timezone. For sensors west of +07:00 our window
+  // also overlaps the end of their previous local day, returned first as a short stub bucket.
+  // No bucket for the target day means stale data (same failure mode as /days): skip it.
+  const result = data.results.find((r) => r.period?.datetimeFrom?.local.startsWith(targetDate));
+  if (result === undefined) {
+    const got = data.results.map((r) => r.period?.datetimeFrom?.local ?? 'null').join(', ');
+    console.warn(
+      `[openaq] sensor ${sensorId}: date mismatch (expected ${targetDate}, got ${got}), skipping`,
+    );
+    return { readings: [], ...rateLimit, failed: false };
+  }
+  if (result.value === null) return { readings: [], ...rateLimit, failed: false };
+
+  const dateUtc = `${targetDate}T00:00:00Z`;
+  return { readings: [{ value: result.value, dateUtc }], ...rateLimit, failed: false };
+}
+
+interface OpenAQLatestResponse {
+  results: { value: number | null; datetime: { utc: string } | null; sensorsId: number }[];
+}
+
+export interface LatestPm25 {
+  sensorId: number;
+  value: number;
+  /** OpenAQ's stamp: the end of the measured hour */
+  measuredAt: string;
+}
+
+export type LatestPm25Result = RateLimit & { reading: LatestPm25 | null; failed: boolean };
+
+/**
+ * The freshest PM2.5 value of a location, from /locations/{id}/latest. A location can keep a
+ * retired PM2.5 sensor that still reports an old value, so the newest of its PM2.5 sensors wins,
+ * not the first (JOO-142: the first was the freshest at only 124 of 156 locations).
+ */
+export async function fetchLocationLatestPm25(
+  apiKey: string,
+  locationId: string,
+  pm25SensorIds: readonly number[],
+): Promise<LatestPm25Result> {
+  const response = await getWithRetries(
+    apiKey,
+    `${BASE_URL}/locations/${encodeURIComponent(locationId)}/latest`,
+    `location ${locationId}`,
+  );
+  if (response.kind !== 'ok') {
+    return { reading: null, ...response.rateLimit, failed: response.kind === 'failed' };
+  }
+
+  const { results } = response.body as OpenAQLatestResponse;
+  const freshest = results
+    .flatMap((r) =>
+      pm25SensorIds.includes(r.sensorsId) && isValidPm25(r.value) && r.datetime !== null
+        ? [{ sensorId: r.sensorsId, value: r.value, measuredAt: r.datetime.utc }]
+        : [],
+    )
+    .sort((a, b) => Date.parse(b.measuredAt) - Date.parse(a.measuredAt))[0];
+  return { reading: freshest ?? null, ...response.rateLimit, failed: false };
+}
+
+// a negative concentration is a sentinel or sensor fault, never a measurement
+function isValidPm25(value: number | null): value is number {
+  return value !== null && Number.isFinite(value) && value >= 0;
+}
+
+type RateLimit = Pick<SensorFetchResult, 'rateLimitRemaining' | 'rateLimitResetMs'>;
+
+type RetriedResponse =
+  | { kind: 'ok'; body: unknown; rateLimit: RateLimit }
+  | { kind: 'not-found'; rateLimit: RateLimit }
+  // gave up after retries (network error, 429, 5xx): the answer is unknown, not empty
+  | { kind: 'failed'; rateLimit: RateLimit };
+
+/**
+ * GETs an OpenAQ URL, retrying network errors, 429s (until the rate-limit reset) and 5xx. Throws on
+ * any other 4xx: a bad key or request is a bug, not a flaky sensor, so it must not be skipped.
+ */
+async function getWithRetries(
+  apiKey: string,
+  url: string,
+  label: string,
+): Promise<RetriedResponse> {
   const MAX_RETRIES = 4;
   // Fewer than MAX_RETRIES: a 5xx on one sensor is often persistent, and every retry
   // holds up the whole run (the ~700-sensor ingest has little slack before the jobs that read it).
@@ -127,14 +217,14 @@ export async function fetchSensorDailyAverage(
     } catch (err) {
       if (attempt >= MAX_RETRIES) {
         console.warn(
-          `[openaq] sensor ${sensorId}: network error after ${attempt} retries (${(err as Error).message}), skipping`,
+          `[openaq] ${label}: network error after ${attempt} retries (${(err as Error).message}), skipping`,
         );
-        return { readings: [], rateLimitRemaining: null, rateLimitResetMs: null, failed: true };
+        return { kind: 'failed', rateLimit: { rateLimitRemaining: null, rateLimitResetMs: null } };
       }
       const waitMs = Math.min(30_000, 2_000 * 2 ** attempt);
       attempt++;
       console.warn(
-        `[openaq] sensor ${sensorId}: network error (${(err as Error).message}), retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${MAX_RETRIES})`,
+        `[openaq] ${label}: network error (${(err as Error).message}), retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${MAX_RETRIES})`,
       );
       await sleep(waitMs);
       continue;
@@ -144,10 +234,8 @@ export async function fetchSensorDailyAverage(
 
     if (res.status === 429) {
       if (attempt >= MAX_RETRIES) {
-        console.warn(
-          `[openaq] sensor ${sensorId}: rate limited after ${attempt} retries, skipping`,
-        );
-        return { readings: [], ...rateLimit, failed: true };
+        console.warn(`[openaq] ${label}: rate limited after ${attempt} retries, skipping`);
+        return { kind: 'failed', rateLimit };
       }
       // Use x-ratelimit-reset for the exact window boundary; fall back to exponential backoff
       const waitMs = rateLimit.rateLimitResetMs
@@ -155,25 +243,25 @@ export async function fetchSensorDailyAverage(
         : Math.min(60_000, 10_000 * 2 ** attempt);
       attempt++;
       console.warn(
-        `[openaq] sensor ${sensorId}: 429, waiting ${Math.round(waitMs / 1000)}s until reset (attempt ${attempt})`,
+        `[openaq] ${label}: 429, waiting ${Math.round(waitMs / 1000)}s until reset (attempt ${attempt})`,
       );
       await sleep(waitMs);
       continue;
     }
 
-    if (res.status === 404) return { readings: [], ...rateLimit, failed: false };
+    if (res.status === 404) return { kind: 'not-found', rateLimit };
 
     if (res.status >= 500) {
       if (serverErrorAttempt >= MAX_SERVER_ERROR_RETRIES) {
         console.warn(
-          `[openaq] sensor ${sensorId}: ${res.status} after ${serverErrorAttempt} retries, skipping`,
+          `[openaq] ${label}: ${res.status} after ${serverErrorAttempt} retries, skipping`,
         );
-        return { readings: [], ...rateLimit, failed: true };
+        return { kind: 'failed', rateLimit };
       }
       const waitMs = Math.min(30_000, 2_000 * 2 ** serverErrorAttempt);
       serverErrorAttempt++;
       console.warn(
-        `[openaq] sensor ${sensorId}: ${res.status}, retrying in ${Math.round(waitMs / 1000)}s (attempt ${serverErrorAttempt}/${MAX_SERVER_ERROR_RETRIES})`,
+        `[openaq] ${label}: ${res.status}, retrying in ${Math.round(waitMs / 1000)}s (attempt ${serverErrorAttempt}/${MAX_SERVER_ERROR_RETRIES})`,
       );
       await sleep(waitMs);
       continue;
@@ -181,27 +269,9 @@ export async function fetchSensorDailyAverage(
 
     // Remaining non-OK statuses are 4xx (bad key, bad request): a config/code bug, not a flaky
     // sensor, so fail loudly rather than skip every sensor.
-    if (!res.ok)
-      throw new Error(`OpenAQ sensor ${sensorId} error: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw new Error(`OpenAQ ${label} error: ${res.status} ${res.statusText}`);
 
-    const data = (await res.json()) as OpenAQHoursResponse;
-    if (data.results.length === 0) return { readings: [], ...rateLimit, failed: false };
-
-    // OpenAQ buckets days in the sensor's own timezone. For sensors west of +07:00 our window
-    // also overlaps the end of their previous local day, returned first as a short stub bucket.
-    // No bucket for the target day means stale data (same failure mode as /days): skip it.
-    const result = data.results.find((r) => r.period?.datetimeFrom?.local.startsWith(targetDate));
-    if (result === undefined) {
-      const got = data.results.map((r) => r.period?.datetimeFrom?.local ?? 'null').join(', ');
-      console.warn(
-        `[openaq] sensor ${sensorId}: date mismatch (expected ${targetDate}, got ${got}), skipping`,
-      );
-      return { readings: [], ...rateLimit, failed: false };
-    }
-    if (result.value === null) return { readings: [], ...rateLimit, failed: false };
-
-    const dateUtc = `${targetDate}T00:00:00Z`;
-    return { readings: [{ value: result.value, dateUtc }], ...rateLimit, failed: false };
+    return { kind: 'ok', body: await res.json(), rateLimit };
   }
 }
 
