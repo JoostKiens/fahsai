@@ -10,6 +10,7 @@ import { HeaderIsland } from '@/islands/HeaderIsland';
 import { CityChartIsland } from '@/islands/CityChartIsland';
 import PcdBadge from '@/components/City/PcdBadge.astro';
 import NowValue from '@/components/City/NowValue.astro';
+import ForecastDays from '@/components/City/ForecastDays.astro';
 import { createI18n } from '@/i18n-instance';
 import { cityCopyGroup } from '@/lib/cityCopy';
 import {
@@ -143,6 +144,13 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
               </div>
             </div>
           </section>
+
+          {page.forecast && (
+            <section class={`${cardClass} flex flex-col gap-3`}>
+              <h2 class={headingClass}>{t('city.forecastTitle')}</h2>
+              <ForecastDays forecast={page.forecast} lang={lang} t={t} />
+            </section>
+          )}
 
           <KeyTiles tiles={keyTiles(page, baselineDiff)} period={baselinePeriod(page.date, t)} t={t} />
 

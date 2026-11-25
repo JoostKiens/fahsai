@@ -28,6 +28,7 @@ function page(slug: string, pm25: number | null) {
     whoMultiple: null,
     now: null,
     measured: [],
+    forecast: null,
   };
 }
 

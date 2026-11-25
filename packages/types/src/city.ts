@@ -76,6 +76,28 @@ export interface CityNow {
   latest: CityNowLatest;
 }
 
+/** One Bangkok day of the forecast */
+export interface CityForecastDay {
+  /** YYYY-MM-DD, Bangkok time */
+  date: string;
+  /** Mean of the anchored hourly forecast (µg/m³) */
+  pm25: number;
+  /** PCD band index of pm25, 0 = Excellent … 4 = Very unhealthy */
+  band: number;
+  /** Forecast hours in the mean: fewer for today, which only counts the hours still to come */
+  hours: number;
+}
+
+/** CAMS forecast scaled to the latest hourly blend: a model estimate */
+export interface CityForecast {
+  /** The blend hour it is anchored to (ISO) */
+  issuedAt: string;
+  /** blend / CAMS for that hour, clamped to 0.5–2 */
+  factor: number;
+  /** Today (if any hours are left), then the next days, in order */
+  days: CityForecastDay[];
+}
+
 /** A station's latest measured hourly value */
 export interface CityStationHour {
   id: string;
@@ -110,4 +132,6 @@ export interface CityPage extends CityListItem {
   now: CityNow | null;
   /** The latest measured hourly value of each station that reported in the last 2 h, nearest first */
   measured: CityStationHour[];
+  /** The forecast issued in the last 2 h; null when there is none */
+  forecast: CityForecast | null;
 }

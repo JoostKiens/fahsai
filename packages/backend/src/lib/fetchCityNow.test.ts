@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 
-import { cityNowFromRows } from './fetchCityNow.js';
+import { cityForecastFromRows, cityNowFromRows } from './fetchCityNow.js';
 
 const HOUR_MS = 3_600_000;
 const NOW = new Date('2026-11-24T12:50:00Z');
@@ -57,5 +57,52 @@ describe('cityNowFromRows', () => {
 
   it('is null without any hourly rows', () => {
     expect(cityNowFromRows([], NOW)).toBeNull();
+  });
+});
+
+describe('cityForecastFromRows', () => {
+  const forecastRow = (issuedAt: string, day: string, pm25: number) => ({
+    issued_at: issuedAt,
+    day,
+    pm25,
+    hours: 24,
+    factor: 1.4,
+  });
+  const NEWEST = '2026-11-24T12:00:00+00:00';
+  const OLDER = '2026-11-24T11:00:00+00:00';
+
+  it('takes the newest issue only, banded per day', () => {
+    const forecast = cityForecastFromRows(
+      [
+        forecastRow(NEWEST, '2026-11-24', 20),
+        forecastRow(NEWEST, '2026-11-25', 40),
+        forecastRow(OLDER, '2026-11-24', 99),
+      ],
+      NOW,
+    );
+
+    expect(forecast).toEqual({
+      issuedAt: '2026-11-24T12:00:00.000Z',
+      factor: 1.4,
+      days: [
+        { date: '2026-11-24', pm25: 20, band: 1, hours: 24 },
+        { date: '2026-11-25', pm25: 40, band: 3, hours: 24 },
+      ],
+    });
+  });
+
+  it('drops days already over in Bangkok', () => {
+    // 18:00Z on 24 Nov is 01:00 on 25 Nov in Bangkok
+    const lateNow = new Date('2026-11-24T18:00:00Z');
+    const forecast = cityForecastFromRows(
+      [forecastRow(NEWEST, '2026-11-24', 20), forecastRow(NEWEST, '2026-11-25', 40)],
+      lateNow,
+    );
+
+    expect(forecast?.days.map((d) => d.date)).toEqual(['2026-11-25']);
+  });
+
+  it('is null without rows', () => {
+    expect(cityForecastFromRows([], NOW)).toBeNull();
   });
 });

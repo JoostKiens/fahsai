@@ -1,5 +1,6 @@
 import type {
   CityDrivers,
+  CityForecast,
   CityNearby,
   CityNow,
   CityPage,
@@ -27,7 +28,7 @@ import {
 } from './cityAggregate.js';
 import { citySummary } from './citySummary.js';
 import type { StationNearCity } from './cityStations.js';
-import { fetchCityNow, fetchMeasuredStations } from './fetchCityNow.js';
+import { fetchCityForecast, fetchCityNow, fetchMeasuredStations } from './fetchCityNow.js';
 import { fetchCityStations } from './fetchCityStations.js';
 import { getLatestCompleteDate } from './latestDate.js';
 
@@ -169,17 +170,29 @@ async function buildNow(
   city: CityDef,
   near: StationNearCity[],
   now: Date,
-): Promise<{ now: CityNow | null; measured: CityStationHour[]; complete: boolean }> {
+): Promise<{
+  now: CityNow | null;
+  measured: CityStationHour[];
+  forecast: CityForecast | null;
+  complete: boolean;
+}> {
   try {
-    const [cityNow, measured] = await Promise.all([
+    const [cityNow, measured, forecast] = await Promise.all([
       fetchCityNow(city.slug, now),
       fetchMeasuredStations(near, now),
+      fetchCityForecast(city.slug, now),
     ]);
-    return { now: cityNow, measured, complete: true };
+    return { now: cityNow, measured, forecast, complete: true };
   } catch (err) {
     logger.warn({ err, slug: city.slug }, 'city page: no hourly value');
-    return { now: null, measured: [], complete: false };
+    return { now: null, measured: [], forecast: null, complete: false };
   }
+}
+
+// The CAMS figure and the hourly value change every hour, so a page is cached per hour. v4: the page
+// gained forecast. The hourly job deletes the key once its blend is stored.
+export function cityPageCacheKey(slug: string, date: string, now: Date): string {
+  return `city:v4:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
 }
 
 // Requests that arrive together for the same page share one build (per process).
@@ -201,10 +214,8 @@ export async function buildCityPage(
   if (date === null)
     throw new AppError({ code: 'no_data', message: 'No complete day of data yet' });
 
-  // The CAMS figure and the hourly value change every hour, so a page is cached per hour. v3: the
-  // page gained now and measured.
   const now = new Date();
-  const cacheKey = `city:v3:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
+  const cacheKey = cityPageCacheKey(slug, date, now);
   const running = inFlight.get(cacheKey);
   if (running) return running;
 
@@ -260,6 +271,7 @@ export async function buildCityPage(
       whoMultiple: headline.whoMultiple,
       now: hourly.now,
       measured: hourly.measured,
+      forecast: hourly.forecast,
     };
     void cacheSet(cacheKey, page, {
       ex: complete && hourly.complete ? CITY_CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS,

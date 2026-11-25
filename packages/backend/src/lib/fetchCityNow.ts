@@ -1,6 +1,8 @@
-import type { CityNow, CityStationHour } from '@thailand-aq/types';
+import { pcdBandIndex } from '@thailand-aq/consts';
+import type { CityForecast, CityNow, CityStationHour } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 import { cityRollingValue } from './cityBlend.js';
 import type { StationNearCity } from './cityStations.js';
 
@@ -92,4 +94,40 @@ export async function fetchMeasuredStations(
     const latest = latestById.get(s.id);
     return latest === undefined ? [] : [{ id: s.id, name: s.name, ...latest }];
   });
+}
+
+type ForecastRow = {
+  issued_at: string;
+  day: string;
+  pm25: number;
+  hours: number;
+  factor: number;
+};
+
+/** The newest forecast issued in the last 2 h, without days already over; null when none. */
+export async function fetchCityForecast(slug: string, now: Date): Promise<CityForecast | null> {
+  // a few issues of 3 days each
+  const { data, error } = await supabase
+    .from('city_forecast_daily')
+    .select('issued_at, day, pm25, hours, factor')
+    .eq('city_slug', slug)
+    .gte('issued_at', new Date(now.getTime() - LATEST_MAX_AGE_MS).toISOString())
+    .lte('issued_at', now.toISOString())
+    .order('issued_at', { ascending: false })
+    .order('day')
+    .returns<ForecastRow[]>();
+  if (error) throw new Error(`city_forecast_daily: ${error.message}`);
+  return cityForecastFromRows(data, now);
+}
+
+/** Rows ordered newest issue first, then by day. */
+export function cityForecastFromRows(rows: readonly ForecastRow[], now: Date): CityForecast | null {
+  const newest = rows[0];
+  if (newest === undefined) return null;
+  const today = bangkokDateString(now);
+  const days = rows
+    .filter((r) => r.issued_at === newest.issued_at && r.day >= today)
+    .map((r) => ({ date: r.day, pm25: r.pm25, band: pcdBandIndex(r.pm25), hours: r.hours }));
+  if (days.length === 0) return null;
+  return { issuedAt: new Date(newest.issued_at).toISOString(), factor: newest.factor, days };
 }

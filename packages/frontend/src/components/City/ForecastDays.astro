@@ -1,0 +1,34 @@
+---
+import type { CityForecast } from '@thailand-aq/types';
+import type { i18n } from 'i18next';
+import PcdBadge from './PcdBadge.astro';
+import { forecastDayLabel } from '@/lib/cityPage';
+
+interface Props {
+  forecast: CityForecast;
+  lang: string;
+  t: i18n['t'];
+}
+
+const { forecast, lang, t } = Astro.props;
+// rendered on the server and cached for up to an hour; "today" is the render's Bangkok day
+const nowMs = Date.now();
+const FULL_DAY_HOURS = 24;
+---
+
+<ul class="flex flex-wrap gap-3">
+  {
+    forecast.days.map((day) => (
+      <li class="flex min-w-[120px] flex-col gap-1.5">
+        <span class="text-[13px] text-zinc-200">
+          {forecastDayLabel(day.date, { nowMs, lang, t })}
+          {day.hours < FULL_DAY_HOURS && (
+            <span class="text-[11px] text-zinc-400"> · {t('city.forecastRestOfDay')}</span>
+          )}
+        </span>
+        <PcdBadge value={day.pm25} bandIndex={day.band} t={t} />
+      </li>
+    ))
+  }
+</ul>
+<p class="text-[11px] text-zinc-400">{t('city.forecastNote')} · {t('pcd.scaleName')}</p>

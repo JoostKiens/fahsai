@@ -11,6 +11,7 @@ import {
   fetchBaselineDiff,
   fetchCityPage,
   formatDay,
+  forecastDayLabel,
   formatHour,
   listedMeasured,
   listedStations,
@@ -40,6 +41,7 @@ const PAGE: CityPage = {
   whoMultiple: 0.7,
   now: null,
   measured: [],
+  forecast: null,
 };
 const NO_DATA: CityPage = { ...PAGE, pm25: null, whoMultiple: null, stationCount: 0 };
 
@@ -480,6 +482,32 @@ describe('the hourly value', () => {
     const [, webPage] = cityJsonLd({ ...PAGE, now: NOW }, 'T', createI18n('en').t);
 
     expect(webPage).toMatchObject({ dateModified: NOW.latest.validAt });
+  });
+
+  it('takes no forecast from an API that does not send it yet', async () => {
+    const fetchFn = respond({ ...PAGE, forecast: undefined });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'ok', page: PAGE });
+  });
+
+  it('is unavailable when a forecast day has the wrong shape', async () => {
+    const fetchFn = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, factor: 1, days: [{ date: '2026-11-24' }] },
+    });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'unavailable' });
+  });
+
+  it('labels forecast days by the Bangkok day', () => {
+    const { t } = createI18n('en');
+    // 18:00 UTC is 01:00 on 25 Nov in Bangkok
+    const nowMs = Date.parse('2026-11-24T18:00:00Z');
+    const label = (date: string) => forecastDayLabel(date, { nowMs, lang: 'en', t });
+
+    expect(label('2026-11-25')).toBe('Today');
+    expect(label('2026-11-26')).toBe('Tomorrow');
+    expect(label('2026-11-27')).toBe('Friday');
   });
 
   it('formats the hour in Thai time', () => {

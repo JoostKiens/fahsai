@@ -93,6 +93,20 @@ const CityNowSchema = Type.Object({
   }),
 });
 
+const CityForecastSchema = Type.Object({
+  issuedAt: Type.String({ description: 'The blend hour the forecast is anchored to (ISO).' }),
+  factor: Type.Number({ description: 'blend / CAMS for that hour, clamped to 0.5–2.' }),
+  days: Type.Array(
+    Type.Object({
+      date: DateString,
+      pm25: Type.Number({ description: 'Mean of the anchored hourly forecast (µg/m³).' }),
+      band: Type.Integer({ minimum: 0, maximum: 4, description: 'Thai PCD band of pm25.' }),
+      hours: Type.Integer({ description: 'Forecast hours in the mean; today counts those left.' }),
+    }),
+    { description: 'Today (Bangkok) if any hours are left, then the next days.' },
+  ),
+});
+
 const CityStationHourSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
@@ -140,5 +154,9 @@ export const CityPageSchema = Type.Object({
   }),
   measured: Type.Array(CityStationHourSchema, {
     description: 'Each station’s latest measured hourly value from the last 2 h, nearest first.',
+  }),
+  forecast: Type.Union([CityForecastSchema, Type.Null()], {
+    description:
+      'CAMS scaled to the latest hourly blend (a model estimate), issued in the last 2 h; null when there is none.',
   }),
 });

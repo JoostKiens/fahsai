@@ -39,10 +39,16 @@ export async function fetchCityPage(
   }
   // shortcut: an API from before radiusKm or now/measured (deployed on its own, after this) gets
   // the defaults; drop them once that API is gone.
-  const { radiusKm, now, measured } = answer.body;
+  const { radiusKm, now, measured, forecast } = answer.body;
   return {
     status: 'ok',
-    page: { ...answer.body, radiusKm: radiusKm ?? 20, now: now ?? null, measured: measured ?? [] },
+    page: {
+      ...answer.body,
+      radiusKm: radiusKm ?? 20,
+      now: now ?? null,
+      measured: measured ?? [],
+      forecast: forecast ?? null,
+    },
   };
 }
 
@@ -68,7 +74,25 @@ function isCityPage(body: unknown): body is CityPage {
     Array.isArray(page.nearby) &&
     (page.drivers === null || (typeof page.drivers === 'object' && page.drivers !== undefined)) &&
     (page.now === undefined || page.now === null || isCityNow(page.now)) &&
-    (page.measured === undefined || Array.isArray(page.measured))
+    (page.measured === undefined || Array.isArray(page.measured)) &&
+    (page.forecast === undefined || page.forecast === null || isCityForecast(page.forecast))
+  );
+}
+
+function isCityForecast(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const forecast = value as Record<string, unknown>;
+  return (
+    typeof forecast.issuedAt === 'string' &&
+    Array.isArray(forecast.days) &&
+    forecast.days.every(
+      (day: unknown) =>
+        typeof day === 'object' &&
+        day !== null &&
+        typeof (day as Record<string, unknown>).date === 'string' &&
+        typeof (day as Record<string, unknown>).pm25 === 'number' &&
+        typeof (day as Record<string, unknown>).band === 'number',
+    )
   );
 }
 
@@ -240,6 +264,23 @@ export function listedMeasured(page: CityPage): ListedStation[] {
 /** The headline value divided by the WHO 24-hour guideline, to one decimal, as the API does. */
 export function nowWhoMultiple(now: CityNow): number {
   return Math.round((now.pm25 / WHO_PM25_24H_UGM3) * 10) / 10;
+}
+
+const BANGKOK_OFFSET_MS = 7 * 3_600_000;
+
+/** "Today", "Tomorrow" or the weekday of a forecast day (YYYY-MM-DD, Bangkok). */
+export function forecastDayLabel(
+  date: string,
+  { nowMs, lang, t }: { nowMs: number; lang: string; t: i18n['t'] },
+): string {
+  const today = new Date(nowMs + BANGKOK_OFFSET_MS).toISOString().slice(0, 10);
+  const tomorrow = new Date(nowMs + BANGKOK_OFFSET_MS + 24 * 3_600_000).toISOString().slice(0, 10);
+  if (date === today) return t('city.forecastToday');
+  if (date === tomorrow) return t('city.forecastTomorrow');
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(dateLocale(lang), {
+    weekday: 'long',
+    timeZone: 'UTC',
+  });
 }
 
 /** The i18n key that says what the latest hourly value was made from; takes `count`. */
