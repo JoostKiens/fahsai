@@ -20,6 +20,7 @@ import {
   cityMeta,
   fetchBaselineDiff,
   fetchCityPage,
+  formatHour,
   keyTiles,
   listedMeasured,
   listedStations,
@@ -43,6 +44,8 @@ if (result.status !== 'ok') {
   Astro.response.headers.set('Cache-Control', 'no-store');
 }
 const page = result.status === 'ok' ? result.page : null;
+// the rows the measured table shows; empty falls back to the daily station list
+const measuredStations = page ? listedMeasured(page) : [];
 // both are optional extras (the baseline sentence, search finding a city page), fetched together
 const [baselineDiff, cityList] = page
   ? await Promise.all([fetchBaselineDiff(page), fetchCityList({ timeoutMs: 1500 })])
@@ -79,10 +82,14 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
         page && (
           <p
             class="text-[13px] text-zinc-400 [&_time]:text-zinc-300"
-            set:html={t('city.metaLine' as never, {
-              date: timeHtml(page.date),
-              count: page.stationCount,
-            })}
+            set:html={
+              page.now
+                ? t('city.metaLineNow', { time: formatHour(page.now.latest.validAt, lang) })
+                : t('city.metaLine' as never, {
+                    date: timeHtml(page.date),
+                    count: page.stationCount,
+                  })
+            }
           />
         )
       }
@@ -152,10 +159,10 @@ const headingClass = 'text-sm font-semibold text-zinc-100';
             </div>
 
             <div class={`${cardClass} flex flex-[1_1_420px] flex-col gap-3`}>
-              {page.measured.length > 0 ? (
+              {measuredStations.length > 0 ? (
                 <>
                   <h2 class={headingClass}>{t('city.measuredWithin', { km: page.radiusKm })}</h2>
-                  <StationsTable stations={listedMeasured(page)} t={t} />
+                  <StationsTable stations={measuredStations} t={t} />
                 </>
               ) : (
                 <>

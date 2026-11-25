@@ -8,6 +8,9 @@ const HOUR_MS = 3_600_000;
 const WINDOW_MS = 24 * HOUR_MS;
 // as the ingest: older than this, a station has stopped reporting
 const MEASURED_MAX_AGE_MS = 2 * HOUR_MS;
+// The page shows the latest hour's time without a date, so an older hour (the hourly job stopped)
+// would pass for today's. The blend lands at :45 for the hour that ended at :00.
+const LATEST_MAX_AGE_MS = 2 * HOUR_MS;
 const PAGE_SIZE = 1000;
 // PostgREST takes the ids in the URL, so a long list goes in chunks.
 const STATION_ID_CHUNK = 100;
@@ -21,7 +24,7 @@ type CityHourRow = {
   cams_pm25: number | null;
 };
 
-/** The headline value from the hourly blends of the last 24 h; null when there are none. */
+/** The headline value from the hourly blends of the last 24 h; null when it is too thin or old. */
 export async function fetchCityNow(slug: string, now: Date): Promise<CityNow | null> {
   // at most 24 rows: one per hour
   const { data, error } = await supabase
@@ -33,15 +36,17 @@ export async function fetchCityNow(slug: string, now: Date): Promise<CityNow | n
     .order('valid_at')
     .returns<CityHourRow[]>();
   if (error) throw new Error(`city_pm25_hourly: ${error.message}`);
-  return cityNowFromRows(data);
+  return cityNowFromRows(data, now);
 }
 
-export function cityNowFromRows(rows: readonly CityHourRow[]): CityNow | null {
+export function cityNowFromRows(rows: readonly CityHourRow[], now: Date): CityNow | null {
+  const latest = rows.at(-1);
+  if (latest === undefined) return null;
+  if (now.getTime() - Date.parse(latest.valid_at) > LATEST_MAX_AGE_MS) return null;
   const rolling = cityRollingValue(
     rows.map((r) => ({ pm25: r.pm25, stationMedian: r.station_median })),
   );
-  const latest = rows.at(-1);
-  if (rolling === null || latest === undefined) return null;
+  if (rolling === null) return null;
   return {
     ...rolling,
     latest: {

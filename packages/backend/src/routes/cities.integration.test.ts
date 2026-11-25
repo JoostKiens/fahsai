@@ -198,9 +198,11 @@ describe('GET /api/v1/cities against a real database', () => {
         cams_pm25: 18,
       });
       await seed('city_pm25_hourly', [
-        blend('chiang-mai', 25, 300), // outside the 24 h window
-        blend('chiang-mai', 1, 20),
-        blend('chiang-mai', 0, 40),
+        blend('chiang-mai', 24, 300), // outside the 24 h window
+        // hours 23 to 12 ago at 20, hours 11 to 0 ago at 40: mean 30
+        ...Array.from({ length: 24 }, (_, hoursAgo) =>
+          blend('chiang-mai', hoursAgo, hoursAgo < 12 ? 40 : 20),
+        ),
         blend('lamphun', 0, 90), // another city
       ]);
       const hourly = (stationId: string, hoursAgo: number, pm25: number) => ({
@@ -224,7 +226,7 @@ describe('GET /api/v1/cities against a real database', () => {
         pm25: 30,
         band: 2,
         isBandRaised: false,
-        hours: 2,
+        hours: 24,
         latest: {
           validAt: at(0),
           pm25: 40,

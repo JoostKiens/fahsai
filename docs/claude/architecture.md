@@ -198,11 +198,14 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
   ingest-station-readings-hourly                PM2.5 sensor via /locations/{id}/latest (freshest
                                                 PM2.5 sensor; older than 2 h skipped) into
                                                 station_readings_hourly, then the hourly city blend
-                                                (lib/cityBlend.ts) into city_pm25_hourly: stations
-                                                for the hour ending at the top of the hour, paired
-                                                with CAMS valid_at that hour. Station weight
-                                                n / (n + 2). Blends even after a bad ingest, then
-                                                exits non-zero above 10% failed locations.
+                                                (lib/cityBlend.ts) into city_pm25_hourly: each
+                                                station's newest reading in the hour ending at the
+                                                top of the hour, paired with CAMS valid_at that
+                                                hour (and its run_at). Station weight
+                                                n / (n + 2). A location that errors (any status)
+                                                counts as failed; 5 in a row stop the ingest. Blends
+                                                even after a bad ingest, then exits non-zero above
+                                                10% failed locations.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -410,7 +413,8 @@ GET /api/v1/cities/:slug
   null when the context cannot be had, and the page does not depend on it. now = the modelled value
   close to now (lib/fetchCityNow.ts): the mean of the city's hourly blends (city_pm25_hourly) over
   the last 24 h, its PCD band (never better than the band of the stations' median over the same
-  hours), and the latest hour's blend with its inputs; null before the first blend. measured = each
+  hours), and the latest hour's blend with its inputs; null with fewer than 18 hours in the window
+  or when the latest hour is more than 2 h old, and the page then shows the daily figure. measured = each
   footprint station's latest hourly value from the last 2 h (station_readings_hourly). summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,

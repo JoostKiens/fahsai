@@ -14,6 +14,8 @@ const MAX_AGE_MS = 2 * 3_600_000;
 const CONSECUTIVE_FAILURE_ABORT = 5;
 const PAGE_SIZE = 1000;
 const DB_BATCH_SIZE = 500;
+// PostgREST takes the ids in the URL, so a long list goes in chunks.
+const STATION_ID_CHUNK = 100;
 
 export type FootprintStation = { id: string; pm25SensorIds: number[] };
 
@@ -61,7 +63,7 @@ export async function runStationReadingsHourlyIngest({
   for (const station of stations) {
     if (queried > 0) await sleep(spacingMs);
     queried++;
-    const { reading, failed: isFailed } = await fetchLatest(station);
+    const { reading, failed: isFailed } = await fetchLatestOrFail(fetchLatest, station);
 
     consecutiveFailures = isFailed ? consecutiveFailures + 1 : 0;
     if (isFailed) failed++;
@@ -87,21 +89,44 @@ export async function runStationReadingsHourlyIngest({
   return { queried, failed, stored: rows.length, aborted };
 }
 
+// A 4xx other than 404 from one location (410, 422) must not end the run before anything is
+// written or blended. A bad key fails every location, so the consecutive-failure stop still ends
+// that run quickly.
+async function fetchLatestOrFail(
+  fetchLatest: (station: FootprintStation) => Promise<LatestPm25Result>,
+  station: FootprintStation,
+): Promise<Pick<LatestPm25Result, 'reading' | 'failed'>> {
+  try {
+    return await fetchLatest(station);
+  } catch (err) {
+    console.warn(
+      `${LOG} location ${station.id}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return { reading: null, failed: true };
+  }
+}
+
 /** The given footprint stations that have a PM2.5 sensor, each once. */
 export async function fetchFootprintStations(
   stationIds: readonly string[],
 ): Promise<FootprintStation[]> {
-  const ids = new Set(stationIds);
-  const rows = await fetchAllPages<{ id: string; pm25_sensor_ids: number[] | null }>(
-    (from, to) =>
-      supabase
-        .from('stations')
-        .select('id, pm25_sensor_ids')
-        .in('id', [...ids])
-        .order('id')
-        .range(from, to),
-    PAGE_SIZE,
-  );
+  const ids = [...new Set(stationIds)];
+  const rows: { id: string; pm25_sensor_ids: number[] | null }[] = [];
+  for (let i = 0; i < ids.length; i += STATION_ID_CHUNK) {
+    const chunk = ids.slice(i, i + STATION_ID_CHUNK);
+    rows.push(
+      ...(await fetchAllPages<{ id: string; pm25_sensor_ids: number[] | null }>(
+        (from, to) =>
+          supabase
+            .from('stations')
+            .select('id, pm25_sensor_ids')
+            .in('id', chunk)
+            .order('id')
+            .range(from, to),
+        PAGE_SIZE,
+      )),
+    );
+  }
   return rows
     .filter((row) => (row.pm25_sensor_ids ?? []).length > 0)
     .map((row) => ({ id: row.id, pm25SensorIds: row.pm25_sensor_ids ?? [] }));

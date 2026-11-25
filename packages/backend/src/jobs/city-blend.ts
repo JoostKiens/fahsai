@@ -2,12 +2,13 @@ import pRetry from 'p-retry';
 import { supabase } from '../db/client.js';
 import { blendCityValue } from '../lib/cityBlend.js';
 import type { StationNearCity } from '../lib/cityStations.js';
-import { fetchCityCamsAt, fetchNewestCityCamsRun } from '../lib/fetchCityCams.js';
 import { fetchAllPages } from '../utils/backfill.js';
 
 const LOG = '[city-blend]';
 const HOUR_MS = 3_600_000;
 const PAGE_SIZE = 1000;
+// PostgREST takes the ids in the URL, so a long list goes in chunks.
+const STATION_ID_CHUNK = 100;
 
 export type CityStations = { slug: string; stations: readonly StationNearCity[] };
 
@@ -24,10 +25,10 @@ export type CityHourRow = {
 };
 
 export type CityBlendSource = {
-  /** pm25 by station id, for the hourly readings stamped validAt */
+  /** pm25 by station id: each station's newest reading in the hour ending at validAt */
   stationValues(stationIds: string[], validAt: Date): Promise<Map<string, number>>;
-  camsAt(slug: string, validAt: Date): Promise<number | null>;
-  newestCamsRun(): Promise<Date | null>;
+  /** the city's CAMS value at validAt and the run it came from */
+  camsAt(slug: string, validAt: Date): Promise<{ pm25: number; runAt: string } | null>;
 };
 
 export type CityHourStore = { upsert(rows: CityHourRow[]): Promise<void> };
@@ -54,12 +55,12 @@ export async function runCityBlend({
 }): Promise<{ stored: number; withoutValue: string[] }> {
   const ids = [...new Set(cities.flatMap((c) => c.stations.map((s) => s.id)))];
   const values = await source.stationValues(ids, validAt);
-  const camsRunAt = await source.newestCamsRun();
 
   const rows: CityHourRow[] = [];
   const withoutValue: string[] = [];
   for (const city of cities) {
-    const camsPm25 = await source.camsAt(city.slug, validAt);
+    const cams = await source.camsAt(city.slug, validAt);
+    const camsPm25 = cams?.pm25 ?? null;
     const stations = city.stations.flatMap((s) => {
       const pm25 = values.get(s.id);
       return pm25 === undefined ? [] : [{ lat: s.lat, lng: s.lng, distanceKm: s.distanceKm, pm25 }];
@@ -78,7 +79,7 @@ export async function runCityBlend({
       station_count: blend.stationCount,
       station_weight: blend.stationWeight,
       cams_pm25: camsPm25,
-      cams_run_at: camsPm25 === null || camsRunAt === null ? null : camsRunAt.toISOString(),
+      cams_run_at: cams === null ? null : new Date(cams.runAt).toISOString(),
     });
   }
 
@@ -89,22 +90,41 @@ export async function runCityBlend({
 }
 
 export const supabaseCityBlendSource: CityBlendSource = {
+  // A window, not an exact match: a stamp that is not on the hour still counts for its hour.
   async stationValues(stationIds, validAt) {
-    const rows = await fetchAllPages<{ station_id: string; pm25: number }>(
-      (from, to) =>
-        supabase
-          .from('station_readings_hourly')
-          .select('station_id, pm25')
-          .in('station_id', stationIds)
-          .eq('measured_at', validAt.toISOString())
-          .order('station_id')
-          .range(from, to),
-      PAGE_SIZE,
-    );
-    return new Map(rows.map((r) => [r.station_id, r.pm25]));
+    const from = new Date(validAt.getTime() - HOUR_MS).toISOString();
+    const until = validAt.toISOString();
+    const values = new Map<string, number>();
+    for (let i = 0; i < stationIds.length; i += STATION_ID_CHUNK) {
+      const chunk = stationIds.slice(i, i + STATION_ID_CHUNK);
+      const rows = await fetchAllPages<{ station_id: string; pm25: number }>(
+        (rangeFrom, rangeTo) =>
+          supabase
+            .from('station_readings_hourly')
+            .select('station_id, pm25')
+            .in('station_id', chunk)
+            .gt('measured_at', from)
+            .lte('measured_at', until)
+            .order('station_id')
+            .order('measured_at')
+            .range(rangeFrom, rangeTo),
+        PAGE_SIZE,
+      );
+      // ascending by time, so the last row per station is its newest
+      for (const row of rows) values.set(row.station_id, row.pm25);
+    }
+    return values;
   },
-  camsAt: fetchCityCamsAt,
-  newestCamsRun: fetchNewestCityCamsRun,
+  async camsAt(slug, validAt) {
+    const { data, error } = await supabase
+      .from('city_cams_hourly')
+      .select('pm25, run_at')
+      .eq('city_slug', slug)
+      .eq('valid_at', validAt.toISOString())
+      .maybeSingle<{ pm25: number; run_at: string }>();
+    if (error) throw new Error(`city_cams_hourly: ${error.message}`);
+    return data === null ? null : { pm25: data.pm25, runAt: data.run_at };
+  },
 };
 
 export const supabaseCityHourStore: CityHourStore = {

@@ -96,11 +96,20 @@ export function cityUrl(slug: string): string {
 }
 
 /**
- * The head tags of a city page. No "today": the figure is the newest complete day, which for part
- * of every day is yesterday, so the title and description say which day it is.
+ * The head tags of a city page. With an hourly value they give that, the page's headline. Without
+ * it, no "today": the figure is the newest complete day, which for part of every day is yesterday,
+ * so the title and description say which day it is.
  */
 export function cityMeta(page: CityPage, t: i18n['t']) {
-  const { name, pm25, date, stationCount } = page;
+  const { name, pm25, date, stationCount, now } = page;
+  if (now !== null) {
+    const nowPm25 = Math.round(now.pm25);
+    return {
+      title: t('city.metaTitleNow', { name, pm25: nowPm25 }),
+      description: t('city.metaDescriptionNow', { name, pm25: nowPm25 }),
+      canonical: cityUrl(page.slug),
+    };
+  }
   return {
     title:
       pm25 === null
@@ -142,8 +151,8 @@ export function cityJsonLd(page: CityPage, title: string, t: i18n['t']): object[
       '@type': 'WebPage',
       url,
       name: title,
-      // the day of the data the page shows (the page itself is rebuilt hourly)
-      dateModified: page.date,
+      // when the data the headline shows is from (the page itself is rebuilt hourly)
+      dateModified: page.now?.latest.validAt ?? page.date,
       about: {
         '@type': 'Place',
         name: page.name,

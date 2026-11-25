@@ -468,6 +468,20 @@ describe('the hourly value', () => {
     },
   };
 
+  it('gives the hourly value in the title and description, not the daily one', () => {
+    const meta = cityMeta({ ...PAGE, now: NOW }, createI18n('en').t);
+
+    expect(meta.title).toBe('Chiang Mai air quality now: PM2.5 45 µg/m³ | Fahsai');
+    expect(meta.description).toContain('last 24 hours: 45 µg/m³');
+    expect(meta.description).not.toContain(String(PAGE.pm25));
+  });
+
+  it('dates the structured data by the latest hour', () => {
+    const [, webPage] = cityJsonLd({ ...PAGE, now: NOW }, 'T', createI18n('en').t);
+
+    expect(webPage).toMatchObject({ dateModified: NOW.latest.validAt });
+  });
+
   it('formats the hour in Thai time', () => {
     expect(formatHour(NOW.latest.validAt)).toBe('13:00 ICT');
   });

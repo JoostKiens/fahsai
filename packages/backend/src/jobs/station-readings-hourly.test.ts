@@ -75,6 +75,30 @@ describe('runStationReadingsHourlyIngest', () => {
     expect(stored).toHaveLength(1);
   });
 
+  it('counts a location that throws as failed instead of ending the run', async () => {
+    const stored: HourlyReadingRow[] = [];
+    const fetchLatest = vi
+      .fn<(s: FootprintStation) => Promise<LatestPm25Result>>()
+      .mockRejectedValueOnce(new Error('OpenAQ location 1 error: 410 Gone'))
+      .mockResolvedValueOnce(reading('2026-11-24T12:00:00Z'));
+
+    const result = await runStationReadingsHourlyIngest({
+      now: NOW,
+      stations: stations(2),
+      fetchLatest,
+      store: {
+        upsert: (rows) => {
+          stored.push(...rows);
+          return Promise.resolve();
+        },
+      },
+      spacingMs: 0,
+    });
+
+    expect(result).toMatchObject({ queried: 2, failed: 1, stored: 1 });
+    expect(stored).toHaveLength(1);
+  });
+
   it('stops after 5 failures in a row but still writes what it fetched', async () => {
     const { promise, stored, fetchLatest } = run(stations(8), [
       reading('2026-11-24T12:00:00Z'),

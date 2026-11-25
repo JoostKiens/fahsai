@@ -7,6 +7,9 @@ import { inverseDistanceMean, withoutOutliers } from './analyzePeers.js';
 const CO_LOCATED_KM = 0.5;
 // Station weight n / (n + PRIOR_STATIONS): CAMS counts as two stations' worth (decided 24 Nov).
 const PRIOR_STATIONS = 2;
+// Below this many hours the mean is not a 24-hour value, so it is not banded on PCD's 24 h scale:
+// after a deploy or an outage the page keeps the daily figure until enough hours are in.
+export const MIN_ROLLING_HOURS = 18;
 
 export type StationValue = {
   lat: number;
@@ -101,10 +104,10 @@ export type CityRollingValue = {
  * The headline value: the mean of the hourly blends over the last 24 h, banded as PCD does. Safety
  * rule: the band is never better than the band of the stations' median over the same hours, so
  * CAMS reading low in heavy haze cannot make a city look cleaner than its stations say. The caller
- * passes only the hours inside the window; until 24 exist, the mean holds the ones there are.
+ * passes only the hours inside the window; null with fewer than MIN_ROLLING_HOURS of them.
  */
 export function cityRollingValue(hours: readonly CityHour[]): CityRollingValue | null {
-  if (hours.length === 0) return null;
+  if (hours.length < MIN_ROLLING_HOURS) return null;
   const pm25 = mean(hours.map((h) => h.pm25));
   const medians = hours.flatMap((h) => (h.stationMedian === null ? [] : [h.stationMedian]));
   const blendBand = pcdBandIndex(pm25);

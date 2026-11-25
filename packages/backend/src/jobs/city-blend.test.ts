@@ -27,8 +27,10 @@ const station = (id: string, northDeg: number): StationNearCity => ({
 function sourceWith(values: Record<string, number>, cams: Record<string, number>): CityBlendSource {
   return {
     stationValues: () => Promise.resolve(new Map(Object.entries(values))),
-    camsAt: (slug) => Promise.resolve(cams[slug] ?? null),
-    newestCamsRun: () => Promise.resolve(RUN_AT),
+    camsAt: (slug) =>
+      Promise.resolve(
+        cams[slug] === undefined ? null : { pm25: cams[slug], runAt: RUN_AT.toISOString() },
+      ),
   };
 }
 

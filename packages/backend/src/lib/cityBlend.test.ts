@@ -3,6 +3,7 @@ import {
   blendCityValue,
   cityRollingValue,
   mergeCoLocated,
+  MIN_ROLLING_HOURS,
   type StationValue,
 } from './cityBlend.js';
 
@@ -71,31 +72,37 @@ describe('mergeCoLocated', () => {
 
 describe('cityRollingValue', () => {
   const hour = (pm25: number, stationMedian: number | null = null) => ({ pm25, stationMedian });
+  // a full day of the same hour, so each test is about one rule
+  const day = (pm25: number, stationMedian: number | null = null) =>
+    Array.from({ length: 24 }, () => hour(pm25, stationMedian));
 
   it('bands the mean of the hourly blends', () => {
     // mean 30: Moderate (25.1–37.5)
-    expect(cityRollingValue([hour(20), hour(40)])).toEqual({
+    expect(cityRollingValue([...day(20).slice(12), ...day(40).slice(12)])).toEqual({
       pm25: 30,
       band: 2,
-      hours: 2,
+      hours: 24,
       isBandRaised: false,
     });
   });
 
   it("raises the band to the stations' median band", () => {
     // blend mean 30 is Moderate; station median mean 60 is Unhealthy
-    const result = cityRollingValue([hour(30, 60), hour(30, 60)]);
-    expect(result).toMatchObject({ pm25: 30, band: 3, isBandRaised: true });
+    expect(cityRollingValue(day(30, 60))).toMatchObject({ pm25: 30, band: 3, isBandRaised: true });
   });
 
   it("never lowers the band below the blend's own", () => {
-    const result = cityRollingValue([hour(60, 10)]);
-    expect(result).toMatchObject({ band: 3, isBandRaised: false });
+    expect(cityRollingValue(day(60, 10))).toMatchObject({ band: 3, isBandRaised: false });
   });
 
   it('ignores hours without stations for the safety rule', () => {
-    const result = cityRollingValue([hour(30, null), hour(30, 80)]);
-    expect(result?.band).toBe(4);
+    const hours = [...day(30, null).slice(0, 12), ...day(30, 80).slice(0, 12)];
+    expect(cityRollingValue(hours)?.band).toBe(4);
+  });
+
+  it(`needs ${MIN_ROLLING_HOURS} hours to be a 24-hour value`, () => {
+    expect(cityRollingValue(day(30).slice(0, MIN_ROLLING_HOURS))).not.toBeNull();
+    expect(cityRollingValue(day(30).slice(0, MIN_ROLLING_HOURS - 1))).toBeNull();
   });
 
   it('returns null without any hours', () => {
