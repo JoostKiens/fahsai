@@ -98,6 +98,22 @@ CREATE TABLE "public"."city_cams_hourly" (
 );
 
 --
+-- Name: city_forecast_daily; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE "public"."city_forecast_daily" (
+    "city_slug" "text" NOT NULL,
+    "issued_at" timestamp with time zone NOT NULL,
+    "day" "date" NOT NULL,
+    "pm25" real NOT NULL,
+    "hours" smallint NOT NULL,
+    "factor" real NOT NULL,
+    "cams_run_at" timestamp with time zone NOT NULL,
+    CONSTRAINT "city_forecast_daily_factor_check" CHECK (("factor" > (0)::double precision)),
+    CONSTRAINT "city_forecast_daily_hours_check" CHECK (("hours" > 0))
+);
+
+--
 -- Name: city_pm25_hourly; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -321,6 +337,13 @@ ALTER TABLE ONLY "public"."city_cams_hourly"
     ADD CONSTRAINT "city_cams_hourly_pkey" PRIMARY KEY ("city_slug", "valid_at");
 
 --
+-- Name: city_forecast_daily city_forecast_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY "public"."city_forecast_daily"
+    ADD CONSTRAINT "city_forecast_daily_pkey" PRIMARY KEY ("city_slug", "issued_at", "day");
+
+--
 -- Name: city_pm25_hourly city_pm25_hourly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -389,6 +412,12 @@ ALTER TABLE ONLY "public"."stations"
 
 ALTER TABLE ONLY "public"."weather_readings"
     ADD CONSTRAINT "weather_readings_pkey" PRIMARY KEY ("date", "lat", "lng");
+
+--
+-- Name: city_forecast_daily_issued_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "city_forecast_daily_issued_at_idx" ON "public"."city_forecast_daily" USING "btree" ("issued_at");
 
 --
 -- Name: fire_points_detected_at_lat_lng_idx; Type: INDEX; Schema: public; Owner: -
@@ -502,6 +531,12 @@ ALTER TABLE "public"."cams_grid" ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE "public"."city_cams_hourly" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: city_forecast_daily; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE "public"."city_forecast_daily" ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: city_pm25_hourly; Type: ROW SECURITY; Schema: public; Owner: -

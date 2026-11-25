@@ -6,11 +6,17 @@ import {
   supabaseCityHourStore,
 } from '../jobs/city-blend.js';
 import {
+  runCityForecast,
+  supabaseCityForecastSource,
+  supabaseCityForecastStore,
+} from '../jobs/city-forecast.js';
+import {
   fetchFootprintStations,
   runStationReadingsHourlyIngest,
   supabaseHourlyReadingStore,
 } from '../jobs/station-readings-hourly.js';
 import { fetchCityStations } from '../lib/fetchCityStations.js';
+import { refreshCityPages } from '../lib/refreshCityPages.js';
 import { reportError, waitForRollbar } from '../lib/rollbar.js';
 import { fetchLocationLatestPm25 } from '../utils/openaq.js';
 
@@ -44,6 +50,35 @@ try {
   });
   console.log('[city-blend] done', blend);
 
+  // a failed forecast must not keep the pages from showing the blend: reported here, exit 1 below
+  let isForecastFailed = false;
+  try {
+    const forecast = await runCityForecast({
+      blends: blend.rows,
+      source: supabaseCityForecastSource,
+      store: supabaseCityForecastStore,
+    });
+    console.log('[city-forecast] done', forecast);
+    if (forecast.failed.length > 0) {
+      throw new Error(`[city-forecast] CAMS hours not read for ${forecast.failed.join(', ')}`);
+    }
+  } catch (err) {
+    isForecastFailed = true;
+    reportError(err);
+    console.error('[city-forecast] failed', err);
+  }
+
+  // the pages refresh within the hour anyway, so a failure here is reported, not fatal
+  try {
+    await refreshCityPages({
+      slugs: blend.rows.map((row) => row.city_slug),
+      bypassToken: process.env.ISR_BYPASS_TOKEN,
+    });
+  } catch (err) {
+    reportError(err);
+    console.error('[refresh-city-pages] failed', err);
+  }
+
   // thrown after the writes, so a bad run's partial data is kept
   if (ingest.aborted || ingest.failed > ingest.queried * MAX_FAILED_RATIO) {
     throw new Error(
@@ -52,7 +87,7 @@ try {
     );
   }
   await waitForRollbar();
-  process.exit(0);
+  process.exit(isForecastFailed ? 1 : 0);
 } catch (err) {
   reportError(err);
   console.error('[station-readings-hourly] failed', err);

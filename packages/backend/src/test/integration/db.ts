@@ -18,6 +18,7 @@ const TABLES = [
   { name: 'power_plants', key: 'id' },
   { name: 'city_cams_hourly', key: 'city_slug' },
   { name: 'city_pm25_hourly', key: 'city_slug' },
+  { name: 'city_forecast_daily', key: 'city_slug' },
 ] as const;
 
 export type TableName = (typeof TABLES)[number]['name'];

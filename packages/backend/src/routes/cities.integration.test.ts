@@ -177,7 +177,7 @@ describe('GET /api/v1/cities against a real database', () => {
 
       expect(redisSet).toHaveBeenCalledWith(
         expect.stringMatching(
-          new RegExp(`^city:v3:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}$`),
+          new RegExp(`^city:v4:chiang-mai:${DATE}:\\d{4}-\\d{2}-\\d{2}T\\d{2}:bnone$`),
         ),
         expect.objectContaining({ slug: 'chiang-mai', pm25: 20 }),
         { ex: 3600 },
@@ -240,12 +240,69 @@ describe('GET /api/v1/cities against a real database', () => {
       ]);
     });
 
+    it('gives the newest forecast issued in the last 2 h', async () => {
+      await seedChiangMai();
+      const thisHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+      const at = (hoursAgo: number) => new Date(thisHour - hoursAgo * HOUR_MS).toISOString();
+      // today and the next two Bangkok days, from the test's clock
+      const day = (offset: number) =>
+        new Date(Date.now() + 7 * HOUR_MS + offset * 24 * HOUR_MS).toISOString().slice(0, 10);
+      const row = (hoursAgo: number, offset: number, pm25: number) => ({
+        city_slug: 'chiang-mai',
+        issued_at: at(hoursAgo),
+        day: day(offset),
+        pm25,
+        hours: 24,
+        factor: 1.5,
+        cams_run_at: at(12),
+      });
+      await seed('city_forecast_daily', [
+        row(0, 0, 20),
+        row(0, 1, 30),
+        row(0, 2, 80),
+        row(1, 0, 99), // an older issue
+      ]);
+
+      const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
+
+      expect(page.forecast).toEqual({
+        issuedAt: at(0),
+        factor: 1.5,
+        days: [
+          { date: day(0), pm25: 20, band: 1, hours: 24 },
+          { date: day(1), pm25: 30, band: 2, hours: 24 },
+          { date: day(2), pm25: 80, band: 4, hours: 24 },
+        ],
+      });
+    });
+
+    it('caches the page under a new key once a new blend lands', async () => {
+      await seedChiangMai();
+      const thisHour = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+      const blendAt = (hoursAgo: number) => ({
+        city_slug: 'chiang-mai',
+        valid_at: new Date(thisHour - hoursAgo * HOUR_MS).toISOString(),
+        pm25: 20,
+        station_count: 0,
+        station_weight: 0,
+      });
+      await seed('city_pm25_hourly', [blendAt(1)]);
+      await get('/api/v1/cities/chiang-mai');
+      await seed('city_pm25_hourly', [blendAt(0)]);
+      await get('/api/v1/cities/chiang-mai');
+
+      const keys = redisSet.mock.calls.map(([key]) => String(key));
+      expect(keys).toHaveLength(2);
+      expect(keys[0]).not.toBe(keys[1]);
+      expect(keys[1]).toMatch(new RegExp(`:b${new Date(thisHour).toISOString().slice(0, 13)}$`));
+    });
+
     it('has no hourly value before the first blend', async () => {
       await seedChiangMai();
 
       const page = (await get('/api/v1/cities/chiang-mai')).json<CityPage>();
 
-      expect(page).toMatchObject({ now: null, measured: [] });
+      expect(page).toMatchObject({ now: null, measured: [], forecast: null });
     });
 
     it('serves a cached page without reading the database', async () => {
@@ -268,9 +325,10 @@ describe('GET /api/v1/cities against a real database', () => {
         whoMultiple: 0.5,
         now: null,
         measured: [],
+        forecast: null,
       };
       redisGet.mockImplementation((key: string) =>
-        Promise.resolve(key.startsWith(`city:v3:chiang-mai:${DATE}:`) ? cached : null),
+        Promise.resolve(key.startsWith(`city:v4:chiang-mai:${DATE}:`) ? cached : null),
       );
 
       const res = await get('/api/v1/cities/chiang-mai');

@@ -205,7 +205,17 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
                                                 n / (n + 2). A location that errors (any status)
                                                 counts as failed; 5 in a row stop the ingest. Blends
                                                 even after a bad ingest, then exits non-zero above
-                                                10% failed locations.
+                                                10% failed locations. Then the forecast
+                                                (lib/cityForecast.ts) into city_forecast_daily:
+                                                factor = clamp(blend / CAMS, 0.5, 2) for the latest
+                                                hour, times the mean of the later CAMS hours per
+                                                Bangkok day, for today (hours still to come) and the
+                                                next 2 days. Pruned after 30 days. Last, it asks
+                                                Vercel to rebuild /city/{slug} (HEAD with
+                                                x-prerender-revalidate: ISR_BYPASS_TOKEN; skipped
+                                                when unset). A failed refresh is logged only. The
+                                                API's page cache key holds the newest blend hour,
+                                                so the rebuild never gets a pre-blend page.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;
@@ -415,12 +425,14 @@ GET /api/v1/cities/:slug
   the last 24 h, its PCD band (never better than the band of the stations' median over the same
   hours), and the latest hour's blend with its inputs; null with fewer than 18 hours in the window
   or when the latest hour is more than 2 h old, and the page then shows the daily figure. measured = each
-  footprint station's latest hourly value from the last 2 h (station_readings_hourly). summary = dated,
+  footprint station's latest hourly value from the last 2 h (station_readings_hourly). forecast =
+  the newest anchored forecast issued in the last 2 h (city_forecast_daily): per Bangkok day from
+  today on, the mean, its PCD band and the hours in it; null when there is none. summary = dated,
   neutral sentences as i18n keys with numbers (lib/citySummary.ts): the level with the station count
   and WHO multiple, the fire count along the path (only when the path stayed inside the data area,
   else a note that it began outside), the wind, the seasonal baseline. Params are numbers, the city,
   the date and a compass point; never a place. 404 not_found for an unknown slug, 404 no_data when no day is complete.
-  Redis key city:v3:{slug}:{date}:{UTC hour}, TTL 1 h (a station that reports late shows up within the hour), or
+  Redis key city:v4:{slug}:{date}:{UTC hour}:b{newest blend hour}, TTL 1 h (a station that reports late shows up within the hour), or
   60 s when part of the day could not be read (the context failed or took over 6 s, the CAMS value
   failed, the fire data was not read, or the hourly value could not be read), so one blip does
   not stay for the hour. Requests for the

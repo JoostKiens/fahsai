@@ -37,6 +37,13 @@ const PRUNE_TARGETS = [
     cutoff: 'iso',
     days: HOURLY_RETENTION_DAYS,
   },
+  {
+    key: 'cityForecastDailyDeleted',
+    table: 'city_forecast_daily',
+    column: 'issued_at',
+    cutoff: 'iso',
+    days: HOURLY_RETENTION_DAYS,
+  },
 ] as const;
 
 export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number]['key'], number>> {
@@ -70,7 +77,7 @@ export async function runPrune(): Promise<Record<(typeof PRUNE_TARGETS)[number][
   >;
 
   console.log(
-    `[prune] Deleted ${result.firePointsDeleted} fire_points, ${result.measurementsDeleted} station_readings, ${result.aqGridDeleted} cams_grid, ${result.weatherReadingsDeleted} weather_readings, ${result.stationWeatherDeleted} station_weather, ${result.stationFirePressureDeleted} station_fire_pressure, ${result.camsDailySummaryDeleted} cams_daily_summary, ${result.stationReadingsHourlyDeleted} station_readings_hourly, ${result.cityPm25HourlyDeleted} city_pm25_hourly`,
+    `[prune] Deleted ${result.firePointsDeleted} fire_points, ${result.measurementsDeleted} station_readings, ${result.aqGridDeleted} cams_grid, ${result.weatherReadingsDeleted} weather_readings, ${result.stationWeatherDeleted} station_weather, ${result.stationFirePressureDeleted} station_fire_pressure, ${result.camsDailySummaryDeleted} cams_daily_summary, ${result.stationReadingsHourlyDeleted} station_readings_hourly, ${result.cityPm25HourlyDeleted} city_pm25_hourly, ${result.cityForecastDailyDeleted} city_forecast_daily`,
   );
   return result;
 }

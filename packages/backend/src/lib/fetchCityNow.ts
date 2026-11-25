@@ -1,6 +1,8 @@
-import type { CityNow, CityStationHour } from '@thailand-aq/types';
+import { pcdBandIndex } from '@thailand-aq/consts';
+import type { CityForecast, CityNow, CityStationHour } from '@thailand-aq/types';
 import { supabase } from '../db/client.js';
 import { fetchAllPages } from '../utils/backfill.js';
+import { bangkokDateString } from '../utils/bkkDate.js';
 import { cityRollingValue } from './cityBlend.js';
 import type { StationNearCity } from './cityStations.js';
 
@@ -23,6 +25,19 @@ type CityHourRow = {
   station_weight: number;
   cams_pm25: number | null;
 };
+
+/** When the city's newest hourly blend is for; null when it has none. */
+export async function fetchNewestBlendHour(slug: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('city_pm25_hourly')
+    .select('valid_at')
+    .eq('city_slug', slug)
+    .order('valid_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ valid_at: string }>();
+  if (error) throw new Error(`city_pm25_hourly: ${error.message}`);
+  return data?.valid_at ?? null;
+}
 
 /** The headline value from the hourly blends of the last 24 h; null when it is too thin or old. */
 export async function fetchCityNow(slug: string, now: Date): Promise<CityNow | null> {
@@ -92,4 +107,40 @@ export async function fetchMeasuredStations(
     const latest = latestById.get(s.id);
     return latest === undefined ? [] : [{ id: s.id, name: s.name, ...latest }];
   });
+}
+
+type ForecastRow = {
+  issued_at: string;
+  day: string;
+  pm25: number;
+  hours: number;
+  factor: number;
+};
+
+/** The newest forecast issued in the last 2 h, without days already over; null when none. */
+export async function fetchCityForecast(slug: string, now: Date): Promise<CityForecast | null> {
+  // a few issues of 3 days each
+  const { data, error } = await supabase
+    .from('city_forecast_daily')
+    .select('issued_at, day, pm25, hours, factor')
+    .eq('city_slug', slug)
+    .gte('issued_at', new Date(now.getTime() - LATEST_MAX_AGE_MS).toISOString())
+    .lte('issued_at', now.toISOString())
+    .order('issued_at', { ascending: false })
+    .order('day')
+    .returns<ForecastRow[]>();
+  if (error) throw new Error(`city_forecast_daily: ${error.message}`);
+  return cityForecastFromRows(data, now);
+}
+
+/** Rows ordered newest issue first, then by day. */
+export function cityForecastFromRows(rows: readonly ForecastRow[], now: Date): CityForecast | null {
+  const newest = rows[0];
+  if (newest === undefined) return null;
+  const today = bangkokDateString(now);
+  const days = rows
+    .filter((r) => r.issued_at === newest.issued_at && r.day >= today)
+    .map((r) => ({ date: r.day, pm25: r.pm25, band: pcdBandIndex(r.pm25), hours: r.hours }));
+  if (days.length === 0) return null;
+  return { issuedAt: new Date(newest.issued_at).toISOString(), factor: newest.factor, days };
 }

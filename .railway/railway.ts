@@ -117,6 +117,8 @@ export default defineRailway((ctx) => {
       SUPABASE_SERVICE_ROLE_KEY: ctx.shared.SUPABASE_SERVICE_ROLE_KEY,
       SUPABASE_URL: ctx.shared.SUPABASE_URL,
       OPENAQ_API_KEY: ingestStationReadingsPass1.env.OPENAQ_API_KEY,
+      // Vercel on-demand ISR for the city pages after the blend
+      ISR_BYPASS_TOKEN: ctx.shared.ISR_BYPASS_TOKEN,
     },
   });
   const ingestFallbackCams = service("ingest-fallback-cams", {

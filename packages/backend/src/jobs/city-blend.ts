@@ -52,7 +52,7 @@ export async function runCityBlend({
   cities: readonly CityStations[];
   source: CityBlendSource;
   store: CityHourStore;
-}): Promise<{ stored: number; withoutValue: string[] }> {
+}): Promise<{ rows: CityHourRow[]; withoutValue: string[] }> {
   const ids = [...new Set(cities.flatMap((c) => c.stations.map((s) => s.id)))];
   const values = await source.stationValues(ids, validAt);
 
@@ -86,7 +86,7 @@ export async function runCityBlend({
   if (rows.length > 0) await store.upsert(rows);
   if (withoutValue.length > 0) console.warn(`${LOG} no value for ${withoutValue.join(', ')}`);
   console.log(`${LOG} stored ${rows.length} cities for ${validAt.toISOString()}`);
-  return { stored: rows.length, withoutValue };
+  return { rows, withoutValue };
 }
 
 export const supabaseCityBlendSource: CityBlendSource = {

@@ -11,6 +11,7 @@ import {
   fetchBaselineDiff,
   fetchCityPage,
   formatDay,
+  forecastDayLabel,
   formatHour,
   listedMeasured,
   listedStations,
@@ -40,6 +41,7 @@ const PAGE: CityPage = {
   whoMultiple: 0.7,
   now: null,
   measured: [],
+  forecast: null,
 };
 const NO_DATA: CityPage = { ...PAGE, pm25: null, whoMultiple: null, stationCount: 0 };
 
@@ -480,6 +482,44 @@ describe('the hourly value', () => {
     const [, webPage] = cityJsonLd({ ...PAGE, now: NOW }, 'T', createI18n('en').t);
 
     expect(webPage).toMatchObject({ dateModified: NOW.latest.validAt });
+  });
+
+  it('takes no forecast from an API that does not send it yet', async () => {
+    const fetchFn = respond({ ...PAGE, forecast: undefined });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'ok', page: PAGE });
+  });
+
+  it('is unavailable when a forecast day has the wrong shape', async () => {
+    const fetchFn = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, factor: 1, days: [{ date: '2026-11-24' }] },
+    });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn })).toEqual({ status: 'unavailable' });
+  });
+
+  it('labels forecast days by weekday and date, never as today', () => {
+    expect(forecastDayLabel('2026-11-27')).toBe('Fri 27 Nov');
+  });
+
+  it('is unavailable when a forecast lacks its hours or factor', async () => {
+    const day = { date: '2026-11-24', pm25: 20, band: 1 };
+    const withoutHours = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, factor: 1, days: [day] },
+    });
+    const withoutFactor = respond({
+      ...PAGE,
+      forecast: { issuedAt: NOW.latest.validAt, days: [{ ...day, hours: 24 }] },
+    });
+
+    expect(await fetchCityPage('chiang-mai', { fetchFn: withoutHours })).toEqual({
+      status: 'unavailable',
+    });
+    expect(await fetchCityPage('chiang-mai', { fetchFn: withoutFactor })).toEqual({
+      status: 'unavailable',
+    });
   });
 
   it('formats the hour in Thai time', () => {
