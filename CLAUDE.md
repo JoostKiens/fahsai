@@ -186,6 +186,7 @@ CDS_API_KEY=                  # Copernicus CDS, ERA5 backfill only
 ADS_API_KEY=                  # Copernicus ADS, CAMS PM2.5 grid (ingest:cams)
 CAMS_SOURCE=                  # ads | openmeteo; unset means ads
 ROLLBAR_TOKEN=
+ISR_BYPASS_TOKEN=             # hourly job: Vercel on-demand ISR for city pages (same as frontend)
 ```
 
 ### Frontend (`packages/frontend/.env.local`)
@@ -194,6 +195,7 @@ ROLLBAR_TOKEN=
 VITE_API_BASE_URL=http://localhost:3001
 VITE_MAPBOX_TOKEN=            # public token, pk.* prefix
 VITE_ROLLBAR_TOKEN=
+ISR_BYPASS_TOKEN=             # build time only: lets the hourly job revalidate city pages
 ```
 
 Never commit `.env` files. Provide `.env.example` files with all keys listed but no values.

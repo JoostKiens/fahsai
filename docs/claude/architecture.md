@@ -210,7 +210,11 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
                                                 factor = clamp(blend / CAMS, 0.5, 2) for the latest
                                                 hour, times the mean of the later CAMS hours per
                                                 Bangkok day, for today (hours still to come) and the
-                                                next 2 days. Pruned after 30 days.
+                                                next 2 days. Pruned after 30 days. Last, it deletes
+                                                this hour's cached city pages in Redis and asks
+                                                Vercel to rebuild /city/{slug} (HEAD with
+                                                x-prerender-revalidate: ISR_BYPASS_TOKEN; skipped
+                                                when unset). A failed refresh is logged only.
 
 station-readings-ingest (pass 1) — daily (0 23 * * *)  reads pm25_sensor_ids from stations, fetches pm25
   ingest-station-readings --today                       daily averages for TODAY via /hours/daily;

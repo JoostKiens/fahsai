@@ -12,7 +12,12 @@ export default defineConfig({
   // data. An hour matches how long the API lets its answers be cached; a new day's data shows up
   // within it, and the browser corrects the date as soon as it has loaded.
   // Edge middleware (src/middleware.ts) does the language redirect before the cached page is used.
-  adapter: vercel({ isr: { expiration: 60 * 60 }, middlewareMode: 'edge' }),
+  // The bypass token lets the backend's hourly job rebuild a city page right after its blend
+  // (x-prerender-revalidate); it is read at build time and never reaches the browser.
+  adapter: vercel({
+    isr: { expiration: 60 * 60, bypassToken: process.env.ISR_BYPASS_TOKEN },
+    middlewareMode: 'edge',
+  }),
   server: { port: 5173 },
   // Astro adds script-src 'self' plus a hash per inline script. The pages are rendered on demand, so
   // it sends the CSP as a response header, and that header replaces a CSP header set anywhere else

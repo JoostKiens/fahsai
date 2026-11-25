@@ -26,6 +26,7 @@ import {
   whoMultiple,
   type Reading,
 } from './cityAggregate.js';
+import { cityPageCacheKey } from './cityPageCacheKey.js';
 import { citySummary } from './citySummary.js';
 import type { StationNearCity } from './cityStations.js';
 import { fetchCityForecast, fetchCityNow, fetchMeasuredStations } from './fetchCityNow.js';
@@ -187,12 +188,6 @@ async function buildNow(
     logger.warn({ err, slug: city.slug }, 'city page: no hourly value');
     return { now: null, measured: [], forecast: null, complete: false };
   }
-}
-
-// The CAMS figure and the hourly value change every hour, so a page is cached per hour. v4: the page
-// gained forecast. The hourly job deletes the key once its blend is stored.
-export function cityPageCacheKey(slug: string, date: string, now: Date): string {
-  return `city:v4:${slug}:${date}:${now.toISOString().slice(0, 13)}`;
 }
 
 // Requests that arrive together for the same page share one build (per process).
