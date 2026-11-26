@@ -1,15 +1,7 @@
 import { CITIES } from '../data/cities.js';
-import {
-  blendHour,
-  runCityBlend,
-  supabaseCityBlendSource,
-  supabaseCityHourStore,
-} from '../jobs/city-blend.js';
-import {
-  runCityForecast,
-  supabaseCityForecastSource,
-  supabaseCityForecastStore,
-} from '../jobs/city-forecast.js';
+import { blendHour, supabaseCityBlendSource, supabaseCityHourStore } from '../jobs/city-blend.js';
+import { supabaseCityForecastSource, supabaseCityForecastStore } from '../jobs/city-forecast.js';
+import { runCityHour } from '../jobs/city-hour.js';
 import {
   fetchFootprintStations,
   runStationReadingsHourlyIngest,
@@ -42,41 +34,24 @@ try {
   console.log('[station-readings-hourly] done', ingest);
 
   // Blended even after a bad ingest: a city then leans on CAMS, which beats no value this hour.
-  // Stored after the forecast: the stored blend changes the API's page cache key, and a page built
-  // between the two writes would be cached for the hour without the forecast.
-  const blend = await runCityBlend({
+  const hour = await runCityHour({
     validAt: blendHour(now),
     cities,
-    source: supabaseCityBlendSource,
-    store: { upsert: () => Promise.resolve() },
+    blendSource: supabaseCityBlendSource,
+    blendStore: supabaseCityHourStore,
+    forecastSource: supabaseCityForecastSource,
+    forecastStore: supabaseCityForecastStore,
   });
-  console.log('[city-blend] done', blend);
-
   // a failed forecast must not keep the pages from showing the blend: reported here, exit 1 below
-  let isForecastFailed = false;
-  try {
-    const forecast = await runCityForecast({
-      blends: blend.rows,
-      source: supabaseCityForecastSource,
-      store: supabaseCityForecastStore,
-    });
-    console.log('[city-forecast] done', forecast);
-    if (forecast.failed.length > 0) {
-      throw new Error(`[city-forecast] CAMS hours not read for ${forecast.failed.join(', ')}`);
-    }
-  } catch (err) {
-    isForecastFailed = true;
-    reportError(err);
-    console.error('[city-forecast] failed', err);
+  if (hour.forecastError !== null) {
+    reportError(hour.forecastError);
+    console.error('[city-forecast] failed', hour.forecastError);
   }
-
-  if (blend.rows.length > 0) await supabaseCityHourStore.upsert(blend.rows);
-  console.log(`[city-blend] stored ${blend.rows.length} cities`);
 
   // the pages refresh within the hour anyway, so a failure here is reported, not fatal
   try {
     await refreshCityPages({
-      slugs: blend.rows.map((row) => row.city_slug),
+      slugs: hour.rows.map((row) => row.city_slug),
       bypassToken: process.env.ISR_BYPASS_TOKEN,
     });
   } catch (err) {
@@ -92,7 +67,7 @@ try {
     );
   }
   await waitForRollbar();
-  process.exit(isForecastFailed ? 1 : 0);
+  process.exit(hour.forecastError === null ? 0 : 1);
 } catch (err) {
   reportError(err);
   console.error('[station-readings-hourly] failed', err);
