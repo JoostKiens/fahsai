@@ -85,7 +85,7 @@ export async function runCityBlend({
 
   if (rows.length > 0) await store.upsert(rows);
   if (withoutValue.length > 0) console.warn(`${LOG} no value for ${withoutValue.join(', ')}`);
-  console.log(`${LOG} stored ${rows.length} cities for ${validAt.toISOString()}`);
+  console.log(`${LOG} blended ${rows.length} cities for ${validAt.toISOString()}`);
   return { rows, withoutValue };
 }
 

@@ -42,11 +42,13 @@ try {
   console.log('[station-readings-hourly] done', ingest);
 
   // Blended even after a bad ingest: a city then leans on CAMS, which beats no value this hour.
+  // Stored after the forecast: the stored blend changes the API's page cache key, and a page built
+  // between the two writes would be cached for the hour without the forecast.
   const blend = await runCityBlend({
     validAt: blendHour(now),
     cities,
     source: supabaseCityBlendSource,
-    store: supabaseCityHourStore,
+    store: { upsert: () => Promise.resolve() },
   });
   console.log('[city-blend] done', blend);
 
@@ -67,6 +69,9 @@ try {
     reportError(err);
     console.error('[city-forecast] failed', err);
   }
+
+  if (blend.rows.length > 0) await supabaseCityHourStore.upsert(blend.rows);
+  console.log(`[city-blend] stored ${blend.rows.length} cities`);
 
   // the pages refresh within the hour anyway, so a failure here is reported, not fatal
   try {
