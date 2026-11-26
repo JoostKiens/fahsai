@@ -19,7 +19,7 @@ function fetchWith(responses: (Response | Error)[]) {
 
 describe('refreshCityPages', () => {
   it('revalidates each page with the token', async () => {
-    const fetchFn = fetchWith([new Response(null), new Response(null)]);
+    const fetchFn = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null)));
 
     const result = await refreshCityPages({
       slugs: ['chiang-mai', 'lamphun'],
@@ -37,10 +37,33 @@ describe('refreshCityPages', () => {
     expect(result).toEqual({ revalidated: ['chiang-mai', 'lamphun'], failed: [] });
   });
 
+  it('builds the API page before asking Vercel to rebuild', async () => {
+    const fetchFn = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null)));
+
+    await refreshCityPages({ slugs: ['bangkok'], bypassToken: TOKEN, fetchFn });
+
+    expect(fetchFn.mock.calls.map(([url]) => url)).toEqual([
+      'https://api-server-service-production.up.railway.app/api/v1/cities/bangkok',
+      'https://fahsai.fyi/city/bangkok',
+    ]);
+  });
+
+  it('still revalidates when the API build fails', async () => {
+    const fetchFn = fetchWith([new Error('timeout'), new Response(null)]);
+
+    const result = await refreshCityPages({ slugs: ['bangkok'], bypassToken: TOKEN, fetchFn });
+
+    expect(result).toEqual({ revalidated: ['bangkok'], failed: [] });
+  });
+
   it('counts a failed page and goes on with the others', async () => {
+    // each city: the API build, then the revalidation
     const fetchFn = fetchWith([
+      new Response(null),
       new Error('network down'),
+      new Response(null),
       new Response(null, { status: 500 }),
+      new Response(null),
       new Response(null),
     ]);
 
