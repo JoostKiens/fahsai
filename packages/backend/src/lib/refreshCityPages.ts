@@ -58,6 +58,8 @@ async function warmApi(slug: string, fetchFn: typeof fetch): Promise<void> {
     const res = await fetchFn(`${API}/api/v1/cities/${slug}`, {
       signal: AbortSignal.timeout(WARM_TIMEOUT_MS),
     });
+    // read to the end, so the socket is free again before the next request
+    await res.arrayBuffer();
     if (!res.ok) console.warn(`${LOG} ${slug}: API answered ${res.status}`);
   } catch (err) {
     console.warn(`${LOG} ${slug}: API ${err instanceof Error ? err.message : String(err)}`);
