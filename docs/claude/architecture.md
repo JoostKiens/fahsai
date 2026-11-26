@@ -210,8 +210,10 @@ station-readings-hourly — hourly  (45 * * * *)  latest hourly PM2.5 of every f
                                                 factor = clamp(blend / CAMS, 0.5, 2) for the latest
                                                 hour, times the mean of the later CAMS hours per
                                                 Bangkok day, for today (hours still to come) and the
-                                                next 2 days. Pruned after 30 days. Last, it asks
-                                                Vercel to rebuild /city/{slug} (HEAD with
+                                                next 2 days. Pruned after 30 days. The blend rows
+                                                are stored after the forecast. Last, per city, it
+                                                GETs the API's /cities/{slug} (a cold build), then
+                                                asks Vercel to rebuild /city/{slug} (HEAD with
                                                 x-prerender-revalidate: ISR_BYPASS_TOKEN; skipped
                                                 when unset). A failed refresh is logged only. The
                                                 API's page cache key holds the newest blend hour,

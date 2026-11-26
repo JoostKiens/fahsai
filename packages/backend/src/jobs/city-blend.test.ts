@@ -3,13 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../db/client.js', () => ({ supabase: {} }));
 
 import type { StationNearCity } from '../lib/cityStations.js';
-import {
-  blendHour,
-  runCityBlend,
-  type CityBlendSource,
-  type CityHourRow,
-  type CityStations,
-} from './city-blend.js';
+import { blendHour, runCityBlend, type CityBlendSource, type CityStations } from './city-blend.js';
 
 const VALID_AT = new Date('2026-11-24T12:00:00Z');
 const RUN_AT = new Date('2026-11-24T00:00:00Z');
@@ -35,19 +29,8 @@ function sourceWith(values: Record<string, number>, cams: Record<string, number>
 }
 
 async function blend(cities: CityStations[], source: CityBlendSource) {
-  const stored: CityHourRow[] = [];
-  const result = await runCityBlend({
-    validAt: VALID_AT,
-    cities,
-    source,
-    store: {
-      upsert: (rows) => {
-        stored.push(...rows);
-        return Promise.resolve();
-      },
-    },
-  });
-  return { result, stored };
+  const result = await runCityBlend({ validAt: VALID_AT, cities, source });
+  return { result, stored: result.rows };
 }
 
 beforeEach(() => {

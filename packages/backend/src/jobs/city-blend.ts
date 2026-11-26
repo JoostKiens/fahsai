@@ -40,18 +40,17 @@ export function blendHour(now: Date): Date {
 
 /**
  * Blends each city's station readings for the hour ending at validAt with CAMS for the same
- * moment, and stores one row per city. A city with neither gets no row.
+ * moment: one row per city, for the caller to store (city-hour.ts). A city with neither gets no
+ * row.
  */
 export async function runCityBlend({
   validAt,
   cities,
   source,
-  store,
 }: {
   validAt: Date;
   cities: readonly CityStations[];
   source: CityBlendSource;
-  store: CityHourStore;
 }): Promise<{ rows: CityHourRow[]; withoutValue: string[] }> {
   const ids = [...new Set(cities.flatMap((c) => c.stations.map((s) => s.id)))];
   const values = await source.stationValues(ids, validAt);
@@ -83,9 +82,8 @@ export async function runCityBlend({
     });
   }
 
-  if (rows.length > 0) await store.upsert(rows);
   if (withoutValue.length > 0) console.warn(`${LOG} no value for ${withoutValue.join(', ')}`);
-  console.log(`${LOG} stored ${rows.length} cities for ${validAt.toISOString()}`);
+  console.log(`${LOG} blended ${rows.length} cities for ${validAt.toISOString()}`);
   return { rows, withoutValue };
 }
 

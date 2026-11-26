@@ -278,7 +278,9 @@ export async function buildCityPage(
       measured: hourly.measured,
       forecast: hourly.forecast,
     };
-    void cacheSet(cacheKey, page, {
+    // awaited: the hourly job's warm-up (refreshCityPages.ts) relies on the page being cached once
+    // this answers; cacheSet never throws
+    await cacheSet(cacheKey, page, {
       ex: complete && hourly.complete ? CITY_CACHE_TTL_SECONDS : DEGRADED_CACHE_TTL_SECONDS,
     });
     return page;
